@@ -152,40 +152,44 @@
 
 [ENTRYPOINT_SCOPE]: `Validation<F, A>` accumulation and the `Error` vocabulary
 
-| [INDEX] | [SURFACE]                                         | [SHAPE]  | [CAPABILITY]                    |
-| :-----: | :------------------------------------------------ | :------- | :------------------------------ |
-|  [01]   | `Validation.Success(A)`                           | static   | accepted-verdict construction   |
-|  [02]   | `Validation.Fail(F)`                              | static   | refused-verdict construction    |
-|  [03]   | `Validation.Match(Func<F,B>, Func<A,B>)`          | instance | total fold, `Fail` first        |
-|  [04]   | `Validation.Map(Func<A,B>)`                       | instance | success projection              |
-|  [05]   | `Validation.MapFail(Func<F,F1>)`                  | instance | failure projection              |
-|  [06]   | `Validation.Bind(Func<A,Validation<F,B>>)`        | instance | monadic chain                   |
-|  [07]   | `Validation.BiFold(S, Func<S,F,S>, Func<S,A,S>)`  | fold     | both-branch state fold          |
-|  [08]   | `Validation.ToOption()`                           | instance | presence egress                 |
-|  [09]   | `Validation.ToEither()`                           | instance | disjoint-union egress           |
-|  [10]   | `Validation.ToSeq()`                              | instance | collection egress               |
-|  [11]   | `ValidationExtensions.ToFin(Validation<Error,A>)` | static   | short-circuit rail egress       |
-|  [12]   | `ValidationExtensions.As(K<Validation<F>,A>)`     | static   | trait-value re-anchor           |
-|  [13]   | `ValidationExtensions.Successes()`                | static   | accepted branch of a roster     |
-|  [14]   | `ValidationExtensions.Fails()`                    | static   | refused branch of a roster      |
-|  [15]   | `Validation operator \|`                          | operator | failure-accumulating choice     |
-|  [16]   | `ApplicativeExtensions.Apply(tuple, Func<A,B,R>)` | static   | K-kinded fan-in, arities 2–10   |
-|  [17]   | `Error.New(int, string)`                          | static   | typed-failure construction      |
-|  [18]   | `Error.Many(Seq<Error>)`                          | static   | accumulated-failure carrier     |
-|  [19]   | `Error.Combine(Error)`                            | instance | monoidal failure join           |
-|  [20]   | `Error operator +`                                | operator | terse monoidal failure join     |
-|  [21]   | `Error.Head`                                      | property | first accumulated failure       |
-|  [22]   | `Error.Tail`                                      | property | remaining accumulated failures  |
-|  [23]   | `Error.Count`                                     | property | accumulated-failure cardinality |
-|  [24]   | `Error.AsIterable()`                              | instance | accumulated-failure enumeration |
-|  [25]   | `Error.Is(Error)`                                 | instance | failure identity test           |
-|  [26]   | `Error.IsType<E>()`                               | instance | failure type test               |
-|  [27]   | `Error.HasCode(int)`                              | instance | failure code test               |
-|  [28]   | `Error.Filter<E>()`                               | instance | failure-subset selection        |
-|  [29]   | `Error.Exception`                                 | property | optional exceptional payload    |
-|  [30]   | `Error.Inner`                                     | property | optional cause chain            |
-|  [31]   | `Error.ToException()`                             | instance | host-boundary projection        |
-|  [32]   | `Error.Throw<R>()`                                | instance | host-boundary escape            |
+| [INDEX] | [SURFACE]                                         | [SHAPE]  | [CAPABILITY]                       |
+| :-----: | :------------------------------------------------ | :------- | :--------------------------------- |
+|  [01]   | `Validation.Success(A)`                           | static   | accepted-verdict construction      |
+|  [02]   | `Validation.Fail(F)`                              | static   | refused-verdict construction       |
+|  [03]   | `Validation.Match(Func<F,B>, Func<A,B>)`          | instance | total fold, `Fail` first           |
+|  [04]   | `Validation.Map(Func<A,B>)`                       | instance | success projection                 |
+|  [05]   | `Validation.MapFail(Func<F,F1>)`                  | instance | failure projection                 |
+|  [06]   | `Validation.Bind(Func<A,Validation<F,B>>)`        | instance | monadic chain                      |
+|  [07]   | `Validation.BiFold(S, Func<S,F,S>, Func<S,A,S>)`  | fold     | both-branch state fold             |
+|  [08]   | `Validation.ToOption()`                           | instance | presence egress                    |
+|  [09]   | `Validation.ToEither()`                           | instance | disjoint-union egress              |
+|  [10]   | `Validation.ToSeq()`                              | instance | collection egress                  |
+|  [11]   | `ValidationExtensions.ToFin(Validation<Error,A>)` | static   | short-circuit rail egress          |
+|  [12]   | `ValidationExtensions.As(K<Validation<F>,A>)`     | static   | trait-value re-anchor              |
+|  [13]   | `ValidationExtensions.Successes()`                | static   | accepted branch of a roster        |
+|  [14]   | `ValidationExtensions.Fails()`                    | static   | refused branch of a roster         |
+|  [15]   | `Validation operator \|`                          | operator | failure-accumulating choice        |
+|  [16]   | `ApplicativeExtensions.Apply(tuple, Func<A,B,R>)` | static   | K-kinded fan-in, arities 2–10      |
+|  [17]   | `Error.New(int, string)`                          | static   | typed-failure construction         |
+|  [18]   | `Error.Many(Seq<Error>)`                          | static   | accumulated-failure carrier        |
+|  [19]   | `Error.Combine(Error)`                            | instance | monoidal failure join              |
+|  [20]   | `Error operator +`                                | operator | terse monoidal failure join        |
+|  [21]   | `Error.Head`                                      | property | first accumulated failure          |
+|  [22]   | `Error.Tail`                                      | property | remaining accumulated failures     |
+|  [23]   | `Error.Count`                                     | property | accumulated-failure cardinality    |
+|  [24]   | `Error.AsIterable()`                              | instance | accumulated-failure enumeration    |
+|  [25]   | `Error.Is(Error)`                                 | instance | failure identity test              |
+|  [26]   | `Error.IsType<E>()`                               | instance | failure type test                  |
+|  [27]   | `Error.HasCode(int)`                              | instance | failure code test                  |
+|  [28]   | `Error.Filter<E>()`                               | instance | failure-subset selection           |
+|  [29]   | `Error.Exception`                                 | property | optional exceptional payload       |
+|  [30]   | `Error.Inner`                                     | property | optional cause chain               |
+|  [31]   | `Error.ToException()`                             | instance | host-boundary projection           |
+|  [32]   | `Error.Throw<R>()`                                | instance | host-boundary escape               |
+|  [33]   | `Errors.Cancelled`                                | static   | token-trip identity, `-2000000001` |
+|  [34]   | `Errors.TimedOut`                                 | static   | `Timeout` expiry, `-2000000002`    |
+
+`Errors` seats the package's own failure identities so `Error.Is` classifies a cooperative token trip apart from a deadline cut; a message match over either re-classifies on any rephrasing.
 
 [ENTRYPOINT_SCOPE]: `Try`, `Eff`, `IO` — the deferred tiers
 
@@ -292,28 +296,30 @@
 | [INDEX] | [SURFACE]                                | [SHAPE]  | [CAPABILITY]                     |
 | :-----: | :--------------------------------------- | :------- | :------------------------------- |
 |  [01]   | `Prelude.Atom(A, Func<A,bool>)`          | static   | validated lock-free cell         |
-|  [02]   | `Atom.Swap(Func<A,A>)`                   | instance | CAS update                       |
-|  [03]   | `Atom.SwapMaybe(Func<A,Option<A>>)`      | instance | CAS update with refusal          |
-|  [04]   | `Atom.SwapIO(Func<A,A>)`                 | instance | CAS update on the effect rail    |
-|  [05]   | `Atom.Change`                            | event    | accepted-swap notification       |
-|  [06]   | `Prelude.AtomHashMap(HashMap<K,V>)`      | static   | lock-free keyed cell             |
-|  [07]   | `Prelude.Ref(A, Func<A,bool>)`           | static   | transactional cell construction  |
-|  [08]   | `Prelude.atomic(Func<R>, Isolation)`     | static   | multi-`Ref` transaction          |
-|  [09]   | `Prelude.swap(Ref<A>, Func<A,A>)`        | static   | in-transaction update            |
-|  [10]   | `Prelude.commute(Ref<A>, Func<A,A>)`     | static   | order-free in-transaction update |
-|  [11]   | `Lens.New(Func<A,B>, Func<B,Func<A,A>>)` | static   | optic construction               |
-|  [12]   | `Lens.Set(B, A)`                         | instance | immutable focused write          |
-|  [13]   | `Lens.Update(Func<B,B>, A)`              | instance | immutable focused edit           |
-|  [14]   | `Lens.fst<A,B>()`                        | static   | first-slot tuple optic           |
-|  [15]   | `Lens.snd<A,B>()`                        | static   | second-slot tuple optic          |
-|  [16]   | `Lens.tuple(Lens<A,C>, Lens<B,D>)`       | static   | composed tuple optic             |
-|  [17]   | `Seq<A>.headOrNone`                      | property | first-slot optic over a `Seq`    |
-|  [18]   | `Seq<A>.lastOrNone`                      | property | final-slot optic over a `Seq`    |
-|  [19]   | `Prelude.memo(Func<A,B>)`                | static   | memoized pure function           |
-|  [20]   | `Memo.Reset()`                           | instance | drop a memoized value            |
-|  [21]   | `Range.fromMinMax(A, A, A)`              | static   | generated bounded sequence       |
-|  [22]   | `Prelude.unit`                           | property | the `Unit` literal               |
-|  [23]   | `Prelude.identity(A)`                    | static   | the identity projection          |
+|  [02]   | `Atom.Value`                             | property | current-state snapshot read      |
+|  [03]   | `Atom.ValueIO`                           | property | repeating read on the IO rail    |
+|  [04]   | `Atom.Swap(Func<A,A>)`                   | instance | CAS update                       |
+|  [05]   | `Atom.SwapMaybe(Func<A,Option<A>>)`      | instance | CAS update with refusal          |
+|  [06]   | `Atom.SwapIO(Func<A,A>)`                 | instance | CAS update on the effect rail    |
+|  [07]   | `Atom.Change`                            | event    | accepted-swap notification       |
+|  [08]   | `Prelude.AtomHashMap(HashMap<K,V>)`      | static   | lock-free keyed cell             |
+|  [09]   | `Prelude.Ref(A, Func<A,bool>)`           | static   | transactional cell construction  |
+|  [10]   | `Prelude.atomic(Func<R>, Isolation)`     | static   | multi-`Ref` transaction          |
+|  [11]   | `Prelude.swap(Ref<A>, Func<A,A>)`        | static   | in-transaction update            |
+|  [12]   | `Prelude.commute(Ref<A>, Func<A,A>)`     | static   | order-free in-transaction update |
+|  [13]   | `Lens.New(Func<A,B>, Func<B,Func<A,A>>)` | static   | optic construction               |
+|  [14]   | `Lens.Set(B, A)`                         | instance | immutable focused write          |
+|  [15]   | `Lens.Update(Func<B,B>, A)`              | instance | immutable focused edit           |
+|  [16]   | `Lens.fst<A,B>()`                        | static   | first-slot tuple optic           |
+|  [17]   | `Lens.snd<A,B>()`                        | static   | second-slot tuple optic          |
+|  [18]   | `Lens.tuple(Lens<A,C>, Lens<B,D>)`       | static   | composed tuple optic             |
+|  [19]   | `Seq<A>.headOrNone`                      | property | first-slot optic over a `Seq`    |
+|  [20]   | `Seq<A>.lastOrNone`                      | property | final-slot optic over a `Seq`    |
+|  [21]   | `Prelude.memo(Func<A,B>)`                | static   | memoized pure function           |
+|  [22]   | `Memo.Reset()`                           | instance | drop a memoized value            |
+|  [23]   | `Range.fromMinMax(A, A, A)`              | static   | generated bounded sequence       |
+|  [24]   | `Prelude.unit`                           | property | the `Unit` literal               |
+|  [25]   | `Prelude.identity(A)`                    | static   | the identity projection          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -333,6 +339,7 @@
 - `Option : Traversable<Option>`, so traversing an optional value is total over absence — `None` yields the applicative's own `Pure`, which makes `option.TraverseM(f).As()` the fold an optional payload's conditional effect takes and deletes the `Match` arm pair a rail forbids mid-pipeline.
 - `Error : Monoid<Error>` is why `Validation<Error, A>` accumulates: `Combine` and `+` join failures into one carrier that `Head`, `Tail`, `Count`, and `AsIterable` re-enumerate.
 - `Atom<A>.Swap` owns lock-free shared state and publishes each accepted swap on `Change`; `Ref<A>` owns the transactional cell that `atomic` commits across several refs in one isolation scope.
+- `Atom<A>.Swap` returns the NEW value, so a take-and-clear spelled as `cell.Swap(_ => empty)` hands back the empty value it just installed — an evidence or tally cell drained that way reports zero forever. Hand-off reads need a member returning the prior value; `Value` is the honest snapshot where none exists.
 
 [STACKING]:
 - `Thinktecture.Runtime.Extensions`(`.api/api-thinktecture-runtime-extensions.md`): a generated `IObjectFactory.Validate` returns its `TValidationError`, which the admission gate maps to `Error` and lands on `Fin<A>`, or on `Validation<Error, A>` when several value objects admit at once; `ISmartEnum.TryGet` lifts to `Option<T>`.

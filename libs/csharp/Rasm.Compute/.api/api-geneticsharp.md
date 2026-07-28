@@ -99,14 +99,15 @@
 | [INDEX] | [SURFACE]                                                          | [SHAPE]  | [CAPABILITY]                                            |
 | :-----: | :----------------------------------------------------------------- | :------- | :------------------------------------------------------ |
 |  [01]   | `new Population(int, int, IChromosome)`                            | ctor     | bounded population from a prototype genome              |
-|  [02]   | `new FloatingPointChromosome(double[], double[], int[], int[])`    | ctor     | per-variable real-coded genome (vector)                 |
-|  [03]   | `new FloatingPointChromosome(double, double, int)`                 | ctor     | scalar real-coded genome                                |
-|  [04]   | `FloatingPointChromosome.ToFloatingPoints()` / `ToFloatingPoint()` | instance | genome → `double[]` / `double`                          |
-|  [05]   | `new IntegerChromosome(int, int)`                                  | ctor     | a `[min, max]` integer genome                           |
-|  [06]   | `new FuncFitness(Func<IChromosome, double>)`                       | ctor     | adapts the `evaluate` oracle to `IFitness`              |
-|  [07]   | `IChromosome.GenerateGene(int)` / `ReplaceGene(int, Gene)`         | instance | gene-level mutation/replacement contract                |
-|  [08]   | `IChromosome.GetGenes()` / `CreateNew()` / `Clone()`               | instance | genome enumerate/copy contract                          |
-|  [09]   | `Population.GenerationStrategy { get; set }`                       | property | retention (default `PerformanceGenerationStrategy(10)`) |
+|  [02]   | `new TplPopulation(int, int, IChromosome)`                         | ctor     | `Population` ctor whole; parallel initial generation    |
+|  [03]   | `new FloatingPointChromosome(double[], double[], int[], int[])`    | ctor     | per-variable real-coded genome (vector)                 |
+|  [04]   | `new FloatingPointChromosome(double, double, int)`                 | ctor     | scalar real-coded genome                                |
+|  [05]   | `FloatingPointChromosome.ToFloatingPoints()` / `ToFloatingPoint()` | instance | genome → `double[]` / `double`                          |
+|  [06]   | `new IntegerChromosome(int, int)`                                  | ctor     | a `[min, max]` integer genome                           |
+|  [07]   | `new FuncFitness(Func<IChromosome, double>)`                       | ctor     | adapts the `evaluate` oracle to `IFitness`              |
+|  [08]   | `IChromosome.GenerateGene(int)` / `ReplaceGene(int, Gene)`         | instance | gene-level mutation/replacement contract                |
+|  [09]   | `IChromosome.GetGenes()` / `CreateNew()` / `Clone()`               | instance | genome enumerate/copy contract                          |
+|  [10]   | `Population.GenerationStrategy { get; set }`                       | property | retention (default `PerformanceGenerationStrategy(10)`) |
 
 [ENTRYPOINT_SCOPE]: operator instances and termination composition
 

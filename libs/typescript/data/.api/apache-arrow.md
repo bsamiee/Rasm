@@ -33,6 +33,9 @@
 |  [03]   | `RecordBatchReader.from(source)`                       | factory  | opens the incremental reader, sync or async by source  |
 |  [04]   | `reader[Symbol.asyncIterator]()`                       | instance | batch pull; no whole-`Table` materialization           |
 |  [05]   | `isArrowTable(x)` / `isArrowRecordBatch(x)`            | static   | narrowing guards the ingest discriminant folds through |
+|  [06]   | `Table.numRows` / `Table.schema.fields`                | instance | row arity and the ordered field roster a projection walks |
+|  [07]   | `Table.getChild(name) -> Vector \| null`               | instance | one column BY NAME; a null answer means the frame lacks it |
+|  [08]   | `Vector.get(index) -> value \| null`                   | instance | one cell, so a bounded frame projects to rows without `toArray` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -45,6 +48,7 @@
 - `parquet-wasm`(`.api/parquet-wasm.md`): `fromIPCStream(buf)` ingests and `intoIPCStream()` emits the shared IPC stream buffer; `toFFI()`/`intoFFI()` cross the Arrow C Data Interface zero-copy.
 - `@effect/sql-clickhouse`(`.api/effect-sql-clickhouse.md`): Arrow IPC carries interchange from the at-scale row back to the embedded rows and the viewer.
 - `@qualithm/arrow-flight-client`(`.api/qualithm-arrow-flight-client.md`): `decodeFlightDataToTable` lands `FlightData` on Arrow columns, `encodeRecordBatchesToFlightData` re-encodes for `doPut`.
+- `lane/olap`: `_ROWED` projects a worker-answered `Table` to row records through `schema.fields`, `getChild`, and `Vector.get`, so a bounded diagnosis frame reads BY NAME and the two driver grains meet at one normalization.
 - `lane/olap`: `Olap.wire.decode`/`.encode` fold `tableFromIPC`/`tableToIPC` through `Effect.try` into `OlapFault` (`reason: "wire"`), `Olap.wire.batches` lifts `RecordBatchReader` iteration through `Stream.fromAsyncIterable` with the same fault mint, and decoded `Table` values reach `ui`'s geoarrow plane without row materialization.
 
 [LOCAL_ADMISSION]:

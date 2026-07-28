@@ -198,15 +198,23 @@
 
 [ENTRYPOINT_SCOPE]: type-system values (`Apache.Arrow.Types`) — a schema field takes an `IArrowType` instance, so the parameterless types expose one shared `Default` and the parameterized two take their whole shape at construction
 
-| [INDEX] | [SURFACE]                                | [SHAPE]      | [CAPABILITY]                                 |
-| :-----: | :--------------------------------------- | :----------- | :------------------------------------------- |
-|  [01]   | `StringType.Default`                     | type value   | UTF-8 variable-length binary                 |
-|  [02]   | `DoubleType.Default`                     | type value   | IEEE 64-bit floating point                   |
-|  [03]   | `Int64Type.Default`                      | type value   | signed 64-bit integer                        |
-|  [04]   | `BooleanType.Default`                    | type value   | 1-bit boolean                                |
-|  [05]   | `Date32Type.Default`                     | type value   | 32-bit day-unit date                         |
-|  [06]   | `new TimestampType(TimeUnit, string)`    | ctor         | unit plus timezone; `Default` is millisecond |
-|  [07]   | `new FixedSizeBinaryType(int byteWidth)` | ctor         | fixed-width binary; a non-positive width throws |
+| [INDEX] | [SURFACE]                                          | [SHAPE]    | [CAPABILITY]                                    |
+| :-----: | :------------------------------------------------- | :--------- | :---------------------------------------------- |
+|  [01]   | `StringType.Default`                               | type value | UTF-8 variable-length binary                    |
+|  [02]   | `DoubleType.Default`                               | type value | IEEE 64-bit floating point                      |
+|  [03]   | `Int64Type.Default`                                | type value | signed 64-bit integer                           |
+|  [04]   | `BooleanType.Default`                              | type value | 1-bit boolean                                   |
+|  [05]   | `Date32Type.Default`                               | type value | 32-bit day-unit date                            |
+|  [06]   | `new TimestampType(TimeUnit, string)`              | ctor       | unit plus timezone; `Default` is millisecond    |
+|  [07]   | `new FixedSizeBinaryType(int byteWidth)`           | ctor       | fixed-width binary; a non-positive width throws |
+|  [08]   | `Int32Type.Default`                                | type value | signed 32-bit integer                           |
+|  [09]   | `FloatType.Default`                                | type value | IEEE 32-bit floating point                      |
+|  [10]   | `UInt8Type.Default`                                | type value | unsigned 8-bit integer                          |
+|  [11]   | `UInt32Type.Default`                               | type value | unsigned 32-bit integer                         |
+|  [12]   | `UInt64Type.Default`                               | type value | unsigned 64-bit integer                         |
+|  [13]   | `new ListType(IArrowType)`                         | ctor       | variable list; wraps an `item` field            |
+|  [14]   | `new MapType(IArrowType, IArrowType, bool, bool)`  | ctor       | key + value; builds the entries struct itself   |
+|  [15]   | `new DictionaryType(IArrowType, IArrowType, bool)` | ctor       | index must be IntegerType or the ctor throws    |
 
 [ENTRYPOINT_SCOPE]: IPC read and write
 
@@ -251,6 +259,10 @@
 |  [13]   | `ExecutePartitioned()`                                                      | partitioned    | `PartitionedResult` for distributed reads |
 |  [14]   | `Prepare()`                                                                 | prepare        | prepares statement server-side            |
 |  [15]   | `Bind(batch, schema)` / `BindStream(IArrowArrayStream)`                     | bind           | binds one batch or a whole stream         |
+|  [16]   | `PartitionedResult.Schema`                                                  | property       | the schema every partition shares         |
+|  [17]   | `PartitionedResult.AffectedRows`                                            | property       | driver-reported count; `-1` when unknown  |
+|  [18]   | `PartitionedResult.PartitionDescriptors`                                    | property       | `IReadOnlyList<PartitionDescriptor>`      |
+|  [19]   | `PartitionDescriptor.Descriptor`                                            | property       | `ReadOnlySpan<byte>` opaque server token  |
 
 [ENTRYPOINT_SCOPE]: Flight client operations
 - rows [02]–[10] are `FlightClient` instance members.
@@ -326,6 +338,10 @@
 - `RecordBatch` implements `IArrowRecord` and `IArrowArray` and is `IDisposable`; `Slice`/`SliceShared` window a batch with zero buffer copy.
 - `IpcOptions.CompressionCodec` (`CompressionCodecType?`, `Lz4Frame` \| `Zstd`) is inert unless `CompressionCodecFactory` is set; the concrete `ICompressionCodecFactory` is `Apache.Arrow.Compression.CompressionCodecFactory`, never core Arrow, invoked per batch for the per-codec `ICompressionCodec`.
 - `AdbcConnection.GetObjectsDepth` discriminates `All`/`Catalogs`/`DbSchemas`/`Tables`; `AdbcStatement.SqlQuery` and `SubstraitPlan` are mutually-exclusive query inputs.
+- `AdbcStatement` and `AdbcConnection` publish the WHOLE ADBC vocabulary as `virtual` bodies that throw `AdbcException.NotImplemented`, so member presence proves nothing about driver support — `ExecutePartitioned`, `ReadPartition`, `BulkIngest`, `Prepare`, `SubstraitPlan`, and `Cancel` each throw on a driver that declines them, and a composing rail lifts the call into its typed fault rather than reading the member as a capability.
+- `PartitionDescriptor` is a struct whose `Descriptor` is a `ReadOnlySpan<byte>`, so the descriptor VALUE crosses a lambda or an await and its span never does.
+- `DictionaryType(indexType, valueType, ordered)` throws `ArgumentException` unless `indexType` is an `IntegerType`, and its `Default` is `[Obsolete]`, so the index width is fixed at the composing owner.
+- `MapType(key, value, …)` builds its own `entries` struct field, so a composing schema hands two logical types and never assembles the key-value struct itself.
 - Flight SQL layers over the Flight transport, never a second listener: `FlightSqlServer` (`: FlightServer`) decodes the SQL command protobufs and reuses the `DoGet` ticket redemption. Its serve side is a SQL-catalog contract, so a plan-carrying result plane subclasses `FlightServer` directly and its client side stays fully composable — `FlightSqlClient` over a constructed `FlightClient` reaches any served node.
 
 [STACKING]:

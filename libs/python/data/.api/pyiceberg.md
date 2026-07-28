@@ -32,6 +32,8 @@
 |  [13]   | `UpdateSchema`     | class         | schema-mutation builder, commit on `with`-exit                                    |
 |  [14]   | `Schema`           | class         | Iceberg schema of `NestedField` columns; `as_arrow()`                             |
 |  [15]   | `NestedField`      | class         | typed column descriptor (id, name, type, required, doc)                           |
+|  [16]   | `UpsertResult`     | class         | upsert receipt carrying `rows_updated` and `rows_inserted`                        |
+|  [17]   | `Summary`          | class         | snapshot summary: `operation` and `additional_properties`                         |
 
 [PUBLIC_TYPE_SCOPE]: schema types, transforms, and expression vocabulary
 
@@ -96,40 +98,44 @@
 
 [ENTRYPOINT_SCOPE]: write, evolution, and inspection
 - write carry: `snapshot_properties`, `branch`
-- `upsert` carry: `join_cols`, `when_matched_update_all`, `when_not_matched_insert_all`, `case_sensitive`
+- `Table.upsert(df, join_cols=None, when_matched_update_all=True, when_not_matched_insert_all=True, case_sensitive=True, branch='main', snapshot_properties={}) -> UpsertResult` carries EXACTLY `rows_updated` and `rows_inserted`
 - `update_schema` carry: `allow_incompatible_changes`, `case_sensitive`; `add_column` carry: `doc`, `required`, `default_value`
+- `InspectTable` members each answer a `pa.Table`: `snapshots()` columns `committed_at`, `snapshot_id`, `parent_id`, `operation`, `manifest_list`, `summary`; `files()` columns `content`, `file_path`, `file_format`, `spec_id`, `partition`, `record_count`, `file_size_in_bytes`, `column_sizes`, `value_counts`, `null_value_counts`, `nan_value_counts`, `lower_bounds`, `upper_bounds`, `key_metadata`, `split_offsets`, `equality_ids`, `sort_order_id`, `readable_metrics`; `partitions()` columns `record_count`, `file_count`, `total_data_file_size_in_bytes`, `position_delete_record_count`, `position_delete_file_count`, `equality_delete_record_count`, `equality_delete_file_count`, `last_updated_at`, `last_updated_snapshot_id`
 
-| [INDEX] | [SURFACE]                                                                      | [SHAPE]  | [CAPABILITY]                            |
-| :-----: | :----------------------------------------------------------------------------- | :------- | :-------------------------------------- |
-|  [01]   | `Transaction.append(df) -> None`                                               | instance | append rows                             |
-|  [02]   | `Transaction.overwrite(df, overwrite_filter=AlwaysTrue()) -> None`             | instance | filtered overwrite                      |
-|  [03]   | `Transaction.delete(delete_filter) -> None`                                    | instance | delete matching rows                    |
-|  [04]   | `Transaction.upsert(df, ...) -> UpsertResult`                                  | instance | merge upsert                            |
-|  [05]   | `Transaction.dynamic_partition_overwrite(df) -> None`                          | instance | replace only df's partitions            |
-|  [06]   | `Transaction.add_files(file_paths, check_duplicate_files=True) -> None`        | instance | register existing data files            |
-|  [07]   | `Transaction.commit_transaction() -> Table`                                    | instance | commit the batched ops                  |
-|  [08]   | `Transaction.update_schema(...) -> UpdateSchema`                               | instance | open a schema-evolution builder         |
-|  [09]   | `Transaction.update_spec() -> UpdateSpec`                                      | instance | partition-spec evolution                |
-|  [10]   | `Transaction.update_snapshot(branch='main') -> UpdateSnapshot`                 | instance | snapshot-producing op builder           |
-|  [11]   | `Transaction.update_sort_order() -> UpdateSortOrder`                           | instance | sort-order evolution                    |
-|  [12]   | `Transaction.set_properties` / `.remove_properties` / `.update_location`       | instance | property and location evolution         |
-|  [13]   | `Transaction.update_statistics` / `.upgrade_table_version`                     | instance | statistics and format-version evolution |
-|  [14]   | `Table.update_schema(...) -> UpdateSchema`                                     | instance | schema builder off the live table       |
-|  [15]   | `UpdateSchema.add_column(path, field_type, ...)` / `.update_column(...)`       | instance | add or alter a column                   |
-|  [16]   | `UpdateSchema.delete_column(path)` / `.rename_column(path_from, new_name)`     | instance | portable column drop and rename         |
-|  [17]   | `ManageSnapshots.rollback_to_snapshot` / `.create_branch`                      | instance | rollback and branch creation            |
-|  [18]   | `ManageSnapshots.create_tag` / `.commit`                                       | instance | tag creation and commit                 |
-|  [19]   | `InspectTable.snapshots` / `.manifests` / `.files`                             | property | snapshot, manifest, file tables         |
-|  [20]   | `InspectTable.entries` / `.partitions` / `.history`                            | property | entry, partition, history tables        |
-|  [21]   | `Table.current_snapshot()` / `.snapshot_by_id(id)` / `.snapshot_by_name(name)` | instance | snapshot lookup by id or name           |
-|  [22]   | `Table.snapshot_as_of_timestamp(ts) -> Snapshot`                               | instance | snapshot as of a timestamp              |
-|  [23]   | `Table.snapshots` / `.refs` / `.history`                                       | property | snapshot log, refs, history             |
-|  [24]   | `Table.schema` / `.schemas` / `.spec` / `.specs` / `.sort_order`               | property | live schema, spec, sort metadata        |
-|  [25]   | `Table.properties` / `.name_mapping` / `.format_version`                       | property | live table config metadata              |
-|  [26]   | `Table.location` / `.location_provider`                                        | property | table location metadata                 |
-|  [27]   | `Table.maintenance -> MaintenanceTable`                                        | property | maintenance accessor                    |
-|  [28]   | `MaintenanceTable.expire_snapshots() -> ExpireSnapshots`                       | instance | open the snapshot-expiry builder        |
-|  [29]   | `ExpireSnapshots.older_than(dt)` / `.by_id(id)` / `.by_ids(ids)` / `.commit()` | instance | expire clauses, apply on commit         |
+| [INDEX] | [SURFACE]                                                                      | [SHAPE]  | [CAPABILITY]                              |
+| :-----: | :----------------------------------------------------------------------------- | :------- | :---------------------------------------- |
+|  [01]   | `Transaction.append(df) -> None`                                               | instance | append rows                               |
+|  [02]   | `Transaction.overwrite(df, overwrite_filter=AlwaysTrue()) -> None`             | instance | filtered overwrite                        |
+|  [03]   | `Transaction.delete(delete_filter) -> None`                                    | instance | delete matching rows                      |
+|  [04]   | `Transaction.upsert(df, ...) -> UpsertResult`                                  | instance | merge upsert                              |
+|  [05]   | `Transaction.dynamic_partition_overwrite(df) -> None`                          | instance | replace only df's partitions              |
+|  [06]   | `Transaction.add_files(file_paths, check_duplicate_files=True) -> None`        | instance | register existing data files              |
+|  [07]   | `Transaction.commit_transaction() -> Table`                                    | instance | commit the batched ops                    |
+|  [08]   | `Transaction.update_schema(...) -> UpdateSchema`                               | instance | open a schema-evolution builder           |
+|  [09]   | `Transaction.update_spec() -> UpdateSpec`                                      | instance | partition-spec evolution                  |
+|  [10]   | `Transaction.update_snapshot(branch='main') -> UpdateSnapshot`                 | instance | snapshot-producing op builder             |
+|  [11]   | `Transaction.update_sort_order() -> UpdateSortOrder`                           | instance | sort-order evolution                      |
+|  [12]   | `Transaction.set_properties` / `.remove_properties` / `.update_location`       | instance | property and location evolution           |
+|  [13]   | `Transaction.update_statistics` / `.upgrade_table_version`                     | instance | statistics and format-version evolution   |
+|  [14]   | `Table.update_schema(...) -> UpdateSchema`                                     | instance | schema builder off the live table         |
+|  [15]   | `UpdateSchema.add_column(path, field_type, ...)` / `.update_column(...)`       | instance | add or alter a column                     |
+|  [16]   | `UpdateSchema.delete_column(path)` / `.rename_column(path_from, new_name)`     | instance | portable column drop and rename           |
+|  [17]   | `ManageSnapshots.rollback_to_snapshot` / `.create_branch`                      | instance | rollback and branch creation              |
+|  [18]   | `ManageSnapshots.create_tag` / `.commit`                                       | instance | tag creation and commit                   |
+|  [19]   | `Table.inspect -> InspectTable`                                                | property | metadata-inspection accessor              |
+|  [20]   | `InspectTable.snapshots` / `.manifests` / `.entries` / `.refs` / `.history`    | instance | snapshot, manifest, entry, and ref tables |
+|  [21]   | `InspectTable.files` / `.data_files` / `.delete_files` / `.partitions`         | instance | current file and partition tables         |
+|  [22]   | `InspectTable.all_files` / `.all_manifests` / `.metadata_log_entries`          | instance | whole-log file and metadata tables        |
+|  [23]   | `InspectTable.all_data_files` / `.all_delete_files`                            | instance | cross-snapshot file rosters               |
+|  [24]   | `Table.current_snapshot()` / `.snapshot_by_id(id)` / `.snapshot_by_name(name)` | instance | snapshot lookup by id or name             |
+|  [25]   | `Table.snapshot_as_of_timestamp(ts) -> Snapshot`                               | instance | snapshot as of a timestamp                |
+|  [26]   | `Table.snapshots` / `.refs` / `.history`                                       | property | snapshot log, refs, history               |
+|  [27]   | `Table.schema` / `.schemas` / `.spec` / `.specs` / `.sort_order`               | property | live schema, spec, sort metadata          |
+|  [28]   | `Table.properties` / `.name_mapping` / `.format_version`                       | property | live table config metadata                |
+|  [29]   | `Table.location` / `.location_provider`                                        | property | table location metadata                   |
+|  [30]   | `Table.maintenance -> MaintenanceTable`                                        | property | maintenance accessor                      |
+|  [31]   | `MaintenanceTable.expire_snapshots() -> ExpireSnapshots`                       | instance | open the snapshot-expiry builder          |
+|  [32]   | `ExpireSnapshots.older_than(dt)` / `.by_id(id)` / `.by_ids(ids)` / `.commit()` | instance | expire clauses, apply on commit           |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -137,6 +143,10 @@
 - `load_catalog` is the single polymorphic entry; catalog type discriminates on the `uri` scheme or explicit `type` property, never a `load_rest`/`load_hive` call-site branch.
 - Scan construction is lazy: no I/O until `to_arrow`/`to_pandas`/`plan_files`/`count` materializes, and `Table.scan` defaults `row_filter` to `AlwaysTrue()`.
 - Every write folds through `Transaction`; `Table.append`/`overwrite`/`delete`/`upsert`/`dynamic_partition_overwrite`/`add_files` are autocommit shorthands opening and committing a one-op transaction, while `Table.transaction()` batches many ops into one snapshot. `upsert` requires `join_cols` or an identifier-field schema; `dynamic_partition_overwrite` replaces only the partitions present in `df`.
+- `Table.append(df, snapshot_properties={}, branch='main') -> None` answers no commit metrics, so post-write accounting reads `table.current_snapshot().summary`; `upsert` alone answers its counts inline as an `UpsertResult`.
+- `Summary` resists plain-dict iteration — `dict(summary)` raises `AttributeError: 'tuple' object has no attribute 'lower'` — so a reader takes `summary.operation` beside `summary.additional_properties`, or `summary.model_dump()`. It carries the byte evidence under `added-files-size`, `added-data-files`, `added-records`, `total-data-files`, `total-delete-files`, `total-records`, `total-files-size`, `total-position-deletes`, and `total-equality-deletes`, every VALUE a STRING, so a numeric consumer casts at the read.
+- `Table.inspect` is a PROPERTY answering `InspectTable`, whose members are METHODS each returning a `pa.Table`.
+- every catalog import path hard-imports `sqlalchemy` — `pyiceberg.catalog.sql` and the `pyiceberg.catalog.memory` re-exporting it alike — so `sqlalchemy` is an unmet provider requirement and a catalog-backed path raises `ModuleNotFoundError: No module named 'sqlalchemy'` until the manifest admits it.
 - Expression predicates are unbound at construction; binding to a schema happens inside the scan engine.
 - Egress is two-grained: `TableScan.to_arrow`/`to_pandas`/`to_polars` materialize a filtered scan eagerly, while `Table.to_polars()` returns a whole-table `pl.LazyFrame` whose lazy graph lets both PyIceberg's planner and Polars' optimizer push predicates.
 - `expire_snapshots` is the only maintenance op with a Python entry; data-file compaction and orphan-file removal have none.

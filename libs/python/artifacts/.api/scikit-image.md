@@ -15,7 +15,7 @@
 
 [PUBLIC_TYPE_SCOPE]: geometric transform models — `skimage.transform`
 - type-family: geometric model
-- Estimation: `Model.from_estimate(src, dst)` fits from correspondences; `.inverse` gives the inverse map; `+` composes two models.
+- estimation: `Model.from_estimate(src, dst)` fits from correspondences; `.inverse` gives the inverse map; `+` composes two models.
 
 | [INDEX] | [SYMBOL]                     | [CAPABILITY]                          |
 | :-----: | :--------------------------- | :------------------------------------ |
@@ -31,7 +31,7 @@
 
 [PUBLIC_TYPE_SCOPE]: RANSAC fitting models — `skimage.measure`
 - type-family: RANSAC model
-- Members: each exposes `residuals(data)` and the `from_estimate(data)` classmethod; parametric models add `predict_xy(t)`, `LineModelND` adds `predict_x`/`predict_y`.
+- members: each exposes `residuals(data)` and the `from_estimate(data)` classmethod; parametric models add `predict_xy(t)`, `LineModelND` adds `predict_x`/`predict_y`.
 
 | [INDEX] | [SYMBOL]       | [CAPABILITY]                                |
 | :-----: | :------------- | :------------------------------------------ |

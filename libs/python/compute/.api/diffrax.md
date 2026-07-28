@@ -76,8 +76,8 @@
 |  [16]   | `ControlTerm`                      | SDE term                     | diffusion term driven by a control path               |
 |  [17]   | `WeaklyDiagonalControlTerm`        | SDE term                     | weakly diagonal diffusion term                        |
 |  [18]   | `MultiTerm`                        | term combiner                | combines drift + diffusion terms into one term        |
-|  [19]   | `UnderdampedLangevinDriftTerm`     | Langevin term                | drift term for the Langevin solvers                   |
-|  [20]   | `UnderdampedLangevinDiffusionTerm` | Langevin term                | diffusion term for the Langevin solvers               |
+|  [19]   | `UnderdampedLangevinDriftTerm(gamma, u, grad_f)`  | Langevin term     | drift term for the Langevin solvers                   |
+|  [20]   | `UnderdampedLangevinDiffusionTerm(gamma, u, bm)`  | Langevin term     | diffusion term for the Langevin solvers               |
 |  [21]   | `VirtualBrownianTree`              | Brownian path                | reproducible Brownian tree with selectable Levy area  |
 |  [22]   | `UnsafeBrownianPath`               | Brownian path                | fast non-reproducible path (forward solve only)       |
 |  [23]   | `BrownianIncrement`                | Levy-area level              | increment-only Levy area                              |
@@ -158,6 +158,7 @@
 - one `diffeqsolve` owns every ODE/SDE/CDE case: the `terms` shape sets the equation kind (a single `ODETerm`, a `MultiTerm(ODETerm, ControlTerm)` for SDE/CDE) and the solver type sets the convention (`AbstractItoSolver`/`AbstractStratonovichSolver`); the `solver`, `stepsize_controller`, `adjoint`, `event`, and `saveat` ride as independent rows on that one call, never a parallel solve variant per axis.
 - `Solution.result` carries a `RESULTS` value; `throw=True` raises on a non-`successful` result, `throw=False` returns it beside `Solution.stats` (accepted/rejected step counts) for inspection.
 - SDE convention is load-bearing: an `AbstractItoSolver` integrates the Ito form, an `AbstractStratonovichSolver` the Stratonovich form; a high-order SDE solver demands a Brownian path whose `levy_area` matches (`SpaceTimeLevyArea` for `ShARK`/`SRA1`/`SEA`, `SpaceTimeTimeLevyArea` for `SlowRK`), and the Langevin solvers (`ALIGN`/`ShOULD`/`QUICSORT`) pair with `UnderdampedLangevin*` terms.
+- `UnderdampedLangevinDriftTerm` and `UnderdampedLangevinDiffusionTerm` share `gamma` (friction diagonal) beside `u` (damping diagonal) and diverge on the third argument alone — the drift term takes `grad_f`, the potential's gradient callable, and the diffusion term takes `bm`, the Brownian path; both name their arguments, so a positional swap of the two thirds is unrepresentable.
 
 [STACKING]:
 - `equinox`(`.api/equinox.md`): a `diffeqsolve` call is a pure JAX function over `equinox.Module` pytree state, composing inside `filter_jit`/`filter_grad`/`filter_vmap` — a batched parameter sweep is one `filter_vmap(diffeqsolve, ...)` and a gradient-through-solve is `filter_grad` over the chosen `adjoint`; `RESULTS` inherits the `equinox.Enumeration` termination base.
@@ -166,7 +167,7 @@
 - within-lib: the `DifferentialIntent` route folds the `Solution` receipt (`stats` step counts + `result` verdict) onto `SolverReceipt`, and `RecursiveCheckpointAdjoint` bounds reverse-mode memory for the graduation gradient study.
 
 [LOCAL_ADMISSION]:
-- a `NumericIntent` differential-equation case dispatches through `diffeqsolve` with an explicit solver, controller, and adjoint; an SDE Brownian path carries the `levy_area` its solver demands, and `diffrax` stays a compute-plane solver.
+- every `NumericIntent` differential-equation case dispatches through `diffeqsolve` with an explicit solver, controller, and adjoint; an SDE Brownian path carries the `levy_area` its solver demands, and `diffrax` stays a compute-plane solver.
 
 [RAIL_LAW]:
 - Package: `diffrax`

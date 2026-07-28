@@ -64,20 +64,22 @@
 |  [03]   | `tryPromise({...})` / `try` / `async` / `promise`          | boundary lift  | `Promise`/throw → typed error at the seam              |
 |  [04]   | `all(effects, {...})` / `forEach` / `validateAll`          | applicative    | operands accumulate; `mode`: abort vs validate-all     |
 |  [05]   | `flatMap` / `andThen` / `zipWith` / `tap`                  | sequence       | steps; `andThen` = value / `Effect` / thunk            |
-|  [06]   | `catchTag` / `catchTags` / `catchAll` / `tapErrorTag`      | recover        | `core/interchange`/`data` typed recovery by `_tag`     |
-|  [07]   | `retry` / `timeout` / `withExecutionPlan` / `race`         | resilience     | `net`/`ai`/`work` — `ExecutionPlan` multi-tier         |
-|  [08]   | `acquireRelease` / `acquireUseRelease`                     | resource       | scoped acquire; release on success/fail/interrupt      |
-|  [09]   | `addFinalizer` / `scoped`                                  | resource       | `proc/life`, `data`, `work` leases                     |
-|  [10]   | `fork` / `forkScoped` / `forkDaemon` / `interrupt`         | concurrency    | `serve/live`, `browser` — scoped forks die with scope  |
-|  [11]   | `provide` / `provideService` / `updateService`             | context supply | app root injects `Layer`/service; per-Tag at a site    |
-|  [12]   | `withSpan` / `annotateLogs` / `withMetric` / `log*`        | observe seam   | `otel` — span/log/metric attach onto the rail          |
-|  [13]   | `runFork` / `runPromise` / `runSync` / `runPromiseExit`    | run            | imperative edge; `runtime` re-enters foreign callbacks |
-|  [14]   | `exit` / `onExit` / `onError` / `ensuring`                 | outcome        | reify the settled outcome; observe it once per run     |
-|  [15]   | `Exit.match` / `Cause.isInterruptedOnly` / `failureOption` | outcome fold   | one interrupt-first discrimination over the cause tree |
+|  [06]   | `transposeOption` / `transposeMapOption(f)`                | sequence       | `Option<Effect>` → `Effect<Option>`; `None` succeeds   |
+|  [07]   | `catchTag` / `catchTags` / `catchAll` / `tapErrorTag`      | recover        | `core/interchange`/`data` typed recovery by `_tag`     |
+|  [08]   | `retry` / `timeout` / `withExecutionPlan` / `race`         | resilience     | `net`/`ai`/`work` — `ExecutionPlan` multi-tier         |
+|  [09]   | `acquireRelease` / `acquireUseRelease`                     | resource       | scoped acquire; release on success/fail/interrupt      |
+|  [10]   | `addFinalizer` / `scoped`                                  | resource       | `proc/life`, `data`, `work` leases                     |
+|  [11]   | `fork` / `forkScoped` / `forkDaemon` / `interrupt`         | concurrency    | `serve/live`, `browser` — scoped forks die with scope  |
+|  [12]   | `provide` / `provideService` / `updateService`             | context supply | app root injects `Layer`/service; per-Tag at a site    |
+|  [13]   | `withSpan` / `annotateLogs` / `withMetric` / `log*`        | observe seam   | `otel` — span/log/metric attach onto the rail          |
+|  [14]   | `runFork` / `runPromise` / `runSync` / `runPromiseExit`    | run            | imperative edge; `runtime` re-enters foreign callbacks |
+|  [15]   | `exit` / `onExit` / `onError` / `ensuring`                 | outcome        | reify the settled outcome; observe it once per run     |
+|  [16]   | `Exit.match` / `Cause.isInterruptedOnly` / `failureOption` | outcome fold   | one interrupt-first discrimination over the cause tree |
 
 - `Effect.tryPromise`: its `try` callback receives the fiber's interrupt-wired `AbortSignal`, so a crossing deadline or interrupt threads it.
 - `Effect.onExit(cleanup: (exit: Exit.Exit<A, E>) => Effect<X, never, R2>)` is `Function.dual` and fires ONCE after the outcome settles, which is what makes it the single emission point for an outcome dimension: a string minted inside a recovery arm double-counts every retried attempt and never sees a defect. `Effect.onError` narrows the same aspect to failure, `Effect.ensuring` finalizes with no outcome in hand, and `Effect.exit` reifies the rail into `Exit<A, E>` for a caller folding it later.
 - `Exit.match({ onFailure, onSuccess })` folds the outcome and hands `onFailure` the whole `Cause`, never a bare error. Discrimination runs interrupt-first — `Cause.isInterruptedOnly(cause)` answers `boolean` and `Cause.failureOption(cause)` answers `Option<E>` — because an interrupted run carries no outcome and a defect is not a typed fault; reading `failureOption` first classifies an interrupt as an unknown failure.
+- `Effect.transposeOption` is a plain unary function while `Effect.transposeMapOption` is `Function.dual`, so a `pipe` chain passes the former by reference and calls the latter with its mapper.
 
 [ENTRYPOINT_SCOPE]: `Schema` — decode, project, transform, derive; surfaces are `Schema.*` unless qualified
 - rail: boundaries
@@ -97,6 +99,10 @@
 |  [11]   | `Arbitrary.make` / `Arbitrary.makeLazy`                  | derive        | generator; `makeLazy` for recursive schemas               |
 |  [12]   | `JSONSchema.make` / `Pretty.make` / `Schema.equivalence` | derive        | OpenAPI node, printer, structural equality                |
 |  [13]   | `standardSchemaV1(schema)`                               | interop       | `ui` forms + Standard-Schema consumers bind the decoder   |
+|  [14]   | `attachPropertySignature(key, value)`                    | project       | restores a family tag a draft projection omitted          |
+|  [15]   | `decodeOption(schema)` / `decodeSync` / `decode`          | decode        | takes the ENCODED value, never an `Option` wrapper        |
+
+- `Schema.decodeOption(schema)` returns `(encoded, options?) => Option<A>` and answers `none` on ANY parse failure, so handing it a value already wrapped in `Option` type-checks against `unknown`-tolerant call sites and returns `none` for every input alike — a decode inside an optional pipeline composes as `Option.flatMap(held, Schema.decodeOption(schema))`, never by passing the wrapper through.
 
 [ENTRYPOINT_SCOPE]: `Context` / `Layer` / `Runtime` — services and composition roots; surfaces are `Layer.*` unless qualified
 - rail: surfaces-and-dispatch
@@ -120,11 +126,14 @@
 | :-----: | :-------------------------------------------------------- | :-------------- | :------------------------------------------------------ |
 |  [01]   | `Match.type<T>()` / `Match.value(v)` → `Match.exhaustive` | dispatch        | `tag`/`when` arms; missing arm is a compile error       |
 |  [02]   | `Match.tagsExhaustive` / `Match.discriminatorsExhaustive` | record dispatch | dispatch by `_tag` or a named discriminant, total       |
-|  [03]   | `Match.whenOr` / `Match.whenAnd` / `Match.not`            | predicate arm   | structural/predicate dispatch on non-keyed shapes       |
-|  [04]   | `Match.orElse` / `Match.withReturnType`                   | predicate arm   | fallback arm; `withReturnType` pins the arm result type |
-|  [05]   | `Data.taggedEnum<Union>()` → `{ $match, $is, ...ctors }`  | closed family   | `core/state`/`core/interchange` unions; `$match`/`$is`  |
-|  [06]   | `Data.TaggedError("Tag")<{...}>` / `Data.TaggedClass`     | value + fault   | typed errors + structural-equality records              |
-|  [07]   | `Data.struct` / `Data.array`                              | value           | `Equal`/`Hash` for free on plain structures             |
+|  [03]   | `Match.valueTags(fields)` / `Match.typeTags<I, Ret>()`    | record dispatch | total `_tag` dispatch in one call, no builder chain     |
+|  [04]   | `Match.whenOr` / `Match.whenAnd` / `Match.not`            | predicate arm   | structural/predicate dispatch on non-keyed shapes       |
+|  [05]   | `Match.orElse` / `Match.withReturnType`                   | predicate arm   | fallback arm; `withReturnType` pins the arm result type |
+|  [06]   | `Data.taggedEnum<Union>()` → `{ $match, $is, ...ctors }`  | closed family   | `core/state`/`core/interchange` unions; `$match`/`$is`  |
+|  [07]   | `Data.TaggedError("Tag")<{...}>` / `Data.TaggedClass`     | value + fault   | typed errors + structural-equality records              |
+|  [08]   | `Data.struct` / `Data.array`                              | value           | `Equal`/`Hash` for free on plain structures             |
+
+- `Match.valueTags` is `Function.dual` over `(input, fields)` and refuses a `fields` key absent from the input union, so an arm roster is exhaustive by construction. `Match.typeTags<I, Ret>()(fields)` curries the type first and yields a reusable `(input: I) => Ret` dispatcher; `Ret` omitted, the return type unifies across the arms.
 
 [ENTRYPOINT_SCOPE]: `Stream` / `Sink` — pull-based streaming; surfaces are `Stream.*` unless qualified
 - rail: rails-and-effects
@@ -136,12 +145,18 @@
 |  [03]   | `fromReadableStream` / `fromReadableStreamByob`          | source     | `browser/fetch` streams, `data/object` BYOB ingress     |
 |  [04]   | `mapEffect(f, { concurrency })` / `mapConcatEffect`      | transform  | bounded per-element effects, effectful expansion        |
 |  [05]   | `grouped` / `groupedWithin` / `throttle`                 | transform  | batch windows, rate shaping on one carrier              |
-|  [06]   | `broadcast` / `partition` / `merge` / `zipLatest`        | fan        | fan-out, keyed split, latest-value join                 |
-|  [07]   | `run(sink)` / `runForEach` / `runFold` / `runFoldEffect` | drain      | terminal fold; `Sink.foldWeighted`/`collectAllN`        |
-|  [08]   | `toReadableStream` / `toReadableStreamEffect`            | drain      | feed web-stream consumers (`data/object` puts)          |
-|  [09]   | `retry(schedule)` / `debounce` / `buffer` / `haltWhen`   | resilience | resumable feeds; `haltWhen(deferred)` ends stream       |
+|  [06]   | `aggregateWithin(sink, schedule)`                        | transform  | aggregate into `Sink.foldWeighted` across two fibers    |
+|  [07]   | `broadcast` / `partition` / `merge` / `zipLatest`        | fan        | fan-out, keyed split, latest-value join                 |
+|  [08]   | `run(sink)` / `runForEach` / `runFold` / `runFoldEffect` | drain      | terminal fold; `Sink.foldWeighted`/`collectAllN`        |
+|  [09]   | `toReadableStream` / `toReadableStreamEffect`            | drain      | feed web-stream consumers (`data/object` puts)          |
+|  [10]   | `toAsyncIterable` / `toAsyncIterableEffect`              | drain      | drain under `for await`; the `Effect` form carries `R`  |
+|  [11]   | `retry(schedule)` / `debounce` / `buffer` / `haltWhen`   | resilience | resumable feeds; `haltWhen(deferred)` ends stream       |
+|  [12]   | `timeout(d)` / `timeoutFail(() => error, d)`             | resilience | end a stalled feed, or fail it on the typed channel     |
 
 - `Stream.fromPubSub`: without `{ scoped: true }` it subscribes on first pull and unsubscribes when the consumer's scope closes.
+- `Stream.aggregateWithin(sink, schedule)` splits the pipeline into two fibers and feeds the SCHEDULE an `Option<B>` of what the sink emitted per window, so the pull delay reacts to the aggregate itself; `None` marks a window the sink closed empty.
+- `Stream.toAsyncIterable` fixes `R` at `never`, so a requirement-carrying stream reaches `for await` only through `toAsyncIterableEffect`, which yields the iterable as `Effect<AsyncIterable<A>, never, R>`, or `toAsyncIterableRuntime(runtime)`, which discharges `R` against a `Runtime<XR>` the caller already holds.
+- `Stream.timeoutFail(error, duration)` takes `error` as a `LazyArg`, so the failure value mints per timeout rather than once at declaration.
 
 [ENTRYPOINT_SCOPE]: concurrency and mutable state
 - rail: rails-and-effects
@@ -152,14 +167,16 @@
 |  [02]   | `Subscribable` / `SynchronizedRef`                      | shared cell   | read-only `{ get, changes }`; `ui/system/atom` observes   |
 |  [03]   | `Deferred.make` / `Deferred.await` / `Deferred.succeed` | one-shot      | fiber handoff, `haltWhen` signals, promise-once           |
 |  [04]   | `Queue.bounded` / `Queue.sliding`                       | channel       | `work/queue` job intake with backpressure                 |
-|  [05]   | `PubSub.bounded` / `Mailbox.make`                       | channel       | `serve/live` fan-out, poison-quarantine buffers           |
+|  [05]   | `PubSub.bounded` / `Mailbox.make`                       | channel       | `serve/live` fan-out, quarantine, `journal/fact` drain     |
 |  [06]   | `FiberRef.make` / `FiberRef.locallyScoped`              | fiber-local   | `serve/api` middleware; built-in `currentLogAnnotations`  |
 |  [07]   | `Effect.makeSemaphore(n)` / `Effect.makeLatch`          | bound / track | concurrency caps for `serve` load-shed                    |
 |  [08]   | `FiberSet.make` / `FiberMap.make`                       | bound / track | keyed fiber registries; `work/entity` per-entity          |
 |  [09]   | `STM.commit` / `TRef.make` / `TMap`                     | transaction   | `core/state`/`work` atomic multi-cell updates, auto-retry |
 |  [10]   | `TQueue` / `TSemaphore` / `TReentrantLock`              | transaction   | transactional queue, semaphore, reentrant lock            |
 
-- `PubSub.publish` / `Queue.offer`: answer delivery as `boolean`, never a fault — a discarded return is a deliberate drop.
+- `PubSub.publish` / `Queue.offer` / `Mailbox.offer`: answer delivery as `boolean`, never a fault — a discarded return is a deliberate drop.
+- `Mailbox.end` / `Mailbox.toStream`: `end` is the LOSSLESS stop — the consumer keeps receiving what was already offered and the stream completes after the buffer empties — where `Queue.shutdown` cancels pending operations and discards the buffer, so a plane that must flush at shutdown takes a mailbox and a plane that must stop now takes `shutdown`. Both `end` and `shutdown` answer `false` once the mailbox is done, and `offer` answers `false` from that point rather than suspending.
+- `Mailbox` carries the `@experimental` flag and stays the buffer `@effect/cluster` builds on, so the tag marks API churn, never maturity.
 - `SubscriptionRef.changes`: interface property carrying a `Stream`, never a module function — `Reloadable.auto` consumes that feed.
 
 [ENTRYPOINT_SCOPE]: schedule, config, time, and observability signals
@@ -170,23 +187,24 @@
 |  [01]   | `Schedule.exponential` / `jittered` / `resetAfter`           | recurrence     | policy as a value; `resetAfter` re-arms after quiet      |
 |  [02]   | `Schedule.intersect` / `recurs` / `upTo`                     | recurrence     | compose schedules; `upTo` bounds total elapsed           |
 |  [03]   | `Schedule.whileInput` / `recurWhile` / `cron`                | recurrence     | gate re-drive on the fault value; `work/queue` cron      |
-|  [04]   | `Config.string` / `redacted` / `integer`                     | config schema  | `proc/config` typed ingress; `redacted` keeps secrets    |
-|  [05]   | `Config.withDefault` / `Config.nested`                       | config schema  | defaults + nested config sections                        |
-|  [06]   | `ConfigProvider.fromEnv` / `fromJson` / `constantCase`       | provider chain | env→file→remote; `.orElse` chains; case adapters         |
-|  [07]   | `Duration.seconds` / `Duration.decode` / `Cron.parse`        | time           | `core/value/clock` HLC, `work` deadlines, `data` windows |
-|  [08]   | `DateTime.now` / `DateTime.addDuration`                      | time           | wall-clock evidence over the HLC composition             |
-|  [09]   | `Metric.counter` / `histogram` / `gauge`                     | metric         | `otel` `(app, tenant)`-tagged instruments                |
-|  [10]   | `Metric.increment` / `incrementBy` / `update` / `set`        | metric         | per-kind update aspects; `incrementBy` charges batches   |
-|  [11]   | `Logger.make` / `replace` / `batched`                        | logger         | structured logging; `batched` buffered export            |
-|  [12]   | `Metric.snapshot` / `Tracer.externalSpan`                    | signal read    | `core/observe/board` reads; `externalSpan` continues W3C |
-|  [13]   | `Effect.makeSpanScoped`                                      | signal read    | a scoped span the algorithm owns                         |
-|  [14]   | `MetricBoundaries.linear` / `.exponential` / `.fromIterable` | boundaries     | generated bucket edges; a literal array is last resort   |
-|  [15]   | `MetricPair` / `MetricState` / `MetricKey`                   | snapshot shape | `Metric.snapshot` output, read per state kind            |
-|  [16]   | `Metric.trackDuration` / `.trackDurationWith`                | metric         | elapsed-wall aspects; `With` converts the input          |
-|  [17]   | `Metric.timer` / `.timerWithBoundaries`                      | metric         | `Duration`-input histograms stamping `time_unit`         |
-|  [18]   | `Metric.mapInput` / `.withConstantInput`                     | metric         | recast the admitted update without a second mint         |
-|  [19]   | `Metric.trackError` / `trackSuccess` / `trackDefect` / `All` | metric         | outcome-channel aspects; each `*With` converts the input |
-|  [20]   | `Metric.frequency` / `.summary` / `.summaryTimestamp`        | metric         | word census; quantiles where no boundary vector fits     |
+|  [04]   | `Schedule.union(left, right)`                                | recurrence     | MINIMUM delay of the pair — caps an unbounded backoff    |
+|  [05]   | `Config.string` / `redacted` / `integer`                     | config schema  | `proc/config` typed ingress; `redacted` keeps secrets    |
+|  [06]   | `Config.withDefault` / `Config.nested`                       | config schema  | defaults + nested config sections                        |
+|  [07]   | `ConfigProvider.fromEnv` / `fromJson` / `constantCase`       | provider chain | env→file→remote; `.orElse` chains; case adapters         |
+|  [08]   | `Duration.seconds` / `Duration.decode` / `Cron.parse`        | time           | `core/value/clock` HLC, `work` deadlines, `data` windows |
+|  [09]   | `DateTime.now` / `DateTime.addDuration`                      | time           | wall-clock evidence over the HLC composition             |
+|  [10]   | `Metric.counter` / `histogram` / `gauge`                     | metric         | `otel` `(app, tenant)`-tagged instruments                |
+|  [11]   | `Metric.increment` / `incrementBy` / `update` / `set`        | metric         | per-kind update aspects; `incrementBy` charges batches   |
+|  [12]   | `Logger.make` / `replace` / `batched`                        | logger         | structured logging; `batched` buffered export            |
+|  [13]   | `Metric.snapshot` / `Tracer.externalSpan`                    | signal read    | `core/observe/board` reads; `externalSpan` continues W3C |
+|  [14]   | `Effect.makeSpanScoped`                                      | signal read    | a scoped span the algorithm owns                         |
+|  [15]   | `MetricBoundaries.linear` / `.exponential` / `.fromIterable` | boundaries     | generated bucket edges; a literal array is last resort   |
+|  [16]   | `MetricPair` / `MetricState` / `MetricKey`                   | snapshot shape | `Metric.snapshot` output, read per state kind            |
+|  [17]   | `Metric.trackDuration` / `.trackDurationWith`                | metric         | elapsed-wall aspects; `With` converts the input          |
+|  [18]   | `Metric.timer` / `.timerWithBoundaries`                      | metric         | `Duration`-input histograms stamping `time_unit`         |
+|  [19]   | `Metric.mapInput` / `.withConstantInput`                     | metric         | recast the admitted update without a second mint         |
+|  [20]   | `Metric.trackError` / `trackSuccess` / `trackDefect` / `All` | metric         | outcome-channel aspects; each `*With` converts the input |
+|  [21]   | `Metric.frequency` / `.summary` / `.summaryTimestamp`        | metric         | word census; quantiles where no boundary vector fits     |
 
 - `Metric.tagged`: returns a NEW metric value — `Metric.increment(Metric.tagged(counter, key, value))` is the per-dispatch tagged-increment spelling.
 - `Metric.counter(name, options?)` and `.gauge(name, options?)` overload on a LITERAL `bigint: true`, so a variable-typed flag resolves the `number` overload and strands the 64-bit carrier; `counter` also takes `incremental` (monotonic-only when `true`, the up-down idiom when `false`), and `.frequency(name, options?)` takes `preregisteredWords` so every admitted word reports zero before its first occurrence.
@@ -217,9 +235,20 @@
 |  [09]   | `RequestResolver.makeBatched`                   | rate / batch | batch requests under one resolver                  |
 |  [10]   | `Encoding.encodeBase64` / `Encoding.decodeHex`  | codec        | `security` byte encodings, `core/interchange`      |
 |  [11]   | `Redacted.make` / `Redacted.value`              | secret       | unwrap only at the crypto boundary                 |
+|  [12]   | `RegExp.escape(string)` / `RegExp.isRegExp`     | pattern      | splice a runtime literal into a built pattern      |
+|  [13]   | `Data.tuple(...values)`                         | value        | structural-equality key for a `HashMap` fold       |
+|  [14]   | `HashMap.modifyAt(self, key, f)`                | collection   | one descent fusing lookup and upsert per row       |
+|  [15]   | `Array.partition(self, predicate)`              | stdlib fold  | `[excluded, satisfying]` — order is load-bearing   |
+|  [16]   | `BigDecimal.make(bigint, scale)` / `fromBigInt` | exact money  | every currency value; `bigint` preimage, no float  |
+|  [17]   | `BigDecimal.multiply` / `sum` / `round({...})`  | exact money  | `round` takes `{ mode, scale }`; one terminal call  |
+|  [18]   | `Ref.make` / `Ref.modify(self, f)`              | cell         | atomic read-modify-write; stamp and sequence cells  |
 
+- `RegExp.escape` neutralizes `/ \ ^ $ * + ? . ( ) | [ ] { }` and leaves `-` intact, so a literal spliced inside a `[...]` character class still mints a range — that construction concatenates outside the class.
 - `Cache.ConsumerCache` carries the read-side census `Cache` inherits — `cacheStats: Effect<CacheStats>` returning `{ hits, misses, size }` as CUMULATIVE totals, beside `size`, `keys`, `values`, `contains`, `entryStats`, `invalidate`, `invalidateWhen`, and `invalidateAll` — so a hit-economics projection SETS levels from one periodic snapshot and instruments no lookup; a tally minted beside the cache re-implements a counter the substrate already keeps.
 - `Equal.equals`: compares structurally only over `Data`-constructed or `Equal`-implementing values — `HashMap` and `Redacted` both implement `Equal`.
+- `Array.partition(self, predicate)` returns `[excluded, satisfying]` — the SATISFYING half is second, so a destructure reading it first inverts every downstream arm while type-checking clean.
+- `BigDecimal` is the only exact-decimal carrier in the branch, and its exactness starts at the ACCUMULATOR: a JS `number` sum rounds past 2^53 and `BigInt` widens that rounded double without complaint, so a money preimage folds as `bigint` and lifts through `BigDecimal.make(total, 0)` once. `round` takes `{ mode, scale }` and belongs at the terminal alone — a per-row round accumulates drift a settlement cannot reconcile against its own aggregate.
+- `Data.tuple` is what makes a composite `HashMap` key work at all — a plain array key hashes by reference, so a rollup fold over `[a, b, c]` literals mints one bucket per row and reads as a working group-by that never groups.
 - `Record.map(self, f)` hands `f` the `(value, key)` pair and returns a record keyed identically, so a table of policy rows mints one derived value per row with the key in hand — the spelling a per-row instrument or projection fold takes instead of an entry-array round trip. JS `Array.prototype.map` passes an INDEX second, so a callback written against that habit reads a key as a number.
 
 ## [04]-[IMPLEMENTATION_LAW]

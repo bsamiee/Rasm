@@ -40,44 +40,52 @@
 
 [PUBLIC_TYPE_SCOPE]: 2D profile entity types (`ACadSharp.Entities`); `IPolyline`/`ICurve` discriminate a tessellation arm over multiple concrete leaves
 
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY]       | [CAPABILITY]                                                                         |
-| :-----: | :------------------ | :------------------ | :----------------------------------------------------------------------------------- |
-|  [01]   | `IPolyline`         | shape discriminator | `IEnumerable<IVertex> Vertices`/`IsClosed` — the `LwPolyline`+`Polyline2D` union arm |
-|  [02]   | `ICurve`            | shape discriminator | the `Circle`/`Arc` curve contract carrying `PolygonalVertexes`                       |
-|  [03]   | `LwPolyline`        | lightweight poly    | `LwPolyline : Entity, IPolyline` — closed/open bulge polyline, primary 2D profile    |
-|  [04]   | `LwPolyline.Vertex` | per-vertex          | `Location: XY`/`Bulge: double`/`StartWidth`/`EndWidth` of the lightweight poly       |
-|  [05]   | `Polyline2D`        | 2D polyline         | `Polyline<Vertex2D> : IPolyline` — `Seqend`-collection bulge polyline (non-`List`)   |
-|  [06]   | `Vertex2D`          | per-vertex          | `Vertex2D : Vertex` — `Location: XYZ`/`Bulge: double` (NO `Pt` overload)             |
-|  [07]   | `Line`              | line segment        | straight `StartPoint`→`EndPoint` segment                                             |
-|  [08]   | `Arc`               | circular arc        | `Arc : Circle` partial-sweep arc                                                     |
-|  [09]   | `Circle`            | full circle         | `Circle : Entity, ICurve` — `Center`/`Radius`/`Normal`/`Thickness` closed circle     |
-|  [10]   | `Ellipse`           | conic curve         | partial or full ellipse with native polygonal sampling                               |
-|  [11]   | `Spline`            | NURBS spline        | `Spline : Entity` — native-tessellated control-point/knot spline                     |
-|  [12]   | `Insert`            | block reference     | placed/arrayed nested-block reference with package-owned explode + transform         |
-|  [13]   | `Entity` base       | provenance          | `Layer : Tables.Layer` + `Color : Color` — `.Name`/`.Index` (ACI)                    |
-|  [14]   | `CadObject` base    | identity            | `Handle : ulong` (`0` when unowned) + `Document`/`Owner`/`ExtendedData`              |
-|  [15]   | `Point`             | marking entity      | `Location : XYZ` (WCS) + `Rotation`/`Normal`/`Thickness` — pierce and drill marks    |
-|  [16]   | `Hatch`             | filled region       | nested `BoundaryPath` rows whose `Edge` leaves discriminate on `EdgeType`            |
-|  [17]   | `IText`             | shape discriminator | `Height`/`Value`/`Style`/`InsertPoint`/`AlignmentPoint` settable, `Rotation` get-only |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]       | [CAPABILITY]                                                                          |
+| :-----: | :---------------------- | :------------------ | :------------------------------------------------------------------------------------ |
+|  [01]   | `IPolyline`             | shape discriminator | `IEnumerable<IVertex> Vertices`/`IsClosed` — the `LwPolyline`+`Polyline2D` union arm  |
+|  [02]   | `ICurve`                | shape discriminator | the `Circle`/`Arc` curve contract carrying `PolygonalVertexes`                        |
+|  [03]   | `LwPolyline`            | lightweight poly    | `LwPolyline : Entity, IPolyline` — closed/open bulge polyline, primary 2D profile     |
+|  [04]   | `LwPolyline.Vertex`     | per-vertex          | `Location: XY`/`Bulge: double`/`StartWidth`/`EndWidth` of the lightweight poly        |
+|  [05]   | `Polyline2D`            | 2D polyline         | `Polyline<Vertex2D>` — the base publishes `Normal : XYZ` (= `AxisZ`) + `Elevation`    |
+|  [06]   | `Vertex2D`              | per-vertex          | `Vertex : IVertex` — `Location : XYZ` OCS when 2D, WCS when 3D; `Bulge`/`StartWidth`  |
+|  [07]   | `Line`                  | line segment        | straight `StartPoint`→`EndPoint` segment                                              |
+|  [08]   | `Arc`                   | circular arc        | `Arc : Circle` partial-sweep arc                                                      |
+|  [09]   | `Circle`                | full circle         | `Circle : Entity, ICurve` — `Center`/`Radius`/`Normal`/`Thickness` closed circle      |
+|  [10]   | `Ellipse`               | conic curve         | partial or full ellipse with native polygonal sampling                                |
+|  [11]   | `Spline`                | NURBS spline        | `Spline : Entity` — native-tessellated control-point/knot spline                      |
+|  [12]   | `Insert`                | block reference     | placed/arrayed nested-block reference with package-owned explode + transform          |
+|  [13]   | `Entity` base           | provenance          | `Layer : Tables.Layer` + `Color : Color` — `.Name`/`.Index` (ACI)                     |
+|  [14]   | `CadObject` base        | identity            | `Handle : ulong` (`0` when unowned) + `Document`/`Owner`/`ExtendedData`               |
+|  [15]   | `Point`                 | marking entity      | `Location : XYZ` (WCS) + `Rotation`/`Normal`/`Thickness` — pierce and drill marks     |
+|  [16]   | `Hatch`                 | filled region       | `Paths : List<BoundaryPath>` + `Elevation`/`Normal`/`IsSolid`/`Pattern`/`SeedPoints`  |
+|  [17]   | `Hatch.BoundaryPath`    | loop container      | `Edges : ObservableCollection<Edge>` + `Entities`/`IsPolyline`/`UpdateEdges()`        |
+|  [18]   | `BoundaryPath.Edge`     | edge base           | `abstract EdgeType Type` + `Clone()`/`GetBoundingBox()`/`ToEntity()` on every leaf    |
+|  [19]   | `BoundaryPath.Line`     | line edge           | `Start`/`End : XY` (OCS) + `ToSegment2D()` — `EdgeType.Line`                          |
+|  [20]   | `BoundaryPath.Arc`      | circular edge       | `Center : XY`/`Radius`/`StartAngle`/`EndAngle`/`CounterClockWise` + `ToArc2D()`       |
+|  [21]   | `BoundaryPath.Ellipse`  | elliptic edge       | `Center`/`MajorAxisEndPoint : XY`/`RadiusRatio` + derived `MajorAxis`/`Rotation`      |
+|  [22]   | `BoundaryPath.Polyline` | polyline edge       | `Vertices : List<XYZ>` (x, y, BULGE in Z) + `IsClosed` — `EdgeType.Polyline`          |
+|  [23]   | `BoundaryPath.Spline`   | spline edge         | `ControlPoints`/`Knots`/`FitPoints`/`Degree`/`IsRational`/`IsPeriodic`/tangents       |
+|  [24]   | `BoundaryPath.EdgeType` | enum                | `Polyline`/`Line`/`CircularArc`/`EllipticArc`/`Spline` — the leaf discriminator       |
+|  [25]   | `IText`                 | shape discriminator | `Height`/`Value`/`Style`/`InsertPoint`/`AlignmentPoint` settable, `Rotation` get-only |
 
 [PUBLIC_TYPE_SCOPE]: annotation entity types (`ACadSharp.Entities`); `IText` discriminates one arm over `TextEntity` and `MText`, and `AttributeEntity` reaches it through `TextEntity`
 
-| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]   | [CAPABILITY]                                                                      |
-| :-----: | :-------------------------- | :-------------- | :-------------------------------------------------------------------------------- |
-|  [01]   | `TextEntity`                | single-line     | `TextEntity : Entity, IText` — the TEXT entity carrying one `Value` string         |
-|  [02]   | `MText`                     | multiline       | `MText : Entity, IText` — the MTEXT entity carrying a formatted, wrapped body      |
-|  [03]   | `MText.TextColumnData`      | column layout   | nested `ColumnType`/`ColumnCount`/`Width`/`Gutter`/`Heights` column record         |
-|  [04]   | `AttributeBase`             | placed base     | `AttributeBase : TextEntity` — `Tag`/`Flags`/`IsLocked`/`MText`/`AttributeType`    |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]   | [CAPABILITY]                                                                        |
+| :-----: | :-------------------------- | :-------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | `TextEntity`                | single-line     | `TextEntity : Entity, IText` — the TEXT entity carrying one `Value` string          |
+|  [02]   | `MText`                     | multiline       | `MText : Entity, IText` — the MTEXT entity carrying a formatted, wrapped body       |
+|  [03]   | `MText.TextColumnData`      | column layout   | nested `ColumnType`/`ColumnCount`/`Width`/`Gutter`/`Heights` column record          |
+|  [04]   | `AttributeBase`             | placed base     | `AttributeBase : TextEntity` — `Tag`/`Flags`/`IsLocked`/`MText`/`AttributeType`     |
 |  [05]   | `AttributeEntity`           | block attribute | `AttributeEntity : AttributeBase` — the ATTRIB placed value hanging off an `Insert` |
-|  [06]   | `AttributeDefinition`       | block template  | the block-record attribute template `Insert.UpdateAttributes` matches by tag       |
-|  [07]   | `Tables.TextStyle`          | table entry     | `TextStyle : TableEntry` — carries the style `Name` a marking records              |
-|  [08]   | `AttributeFlags`            | flags enum      | `[Flags]` `None=0`/`Hidden=1`/`Constant=2`/`Verify=4`/`Preset=8`                   |
-|  [09]   | `AttributeType`             | enum            | `SingleLine=1`/`MultiLine=2`/`ConstantMultiLine=4` — body-location discriminator   |
-|  [10]   | `TextHorizontalAlignment`   | enum `short`    | `Left`/`Center`/`Right`/`Aligned`/`Middle`/`Fit` — two rows stretch a run          |
-|  [11]   | `TextVerticalAlignmentType` | enum `short`    | `Baseline`/`Bottom`/`Middle`/`Top` — baseline stays distinct from bottom           |
-|  [12]   | `AttachmentPointType`       | enum `short`    | `TopLeft=1` through `BottomRight=9` — the MTEXT 3x3 attachment grid                |
-|  [13]   | `TextMirrorFlag`            | flags enum      | `Backward`/`Upsidedown` mirror state `ApplyTransform` reads and clears             |
-|  [14]   | `SeqendCollection<T>`       | collection      | `IEnumerable<T>` seqend-terminated collection carrying `Insert.Attributes`         |
+|  [06]   | `AttributeDefinition`       | block template  | the block-record attribute template `Insert.UpdateAttributes` matches by tag        |
+|  [07]   | `Tables.TextStyle`          | table entry     | `TextStyle : TableEntry` — carries the style `Name` a marking records               |
+|  [08]   | `AttributeFlags`            | flags enum      | `[Flags]` `None=0`/`Hidden=1`/`Constant=2`/`Verify=4`/`Preset=8`                    |
+|  [09]   | `AttributeType`             | enum            | `SingleLine=1`/`MultiLine=2`/`ConstantMultiLine=4` — body-location discriminator    |
+|  [10]   | `TextHorizontalAlignment`   | enum `short`    | `Left`/`Center`/`Right`/`Aligned`/`Middle`/`Fit` — two rows stretch a run           |
+|  [11]   | `TextVerticalAlignmentType` | enum `short`    | `Baseline`/`Bottom`/`Middle`/`Top` — baseline stays distinct from bottom            |
+|  [12]   | `AttachmentPointType`       | enum `short`    | `TopLeft=1` through `BottomRight=9` — the MTEXT 3x3 attachment grid                 |
+|  [13]   | `TextMirrorFlag`            | flags enum      | `Backward`/`Upsidedown` mirror state `ApplyTransform` reads and clears              |
+|  [14]   | `SeqendCollection<T>`       | collection      | `IEnumerable<T>` seqend-terminated collection carrying `Insert.Attributes`          |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -158,37 +166,37 @@
 
 [ENTRYPOINT_SCOPE]: annotation content, placement, and typography (`ACadSharp.Entities`)
 
-| [INDEX] | [SURFACE]                                                    | [SHAPE]  | [CAPABILITY]                  |
-| :-----: | :----------------------------------------------------------- | :------- | :---------------------------- |
-|  [01]   | `IText.Value` / `.Height` -> `string`/`double`               | property | content and glyph height      |
-|  [02]   | `IText.InsertPoint` / `.AlignmentPoint` -> `XYZ`             | property | the two placed points         |
-|  [03]   | `IText.Rotation -> double`                                   | property | get-only on the interface     |
-|  [04]   | `IText.Style -> Tables.TextStyle`                            | property | style entry, `.Name` its key  |
-|  [05]   | `TextEntity.HorizontalAlignment -> TextHorizontalAlignment`  | property | justification and run stretch |
-|  [06]   | `TextEntity.VerticalAlignment -> TextVerticalAlignmentType`  | property | vertical datum, virtual       |
-|  [07]   | `TextEntity.ObliqueAngle` / `.WidthFactor` -> `double`       | property | slant and width scaling       |
-|  [08]   | `TextEntity.Mirror -> TextMirrorFlag`                        | property | backward/upside-down state    |
-|  [09]   | `MText.PlainText -> string`                                  | property | format codes stripped         |
-|  [10]   | `MText.GetPlainTextLines() -> string[]`                      | instance | stripped body split to lines  |
-|  [11]   | `MText.GetTextLines() -> string[]`                           | instance | raw body split to lines       |
-|  [12]   | `MText.AttachmentPoint -> AttachmentPointType`               | property | 3x3 attachment grid cell      |
-|  [13]   | `MText.RectangleWidth` / `.RectangleHeight` -> `double`      | property | wrap column and box height    |
-|  [14]   | `MText.LineSpacing` / `.LineSpacingStyle`                    | property | spacing factor and style      |
-|  [15]   | `MText.HasColumns` / `.ColumnData -> TextColumnData`         | property | column layout discriminator   |
-|  [16]   | `AttributeBase.Tag -> string`                                | property | the attribute lookup key      |
-|  [17]   | `AttributeBase.AttributeType -> AttributeType`               | property | where the body lives          |
-|  [18]   | `AttributeBase.MText -> MText`                               | property | multiline body, NULLABLE      |
-|  [19]   | `AttributeBase.Flags -> AttributeFlags`                      | property | hidden/constant/verify/preset |
-|  [20]   | `AttributeBase.IsLocked -> bool`                             | property | position-lock state           |
-|  [21]   | `Insert.HasAttributes -> bool`                               | property | `Attributes.Any()` shorthand  |
-|  [22]   | `Insert.Attributes -> SeqendCollection<AttributeEntity>`     | property | the PLACED attribute values   |
-|  [23]   | `Insert.UpdateAttributes() -> void`                          | instance | re-sync against definitions   |
-|  [24]   | `TextEntity.ApplyTransform(Transform)` / `MText` peer        | instance | transform one annotation      |
+| [INDEX] | [SURFACE]                                                   | [SHAPE]  | [CAPABILITY]                  |
+| :-----: | :---------------------------------------------------------- | :------- | :---------------------------- |
+|  [01]   | `IText.Value` / `.Height` -> `string`/`double`              | property | content and glyph height      |
+|  [02]   | `IText.InsertPoint` / `.AlignmentPoint` -> `XYZ`            | property | the two placed points         |
+|  [03]   | `IText.Rotation -> double`                                  | property | get-only on the interface     |
+|  [04]   | `IText.Style -> Tables.TextStyle`                           | property | style entry, `.Name` its key  |
+|  [05]   | `TextEntity.HorizontalAlignment -> TextHorizontalAlignment` | property | justification and run stretch |
+|  [06]   | `TextEntity.VerticalAlignment -> TextVerticalAlignmentType` | property | vertical datum, virtual       |
+|  [07]   | `TextEntity.ObliqueAngle` / `.WidthFactor` -> `double`      | property | slant and width scaling       |
+|  [08]   | `TextEntity.Mirror -> TextMirrorFlag`                       | property | backward/upside-down state    |
+|  [09]   | `MText.PlainText -> string`                                 | property | format codes stripped         |
+|  [10]   | `MText.GetPlainTextLines() -> string[]`                     | instance | stripped body split to lines  |
+|  [11]   | `MText.GetTextLines() -> string[]`                          | instance | raw body split to lines       |
+|  [12]   | `MText.AttachmentPoint -> AttachmentPointType`              | property | 3x3 attachment grid cell      |
+|  [13]   | `MText.RectangleWidth` / `.RectangleHeight` -> `double`     | property | wrap column and box height    |
+|  [14]   | `MText.LineSpacing` / `.LineSpacingStyle`                   | property | spacing factor and style      |
+|  [15]   | `MText.HasColumns` / `.ColumnData -> TextColumnData`        | property | column layout discriminator   |
+|  [16]   | `AttributeBase.Tag -> string`                               | property | the attribute lookup key      |
+|  [17]   | `AttributeBase.AttributeType -> AttributeType`              | property | where the body lives          |
+|  [18]   | `AttributeBase.MText -> MText`                              | property | multiline body, NULLABLE      |
+|  [19]   | `AttributeBase.Flags -> AttributeFlags`                     | property | hidden/constant/verify/preset |
+|  [20]   | `AttributeBase.IsLocked -> bool`                            | property | position-lock state           |
+|  [21]   | `Insert.HasAttributes -> bool`                              | property | `Attributes.Any()` shorthand  |
+|  [22]   | `Insert.Attributes -> SeqendCollection<AttributeEntity>`    | property | the PLACED attribute values   |
+|  [23]   | `Insert.UpdateAttributes() -> void`                         | instance | re-sync against definitions   |
+|  [24]   | `TextEntity.ApplyTransform(Transform)` / `MText` peer       | instance | transform one annotation      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Coordinate frames: `LwPolyline.Vertex.Location` (OCS at `LwPolyline.Elevation`), `Circle.Center`, `Arc.Center`, `Hatch.BoundaryPath.Arc.Center`, and the `Circle`/`Arc` `PolygonalVertexes` output are OCS values; `Ellipse.Center`, `Point.Location`, `Insert.InsertPoint`, `Arc.GetEndVertices`, and the `Ellipse`/`Spline` `PolygonalVertexes` output publish WCS.
+- Coordinate frames: `LwPolyline.Vertex.Location` (OCS at `LwPolyline.Elevation`), `Vertex2D.Location` (OCS at `Polyline<T>.Elevation`, whose base also publishes `Normal`), `Circle.Center`, `Arc.Center`, `Hatch.BoundaryPath.Arc.Center`, and the `Circle`/`Arc` `PolygonalVertexes` output are OCS values; `Ellipse.Center`, `Point.Location`, `Insert.InsertPoint`, `Arc.GetEndVertices`, and the `Ellipse`/`Spline` `PolygonalVertexes` output publish WCS.
 - `Matrix3.ArbitraryAxis(entity.Normal) * ocsPoint` is the package-owned OCS-to-WCS map; the package composes `ArbitraryAxis(...).Transpose()` for the inverse in `Hatch.BoundaryPath.Arc(Circle)`, and a mirrored extrusion (`Normal.Z < 0`) inverts in-plane arc sense, so a bulge carried across the frame multiplies by `Math.Sign(normal.Z)`.
 - Resilient read: `CadReaderConfiguration.Failsafe` defaults `true`, so recoverable corruption routes to `NotificationEventArgs(NotificationType, Message, Exception)` and the read completes; a hard reader throw lowers once to `GeometryFault.DegenerateInput` and the reader exception never escapes.
 - Block recursion binds on an ancestor set keyed on `BlockRecord.Handle`, so a self-referencing block terminates.

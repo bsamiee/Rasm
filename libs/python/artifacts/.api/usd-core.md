@@ -132,7 +132,7 @@ Whole-stage authoring is lazy — prims compose into the layer stack and write o
 - vtk (`.api/vtk.md`, source-build-gated): `StageOp.RenderExport`'s front half is `vtkmodules.vtkIOUSD.vtkUSDExporter` (`SetRenderWindow(Plotter.render_window)`/`SetFileName`/`Write`) writing a `.usdc` that `UsdUtils.CreateNewUsdzPackage(Sdf.AssetPath(usdc), usdz)` packages; the official `vtk` wheel ships no `vtkIOUSD`, so the arm activates only on a source-built VTK and `MeshAuthor` is the wheel default — `vtk` owns render-to-layer, `usd-core` layer-to-package.
 - content-key + receipt (`core/plan` / `core/receipt`): `Scene3d._key` mints from admitted input before work, `facts.address` derives from produced bytes, and `ComputeUsdStageStats` contributes stage evidence to the single `ArtifactReceipt.Scene` case.
 - structlog (`libs/python/.api/structlog.md`): `async_boundary("scene.<op>", ...)` owns terminal fault observation and maps `Tf.ErrorException`/`Boost.Python.ArgumentError` onto `RuntimeRail`, so `pxr` bodies carry no logging path; `PackageFault` carries false packaging outcomes to `scene/export`'s `ExportError("<usd-failed>")`.
-- ARKit: `scene/stage`'s `UsdzProfile.ARKIT` selects `CreateNewARKitUsdzPackage` and `UsdzProfile.STANDARD` selects `CreateNewUsdzPackage` on the same `PackageOp` owner.
+- arkit: `scene/stage`'s `UsdzProfile.ARKIT` selects `CreateNewARKitUsdzPackage` and `UsdzProfile.STANDARD` selects `CreateNewUsdzPackage` on the same `PackageOp` owner.
 
 [LOCAL_ADMISSION]:
 - Author with `CreateInMemory()` or `CreateNew(path)`, define typed prims by `<Schema>.Define`, and write on `Save`/`Export`; never a parallel per-geometry-kind writer.

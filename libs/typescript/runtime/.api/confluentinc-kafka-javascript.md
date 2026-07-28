@@ -38,26 +38,33 @@ It carries the transactional exactly-once producer and manual-commit at-least-on
 
 [ENTRYPOINT_SCOPE]: client construction and the promise lifecycle; native `RdKafka` `Producer`/`KafkaConsumer`/`AdminClient` and `createReadStream`/`createWriteStream` back the stream lanes.
 
-| [INDEX] | [SURFACE]                                               | [SHAPE]  | [CAPABILITY]                                                  |
-| :-----: | :------------------------------------------------------ | :------- | :------------------------------------------------------------ |
-|  [01]   | `new Kafka(config?)`                                    | ctor     | root client over `brokers`/`ssl`/`sasl` from `Setting` rows   |
-|  [02]   | `producer(config?)` / `producer.send(record)`           | factory  | scoped `connect`/`disconnect`; `send` yields `RecordMetadata` |
-|  [03]   | `producer.transaction()` / `commit()` / `sendOffsets()` | instance | transactional — atomic publish with consumed-offset handoff   |
-|  [04]   | `consumer(config).subscribe(subscription)`              | instance | topic or `RegExp` fanout attach before `run`                  |
-|  [05]   | `consumer.run({ eachMessage })` / `commitOffsets()`     | instance | at-least-once lane — commit after success, never auto         |
-|  [06]   | `consumer.seek(topicPartitionOffset)`                   | instance | offset anchor within retention — warm-up and recovery         |
-|  [07]   | `admin().createTopics()` / `fetchTopicMetadata()`       | instance | boot-time topic/partition convergence, transport-blind        |
+| [INDEX] | [SURFACE]                                                | [SHAPE]  | [CAPABILITY]                                                  |
+| :-----: | :------------------------------------------------------- | :------- | :------------------------------------------------------------ |
+|  [01]   | `new Kafka(config?)`                                     | ctor     | root client over `brokers`/`ssl`/`sasl` from `Setting` rows   |
+|  [02]   | `producer(config?)` / `producer.send(record)`            | factory  | scoped `connect`/`disconnect`; `send` yields `RecordMetadata` |
+|  [03]   | `producer.transaction()` / `commit()` / `sendOffsets()`  | instance | transactional — atomic publish with consumed-offset handoff   |
+|  [04]   | `consumer(config).subscribe(subscription)`               | instance | topic or `RegExp` fanout attach before `run`                  |
+|  [05]   | `consumer.run({ eachMessage })` / `commitOffsets()`      | instance | at-least-once lane — commit after success, never auto         |
+|  [06]   | `consumer.seek(topicPartitionOffset)`                    | instance | offset anchor within retention — warm-up and recovery         |
+|  [07]   | `admin().createTopics()` / `fetchTopicMetadata()`        | instance | boot-time topic/partition convergence, transport-blind        |
+|  [08]   | `new RdKafka.KafkaConsumer(conf, topicConf?)`            | ctor     | group-less native consumer — the bounded-replay client        |
+|  [09]   | `consumer.assign(assignments)` / `unassign()`            | instance | explicit partition attach carrying no group membership        |
+|  [10]   | `consumer.seek(toppar, timeout, cb)`                     | instance | native three-arg seek over an assigned partition              |
+|  [11]   | `consumer.consume(count, cb)`                            | instance | the one bounded read — a finite batch, never a lane           |
+|  [12]   | `queryWatermarkOffsets(topic, partition, timeout?, cb?)` | instance | replay bounds; `offsetsForTimes` the time-keyed anchor        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [STACKING]:
 - `effect` (`.api/effect.md`): the `Kafka` clients are `Effect.acquireRelease` acquisitions over `connect`/`disconnect`, every promise member converts through `Effect.tryPromise` at the engine seam, and the `run` handler loop lifts each delivery callback into the effect runtime.
 - `proc/config` `Setting`: bootstrap brokers, SASL/TLS posture, compression, and idempotence are config rows — no broker literal, credential, or `acks` knob lives in the engine.
-- `net/pubsub` `Fanout`: the Kafka engine row is one `Fanout` member set — `publish` over `Producer.send`, `consume` over the manual-commit `run` lane, `replay` over `seek` — carrying no `stash`/`haul` blob surface.
+- `net/pubsub` `Fanout`: the Kafka engine row is one `Fanout` member set — `publish` over `Producer.send`, `consume` over the manual-commit `run` lane, `replay` over the group-less native `assign`/`seek`/`consume(count)` triple — carrying no `stash`/`haul` blob surface.
 
 [LOCAL_ADMISSION]:
 - Acquire one `Kafka` per process in the engine Layer and derive `producer`/`consumer`/`admin` from it; a second bootstrap beside the engine client is the named defect.
 - Release through `disconnect()` on scope close; a leaked client holds broker connections and consumer-group membership past the process.
+- Drive a bounded replay off a group-less native `KafkaConsumer` — `assign` the partition, `seek` it, `consume(count)` against a `queryWatermarkOffsets` ceiling, then `unassign` — because the promise surface's `seek(topicPartitionOffset)` returns `void` and repositions the durable group cursor, and that surface publishes no bounded read at all.
+- Spell `offset` per surface: `TopicPartitionOffset.offset` is a `string` on the KafkaJS-compatible promise surface and a `number` on the native `RdKafka` surface, so one coordinate crossing both carries an explicit conversion, never a shared alias.
 - Commit offsets after handler success — the at-least-once guarantee is ack-after-success, and an `autoCommit` before the handler completes silently drops on crash.
 - Exactly-once rides the `Transaction` from `producer.transaction()`: produced records and consumed offsets pass through it, `sendOffsets()` binds the offset handoff, and `commit()` publishes both atomically.
 - Envelope `value` is opaque transport octets the consumer's own `Schema` decodes at its seam; the engine never inspects or re-addresses it, and `ContentKey` stays the one addressing vocabulary.

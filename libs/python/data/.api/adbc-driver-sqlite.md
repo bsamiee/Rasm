@@ -28,9 +28,9 @@
 
 [ENTRYPOINT_SCOPE]: connection factories
 
-| [INDEX] | [SURFACE]                                                   | [SHAPE] | [CAPABILITY]                                        |
-| :-----: | :---------------------------------------------------------- | :------ | :-------------------------------------------------- |
-|  [01]   | `connect(uri=None) -> AdbcDatabase`                         | factory | low-level SQLite database handle                    |
+| [INDEX] | [SURFACE]                                                   | [SHAPE] | [CAPABILITY]                                             |
+| :-----: | :---------------------------------------------------------- | :------ | :------------------------------------------------------- |
+|  [01]   | `connect(uri=None) -> AdbcDatabase`                         | factory | low-level SQLite database handle                         |
 |  [02]   | `dbapi.connect(uri=None, **kwargs) -> AdbcSqliteConnection` | factory | DBAPI connection; `**kwargs` reach `Connection.__init__` |
 
 [CONNECT_SHAPE]: `dbapi.connect` binds the database itself and forwards `**kwargs` to `AdbcSqliteConnection.__init__`, NOT to the manager's `connect` — a `db_kwargs=`/`conn_kwargs=` keyword its sibling drivers accept raises `TypeError` here, so the URI is this driver's whole connect surface.

@@ -5,7 +5,7 @@
 - module: ESM only (`type: module`); single `.` barrel, no subpaths.
 - asset: `dist/index.d.ts`; bundles `fractional-indexing`, `murmurhash-js`, `sorted-btree`.
 - runtime: pure-TS in-process dataflow under node, bun, browser, worker; zero peer dependencies.
-- ABI: fully synchronous scheduler — `run()`/`step()` drain on the calling thread; every barrel-reachable operator is sync.
+- abi: fully synchronous scheduler — `run()`/`step()` drain on the calling thread; every barrel-reachable operator is sync.
 - plane: `plane:runtime` (W1); folder-local to `state`.
 - rail: incremental-dataflow / fold-maintenance.
 

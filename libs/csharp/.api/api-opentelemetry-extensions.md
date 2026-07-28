@@ -68,7 +68,8 @@
 [STACKING]:
 - `OpenTelemetry`(`api-opentelemetry.md`): supplies `BaseProcessor<Activity>`, `Sampler`, `SamplingParameters`, and the `TracerProviderBuilder`/`LoggerProviderBuilder` these verbs extend; `OpenTelemetry.Api` carries the `Baggage` both processors read.
 - `OpenTelemetry.Extensions.Hosting`(`api-opentelemetry-hosting.md`): the `WithTracing`/`WithLogging` delegates receive the builders these verbs register against.
-- `SignalGovernance.PromotedBaggage`: `AddBaggageActivityProcessor` chains it inside `WithTracing` ahead of the batch export processor, `AddBaggageProcessor` seats it on the log leg, `SetSampler` nests `RateLimitingSampler` under a `ParentBasedSampler` root, and `AttachLogsToActivityEvent` shapes the projection through the three conversion seats.
+- `Rasm.AppHost/Observability/telemetry#SIGNAL_GOVERNANCE`: `AddBaggageActivityProcessor(SignalGovernance.PromotedBaggage)` chains inside `WithTracing` ahead of the batch export processor, `AddBaggageProcessor(PromotedBaggage)` seats the same predicate on the log leg, and `AttachLogsToActivityEvent()` takes its shipped conversion seats whole.
+- `RateLimitingSampler` and `AddAutoFlushActivityProcessor` stand UNREACHED: the branch head policy resolves `TelemetrySignal.Trace.Ratio` into `ParentBasedSampler(TraceIdRatioBasedSampler(...))`, which thins proportionally and bounds no absolute rate, and no seat flushes the provider on a matched span. Both belong on that same `SetSampler` and processor chain as policy-row arms, and either is one row rather than a second composition.
 
 [LOCAL_ADMISSION]:
 - One `Predicate<string>` serves both promotion legs, so span tags and log attributes never carry divergent allowlists.

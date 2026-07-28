@@ -38,13 +38,19 @@
 
 [ENTRYPOINT_SCOPE]: AEAD seal and open
 
-| [INDEX] | [SURFACE]                                      | [SHAPE]     | [CAPABILITY]                                                |
-| :-----: | :--------------------------------------------- | :---------- | :---------------------------------------------------------- |
-|  [01]   | `AESGCM.generate_key(bit_length)`              | static      | mints 128/192/256-bit key material from the platform CSPRNG |
-|  [02]   | `AESGCM(key)`                                  | constructor | binds one key; the instance carries no nonce state          |
-|  [03]   | `AESGCM.encrypt(nonce, data, associated_data)` | instance    | returns ciphertext with the 16-byte tag appended            |
-|  [04]   | `AESGCM.decrypt(nonce, data, associated_data)` | instance    | returns plaintext or raises `InvalidTag`                    |
-|  [05]   | `AESSIV.encrypt(data, associated_data)`        | instance    | deterministic arm taking no nonce parameter                 |
+| [INDEX] | [SURFACE]                                         | [SHAPE]     | [CAPABILITY]                                                 |
+| :-----: | :------------------------------------------------ | :---------- | :----------------------------------------------------------- |
+|  [01]   | `AESGCM.generate_key(bit_length)`                 | static      | mints 128/192/256-bit key material from the platform CSPRNG  |
+|  [02]   | `AESGCM(key)`                                     | constructor | binds one key; the instance carries no nonce state           |
+|  [03]   | `AESGCM.encrypt(nonce, data, associated_data)`    | instance    | returns ciphertext with the 16-byte tag appended             |
+|  [04]   | `AESGCM.decrypt(nonce, data, associated_data)`    | instance    | returns plaintext or raises `InvalidTag`                     |
+|  [05]   | `AESSIV.encrypt(data, associated_data)`           | instance    | deterministic arm taking no nonce parameter                  |
+|  [06]   | `AESSIV.decrypt(data, associated_data)`           | instance    | deterministic open; raises `InvalidTag` on an integrity miss |
+|  [07]   | `AESSIV.generate_key(bit_length)`                 | static      | mints 256/384/512-bit doubled key material                   |
+|  [08]   | `AESGCMSIV.generate_key(bit_length)`              | static      | mints 128/192/256-bit key material                           |
+|  [09]   | `AESGCMSIV(key)`                                  | constructor | binds one key; nonce width is fixed at twelve bytes          |
+|  [10]   | `AESGCMSIV.encrypt(nonce, data, associated_data)` | instance    | misuse-resistant seal; a repeated nonce leaks equality alone |
+|  [11]   | `AESGCMSIV.decrypt(nonce, data, associated_data)` | instance    | returns plaintext or raises `InvalidTag`                     |
 
 [ENTRYPOINT_SCOPE]: key wrapping, derivation, and comparison
 
@@ -64,6 +70,10 @@
 - binding law: `associated_data` authenticates without encrypting, so an envelope binds its own identity coordinate there and a ciphertext relocated onto another identity fails its tag instead of opening under a live key.
 - tag law: `decrypt` distinguishes nothing about WHY authentication failed — a wrong key, an altered ciphertext, and foreign associated data all raise `InvalidTag` — so an owner that must separate erasure from tampering decides absence from its own key ledger before it ever calls `decrypt`.
 - length law: `aes_key_wrap` refuses input whose length is not a multiple of eight bytes, so wrapping arbitrary material rides the padded RFC-5649 arm or an AEAD wrap that carries its own nonce.
+- width law: `AESSIV` doubles its key — 256, 384, and 512 bits are the whole admitted set, half MAC and half CTR — so a composing owner sizing a KEK against the AES key widths its sibling primitives take resolves half the cipher it asked for and refuses at construction.
+- nonce-width law: `AESGCMSIV` fixes its nonce at twelve bytes and refuses every other width, unlike `AESGCM`, which accepts a variable nonce and merely recommends ninety-six bits — so a shared nonce constant serving both primitives is sized by the stricter one.
+- associated-data law: `AESSIV` takes a SEQUENCE of byte strings where every other AEAD here takes one optional buffer, so handing it a bare `bytes` raises `TypeError` rather than authenticating; a single binding coordinate crosses as a one-element list.
+- mint law: each key mint names the primitive that CONSUMES it, since the generators are per-class and a width one class admits its sibling refuses, which turns a cross-primitive mint into a construction failure at the seal rather than at the mint.
 
 [STACKING]:
 - `msgspec`(`libs/python/.api/msgspec.md`): ciphertext, nonce, and wrapped key ride `bytes` fields on frozen `Struct` rows, so a sealed envelope encodes and persists through the same codec every other wire shape crosses and no ciphertext is re-framed as text.

@@ -231,6 +231,8 @@
         <!-- GrpcNetClient instrumentation ships beta-only; pinned to the sole published channel. -->
         <PackageVersion Include="OpenTelemetry.Instrumentation.GrpcNetClient"             Version="1.17.0-beta.1" />
         <PackageVersion Include="OpenTelemetry.Instrumentation.Http"                      Version="1.17.0" />
+        <!-- Process instrumentation ships rc-only; pinned to the sole published channel. -->
+        <PackageVersion Include="OpenTelemetry.Instrumentation.Process"                   Version="1.17.0-rc.1" />
         <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime"                   Version="1.17.0" />
         <PackageVersion Include="OpenTelemetry.PersistentStorage.FileSystem"              Version="1.1.1" />
         <!-- Resource detectors ship prerelease-only; each pinned to its sole published channel. -->

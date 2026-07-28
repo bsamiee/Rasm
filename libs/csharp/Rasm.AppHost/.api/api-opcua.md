@@ -211,7 +211,7 @@ Arming members set on the object initializer before `Subscription.AddItem` and `
 
 [STACKING]:
 - `Wire/livewire.md` `OpcUaLane`: composes the managed `Session`/`Subscription`/`MonitoredItem` surface; each `MonitoredItem.Notification` projects one `DataValue` into `ExternalValue` and writes it to one bounded `Channel<ExternalValue>`, never running the interior on the OPC UA publish thread; `PubSubLane` composes `UaPubSubApplication.DataReceived`, fanning each dataset field into the same lane.
-- `api-mqtt`(`.api/api-mqtt.md`): the peer `MQTTnet` transport row; its `IMqttClient` fan and this surface's `UaPubSubApplication.DataReceived` fan drain into the one bounded `Channel<ExternalValue>` the live-wire studio owns.
+- `api-mqtt`(`libs/csharp/.api/api-mqtt.md`): the peer `MQTTnet` transport row; its `IMqttClient` fan and this surface's `UaPubSubApplication.DataReceived` fan drain into the one bounded `Channel<ExternalValue>` the live-wire studio owns.
 
 [LOCAL_ADMISSION]:
 - Application configuration loads through `ApplicationConfiguration.LoadAsync` from a file, stream, or .NET configuration section.

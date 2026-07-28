@@ -14,21 +14,25 @@
 
 [PUBLIC_TYPE_SCOPE]: trace family
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]                                           |
-| :-----: | :------------------- | :------------ | :----------------------------------------------------- |
-|  [01]   | `TracerProvider`     | abstract      | tracer factory contract                                |
-|  [02]   | `Tracer`             | abstract      | span creation contract                                 |
-|  [03]   | `Span`               | abstract      | active span operation contract                         |
-|  [04]   | `SpanContext`        | value         | immutable trace/span/flag triple                       |
-|  [05]   | `StatusCode`         | enum          | `UNSET`, `OK`, `ERROR`                                 |
-|  [06]   | `Status`             | value         | status code plus optional message                      |
-|  [07]   | `SpanKind`           | enum          | `INTERNAL`, `SERVER`, `CLIENT`, `PRODUCER`, `CONSUMER` |
-|  [08]   | `TraceFlags`         | value         | sampled and parent flags bitfield                      |
-|  [09]   | `TraceState`         | value         | W3C trace state key-value list                         |
-|  [10]   | `Link`               | value         | cross-trace span link                                  |
-|  [11]   | `NonRecordingSpan`   | no-op         | API-only no-op span                                    |
-|  [12]   | `NoOpTracer`         | no-op         | no-op tracer for API-only use                          |
-|  [13]   | `NoOpTracerProvider` | no-op         | no-op tracer provider                                  |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]                                                 |
+| :-----: | :--------------------- | :------------ | :----------------------------------------------------------- |
+|  [01]   | `TracerProvider`       | abstract      | tracer factory contract                                      |
+|  [02]   | `Tracer`               | abstract      | span creation contract                                       |
+|  [03]   | `Span`                 | abstract      | active span operation contract                               |
+|  [04]   | `SpanContext`          | value         | immutable trace/span/flag triple with `is_valid`/`is_remote` |
+|  [05]   | `StatusCode`           | enum          | `UNSET`, `OK`, `ERROR`                                       |
+|  [06]   | `Status`               | value         | status code plus optional message                            |
+|  [07]   | `SpanKind`             | enum          | `INTERNAL`, `SERVER`, `CLIENT`, `PRODUCER`, `CONSUMER`       |
+|  [08]   | `TraceFlags`           | value         | sampled and parent flags bitfield                            |
+|  [09]   | `TraceState`           | value         | W3C trace state key-value list                               |
+|  [10]   | `Link`                 | value         | cross-trace span link                                        |
+|  [11]   | `NonRecordingSpan`     | no-op         | API-only no-op span                                          |
+|  [12]   | `NoOpTracer`           | no-op         | no-op tracer for API-only use                                |
+|  [13]   | `NoOpTracerProvider`   | no-op         | no-op tracer provider                                        |
+|  [14]   | `INVALID_SPAN_CONTEXT` | constant      | zeroed context returned wherever no valid span resolves      |
+|  [15]   | `INVALID_SPAN`         | constant      | `NonRecordingSpan` over `INVALID_SPAN_CONTEXT`               |
+|  [16]   | `INVALID_TRACE_ID`     | constant      | zero trace id, exclusive lower bound of the valid range      |
+|  [17]   | `INVALID_SPAN_ID`      | constant      | zero span id, exclusive lower bound of the valid range       |
 
 [PUBLIC_TYPE_SCOPE]: metrics family
 
@@ -70,27 +74,32 @@
 
 [ENTRYPOINT_SCOPE]: trace API
 
-| [INDEX] | [SURFACE]                                                          | [SHAPE]        | [CAPABILITY]                             |
-| :-----: | :----------------------------------------------------------------- | :------------- | :--------------------------------------- |
-|  [01]   | `trace.get_tracer_provider()`                                      | provider       | global tracer provider                   |
-|  [02]   | `trace.set_tracer_provider(tracer_provider)`                       | provider       | install global tracer provider           |
-|  [03]   | `trace.get_tracer(name, version, ...)`                             | tracer         | obtain instrumentation tracer            |
-|  [04]   | `trace.get_current_span(context)`                                  | span           | current active span                      |
-|  [05]   | `trace.set_span_in_context(span, context)`                         | context        | embed span into context                  |
-|  [06]   | `trace.use_span(span, end_on_exit, ...)`                           | context mgr    | span context manager                     |
-|  [07]   | `trace.format_trace_id(trace_id)`                                  | utility        | hex-format trace id                      |
-|  [08]   | `trace.format_span_id(span_id)`                                    | utility        | hex-format span id                       |
-|  [09]   | `Tracer.start_span(name, context, kind, ...)`                      | span creation  | create detached span                     |
-|  [10]   | `Tracer.start_as_current_span(name, ...)`                          | span creation  | create and activate span                 |
-|  [11]   | `Span.set_attribute(key, value)`                                   | span mutation  | attach one typed attribute               |
-|  [12]   | `Span.set_attributes(attributes)`                                  | span mutation  | attach a mapping of attributes at once   |
-|  [13]   | `Span.add_event(name, attributes, timestamp)`                      | span mutation  | record timestamped event                 |
-|  [14]   | `Span.add_link(context, attributes)`                               | span mutation  | link to another span context post-start  |
-|  [15]   | `Span.set_status(status, description)`                             | span mutation  | set span outcome status                  |
-|  [16]   | `Span.record_exception(exception, attributes, timestamp, escaped)` | span mutation  | record exception on span                 |
-|  [17]   | `Span.update_name(name)`                                           | span mutation  | rename span after start                  |
-|  [18]   | `Span.is_recording()` / `Span.get_span_context()`                  | span query     | recording flag / immutable `SpanContext` |
-|  [19]   | `Span.end(end_time)`                                               | span lifecycle | end and finalize span                    |
+| [INDEX] | [SURFACE]                                                             | [SHAPE]        | [CAPABILITY]                             |
+| :-----: | :-------------------------------------------------------------------- | :------------- | :--------------------------------------- |
+|  [01]   | `trace.get_tracer_provider()`                                         | provider       | global tracer provider                   |
+|  [02]   | `trace.set_tracer_provider(tracer_provider)`                          | provider       | install global tracer provider           |
+|  [03]   | `trace.get_tracer(name, version, ...)`                                | tracer         | obtain instrumentation tracer            |
+|  [04]   | `trace.get_current_span(context)`                                     | span           | current active span                      |
+|  [05]   | `trace.set_span_in_context(span, context)`                            | context        | embed span into context                  |
+|  [06]   | `trace.use_span(span, end_on_exit, ...)`                              | context mgr    | span context manager                     |
+|  [07]   | `trace.format_trace_id(trace_id)`                                     | utility        | hex-format trace id                      |
+|  [08]   | `trace.format_span_id(span_id)`                                       | utility        | hex-format span id                       |
+|  [09]   | `Tracer.start_span(name, context, kind, ...)`                         | span creation  | create detached span                     |
+|  [10]   | `Tracer.start_as_current_span(name, ...)`                             | span creation  | create and activate span                 |
+|  [11]   | `Span.set_attribute(key, value)`                                      | span mutation  | attach one typed attribute               |
+|  [12]   | `Span.set_attributes(attributes)`                                     | span mutation  | attach a mapping of attributes at once   |
+|  [13]   | `Span.add_event(name, attributes, timestamp)`                         | span mutation  | record timestamped event                 |
+|  [14]   | `Span.add_link(context, attributes)`                                  | span mutation  | link to another span context post-start  |
+|  [15]   | `Span.set_status(status, description)`                                | span mutation  | set span outcome status                  |
+|  [16]   | `Span.record_exception(exception, attributes, timestamp, escaped)`    | span mutation  | record exception on span                 |
+|  [17]   | `Span.update_name(name)`                                              | span mutation  | rename span after start                  |
+|  [18]   | `Span.is_recording()` / `Span.get_span_context()`                     | span query     | recording flag / immutable `SpanContext` |
+|  [19]   | `Span.end(end_time)`                                                  | span lifecycle | end and finalize span                    |
+|  [20]   | `SpanContext.is_valid`                                                | span query     | precomputed id-range validity flag       |
+|  [21]   | `SpanContext.is_remote`                                               | span query     | remote-origin flag fixed at construction |
+|  [22]   | `SpanContext(trace_id, span_id, is_remote, trace_flags, trace_state)` | construction   | construct immutable span context         |
+
+- `SpanContext(trace_id: int, span_id: int, is_remote: bool, trace_flags=DEFAULT_TRACE_OPTIONS, trace_state=DEFAULT_TRACE_STATE)` takes the remote flag as a POSITIONAL third argument, so a synthesized parent declares its own provenance at construction and nothing downstream re-decides it
 
 [ENTRYPOINT_SCOPE]: metrics API
 
@@ -156,6 +165,8 @@
 - `Logger` handles mint per `get_logger` call under no SDK cache, so a per-emit mint allocates on the hot path; memoize the handle per provider identity, never per call, and a pre-install no-op provider is a distinct object so the memo upgrades at install with no invalidation
 - `Context` is immutable and contextvars-backed; `attach`/`detach` are scoped and token-paired
 - `start_span` returns a detached span; `start_as_current_span` activates and ends the span as a context manager
+- `is_valid` computes ONCE inside `__new__` as `INVALID_TRACE_ID < trace_id <= _TRACE_ID_MAX_VALUE and INVALID_SPAN_ID < span_id <= _SPAN_ID_MAX_VALUE` and stores as tuple field 5, so a consumer reads the flag and never re-derives the range check; `SpanContext` subclasses `tuple` and NOT `NamedTuple`, so it carries no `_fields` and a structural walk indexes positionally
+- `trace.get_current_span(context)` over a context holding no span returns `INVALID_SPAN` — `NonRecordingSpan` over `INVALID_SPAN_CONTEXT`, `is_valid` False and `is_recording()` False — so an absent parent surfaces as an invalid context rather than `None` and every caller branches on the flag
 - span attribute values are `str | bool | int | float | Sequence[str | bool | int | float]` under non-empty string keys; `set_attributes` binds a mapping in one call
 - log-record attributes take the WIDER `_ExtendedAttributes`/`AnyValue` shape on `Logger.emit(attributes=)` and `get_logger(attributes=)` — `None`, `bytes`, and nested mapping and sequence values survive the record cleaner where a span attribute of that shape drops with a warning — so a producer projects a whole structured event onto one record rather than flattening it; nesting depth, collection width, and byte length stay its own bounds, since that cleaner truncates `str` alone
 - extended sequences stay HOMOGENEOUS or vanish: `_clean_extended_attribute_value` types a sequence off its first non-null element and nulls the WHOLE value at the first element of another type — `bool` beside `int` reaches that bar — while a mapping carries no such rule, so a mixed collection projects onto an index-keyed mapping or vanishes unread; `None` elements never type the sequence, `bytes` survive undecoded here, and a value outside `AnyValue` stringifies rather than dropping
@@ -163,6 +174,7 @@
 - `get_meter` before the install resolves `_ProxyMeterProvider`, whose `_ProxyMeter` mints a `_Proxy*` instrument per family; each SUBCLASSES the abstract family here, so `isinstance` narrowing and a structural `match` over `Counter | UpDownCounter | Histogram | _Gauge` hold identically on a proxy, and `set_meter_provider` re-mints every registered proxy against the real meter with no consumer invalidation — so an instrument set built at import time stays live and correctly typed across the install
 - baggage is cross-process key-value context (`set_baggage` derives a new immutable `Context`), distinct from span-local attributes and never auto-copied onto a span
 - `TextMapPropagator` reads via `Getter[CarrierT]` and writes via `Setter[CarrierT]`; one `CompositePropagator([TraceContextTextMapPropagator(), W3CBaggagePropagator()])` chains both W3C codecs over one carrier, installed via `set_global_textmap`
+- `propagate.extract` defaults its `context` slot to the AMBIENT context, so a carrier carrying no `traceparent` returns that ambient context unchanged and `get_current_span` off it yields the LIVE LOCAL span (`is_valid` True, `is_remote` False) rather than an invalid one; extraction success therefore proves nothing about origin, and `parent.is_remote` is the one member deciding remote hop against local parent — a call site stamping `remote=True` off a returned context mislabels every local parent
 
 [STACKING]:
 - `grpcio`(`.api/grpcio.md`): a client interceptor stamps the active context via `propagate.inject(metadata, setter=...)`, a server interceptor continues it via `propagate.extract(invocation_metadata, getter=...)` then `start_as_current_span(kind=SpanKind.SERVER)`; this surface owns the W3C `traceparent`/`tracestate` encoding, `grpcio` owns the `aio.Metadata` carrier

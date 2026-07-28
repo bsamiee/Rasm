@@ -65,6 +65,8 @@ Each family is a `readonly struct` with native operators, keyed by its `Quantity
 |  [29]   | `Luminance`               | `CandelaPerSquareMeter`        | directional surface light |
 |  [30]   | `LuminousFlux`            | `Lumen`                        | perceived light power     |
 |  [31]   | `LuminousIntensity`       | `Candela`                      | directional luminous flux |
+|  [32]   | `LinearDensity`           | `KilogramPerMeter`             | mass per unit length      |
+|  [33]   | `VolumePerLength`         | `CubicMeterPerMeter`           | volume per unit length    |
 
 [PUBLIC_TYPE_SCOPE]: parsing, conversion, metadata, and registration
 
@@ -184,6 +186,10 @@ Each family is a `readonly struct` with native operators, keyed by its `Quantity
 |  [35]   | `Length.Units`                                             | static   | unit vocabulary            |
 |  [36]   | `Length.Info`                                              | static   | quantity metadata          |
 |  [37]   | `Length.BaseDimensions`                                    | static   | dimension metadata         |
+
+Per-unit projection property names PLURALIZE the singular `<Quantity>Unit` enum row, and the plural falls on the leading noun of a compound unit, so a name derived mechanically from the enum misses on every compound. Selectors below are the SI base-unit reads for the families whose fences project a canonical scalar.
+
+[SI_SELECTORS]: `Density.KilogramsPerCubicMeter` `ThermalConductivity.WattsPerMeterKelvin` `SpecificEntropy.JoulesPerKilogramKelvin` `HeatTransferCoefficient.WattsPerSquareMeterKelvin` `LinearDensity.KilogramsPerMeter` `VolumePerLength.CubicMetersPerMeter`
 
 [ENTRYPOINT_SCOPE]: typed and dynamic parsing
 

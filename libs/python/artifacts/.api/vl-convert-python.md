@@ -16,7 +16,7 @@
 
 [PUBLIC_TYPE_SCOPE]: module surface and the typed render vocabularies
 
-`__all__` is the flat function family (`vegalite_to_*`/`vega_to_*` spec converters, `svg_to_*` rasterizers, config/locale/tz/version helpers) with the `__version__` constant; no public class, no options object. A `vl_convert` submodule attribute binds on the native core, excluded from `__all__`; every call routes through the top-level names. `__init__.pyi` ships the `TYPE_CHECKING` vocabularies the design page composes against rather than raw strings — `theme`/`renderer`/`format_locale`/`time_format_locale` are closed domains.
+`__all__` is the flat function family (`vegalite_to_*`/`vega_to_*` spec converters, `svg_to_*` rasterizers, config/locale/tz/version helpers) with the `__version__` constant; no public class, no options object. `vl_convert.vl_convert` binds the native core as a submodule attribute excluded from `__all__`; every call routes through the top-level names. `__init__.pyi` ships the `TYPE_CHECKING` vocabularies the design page composes against rather than raw strings — `theme`/`renderer`/`format_locale`/`time_format_locale` are closed domains.
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]                                                                      |
 | :-----: | :--------------------- | :------------ | :-------------------------------------------------------------------------------- |
@@ -64,26 +64,27 @@ Vega rows take a compiled `vg_spec` (`VlSpec`) and share `allowed_base_urls`/`fo
 
 [ENTRYPOINT_SCOPE]: configuration, locale, timezone, and version queries
 
-`register_font_directory` provisions fonts once before any render — the embedded engine resolves only registered + system faces. `get_format_locale`/`get_time_format_locale` return d3 locale dicts feeding the `format_locale`/`time_format_locale` render args; `get_local_tz` reports the IANA tz Vega applies to time axes. `javascript_bundle` requires its `snippet` (no default); pass `""` for the bare library bundle. Version/theme queries answer the engine's compatibility surface live.
+`register_font_directory` provisions fonts once before any render — the engine resolves only registered + system faces. `get_format_locale`/`get_time_format_locale` return d3 locale dicts feeding the `format_locale`/`time_format_locale` args, keyed `decimal`/`thousands`/`grouping`/`currency` and `dateTime`/`date`/`time`/`periods`/`days`/`shortDays`; `get_local_tz` reports the IANA tz Vega applies to time axes. `javascript_bundle(snippet=None, vl_version=None)` defaults BOTH slots, so a bare call emits the library bundle. Version/theme queries answer the engine's compatibility surface live.
 
-| [INDEX] | [SURFACE]                                         | [CAPABILITY]                                         |
-| :-----: | :------------------------------------------------ | :--------------------------------------------------- |
-|  [01]   | `register_font_directory(font_dir)` -> `None`     | register a custom-font directory for later renders   |
-|  [02]   | `get_themes()` -> `dict[VegaThemes, dict]`        | config dict for each built-in named theme            |
-|  [03]   | `get_format_locale(name)` -> `dict`               | d3-format locale dict for a named locale             |
-|  [04]   | `get_time_format_locale(name)` -> `dict`          | d3-time-format locale dict for a named locale        |
-|  [05]   | `get_vegalite_versions()` -> `list[str]`          | bundled Vega-Lite versions (the `vl_version` domain) |
-|  [06]   | `get_vega_version()` -> `str`                     | bundled Vega runtime version                         |
-|  [07]   | `get_vega_embed_version()` -> `str`               | bundled Vega-Embed version (HTML/bundle path)        |
-|  [08]   | `get_vega_themes_version()` -> `str`              | bundled Vega-Themes version (the `theme` domain)     |
-|  [09]   | `javascript_bundle(snippet, vl_version)` -> `str` | self-contained Vega/Vega-Lite/Vega-Embed JS bundle   |
-|  [10]   | `get_local_tz()` -> `str \| None`                 | the IANA tz Vega applies to time axes                |
+| [INDEX] | [SURFACE]                                                   | [CAPABILITY]                                         |
+| :-----: | :---------------------------------------------------------- | :--------------------------------------------------- |
+|  [01]   | `register_font_directory(font_dir)` -> `None`               | register a custom-font directory for later renders   |
+|  [02]   | `get_themes()` -> `dict[VegaThemes, dict]`                  | config dict for each built-in named theme            |
+|  [03]   | `get_format_locale(name)` -> `dict`                         | d3-format locale dict for a named locale             |
+|  [04]   | `get_time_format_locale(name)` -> `dict`                    | d3-time-format locale dict for a named locale        |
+|  [05]   | `get_vegalite_versions()` -> `list[str]`                    | bundled Vega-Lite versions (the `vl_version` domain) |
+|  [06]   | `get_vega_version()` -> `str`                               | bundled Vega runtime version                         |
+|  [07]   | `get_vega_embed_version()` -> `str`                         | bundled Vega-Embed version (HTML/bundle path)        |
+|  [08]   | `get_vega_themes_version()` -> `str`                        | bundled Vega-Themes version (the `theme` domain)     |
+|  [09]   | `javascript_bundle(snippet=None, vl_version=None)` -> `str` | self-contained Vega/Vega-Lite/Vega-Embed JS bundle   |
+|  [10]   | `get_local_tz()` -> `str \| None`                           | the IANA tz Vega applies to time axes                |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Render axis: `import vl_convert as vlc`, and `vegalite_to_*`/`vega_to_*` is one converter surface keyed by output format × spec dialect; `visualization/chart/export#EXPORT` carries the per-format member pair as a `VlRow(vl, vega, text)` cell in the `VL_RENDER` table totalled over `ExportFormat`, each typed cell calling the provider with explicit format-correct keywords while the spec's `$schema` selects the dialect. Vega-Lite is the authoring dialect; `vegalite_to_vega` materializes the compiled Vega for cache or inspection; `vegalite_to_scenegraph`/`vega_to_scenegraph` expose the resolved scenegraph dict for measurement without committing a raster.
 - Raster-reuse axis: `svg_to_png`/`svg_to_jpeg`/`svg_to_pdf` rasterize a finished SVG string through the same embedded `resvg` core the raster chart rows use; the owner renders `vegalite_to_svg` once and rasters that SVG to every target rather than re-running the V8 pipeline per format.
+- HTML-embed axis: `vegalite_to_html(vl_spec, vl_version=None, bundle=None, config=None, theme=None, format_locale=None, time_format_locale=None, renderer=None)` and `vega_to_html(vg_spec, bundle=None, format_locale=None, time_format_locale=None, renderer=None)` carry NO `output_div` and no embed-options passthrough — mount div id hardcodes to `vega-chart` and the emitted options object is exactly `{"renderer": "<renderer>"}` — so one spec per document is the row's ceiling; an N-chart page calls `javascript_bundle()` once (~900K chars, one inline script) and emits its own `vegaEmbed('#<id>', spec, opts)` mount per chart. `javascript_bundle` takes `vl_version` in the `'v6_4'` or `'v6.4'` spelling and a `snippet` of import-free ES6 over the `vegaEmbed`/`vegaLite`/`vega`/`lodashDebounce` globals, its default snippet assigning `vega`/`vegaLite`/`vegaEmbed` onto `window`. `bundle=True` inlines the runtime as 2 script tags carrying zero `src=` references while an omitted or `False` bundle emits 4 script tags carrying 3 `cdn.jsdelivr.net` references, so an offline artifact pins `bundle=True`. `renderer` is the only render knob any HTML row exposes and no renderer or embed-options registry member exists beside it.
 - Font axis: `register_font_directory` is the one font hook, called once before render; the engine resolves only registered + system faces, so a custom face is a one-time registration, never a parallel render path.
 - Locale/tz axis: `get_format_locale`/`get_time_format_locale` return d3 dicts threaded into `format_locale`/`time_format_locale`; `get_local_tz()` reports the IANA tz Vega applies to time axes, pinned beside the time-format locale so a headless render reproduces the authored time axis with no host-tz drift — localization is a render-arg row, never a re-formatted spec.
 - Version axis: `get_vegalite_versions`/`get_themes`/`get_vega_version`/`get_vega_embed_version`/`get_vega_themes_version` answer the spec-compatibility query live; the owner pins `vl_version`/`theme` from them and records the returned actuals on the receipt — the live query is the truth, never the `.pyi` docstring strings.
@@ -104,4 +105,4 @@ Vega rows take a compiled `vg_spec` (`VlSpec`) and share `allowed_base_urls`/`fo
 - Package: `vl-convert-python`
 - Owns: headless Vega-Lite/Vega static render to SVG/PNG/JPEG/PDF/HTML/scenegraph, chart-origin SVG-string rasterization over the embedded `resvg` core, Vega-Lite-to-Vega compilation, Vega-editor URL minting, font registration, d3 locale + IANA tz resolution, and bundled version/theme/JS-bundle queries — no browser, no Node, no external process
 - Accept: spec-to-bytes render for `altair`/`vegafusion` output feeding `visualization/chart/export#EXPORT` and the `composition/compose#COMPOSE`/document owners; chart-origin (`altair`/Vega/`lets-plot`/`typst`) SVG-to-raster; all wrapped by the universal `anyio`/`msgspec`/`structlog`/`opentelemetry`/`expression`/`stamina` rails
-- Reject: a wrapper-rename of `vegalite_to_*`; a per-format renderer class where the `VL_RENDER` row table discriminates; a Node/browser render path the embedded V8 core forecloses; a `javascript_bundle` call omitting the required `snippet`; trust in a `.pyi` version string where the live `get_*_version` query is the receipt truth; an `inline_datasets=` feed no `vegalite_to_*` row carries; a second rasterizer for chart-origin SVG the bundled `resvg` core owns; an inline render on the event loop or a folder-local limiter beside `LanePolicy`; a parallel visuals-receipt type where `ArtifactReceipt.Chart` is the fact; identity the runtime owns
+- Reject: a wrapper-rename of `vegalite_to_*`; a per-format renderer class where the `VL_RENDER` row table discriminates; a Node/browser render path the embedded V8 core forecloses; a multi-chart HTML document assembled from repeated `*_to_html` calls where one `javascript_bundle` and caller-emitted `vegaEmbed` mounts is the shape; trust in a `.pyi` version string where the live `get_*_version` query is the receipt truth; an `inline_datasets=` feed no `vegalite_to_*` row carries; a second rasterizer for chart-origin SVG the bundled `resvg` core owns; an inline render on the event loop or a folder-local limiter beside `LanePolicy`; a parallel visuals-receipt type where `ArtifactReceipt.Chart` is the fact; identity the runtime owns

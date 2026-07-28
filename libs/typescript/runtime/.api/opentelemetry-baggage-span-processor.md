@@ -43,7 +43,7 @@
 - `otel/emit.md` `Hooks.contribute`: one `SpanProcessor` row folded behind the policy's own; identity scopes the tracer provider, so per-app promotion never tangles across a multi-app host.
 - `otel/emit.md` `Propagation.ingress`: ingress decodes the `baggage` header into the context `Baggage` this reads, closing the loop propagation opens — an upstream tenant set rides span attributes with zero emit-site change.
 - `otel/emit.md` `Redaction`: promotion writes attributes before the span freezes, so the export scrub still governs — a promoted key matching a deny rule seals at `onEnding`.
-- `otel/meter.md` `Pulse.tenants`: the promoted `rasm.tenant` attribute is the walk's first hop — baggage to span to metric view under the shared cardinality ceiling.
+- `otel/meter.md` `Pulse.views` `tenant` row: the promoted `rasm.tenant` attribute is the walk's first hop — baggage to span to metric view under that row's own cardinality ceiling.
 
 [LOCAL_ADMISSION]:
 - `scope:runtime`, lane-neutral; the app composition root builds the predicate from the promotion key set and contributes the processor once — a library-altitude construction double-stamps the span.

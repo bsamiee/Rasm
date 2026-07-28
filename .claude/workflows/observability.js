@@ -1,15 +1,15 @@
 export const meta = {
     name: 'observability',
     description:
-        'Realize one phase of the observability + analytics campaign against .claude/scratch/observability/CAMPAIGN.md. args = {phase: 1..5}, bare number accepted, empty = no-op. Per phase: territory-congruent recon lanes write dossiers to run scratch, then each territory runs implement then critique then red-team over its own disjoint page set, then a residual drain fixpoint and a verify lane close the phase. Phase 1 runs a kernel barrier before its consumer fan, phase 3 mints the collector catalog and spec axes before its one deep writer, phase 5 adds ordered serial closers.',
-    whenToUse: 'Landing a phase of the observability + analytics campaign in the Rasm planning corpus.',
+        'Close the observability + analytics campaign against .claude/scratch/observability/CAMPAIGN.md. args = {phase: 6}, bare number accepted, empty = no-op. Eight deep-read recon lanes write dossiers to run scratch, then eight lenses run with full writer authority — conformance, cross-branch parity, backend-family integration, strata leverage, evidence and execution planes, fence seams, escalation arms, and .api ultra-stack truth. The four capability lenses each carry a critique and red-team pair; the four proof lenses run light. One serial custody closer follows, settling governance truth, the scars, the proof estate, and the two escalated adjudications. A residual drain fixpoint closes the run.',
+    whenToUse: 'Closing out the observability + analytics campaign in the Rasm planning corpus.',
     phases: [
-        { title: 'Recon', detail: 'territory-congruent mapping lanes; dossier to disk, thin receipt on the wire', model: 'sonnet' },
+        { title: 'Recon', detail: 'deep-read mapping lanes; dossier to disk, thin receipt on the wire' },
         { title: 'Kernel', detail: 'serial barrier writer for owners the territory fan composes' },
-        { title: 'Implement', detail: 'one ground-up writer per territory over its disjoint page set' },
+        { title: 'Implement', detail: 'one lens per territory, full writer authority over its disjoint page set' },
         { title: 'Critique', detail: 'predicate-positive conformance and capability audit, repaired in place' },
         { title: 'RedTeam', detail: 'predicate-negative pre-mortem, rebuilt in place' },
-        { title: 'Serial', detail: 'ordered closers over shared governance surfaces', model: 'fable' },
+        { title: 'Serial', detail: 'custody closer over shared governance surfaces', model: 'fable' },
         { title: 'Drain', detail: 'cluster pooled residuals by shared file, fix and verify each cluster' },
         { title: 'Verify', detail: 'adversarial proof on disk against the campaign verification section' },
     ],
@@ -33,483 +33,6 @@ const DRAIN_LANES = 6;
 // after the fan, for closers that share one governance surface. `light` territories skip the reviewer
 // pair, for mechanical truth work a verify already covers.
 const PHASE_ROWS = {
-    1: {
-        title: 'C# kernel owners',
-        barrier: {
-            key: 'kernel',
-            pages: ['libs/csharp/Rasm/.planning/Domain/telemetry.md'],
-            charter:
-                'Sections [01.1] through [01.4]. Mint every kernel owner the six consumer pages compose, in the signal capsule ' +
-                'beside TelemetryContributorPort: the four causal-frame primitives (CorrelationId, TenantId/TenantContext with ' +
-                'TenantSlot and the Stamp disposal restore plus its absent-tenant arm, ReceiptEnvelope, ReceiptSinkPort), the one ' +
-                'InstrumentSpec owner carrying the union of both twin kind rosters as a [SmartEnum] and both construction shapes as ' +
-                'static factories on one record, and the SLO algebra transcribed from libs/typescript/core/.planning/observe/slo.md ' +
-                'in C# spelling (Sli closed family, Objective with derived budget, the four-row multi-window multi-burn-rate table, ' +
-                'one AlertSeverity [SmartEnum<string>] over page|ticket, one PanelKind over board.md eight closed panel rows). ' +
-                'Pin the semconv schema-url constant here beside TelemetryIdentity.Mint so all three signals bump together. ' +
-                'The InstrumentRow five-arg Bind signature is CORRECT and stays; add no Cells member to ReceiptFan, since Set.Cells ' +
-                'already reaches the value. Declarations must be verbatim-faithful to their current AppHost homes where the campaign ' +
-                'says verbatim. You own this page ALONE; the consumer pages are rewritten by a later fan and you edit none of them.',
-        },
-        territories: [
-            {
-                key: 'apphost',
-                pages: [
-                    'libs/csharp/Rasm.AppHost/.planning/Runtime/lifecycle.md',
-                    'libs/csharp/Rasm.AppHost/.planning/Runtime/ports.md',
-                    'libs/csharp/Rasm.AppHost/.planning/Runtime/profiles.md',
-                    'libs/csharp/Rasm.AppHost/.planning/Observability/instruments.md',
-                    'libs/csharp/Rasm.AppHost/.planning/Observability/health.md',
-                ],
-                charter:
-                    'Sections [01.1], [01.3], [01.4]. Delete the four causal-frame primitives from lifecycle.md and ports.md now that ' +
-                    'the kernel owns them, and repair every citation on these pages to cite the kernel. Delete health.md ' +
-                    '[05]-[ALERT_ENGINE] local severity, burn, and panel types against the kernel SLO algebra, keeping the ' +
-                    'domain-specific Sli instances; narrow health.md [06]-[TS_PROJECTION] frozen AlertSeverityKey to page|ticket at ' +
-                    'BOTH ends. Rewrite all 21+ HostInstruments rows in instruments.md to the five-arg Bind form ' +
-                    '(meter, cells, name, unit, text) => ..., dropping the enclosing Rows(LevelCells cells) capture; fix ' +
-                    'new InstrumentSet(<one positional arg>) and the ReceiptFan.Of(set:, cells:, tables:) call that passes a cells: ' +
-                    'the record does not declare, with the fan.Cells read becoming fan.Set.Cells.',
-            },
-            {
-                key: 'appui-compute',
-                pages: ['libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md', 'libs/csharp/Rasm.Compute/.planning/Runtime/receipts.md'],
-                charter:
-                    'Sections [01.2], [01.3]. These two pages hold the divergent InstrumentSpec twins. Delete both and rewrite the ' +
-                    'AppUi TelemetryRow / AppUiTelemetry.Contribute and the Compute ComputeInstrumentFan fences against the one kernel ' +
-                    'owner. Delete the AppUi local severity/burn/panel types against the kernel SLO algebra, keeping the ' +
-                    'domain-specific Sli instances. Cite the kernel for every causal-frame primitive.',
-            },
-            {
-                key: 'element-bim',
-                pages: ['libs/csharp/Rasm.Element/.planning/Projection/observe.md', 'libs/csharp/Rasm.Bim/.planning/Model/observability.md'],
-                charter:
-                    'Section [01.4]. Rewrite the InstrumentRow fences on both pages to the five-arg Bind form, dropping the enclosing ' +
-                    'Rows(LevelCells cells) capture; the Element static Counter<long> Counted(Meter, string, string, string) helper ' +
-                    'takes the cells thread too. Fix InstrumentSet.Of called without cells: on both pages. Cite the kernel for every ' +
-                    'causal-frame primitive.',
-            },
-            {
-                key: 'materials-fabrication',
-                pages: [
-                    'libs/csharp/Rasm.Materials/.planning/Projection/observability.md',
-                    'libs/csharp/Rasm.Fabrication/.planning/Process/telemetry.md',
-                ],
-                charter:
-                    'Sections [01.1], [01.3], [01.4]. Rewrite the InstrumentRow fences on both pages to the five-arg Bind form. Delete ' +
-                    'the Materials [06] and the Fabrication [08]-[SLO_ROWS] local severity, burn, and panel types against the kernel ' +
-                    'SLO algebra, keeping the domain-specific Sli instances — FabricationSlo must become expressible as a pack on the ' +
-                    'shared Sli/Objective carrier, since a later phase makes it a real Boards provenance producer. The Fabrication ' +
-                    'page lead stating the causal-frame primitives arrive from the AppHost port vocabulary becomes a kernel citation.',
-            },
-            {
-                key: 'persistence',
-                pages: ['libs/csharp/Rasm.Persistence/.planning/Store/observability.md', 'libs/csharp/Rasm.Persistence/README.md'],
-                charter:
-                    'Sections [01.1], [01.4]. Rewrite the InstrumentRow fences to the five-arg Bind form. Fix the UNCONDITIONAL tenant ' +
-                    'attribute write at UsageReceipt.Measured so an absent tenant writes NO attribute, matching the kernel ' +
-                    'TenantContext.Stamp absent-tenant arm. Both the page lead and the README lead stating the causal-frame primitives ' +
-                    'arrive from the AppHost port vocabulary become kernel citations.',
-            },
-        ],
-    },
-    2: {
-        title: 'Tier-0 conformance',
-        territories: [
-            {
-                key: 'cs-apphost',
-                pages: [
-                    'libs/csharp/Rasm.AppHost/.planning/Observability/telemetry.md',
-                    'libs/csharp/Rasm.AppHost/.planning/Observability/instruments.md',
-                    'libs/csharp/Rasm.AppHost/.planning/Runtime/profiles.md',
-                ],
-                charter:
-                    'Sections [02.1], [02.2], and the AppHost half of [02.3]. Every governance-table edit, the resource-identity triple ' +
-                    'repair, both logs legs including the persistent OTLP buffering owner, the baggage-store unification through ' +
-                    'TenantContext.Stamp mirroring onto Activity.Current, Activity.AddException composition, and the boundary reword ' +
-                    'naming Rasm.AppHost the branch telemetry composition owner. Verify the log-side baggage member on the assay rail ' +
-                    'BEFORE writing it — if no such member exists the row becomes a BaseProcessor<LogRecord> in the branch own code.',
-            },
-            {
-                key: 'cs-consumers',
-                pages: [
-                    'libs/csharp/Rasm.Bim/.planning/Model/observability.md',
-                    'libs/csharp/Rasm.Materials/.planning/Projection/observability.md',
-                    'libs/csharp/Rasm.Persistence/.planning/Store/observability.md',
-                    'libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md',
-                    'libs/csharp/Rasm.Element/.planning/Projection/observe.md',
-                    'libs/csharp/Rasm.Fabrication/.planning/Process/telemetry.md',
-                ],
-                charter:
-                    'The consumer half of [02.1] and [02.3]. Rename every metric name carrying a baked unit — the five .bytes names — ' +
-                    'to .size with UCUM unit By, leaving .ratio names alone. Delete rasm.model as a metric dimension from every Bim ' +
-                    'InstrumentRow and keep it as a span attribute. Route the Bim baggage read through the kernel TenantContext ' +
-                    'accessor rather than Activity.Current?.GetBaggageItem or raw OTel Baggage. Add ActivityLink span links at the two ' +
-                    'named fan-in boundaries: the Kafka consumer leg StoreWire<TKey,TValue> and the outbox drain OutboundSurface.Run. ' +
-                    'Close [LOGLEVEL_WARNING_MEMBER]-[BLOCKED] on the Materials page against the LogLevel to SeverityNumber mapping ' +
-                    'the AppHost territory lands, and close [ENVELOPE_KEY_PROMOTION]-[OPEN].',
-            },
-            {
-                key: 'py-runtime',
-                pages: [
-                    'libs/python/runtime/.planning/observability/telemetry.md',
-                    'libs/python/runtime/.planning/observability/metrics.md',
-                    'libs/python/runtime/.planning/observability/receipts.md',
-                    'libs/python/runtime/.planning/execution/lanes.md',
-                ],
-                charter:
-                    'Section [02.4] except the producer pages. Fill all 15 INSTRUMENTS census rows including the two NEW domains ' +
-                    'compute and runtime, each row carrying InstrumentKind, UCUM unit, slot, and domain. Mint the view and cardinality ' +
-                    'owner in metrics.md transcribing runtime/otel/meter.md, with views= passed on MeterProvider construction in ' +
-                    'telemetry.md and a SignalProfile field carrying the cardinality budget as policy. Extend WIRE_TEMPORALITY to ' +
-                    'ObservableCounter and ObservableUpDownCounter, and change rasm.lane.drained from an observable counter fed by a ' +
-                    'REPLACED MetricState.drain to a synchronous Counter incremented per drain. Land the scope-stamping helper beside ' +
-                    'ScopeKey in receipts.md supplying (scope, version, SCHEMA_URL) and stamp every call site on these pages. Add ' +
-                    'SignalProfile.sample_ratio with ParentBased(root=TraceIdRatioBased(ratio)). Resolve the two NoCompression ' +
-                    'profiles per the campaign. Add the exemplar reservoir selection row. ' +
-                    'The census domain set MUST equal what the producer territory records — file any mismatch as a residual naming ' +
-                    'both files.',
-            },
-            {
-                key: 'py-logs',
-                pages: ['libs/python/runtime/.planning/observability/logging.md', 'libs/python/runtime/.planning/observability/bundle.md'],
-                charter:
-                    'Section [02.5], all seven defects, repaired in place — this page is the weakest in its folder and the rebuild is ' +
-                    'ground-up. The attribute-shape defect is the largest: under the in-process OTLP arm the chain must terminate in a ' +
-                    'processor handing the event dict through as attributes rather than a rendered JSON string, with ' +
-                    'ProcessorFormatter.wrap_for_formatter kept for the console arm alone. Replace the ship rows, add all four ' +
-                    'LogLimits fields, add critical to the LogLevel literal and the LEVEL_METHOD table, key the bridge by ScopeKey ' +
-                    'using the partial(structlog.get_logger, composition=scope) pattern receipts.md already established, return a ' +
-                    'LogReceipt, grow bundle.md _installs from four owners to five, and add the ' +
-                    'SimpleLogRecordProcessor / InMemoryLogExporter test rail.',
-            },
-            {
-                key: 'py-producers',
-                pages: ['libs/python/geometry/.planning/graduation.md', 'libs/python/compute/.planning/graduation/observability.md'],
-                charter:
-                    'The producer half of section [02.4]. Every measure these pages emit must be spelled exactly as the census rows the ' +
-                    'py-runtime territory lands — 9 geometry measures, 4 compute measures. Make graduation.md:17 assertion that the ' +
-                    'census gates the MEASURES roster TRUE. A total-map _DOMAIN_SLOT lookup means a spelling mismatch is a ' +
-                    'producer-killing KeyError, so a name you cannot reconcile is a residual naming BOTH the producer page and the ' +
-                    'census page, never a guess.',
-            },
-            {
-                key: 'py-data',
-                pages: [
-                    'libs/python/data/.planning/tabular/query.md',
-                    'libs/python/data/.planning/tabular/lakehouse.md',
-                    'libs/python/data/.planning/tabular/egress.md',
-                    'libs/python/data/.planning/tabular/materialize.md',
-                    'libs/python/data/.planning/tabular/profile.md',
-                ],
-                charter:
-                    'Section [02.6] plus the four scope-stamping sites on these pages from [02.4]. Rewrite both _ir_plan substrait ' +
-                    'arms against data/.api/duckdb-extensions.md [03]-[SUBSTRAIT]: table functions reached as CALL through con.execute, ' +
-                    'never the four connection methods that MISS on duckdb 1.5.5. Turn the silent connectorx divert into a reach-matrix ' +
-                    'refusal returning a typed fault naming the absent driver, with a version-gate row on RemoteDriver.CONNECTORX, and ' +
-                    'apply the same guard to the tensorstore class at gridded/store. Stamp version= and schema_url= on the get_meter ' +
-                    'and get_tracer call sites here through the receipts.md helper.',
-            },
-            {
-                key: 'ts-otel',
-                pages: [
-                    'libs/typescript/runtime/.planning/otel/emit.md',
-                    'libs/typescript/runtime/.planning/otel/meter.md',
-                    'libs/typescript/runtime/.planning/otel/profile.md',
-                ],
-                charter:
-                    'Section [02.7] except the Convention rows. Register the global W3C composite propagator ALONGSIDE the typed ' +
-                    'Carrier path and reword the law stating the inverse; install AsyncLocalStorageContextManager on the node lanes; ' +
-                    'set gzip on all three exporter arms and the native lane; resolve the JSON serialization arm; configure the ' +
-                    'TraceBased exemplar filter; complete BufferConfig with scheduledDelayMillis and exportTimeoutMillis; add the ' +
-                    'explicit-bucket view arm keyed by instrument name; admit and register the three server-side instrumentations with ' +
-                    'the stated precedence law; bridge diag into the Effect logger at the composition root; stamp ' +
-                    'Convention.profile.id on the named long-lived spans and route profile.md tags through Convention.profiled. ' +
-                    'New package admissions land their manifest row and .api catalog in the same pass.',
-            },
-            {
-                key: 'ts-convention',
-                pages: ['libs/typescript/core/.planning/observe/convention.md'],
-                charter:
-                    'The Convention half of section [02.7]. Make service.namespace REQUIRED in Convention.identity, stamped rasm by ' +
-                    'default, with tenant correctly staying off resource identity. Then run the consumer-earned cull under the page own ' +
-                    'law at :24 — TWO moves, not one: rows whose consumer this campaign lands (k8s.* and container.* for the collector ' +
-                    'k8sattributes processor, cloud.* for the placement arms, browser.*/device.*/session.* for the RUM stamps the vital ' +
-                    'territory adds) STAY and gain their consumer; every remaining zero-consumer row is deleted. Verify each surviving ' +
-                    'semconv constant against the installed distribution before keeping it — the incubating feature_flag.result.* ' +
-                    'namespace was renamed within recent minors.',
-            },
-            {
-                key: 'ts-vital',
-                pages: ['libs/typescript/runtime/.planning/otel/vital.md', 'libs/typescript/ui/.planning/system/vital.md'],
-                charter:
-                    'Section [02.8]. runtime/otel/vital.md becomes the one CWV owner and sources all five metrics from web-vitals 6.0.0, ' +
-                    'deleting the hand-rolled folds and the zero web-vitals claim; the raw PerformanceObserver path survives ONLY for ' +
-                    'the render rows the library does not cover. ui/.planning/system/vital.md keeps its display-only viewer probe, stops ' +
-                    'capturing CWV, and reaches the two instruments through the Vital.Report tap it already names. One seam, one ' +
-                    'capture, one grade table. The three non-conformance findings (INP interaction grouping, LCP finalization, TTFB ' +
-                    'activationStart) are WHY the library wins, not defects to hand-fix.',
-            },
-        ],
-    },
-    3: {
-        title: 'iac deploy plane',
-        barrier: {
-            key: 'iac-ground',
-            parallel: [
-                {
-                    key: 'iac-api',
-                    pages: ['libs/typescript/iac/.api/'],
-                    charter:
-                        'Section [05.3] row [03] only, landed early because the typed collector owner in [03.4] needs a verified member ' +
-                        'set. Mint the OpenTelemetry Collector chart-values and config-schema catalog at the iac .api tier: receivers ' +
-                        '(otlp, prometheus, postgresql, sqlquery), processors (memory_limiter, batch, k8sattributes, resourcedetection, ' +
-                        'transform, filter, tail_sampling), connectors (spanmetrics, servicegraph), exporters with sending_queue and ' +
-                        'retry_on_failure field rosters, extensions (file_storage, health_check, pprof, zpages), and the service block ' +
-                        'including telemetry.metrics/logs/traces. Field names verify against the real chart and collector-contrib ' +
-                        'config schema — this is the most drift-prone surface in the estate and a guessed field is the defect the ' +
-                        'catalog exists to foreclose. Also carry the pulumiverse-grafana NotificationPolicyArgs full field set ' +
-                        'including groupBies, which unblocks [03.6].',
-                },
-                {
-                    key: 'iac-spec',
-                    pages: ['libs/typescript/iac/.planning/program/spec.md', 'libs/.planning/ARCHITECTURE.md'],
-                    charter:
-                        'Section [03.5]. Add the three _Observe axes — sampling head|tail, topology gateway|agent, buffer file|broker — ' +
-                        'so Tier-0 arms [02] through [04] each resolve to a named spec value. On Tier-0 [FLEET_ESCALATION], delete the ' +
-                        'contrib-image half of arm [02] coordinate: file_storage, prometheus, postgresql, and sqlquery are ALL ' +
-                        'collector-contrib components the standing config already uses, so the contrib image is a standing fact on the ' +
-                        'collector chart, never an escalation. The real arm [02] coordinate is the kafka pipeline rows alone. Touch ' +
-                        'nothing else in Tier-0 — the [08] domain-vocabulary row belongs to phase 5.',
-                },
-            ],
-        },
-        territories: [
-            {
-                key: 'iac-observe',
-                pages: ['libs/typescript/iac/.planning/operate/observe.md'],
-                charter:
-                    'Sections [03.1], [03.2], [03.3], [03.4], [03.6], [03.7] — the whole deploy plane on one page. Fix the collector ' +
-                    'endpoint FIRST: it resolves to nothing today because the Helm fullname helper does not collapse for a release name ' +
-                    'not containing the chart name, and it feeds StackOutputs.otlp, the workload env row, both ebpf endpoints, and the ' +
-                    'Dev parity claim. Move it into _urls beside its five siblings. Then make the store family uniform — translation as ' +
-                    'an eighth _stores column so a store swap stops silently breaking every dashboard query, the mimir ruler row, ' +
-                    'recording rules compiled from the core-owned Query.breach projection, the VictoriaMetrics completion, the ' +
-                    'remote-write refusal recorded as a decision, and the Thanos/Cortex growth note. Configure the chart rows taking {} ' +
-                    'today — loki and tempo — including the metrics/logs tenancy asymmetry fixed at BOTH ends. Land the Schema.Class ' +
-                    'collector-config owner and every absent processor, connector, and extension, the proper persistent queue with its ' +
-                    'corrected durability prose, receiver hardening, the split pg-receiver DSN, and the Doppler DSN custody route. Arm ' +
-                    'the two stale BLOCKED rows and close the Pyroscope one as a truthful refusal. Resolve the seven-key provenance ' +
-                    'tuple per key. Read the iac-api catalog dossier before writing any collector field. ' +
-                    'The spec axes land in a sibling stage — compose them as found, and file a residual if an axis you need is absent.',
-            },
-        ],
-    },
-    4: {
-        title: 'Analytics plane, plus the phase 3 and 5 remnants',
-        barrier: {
-            key: 'p4-ground',
-            parallel: [
-                {
-                    key: 'query-target',
-                    pages: ['libs/typescript/core/.planning/observe/board.md', 'libs/typescript/core/.planning/observe/convention.md'],
-                    charter:
-                        'Section [04.2] — the axis that keeps ONE paradigm, landed before any residence consumer composes it. Query gains ' +
-                        'a Target axis over promql|sql resolved from the residence a tile declares, so Query.render(query, target) stays ' +
-                        'one entry with two renderers and the closed family never changes. SQL rendering maps Instant to a point read, ' +
-                        'Windowed to a time-bucketed aggregate, Quantile to the engine quantile function, and Aggregate to GROUP BY over ' +
-                        'the same census-ordered keys _selector already walks; label matchers become predicates over the attribute map or ' +
-                        'its materialized column. Query.breach and Query.indicator fold IDENTICALLY under both targets — a target-specific ' +
-                        'breach expression re-imports the forked discipline board.md:20 deletes. Resolve the suffix disagreement the ' +
-                        'phase-1 residual carried: NoUTF8EscapingWithSuffixes governs the PromQL target alone, so suffixing is a target ' +
-                        'property and never a name property. On convention.md, make service.namespace required and stamped rasm by ' +
-                        'default. You own these two pages ALONE; every residence consumer is a later fan.',
-                },
-                {
-                    key: 'iac-ground',
-                    pages: [
-                        'libs/typescript/iac/.planning/operate/observe.md',
-                        'libs/typescript/iac/.planning/program/spec.md',
-                        'libs/.planning/ARCHITECTURE.md',
-                    ],
-                    charter:
-                        'Section [04.6] plus every phase-3 remnant, since a residence with no gateway is unreachable. Verified absent on ' +
-                        'disk and all owed here: the k8sattributes processor (ZERO occurrences today, and a wide-event row carrying no ' +
-                        'pod, node, or workload identity cannot answer what the residence exists for); the three _Observe axes ' +
-                        'observe.sampling head|tail, observe.topology gateway|agent, observe.buffer file|broker; and observe.analytics ' +
-                        'over none|lake|clickhouse|both defaulting to lake. Add the ClickHouse chart row and a clickhouse exporter with ' +
-                        'create_schema false under branch-owned DDL carrying tenant in ORDER BY — the default schema leaves attributes in ' +
-                        'a Map outside the sort key, so a high-cardinality tenant filter scans other tenants granules. Land the ' +
-                        'recording-rule fence, resolve the three remaining BLOCKED rows, and resolve the phantom provenance keys per ' +
-                        'campaign [03.7]. On Tier-0 delete the contrib-image half of FLEET_ESCALATION arm [02] ONLY; the [08] rows belong ' +
-                        'to the serial closers and you touch nothing else there. Evaluate otelarrow for the gateway hop and record the ' +
-                        'verdict as a row — arming or declining with a stated reason, never silence.',
-                },
-            ],
-        },
-        territories: [
-            {
-                key: 'cs-analytics',
-                pages: [
-                    'libs/csharp/Rasm.Persistence/.planning/Query/columnar.md',
-                    'libs/csharp/Rasm.Persistence/.planning/Store/observability.md',
-                    'libs/csharp/Rasm.AppUi/.planning/Charts/telemetry.md',
-                    'libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md',
-                ],
-                charter:
-                    'Section [04.3]. Rasm.Persistence is the single columnar custodian per the branch ruling, so every piece lands ' +
-                    'there and producers hand typed record-batch schemas across the seam. Land the telemetry SeriesKind row with the ' +
-                    'full hypertable treatment including continuous aggregates, the AnalyticsSchema + ArtifactClass for the ' +
-                    'kernel-homed ReceiptEnvelope transcribing the Rasm.Materials analytics producer-side pattern, and the chargeback ' +
-                    'fact table giving UsageReceipt a named StoreSlot and a flat-table projection. Then bind the three AppUi telemetry ' +
-                    'board tiles to the real projection and DELETE the designed-empty declaration. EvidenceJoin.Correlate and ' +
-                    'TenantUsageFold.Fold keep their in-process live folds and gain a durable counterpart read over the columnar table. ' +
-                    'Signals stay the lossy health projection; the receipt stream is the evidence plane. Then land the residence depth the charter ' +
-                    'names and the branch already admits: api-clickhouse binds the wide-event read end with DDL owned HERE not created ' +
-                    'by the exporter, api-flowtide-substrait carries one logical plan across residences so no query is written twice, ' +
-                    'api-adbc-apache is the Flight SQL query end satisfying the Tier-0 one-plane ruling, and api-parquetsharp with ' +
-                    'ParquetSharp.Encryption writes the cold tail with its Directory.Packages.props row landed in the same pass. State ' +
-                    'the no-cardinality-cap law at this residence owner.',
-            },
-            {
-                key: 'py-journal',
-                pages: ['libs/python/runtime/.planning/observability/'],
-                charter:
-                    'The journal half of section [04.4]. Python has no journal at all while the TypeScript one is the system of record. ' +
-                    'Mint the journal owner under this folder transcribing libs/typescript/data/.planning/journal/{fact,append,evolve,' +
-                    'retain}.md in Python spelling: append-only fact stream, the closed AuditFact/MeterFact union, exact-decimal ' +
-                    'rating, the Retain.Class retention vocabulary, and the evidence-vs-series law stated identically. Erasure is ' +
-                    'crypto-shredding, never deletion. Land its INSTRUMENTS census rows in the same pass. Register the new page in the ' +
-                    'folder README router and ARCHITECTURE codemap.',
-            },
-            {
-                key: 'py-sink',
-                pages: ['libs/python/data/.planning/tabular/'],
-                charter:
-                    'The sink half of section [04.4]. A DatasetKind member for the receipt stream written through the existing ' +
-                    'Lakehouse LakeOp x TableFormat matrix — Delta for the mutable evidence table, Parquet on the object plane for the ' +
-                    'cold tail — partitioned on (domain, date) and Z-ordered on (tenant, content_key), with the existing WriteTuning ' +
-                    'statistics and bloom-filter machinery applying unchanged. CostLedger keeps its in-process harvest and gains a ' +
-                    'lake-sourced path so a cost frame reconstructs from the sink rather than only from live baggage; CostDomain gains ' +
-                    'a telemetry member. Add aws, azure, and postgres_scanner to the extension roster. Engines enter as ROWS on the existing ' +
-                    'selection, never parallel pipelines: datafusion and daft own the distributed scan tier over the cold residence, ' +
-                    'polars and narwhals own dataframe egress, duckdb owns local interactive query, pyiceberg rides the same LakeOp x ' +
-                    'TableFormat matrix as the alternative table format, substrait carries plan interchange matching the C# flowtide ' +
-                    'leg, and adbc-driver-flightsql is the query end. State the no-cardinality-cap law at this residence owner.',
-            },
-            {
-                key: 'ts-olap',
-                pages: ['libs/typescript/data/.planning/lane/olap.md'],
-                charter:
-                    'Section [04.5]. Write the missing [05]-[FLIGHT] section — the cluster is declared, the catalog, manifest, README ' +
-                    'row, and TASKLOG card all exist, and six of seven clusters are realized. Scoped createFlightSqlClient off lane ' +
-                    'config, query/executeUpdate/prepared/transaction/metadata, decodeFlightDataToTable onto the same Arrow plane ' +
-                    'Olap.ingest rides, encodeRecordBatchesToFlightData for doPut, the FlightError family folded into the existing ' +
-                    'OlapFault wire reason, transport reusing the one @connectrpc/connect stack. Close ' +
-                    '[FLIGHT_SQL_INGRESS_ROW]-[QUEUED]. Add the CREATE SECRET credential rail transcribing the C# reference form, ' +
-                    'sourcing material from the object plane existing grant. Complete _extensions with postgres, sqlite, aws, azure. ' +
-                    'Land the OTLP-to-lake lane with identity as the join key so the derived plane stays derived. Grow the lead ' +
-                    'paragraph to name PROFILE, ARROW_WIRE, and FLIGHT. Bind the clickhouse residence through the admitted effect-sql-clickhouse ' +
-                    'as a read end under the SAME Olap owner, never a sibling lane, and compose the Query render-target axis the ' +
-                    'barrier landed rather than minting any second query path.',
-            },
-            {
-                key: 'api-truth',
-                pages: ['libs/csharp/.api/', 'libs/python/.api/', 'libs/csharp/Rasm.Persistence/.api/', 'Directory.Packages.props'],
-                charter:
-                    'The phase-5 catalog remnants, each verified still open on disk. DELETE the MeterProviderBuilder.SetMaxMetricStreams ' +
-                    'row from api-opentelemetry.md — removed in OpenTelemetry .NET 1.5.0 against a 1.17.0 pin, with cardinality living on ' +
-                    'MetricStreamConfiguration.CardinalityLimit. CORRECT the AddBaggageProcessor row in api-opentelemetry-extensions.md ' +
-                    'against the rail; the package ships AddBaggageActivityProcessor for spans and AttachLogsToActivityEvent for logs. ' +
-                    'MINT the two absent Python catalogs, opentelemetry-semantic-conventions and opentelemetry-instrumentation, both ' +
-                    'installed transitively at 0.65b0 — the first is why SCHEMA_URL stays a hand-spelled literal and the second owns the ' +
-                    'BaseInstrumentor four catalogs already cite. DELETE the fabricated `os.name` row from api-otel-resources.md; the real ' +
-                    'detector set is os.type, os.description, os.build_id, os.version. MINT the absent ParquetSharp.Encryption catalog at ' +
-                    'the Persistence tier and land its Directory.Packages.props row with its consuming csproj. Then the rest of campaign ' +
-                    '[05.2] this pass has not reached: the ten uncataloged members fences already compose, and the 61 semconv constants ' +
-                    'convention.md imports, each verified against the installed distribution with every survivor rowed. Every row verifies ' +
-                    'on its language rail before it lands, and a member that will not verify is DELETED with its consuming fence repaired, ' +
-                    'never left standing.',
-            },
-            {
-                key: 'ts-instrument-materialization',
-                pages: ['libs/typescript/core/.planning/observe/convention.md', 'libs/typescript/core/RULINGS.md'],
-                charter:
-                    'Close the two rows phase 2 carried rather than force-closed, together, because landing either alone is the split-brain ' +
-                    '[FENCE_SEAM] forbids. core RULINGS [02]-[SHAPE] already rules that instrument-to-Metric materialization homes at the ' +
-                    'Convention owner; the branch still picks a constructor per site at roughly 25 sites across twelve pages in data/, ' +
-                    'security/, core/, and ui/. Land the factory at the owner AND move every site onto it in the same pass, carrying the ' +
-                    'synthetic UCUM unit tag at each — the unit-tag sweep rides the identical site set, so splitting them re-opens the ' +
-                    'defect. Census the sites with `rg --hidden` before you start: a plain directory rg skips every .planning/ page and ' +
-                    'reports a false zero. The tracked card is [INSTRUMENT_MATERIALIZATION]-[QUEUED] at libs/typescript/core/TASKLOG.md; ' +
-                    'close it against the landed work.',
-            },
-            {
-                key: 'stacks-exemplar',
-                light: true,
-                pages: ['docs/stacks/typescript/rails-and-effects.md'],
-                charter:
-                    'Campaign [05.7], and NOTHING else under docs/stacks/ is touched and no card is minted against it. Fix pour_total, ' +
-                    'pour_fault_reason, and pour_latency_millis to the dotted no-suffix grammar. State the UCUM unit carrier: Effect ' +
-                    'metric constructors accept no unit option and the bridge derives the descriptor unit from a metric tag named unit, ' +
-                    'so construction applies Metric.tagged and a generated SDK view strips the synthetic tag from exported attributes ' +
-                    'while preserving the descriptor unit. Add the base2-exponential default beside the explicit-bucket fallback.',
-            },
-        ],
-        serial: [
-            {
-                key: 'namespace-authority',
-                pages: ['libs/.planning/ARCHITECTURE.md'],
-                charter:
-                    'Campaign [05.6], running after every territory so the census reads the names this phase landed. Derive the closed ' +
-                    'capability-domain vocabulary from the REAL rasm.* name census on disk, never a guess. The overlaps are not defects ' +
-                    '— a domain segment names a capability domain rather than a package, so two runtimes serving one domain share the ' +
-                    'prefix and service.name disambiguates — but that is stated nowhere, which IS the defect. Land it as ONE Tier-0 [08] ' +
-                    'row fixing the vocabulary with each branch mapping its packages onto it, plus the gate that a segment outside the ' +
-                    'vocabulary fails the check. Tier-0 states estate law only: no branch mechanism and no package detail enters here.',
-            },
-            {
-                key: 'contract',
-                pages: ['tests/contracts/MANIFEST.md', 'tests/RULINGS.md', 'libs/.planning/ARCHITECTURE.md'],
-                charter:
-                    'Campaign [05.1]. The TELEMETRY_CONVENTION entry ALREADY EXISTS at ledger row [13] with a full [02.13] body — verify ' +
-                    'it against what this campaign landed rather than re-minting it, and correct any minter anchor, consumer, or Shape ' +
-                    'row disk now refutes. Its metric-name grammar carries the domain vocabulary the prior closer landed. Rewrite the ' +
-                    'Tier-0 [08] carve sentence: transcription remains how each branch spells the rows, and the corpus entry is what ' +
-                    'proves the three spellings agree, because a manifest entry is a schema plus frozen assets rather than a shared ' +
-                    'library. tests/RULINGS.md gains its observability row recording exactly that and nothing wider. ' +
-                    'THEN close BenchmarkClaimWire, carried from phase 2: one wire name spans two incompatible shapes — a flat ' +
-                    'input/substrate/mean/median/p95/allocatedBytes row at Rasm.Compute Runtime/receipts.md, against suite + metrics[] + ' +
-                    'host + minted at typescript core interchange/codec.md, corroborated by format.md and security/crypt/sign.md. No ' +
-                    'MANIFEST entry exists, which is the libs RULINGS [01] violation that let the ends fork. Rule the surviving shape on ' +
-                    'the evidence, mint the entry, and repair the losing end in the same pass; recording the fork without resolving it ' +
-                    'repeats the failure this entry exists to catch.',
-            },
-            {
-                key: 'closure',
-                pages: [
-                    'libs/.planning/ARCHITECTURE.md',
-                    'libs/.planning/RULINGS.md',
-                    'libs/csharp/.planning/RULINGS.md',
-                    'libs/typescript/runtime/RULINGS.md',
-                    'libs/typescript/data/RULINGS.md',
-                    'docs/laws/topology.md',
-                    'libs/.planning/IDEAS.md',
-                    'libs/.planning/TASKLOG.md',
-                ],
-                charter:
-                    'Campaign [05.8], the terminal closer, and the pass that makes Tier-0 TRUTHFUL about the system this campaign built. ' +
-                    'Rewrite [08]-[OBSERVABILITY_CONFORMANCE] so it captures the conformance rows, the analytics plane, and the hook ' +
-                    'plane as they now stand on disk — every claim re-derived from the corpus, none carried from the campaign doc. Land ' +
-                    'the RULINGS rows at the NARROWEST owning tier and the topology couplings, and grow INSTRUMENT_ADMISSION with its C# ' +
-                    'and TypeScript halves. Reconcile the cards: reopen each falsely-COMPLETE card with its specific residual, then close ' +
-                    'it against landed work rather than deleting history. Delete observability-initial-plan.md at the repo root. ' +
-                    'IDEAS cards for security.audit, grasshopper.fan, and compute.descriptor land at their OWNING folders, never here. ' +
-                    'Sediment is the primary target: a fact standing at two altitudes loses the copy the narrower tier does not own, and ' +
-                    'a row restating its own section lead is deleted rather than reworded.',
-            },
-        ],
-    },
     6: {
         title: 'Campaign finalize',
         territories: [
@@ -524,14 +47,107 @@ const PHASE_ROWS = {
                     'libs/typescript/runtime/.planning/otel/emit.md',
                 ],
                 charter:
-                    'The [02] conformance table, re-walked row by row across all three branches. Thirteen rows x three branches = 39 ' +
-                    'cells, and the bar is zero FAIL and zero PARTIAL. Each cell is proven by a probe against the owning fence on ' +
-                    'disk, never by the campaign doc claim that it was fixed: grep the resource-attribute fence for ' +
-                    'service.namespace, the governance row for delta and base2_exponential, every exporter arm for gzip, every ' +
-                    'get_meter/get_tracer/Mint call site for the version and schema_url arguments, the propagator registration, the ' +
-                    'exemplar configuration, the tenant view and its cardinality cap, and the absent-tenant arm. Confirm the semconv ' +
-                    'schema pin is the SAME literal in all three branches. Confirm no metric name anywhere carries a unit suffix. ' +
-                    'Repair every cell that fails.',
+                    'Tier-0 [08] conformance, re-walked cell by cell across all three branches, at zero FAIL and zero PARTIAL. Prove ' +
+                    'each cell by probing the owning fence on disk: the resource triple carrying service.namespace, the governance ' +
+                    'row reading delta and base2_exponential, every exporter arm setting gzip, every get_meter / get_tracer / Mint ' +
+                    'call site passing version and schema_url, the global propagator registration, the exemplar filter and ' +
+                    'reservoir, the tenant view with its cardinality cap, and the absent-tenant arm. The semconv schema pin is the ' +
+                    'SAME literal in all three branches. No metric name anywhere carries a unit suffix, and every UCUM unit rides ' +
+                    'the descriptor rather than the name. Repair every failing cell at its owner. ' +
+                    'Then attack the table ITSELF: a row Tier-0 asserts that no branch can satisfy is a false law, and a branch ' +
+                    'capability no row governs is an ungoverned surface — both are findings, and both repair here.',
+            },
+            {
+                key: 'parity',
+                kind: 'verify',
+                pages: [
+                    'libs/csharp/Rasm/.planning/Domain/telemetry.md',
+                    'libs/python/runtime/.planning/observability/metrics.md',
+                    'libs/typescript/core/.planning/observe/board.md',
+                ],
+                charter:
+                    'The MISSING-LOGIC lens, and the only lane whose product is what no branch has. Build the cross-branch capability ' +
+                    'census: for every observability, telemetry, metrics, hooks, logging, receipt, journal, worker, job, and analysis ' +
+                    'concept the estate names, record which of the three branches realizes it, which declares it, and which carries ' +
+                    'NOTHING. Read the owning pages in full in all three branches before ruling on any concept — a concept spelled ' +
+                    'differently per branch reads as absent to a grep, and that is the failure mode this lens exists to beat. ' +
+                    'Rank every gap by whether the branch NEEDS the concept: a browser runtime legitimately carries no process ' +
+                    'profiler, and role-aware absence is parity rather than a hole. A real gap gets its capability LANDED at the ' +
+                    'owning page in that branch, transcribed from whichever branch holds the reference form, in that branch idiom and ' +
+                    'never as a copied fence. A gap you cannot land gets a card at its owning folder carrying the reference anchor. ' +
+                    'Parity runs bidirectionally: where the weaker branch holds the better shape, the reference form moves the other way.',
+            },
+            {
+                key: 'backends',
+                kind: 'verify',
+                pages: [
+                    'libs/typescript/iac/.planning/operate/observe.md',
+                    'libs/typescript/data/.planning/lane/olap.md',
+                    'libs/csharp/Rasm.Persistence/.planning/Query/columnar.md',
+                    'libs/python/data/.planning/tabular/lakehouse.md',
+                ],
+                charter:
+                    'FULL analysis-backend integration behind one backend family. The terminal property: selecting a different backend ' +
+                    'changes VALUES, never SHAPE. Read .claude/scratch/observability/ALIGNMENT-FINDINGS.md in full — it carries the ' +
+                    'fork census this lens closes, and READ ITS [07.1] FIRST — two entries in that file were themselves refuted on ' +
+                    'disk, so treat every row there as a hypothesis you re-probe rather than a constraint you inherit. The rows still ' +
+                    'standing: four disjoint residence rosters, a literal case switch that throws, alert rules bound to one datasource ' +
+                    'regardless of the selected store, a store family and a residence family answering different column sets, and a ' +
+                    'scalar-only cross-branch type map carrying none of the OTLP wide-event column shapes. ' +
+                    'Every backend the estate names — prometheus, victoriametrics, mimir, clickhouse, the object-plane lake, ' +
+                    'timescaledb — is a ROW answering the same column set, deriving its dialect from its own row. Land the setup each ' +
+                    'backend needs to WORK rather than merely to be named: schema, ingest door, read door, retention, tenancy, ' +
+                    'translation strategy, degradation. A residence a query owner cannot address either gains its reach or declares ' +
+                    'the gap structurally, and a plane advertised as present while nothing plants it is the defect this lens refuses ' +
+                    'to leave standing. ULTRA-STACK every owning catalog: clickhouse, prometheus, victoriametrics, duckdb and its ' +
+                    'extensions, the Arrow and Flight surfaces, deltalake, pyiceberg, and the collector contract — a hand-rolled query ' +
+                    'builder, retry, partition planner, or type map standing beside a catalogued member is a defect you rebuild on the ' +
+                    'package.',
+            },
+            {
+                key: 'strata',
+                kind: 'verify',
+                pages: [
+                    'libs/csharp/.planning/ARCHITECTURE.md',
+                    'libs/python/.planning/ARCHITECTURE.md',
+                    'libs/typescript/.planning/ARCHITECTURE.md',
+                ],
+                charter:
+                    'The NEVER-REINVENT-THE-WHEEL lens, run inside each branch against its own strata ladder. Every folder composes the ' +
+                    'owner ABOVE it rather than re-deriving that owner locally: C# folders reach the Rasm kernel capsule for causal ' +
+                    'frame, instrument spec, SLO vocabulary, receipt envelope, and board pack rather than minting twins — one such twin ' +
+                    'already stood as a same-named uncompilable fork of the columnar custodian types; Python folders climb the runtime ' +
+                    'ladder for workers, journal, receipts, metrics, and hooks rather than opening private lanes; TypeScript folders ' +
+                    'reach core for convention, query, and board, and reach runtime for the emit and journal planes. Census every ' +
+                    'branch for a locally-minted type, rail, registry, or fold whose concept an upper stratum already owns, and ' +
+                    'COLLAPSE it onto that owner. ' +
+                    'Direction is law: a lower stratum never imports a higher one, an S2 peer never composes a sibling peer, and a ' +
+                    'concept shared between peers homes at their common owner. Verify each collapse against the branch ARCHITECTURE ' +
+                    'strata rows, and repair the row where the landed design is right and the row is stale. COUPLING is the twin ' +
+                    'defect: a folder reaching sideways into sibling internals, or a page naming another project surface, collapses ' +
+                    'onto a declared seam.',
+            },
+            {
+                key: 'planes',
+                kind: 'verify',
+                pages: [
+                    'libs/python/runtime/.planning/observability/journal.md',
+                    'libs/typescript/data/.planning/journal/fact.md',
+                    'libs/csharp/Rasm.AppHost/.planning/Observability/hooks.md',
+                ],
+                charter:
+                    'The evidence and execution planes across all three branches: journal, worker, job, queue, scheduler, hook, receipt, ' +
+                    'and log. Prove each plane REAL end to end rather than declared — an append-only journal carries a port, an ' +
+                    'implementer, a retention vocabulary, an erasure mechanism, and a tally read; a worker or job plane carries an ' +
+                    'admission gate, a bounded intake with stated back-pressure, a drain with a readiness handshake, a failure rail, ' +
+                    'and a receipt; a hook plane carries a closed point vocabulary and a stated veto-versus-observe contract. ' +
+                    'Verify port and implementer agree MEMBER FOR MEMBER on signature, arity, rail shape, and return type in every ' +
+                    'branch carrying both ends — a divergence is a fence-seam break repaired at both ends. ' +
+                    'Hunt the defect class this campaign proved costliest: a value ASSERTED rather than READ, a counter forging zero, ' +
+                    'an unbounded retry behind an admission proving names but not behavior, a concurrent consumer silently splitting a ' +
+                    'stream, and float arithmetic anywhere near money or a settlement boundary. ' +
+                    'The evidence-versus-series law holds in every branch: a missing metric point is a dashboard gap, a missing journal ' +
+                    'row is an evidence or billing defect, and every derived plane carries zero authority.',
             },
             {
                 key: 'seams',
@@ -539,14 +155,16 @@ const PHASE_ROWS = {
                 light: true,
                 pages: ['libs/csharp/Rasm/.planning/Domain/telemetry.md', 'libs/python/runtime/.planning/observability/metrics.md'],
                 charter:
-                    'The fence-seam sweep and the census gate. Grep EVERY composing fence in libs/csharp for InstrumentRow(, ' +
-                    'InstrumentSet.Of(, ReceiptFan.Of(, InstrumentSpec, AlertSeverity, and PanelKind, and confirm each matches its ' +
-                    'kernel declaration on spelling, arity, and rail shape — the [FENCE_SEAM] law own check, and the corpus-wide ' +
-                    'drain the [RETIRED_SURFACE_DRAIN] scar demands, so the boundary is zero occurrences of the retired form ' +
-                    'anywhere, never the anchor list this charter names. Then the census equality probe: the domain set recorded in ' +
-                    'the Python INSTRUMENTS census equals the domain set every producer records, checked from BOTH sides, and every ' +
-                    'rasm.* measure name in libs/python resolves to a census row. Then confirm every rasm.* domain segment across all ' +
-                    'three branches resolves to the Tier-0 domain vocabulary phase 5 landed.',
+                    'The fence-seam sweep and the census gate, run corpus-wide rather than over an anchor list. Grep EVERY composing ' +
+                    'fence in libs/csharp for InstrumentRow(, InstrumentSet.Of(, ReceiptFan.Of(, InstrumentSpec, AlertSeverity, ' +
+                    'PanelKind, TraceCarrier, and ColumnType, and confirm each matches its kernel declaration on spelling, arity, and ' +
+                    'rail shape — the boundary is zero occurrences of any retired form anywhere in the corpus. ' +
+                    'Then the census equality probe from BOTH sides: the domain set in the Python INSTRUMENTS census equals the domain ' +
+                    'set every producer records, and every rasm.* measure name resolves to a census row. Then every rasm.* domain ' +
+                    'segment in all three branches resolves to the Tier-0 domain vocabulary. ' +
+                    'Then the generated-dispatch sweep, which already caught a compile break and a runtime throw: every total switch ' +
+                    'over a union that gained an arm still covers it, and every catch-all arm absorbing a NEW case earns an explicit ' +
+                    'arm rather than silently misfiling it.',
             },
             {
                 key: 'arms',
@@ -563,8 +181,10 @@ const PHASE_ROWS = {
                     'NAMES: open each named owner and confirm the row exists there, since three of four arms named surfaces that did ' +
                     'not exist. Then every URL the iac plane publishes derives from _urls and survives the Helm fullname collapse — ' +
                     'check each release name against its chart name and confirm the rendered service name, since that collapse is ' +
-                    'exactly what made the collector endpoint dead. No endpoint is spelled outside _urls. Confirm every _stores row ' +
-                    'answers every column the family carries, translation strategy included.',
+                    'exactly what made the collector endpoint dead. No endpoint is spelled outside _urls. ' +
+                    'Then the provisioning-truth probe the datasource defect taught: every field a chart, provider, or driver actually ' +
+                    'READS is the field the row supplies — a row spelling a key its consumer ignores provisions a door nothing connects ' +
+                    'through, and only the provider contract proves which keys are live.',
             },
             {
                 key: 'truth',
@@ -572,13 +192,18 @@ const PHASE_ROWS = {
                 light: true,
                 pages: ['libs/csharp/.api/', 'libs/python/.api/', 'libs/typescript/runtime/.api/', 'libs/typescript/iac/.api/'],
                 charter:
-                    'Member and manifest truth across everything this campaign landed. Every .api row added or corrected re-verifies ' +
-                    'on its language rail, and every NEW member any fence composes has a catalog row. Confirm no dual-homed catalog ' +
-                    'pair survives and no folder-tier file redirects to a substrate-tier catalogue. Confirm every package a fence ' +
-                    'composes carries its central-manifest row, its folder README registry row, and its owning .api catalog — the ' +
-                    'three-way touch-point alignment, checked in both directions so an orphan is repaired at its owner rather than ' +
-                    'removed. Re-confirm every new manifest version on its feed. A member that will not verify is DELETED from the ' +
-                    'catalog and its consuming fence repaired, never left standing.',
+                    'Member and manifest truth, and the ULTRA-STACK audit. Every .api row this campaign added or corrected re-verifies ' +
+                    'on its language rail, and every member any fence composes carries a catalog row at its owning tier. A member that ' +
+                    'will not verify is DELETED and its consuming fence repaired, never left standing. ' +
+                    'Then the stacking audit, which is the larger half: for every package a fence composes, read the catalog IN FULL ' +
+                    'and find the capability the fence does NOT reach. Hand-rolled retries, backoffs, codecs, buffers, caches, ' +
+                    'partition planners, type maps, statistical folds, and query builders standing beside a catalogued member are ' +
+                    'defects — rebuild each on the package and record the collapse. Shallow use of a member whose surface carries a ' +
+                    'family reads as UNDERUTILIZED and repairs the same way. ' +
+                    'Then touch-point alignment in both directions: every composed package carries its central-manifest row, its folder ' +
+                    'README registry row, and its owning .api catalog, with an orphan repaired at its owner rather than removed. No ' +
+                    'dual-homed catalog pair survives, and no folder-tier file redirects to a substrate-tier catalogue. Re-confirm ' +
+                    'every manifest version on its feed and unpin anything whose incompatibility has lapsed.',
             },
         ],
         serial: [
@@ -588,32 +213,43 @@ const PHASE_ROWS = {
                     'libs/.planning/ARCHITECTURE.md',
                     'libs/.planning/RULINGS.md',
                     'docs/laws/topology.md',
+                    'docs/laws/scars.md',
                     'tests/contracts/MANIFEST.md',
+                    'tests/contracts/README.md',
+                    'tests/RULINGS.md',
                     'libs/.planning/IDEAS.md',
                     'libs/.planning/TASKLOG.md',
                 ],
                 charter:
-                    'The campaign custody close, and the pass that leaves the governance estate TRUTHFUL rather than merely complete. ' +
+                    'The campaign custody close, and the pass leaving the governance estate TRUTHFUL rather than merely complete. ' +
                     'Dispatch the infra-custodian subagent over the touched infra set and IMPLEMENT its verdict rows yourself, treating ' +
                     'each as a signal you re-verify on disk rather than law. ' +
-                    'TIER-0 ARCHITECTURE: [08] must describe the observability conformance system, the analytics plane, and the hook ' +
-                    'plane exactly as they stand on disk after this campaign — open the owning fences and re-derive every claim, because ' +
-                    'a row carried from the campaign doc that the corpus now refutes is the defect this stage exists to catch. Estate law ' +
-                    'and transcribed rows only: a branch mechanism, a package name, or a folder detail at Tier-0 moves down. ' +
-                    'RULINGS AT EVERY TIER: each row states a settled decision its own tier OWNS. A cross-branch decision homes at ' +
-                    'libs/.planning, a branch nuance at that branch, a folder-only decision at that folder, and a maintenance coupling or ' +
-                    'regression scar at docs/laws where no RULINGS row owns it. Delete any row that is fake, refuted by disk, or a ' +
-                    'restatement of a row at another altitude. ' +
-                    'SEDIMENT IS THE PRIMARY TARGET: two rows carrying one rule collapse into one stronger row keeping every distinct ' +
-                    'clause, never a same-size mash and never a cross-reference standing in for the cut. A row restating its own section ' +
-                    'lead is no-op content and is removed, not reworded. ' +
-                    'Then the gate: every README and ARCHITECTURE this campaign touched passes docs check with tables re-padded to the ' +
-                    '150-column cap. Bloat is the failure mode to hunt, since agents widened these pages mid-campaign while the corpus ' +
-                    'they joined was already declarative and tight — restore that register, carrying one decision per entry, demoting ' +
-                    'every tail and mechanism to its owner, and splitting a two-decision entry into siblings rather than lengthening it. ' +
-                    'Confirm every card is genuinely closed against landed work with none closed by deleting its history, confirm ' +
-                    'observability-initial-plan.md is gone from the repo root, and land the pooled harvest through the ' +
-                    'docs/laws/README.md admission ladder refutation-first, where landing nothing is a first-class verdict.',
+                    'TIER-0 ARCHITECTURE: [08] describes the conformance system, the analytics plane, the backend family, and the hook ' +
+                    'plane exactly as they stand on disk — open the owning fences and re-derive every claim, because a row carried from ' +
+                    'the campaign doc that the corpus refutes is the defect this stage exists to catch. Estate law and transcribed rows ' +
+                    'only: a branch mechanism, a package name, or a folder detail at Tier-0 moves down. ' +
+                    'RULINGS AT EVERY TIER: each row states a settled decision its own tier OWNS — a cross-branch decision at ' +
+                    'libs/.planning, a branch nuance at that branch, a folder-only decision at that folder, a maintenance coupling or ' +
+                    'regression scar at docs/laws. Delete any row that is fake, refuted by disk, or a restatement at another altitude. ' +
+                    'SCARS: land the defect classes this campaign proved, refutation-first. The largest is that a RECORDED BLOCKER IS A ' +
+                    'HYPOTHESIS, NEVER A CONSTRAINT — eight cards blocked on conditions already met, several naming members already ' +
+                    'catalogued. Also land: a value asserted rather than read, a counter forging zero, a same-named type twin between ' +
+                    'strata peers, and a provisioned row whose consumer ignores its keys. ' +
+                    'THE PROOF ESTATE IS YOURS ALONE — no lens writes tests/, so the contract corpus closes here or nowhere. Read ' +
+                    'tests/README.md and tests/RULINGS.md as binding law first. Every wire this campaign minted, renamed, widened, or ' +
+                    'retired reconciles against tests/contracts/MANIFEST.md: an entry whose minters or consumers no longer resolve is ' +
+                    'repaired at the entry, a wire crossing a branch boundary with no entry earns one under the README entry schema, ' +
+                    'and a ledger row pointing at a dropped surface is re-anchored rather than deleted. Verify each minter and consumer ' +
+                    'coordinate opens to a real symbol on disk before you let its row stand. Land the TELEMETRY_CONVENTION shape as the ' +
+                    'conformance rows now stand rather than as the campaign doc described them, and record in tests/RULINGS.md what the ' +
+                    'parity proof does and does not cover — role-aware absence is part of the shape, never an exception to it. ' +
+                    'Read .claude/scratch/observability/RECEIPTS.md and land every row still OPEN at the owner it names, and read ' +
+                    '.claude/scratch/observability/ALIGNMENT-FINDINGS.md whole — its [08] contested DDL ownership and its [02.1] SLO ' +
+                    'renderer axis are the two adjudications every lane deliberately escalated rather than decided, and both home ' +
+                    'here because no narrower tier contains all their surfaces. ' +
+                    'Keep index-tier entries under 150 columns and spend no pass auditing prose beyond that. ' +
+                    'Confirm every card closes against landed work with none closed by deleting its history, and confirm ' +
+                    'observability-initial-plan.md is gone from the repo root.',
             },
         ],
     },
@@ -887,19 +523,41 @@ const LAW_TIER =
     'and is removed, not reworded.';
 
 const LAW_SHAPE =
-    'PROSE SHAPE, binding on every page you touch, and hardest on README and ARCHITECTURE. Load the docgen skill before durable ' +
-    'prose and hold its voice: seat the acting owner as grammatical subject under a present-active verb, state law rather than ' +
-    'explain behavior, and open no sentence, entry, or leader tail on an article — re-derive the fact and re-author it as ' +
-    'owner-voice law, since a determiner swap keeps the broken frame. ' +
-    'CARRY ONE DECISION PER LIST ENTRY — one owner, one charter phrase — and demote every tail, second clause, and mechanism ' +
-    'aside to its owning fence, catalog, or table. Split a two-decision entry into sibling entries; never lengthen the line to ' +
-    'hold both. Entries stay under 150 columns, so a bullet running past that carries payload belonging one tier down. ' +
-    'Prefer demotion to deletion: move the mechanism to its owner rather than dropping the capability it names. ' +
-    'Every touched page passes `uv run python -m tools.assay docs check --paths <one path>` with zero prose errors you ' +
-    'introduced, and a pre-existing error on a line you edit is repaired as you pass.';
+    'PROSE SHAPE: write durable prose as owner-voice law in the register the corpus already holds, carry one decision per list ' +
+    'entry, and keep index-tier entries under 150 columns — a bullet running past that carries payload belonging one tier down, ' +
+    'so demote the mechanism to its owner rather than lengthening the line or dropping the capability. ' +
+    'Spend no pass hunting prose defects for their own sake: the corpus pattern and the docgen templates already carry the ' +
+    'shape, and a page whose facts are right reads fine without a register audit.';
+
+const LAW_SMELL =
+    'FIX SMELLS AS YOU PASS, in every fence you open for any reason — a smell you read and leave standing is a smell you ' +
+    'authored. Repair a value ASSERTED where the surface exposes a read; a counter or tally whose construction can only forge ' +
+    'zero; a catch-all arm silently absorbing a case the union now names; an unbounded retry standing behind an admission that ' +
+    'proves member names rather than member behavior; mutable accumulation where a fold, projection, or combinator belongs; ' +
+    'exception control flow inside domain logic; imperative branching a bounded vocabulary, dispatch table, or match can own; ' +
+    'float arithmetic anywhere near money, a settlement boundary, or an exact-decimal claim; a hardcoded literal or stringy call ' +
+    'that belongs in a policy row; and a concurrent consumer that silently splits a stream instead of refusing the second reader. ' +
+    'Collapse rather than patch: merge near-duplicate types, enums, and operations into one denser polymorphic owner inside the ' +
+    'SAME fence, and never extract to a new file or delete capability to reduce lines. ' +
+    'Delete a fence comment that narrates or restates its code, keeping any real constraint it carried. Chase no further comment ' +
+    'or prose census beyond what the fences you edit put in front of you.';
 
 const DOCTRINE =
-    LAW_GROUND + '\n\n' + LAW_WRITE + '\n\n' + LAW_MEMBER + '\n\n' + LAW_PROSE + '\n\n' + LAW_TIER + '\n\n' + LAW_SHAPE + '\n\n' + LAW_RIPPLE;
+    LAW_GROUND +
+    '\n\n' +
+    LAW_WRITE +
+    '\n\n' +
+    LAW_MEMBER +
+    '\n\n' +
+    LAW_PROSE +
+    '\n\n' +
+    LAW_TIER +
+    '\n\n' +
+    LAW_SHAPE +
+    '\n\n' +
+    LAW_SMELL +
+    '\n\n' +
+    LAW_RIPPLE;
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -914,13 +572,26 @@ const reconPrompt = (t) =>
     pagesOf(t) +
     '. CHARTER THIS TERRITORY WILL EXECUTE: ' +
     t.charter +
-    ' YOUR JOB: read every territory page IN FULL, plus the folder README/ARCHITECTURE/RULINGS that govern them and BOTH .api ' +
-    'tiers owning the packages their fences compose. Produce a consumer-scoped map for the writer that follows you: (1) FACTS — ' +
-    'current-state statements anchored to path and line, including every defect the charter names, verified present or already ' +
-    'absent; (2) MEMBERS — every package member the territory composes or plainly could, classified used / underutilized / unused ' +
-    '/ absent / unverified, each with its verified signature, its owning .api tier, and the route you verified it on; ' +
-    'shallow usage of a member whose surface carries a family counts as UNDERUTILIZED; (3) SEAMS — every cross-file and ' +
-    'cross-territory endpoint this territory touches, both ends named. ' +
+    ' YOUR JOB: read every territory page IN FULL — never a grep, never a skim, never the first N lines — plus the folder ' +
+    'README/ARCHITECTURE/RULINGS that govern them, the branch ARCHITECTURE strata rows above them, the COUNTERPART pages in the ' +
+    'other two branches, and BOTH .api tiers owning the packages their fences compose, each catalog read END TO END. ' +
+    'Produce a consumer-scoped map for the writer that follows you, and cast the net three to four times wider than the charter ' +
+    'literally names — the writer can discard a fact it does not need and can never recover one you skipped. ' +
+    '(1) FACTS — current-state statements anchored to path and line, each carrying a topic label from this closed set so the ' +
+    'writer can route them: STATE for the charter defects verified present or already absent; PARITY for a capability a sibling ' +
+    'branch realizes that this territory lacks, or holds in a weaker shape, with the reference anchor named in that sibling; ' +
+    'STRATA for a locally-minted type, rail, registry, or fold whose concept an upper stratum already owns, with that owner ' +
+    'named; BACKEND for anything backend-specific leaking into a family surface, a family row answering a column its siblings do ' +
+    'not, or a plane advertised while nothing plants it; SMELL for a code smell in a fence — a value asserted rather than read, a ' +
+    'counter that can only forge zero, a catch-all arm absorbing a new case, an unbounded retry, a mutable accumulation where a ' +
+    'fold belongs, a stringy call, a hardcoded literal that should ride a policy row; SPAM for comment or prose bloat, meaning a ' +
+    'comment restating its code, narration, a human-facing tour, a line a fresh agent regenerates from disk, or two lines ' +
+    'carrying one rule. ' +
+    '(2) MEMBERS — every package member the territory composes or plainly could, classified used / underutilized / unused / ' +
+    'absent / unverified, each with its verified signature, its owning .api tier, and the route you verified it on; shallow usage ' +
+    'of a member whose surface carries a family counts as UNDERUTILIZED, and a catalogued capability no fence reaches is the ' +
+    'highest-value row you can return. (3) SEAMS — every cross-file and cross-territory endpoint this territory touches, both ' +
+    'ends named, with any arity or spelling divergence between the two ends called out. ' +
     'LAW: your product carries INFORMATION, never prescriptions — anchored facts, verified spellings, seam endpoints, capability ' +
     'the concept admits but nothing exploits. An entry telling the writer what to build is this lane defect. EMPTINESS IS NOT ' +
     'EVIDENCE: a probe returning nothing proves absence only after you re-run it in a second form; garbled output is your own ' +
@@ -1018,6 +689,14 @@ const finalizePrompt = (t, dossierPath, nav) =>
     'your own tooling error, never a property of the territory. ' +
     'Where a check fails, repair at the ROOT: a single-point patch is itself the defect you repair wherever a denser ' +
     'reconstruction of the same files is available. ' +
+    '\n\nTHE CHARTER IS A FLOOR, NEVER A CEILING. Your lens names where to look hardest; it never bounds what you fix. Every ' +
+    'defect you meet while inside a file is yours — a parity gap, a strata violation, a backend leaking into a family surface, a ' +
+    'code smell, comment or prose spam, a seam whose two ends disagree. Repair it rather than carding it wherever your fence ' +
+    'reaches, and reserve a residual for work genuinely owned elsewhere. ' +
+    'ULTRA-STACK as you repair: before writing any fence body, read the owning .api catalogs IN FULL and rebuild on the ' +
+    'catalogued member rather than hand-rolling beside it — a retry, backoff, codec, buffer, cache, partition planner, type map, ' +
+    'statistical fold, or query builder standing next to a package that ships it is a defect, and a catalogued capability no ' +
+    'fence reaches is capability the estate paid for and never took. Land the catalog row for any new member in the same pass. ' +
     '\n\nGrounding, read AFTER your own cold probes have run: the recon dossier at ' +
     dossierPath +
     ', and these location facts from the phases that landed: ' +
@@ -1075,7 +754,7 @@ const lane = (t, promptText) =>
             '-recon-dossier.json (Write tool, absolute path; delete any prior file at that path first). Schema: ' +
             JSON.stringify(DOSSIER) +
             ' — then return ONLY the receipt: ok, the report path, the entries count, a one-line mechanical headline, failure empty.',
-        { label: 'recon:' + t.key, phase: 'Recon', model: 'sonnet', effort: 'high', schema: RECEIPT },
+        { label: 'recon:' + t.key, phase: 'Recon', effort: 'high', schema: RECEIPT },
     ).then((r) => ({
         key: t.key,
         pages: t.pages,
@@ -1171,7 +850,7 @@ if (barrierLanes.length) {
                     agent(writePrompt(b, dossierOf(b.key), null), {
                         label: 'kernel:' + b.key,
                         phase: 'Kernel',
-                        effort: 'max',
+                        effort: 'high',
                         schema: FIXLOG,
                     }).then((r) => ({ key: b.key, ...(r || {}) })),
             ),
@@ -1190,7 +869,7 @@ const chains = (
             agent(openPrompt(t, dossierOf(t.key), barrierNav), {
                 label: (t.kind === 'verify' ? 'lens:' : 'write:') + t.key,
                 phase: 'Implement',
-                effort: 'max',
+                effort: 'high',
                 schema: FIXLOG,
             }),
         (fix, t) =>
@@ -1199,7 +878,7 @@ const chains = (
                 : agent(critiquePrompt(t, dossierOf(t.key), navOf(fix)), {
                       label: 'critique:' + t.key,
                       phase: 'Critique',
-                      effort: 'max',
+                      effort: 'high',
                       schema: FIXLOG,
                   }).then((crit) => ({ fix, crit })),
         (prev, t) =>
@@ -1214,7 +893,7 @@ const chains = (
                       {
                           label: 'redteam:' + t.key,
                           phase: 'RedTeam',
-                          effort: 'max',
+                          effort: 'high',
                           schema: FIXLOG,
                       },
                   ).then((red) => ({ key: t.key, stages: [prev.fix, prev.crit, red].filter(Boolean) })),
@@ -1241,7 +920,7 @@ if (ROW.serial) {
             label: 'serial:' + s.key,
             phase: 'Serial',
             model: 'fable',
-            effort: 'max',
+            effort: 'high',
             schema: FIXLOG,
         });
         if (out) serialLogs.push({ key: s.key, ...out });
@@ -1403,7 +1082,7 @@ const verdict = await agent(
             ? 'THIS IS THE TERMINAL PHASE: a non-empty set here is a campaign-level failure, not a handoff — say so plainly in your ' +
               'summary and name each blocker and its owner, because no later phase exists to receive it.'
             : 'Rows whose files a LATER phase owns are correct to carry; rows you merely found inconvenient are not.'),
-    { label: 'verify:p' + PHASE, phase: 'Verify', effort: 'max', schema: VERDICT },
+    { label: 'verify:p' + PHASE, phase: 'Verify', effort: 'high', schema: VERDICT },
 );
 
 const harvest = dedupe(allLogs.flatMap((s) => s.harvest || []).map((h) => ({ files: [h.hardens], claim: h.lesson, owner: h.evidence }))).map((h) => ({

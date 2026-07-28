@@ -57,6 +57,9 @@ Every surface is promise-native; `query` and `sql` return `Results<T>`, `exec` r
 
 [TOPOLOGY]:
 - PGLite exposes one single-user PostgreSQL connection.
+- Embedded PostgreSQL answers `uuidv7()`, `MERGE`, `RETURNING old`/`new`, `VIRTUAL` generated columns, and `WITHOUT OVERLAPS` temporal keys natively.
+- Multicolumn btree skip scan rides the embedded planner, so no consumer composes a prefix-scan substitute.
+- Startup runs single-user under synchronous IO with no worker process, so no asynchronous IO method is reachable.
 - One process or worker owns each writable generation; every proxy terminates at that owner.
 - `query`, `sql`, and `exec` materialize arrays; `PGliteInterface` exposes no source stream.
 - Neutral streaming requires bounded materialization with an explicit memory ceiling.

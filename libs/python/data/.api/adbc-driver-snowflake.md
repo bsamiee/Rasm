@@ -1,6 +1,6 @@
 # [PY_DATA_API_ADBC_DRIVER_SNOWFLAKE]
 
-`adbc-driver-snowflake` binds a Snowflake warehouse to the data partition rail: one `connect` factory loads the native `libadbc_driver_snowflake.so` into an `AdbcDatabase`, and typed `enum.Enum` vocabularies key every setting by its canonical `adbc.snowflake.*` string. Consumption rides `dbapi.connect` on the `REMOTE_PARTITION_DEEPEN` path — Snowflake stages each result set as Arrow chunks in cloud storage, fetched concurrently under `PREFETCH_CONCURRENCY` and delivered zero-copy to the partition, query, and dataframe owners.
+`adbc-driver-snowflake` binds a Snowflake warehouse to the data partition rail: one `connect` factory loads the native `libadbc_driver_snowflake.so` into an `AdbcDatabase`, and typed `enum.Enum` vocabularies key every setting by its canonical `adbc.snowflake.*` string. Consumption rides `dbapi.connect` on one streamed cursor — Snowflake stages each result set as Arrow chunks in cloud storage, which the driver downloads concurrently under `PREFETCH_CONCURRENCY` and delivers zero-copy to the partition, query, and dataframe owners.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -101,11 +101,14 @@ Timeouts are duration strings; `AUTH_TYPE` gates which credential rows apply.
 - one `connect` binds the account to the native `libadbc_driver_snowflake.so`; `dbapi.connect` is the DBAPI row adding `conn_kwargs` over the shared database object, never a parallel client class.
 - `DatabaseOptions`/`StatementOptions` values are the canonical `adbc.snowflake.*` keys carried as `db_kwargs`/statement dictionaries, never string literals or a per-setting builder type; account routing sets warehouse, role, database, and schema at session scope.
 - `AUTH_TYPE` selects one `AuthType` value discriminating the credential flow, never a per-mode connect variant; credential material stays runtime-owned.
+- partition axis: Snowflake REFUSES partitioned execution — `snowflake.(*statement).ExecutePartitions` is a 96-byte zero-call stub answering a nil schema, zeroed partitions, `rows = -1`, and the static error `"ExecutePartitions not implemented for Snowflake"` at status 2 — so `PREFETCH_CONCURRENCY` on one cursor is the whole concurrency story.
+- refusal law: `Cursor.adbc_execute_partitions(operation, parameters=None) -> tuple[list[bytes], pyarrow.Schema]` raises `adbc_driver_manager.NotSupportedError` on a refusing driver, its `str()` reading `NOT_IMPLEMENTED: ExecutePartitions not implemented for Snowflake` and its `status_code` reading `AdbcStatusCode.NOT_IMPLEMENTED` (value 2); exported symbol presence proves nothing, since every driver ships the flat-C wrapper and only the body decides.
+- `AdbcStatusCode` carries NO `NOT_SUPPORTED` member: the enum is `OK`/`UNKNOWN`/`NOT_IMPLEMENTED`/`NOT_FOUND`/`ALREADY_EXISTS`/`INVALID_ARGUMENT`/`INVALID_STATE`/`INVALID_DATA`/`INTEGRITY`/`INTERNAL`/`IO`/`CANCELLED`/`TIMEOUT`/`UNAUTHENTICATED`/`UNAUTHORIZED`.
 
 [STACKING]:
 - `adbc-driver-manager`(`.api/adbc-driver-manager.md`): delegates driver loading, the DBAPI tree (`Connection`/`Cursor`/`Error`, `AdbcStatusCode` mapping), and Arrow delivery; this catalog adds only the Snowflake option vocabulary and `AuthType`, and inherits the manager's ADBC Go-driver OTel telemetry contract.
 - `pyarrow`(`.api/pyarrow.md`) / `arro3-core`(`.api/arro3-core.md`) / `polars`(`.api/polars.md`): each result-chunk `RecordBatchReader.__arrow_c_stream__` feeds `arro3.core.RecordBatchReader.from_stream` or `polars.from_arrow` zero-copy; fan chunks across workers and collapse with one terminal `fetch_arrow_table`/`read_all`.
-- partition deepen: `REMOTE_PARTITION_DEEPEN` runs `Cursor.adbc_execute_partitions` for the chunk descriptors, rebinds each onto a cursor with `adbc_read_partition` (returning `None`) and drains it off that cursor's own fetch — one cursor per concurrent chunk, since a second rebind clears the first result — and downloads from cloud staging concurrently under `PREFETCH_CONCURRENCY` with `RESULT_QUEUE_SIZE` read-ahead.
+- chunk fetch: result-chunk parallelism stays INSIDE the driver — one streamed cursor downloads the staged Arrow chunks concurrently under `PREFETCH_CONCURRENCY` with `RESULT_QUEUE_SIZE` read-ahead — so a caller tunes the option rows rather than fanning cursors itself.
 - staged ingest: `Cursor.adbc_ingest` writes Arrow to internal-stage Parquet then `COPY INTO`, tuned by `INGEST_WRITER_CONCURRENCY`, `INGEST_UPLOAD_CONCURRENCY`, `INGEST_COPY_CONCURRENCY`, and `INGEST_TARGET_FILE_SIZE`.
 
 [LOCAL_ADMISSION]:
@@ -117,6 +120,6 @@ Timeouts are duration strings; `AUTH_TYPE` gates which credential rows apply.
 
 [RAIL_LAW]:
 - Package: `adbc-driver-snowflake`
-- Owns: Snowflake account binding, concurrent Arrow result-chunk retrieval, staged bulk Arrow ingest, high-precision decimal control, per-session warehouse/role/database/schema routing, query tagging, and authentication selection
-- Accept: remote Snowflake partition deepening feeding Arrow record batches to the data partition, query, and dataframe owners, and staged Arrow bulk ingest to warehouse tables
-- Reject: wrapper-renames of `connect`/`dbapi.connect`; a hand-rolled Snowflake REST client, chunk downloader, or `PUT`/`COPY` ingest loop the native driver owns; a per-setting builder type or per-auth-mode connect variant where an option enum value already keys the value; string-literal option keys bypassing `DatabaseOptions`/`StatementOptions`; credential identity minting the runtime owner owns
+- Owns: Snowflake account binding, concurrent in-driver Arrow result-chunk retrieval, staged bulk Arrow ingest, high-precision decimal control, per-session warehouse/role/database/schema routing, query tagging, and authentication selection
+- Accept: streamed Snowflake reads feeding Arrow record batches to the data partition, query, and dataframe owners, and staged Arrow bulk ingest to warehouse tables
+- Reject: a partitioned-read plan over Snowflake where `ExecutePartitions` refuses; wrapper-renames of `connect`/`dbapi.connect`; a hand-rolled Snowflake REST client, chunk downloader, or `PUT`/`COPY` ingest loop the native driver owns; a per-setting builder type or per-auth-mode connect variant where an option enum value already keys the value; string-literal option keys bypassing `DatabaseOptions`/`StatementOptions`; credential identity minting the runtime owner owns

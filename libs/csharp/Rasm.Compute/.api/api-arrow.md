@@ -42,6 +42,17 @@
 |  [21]   | `IArrowType`                       | type contract    | `TypeId`/`Name`; the `Field.Builder.DataType` input                      |
 |  [22]   | `MemoryAllocator`                  | buffer arena     | `abstract`; `Allocate(int) → IMemoryOwner<byte>`                         |
 |  [23]   | `MemoryAllocator.Default`          | shared arena     | `Lazy<MemoryAllocator>`; process-global fallback                         |
+|  [24]   | `ArrowBuffer`                      | buffer value     | `readonly struct`; wraps a `ReadOnlyMemory<byte>` with no copy           |
+|  [25]   | `FloatArray`                       | float array      | `PrimitiveArray<float>`; the float32 channel lane                        |
+|  [26]   | `HalfFloatArray`                   | half array       | `PrimitiveArray<Half>`; the float16 lane at its stored width             |
+|  [27]   | `UInt8Array`                       | byte array       | `PrimitiveArray<byte>`; the unorm8 lane at its stored width              |
+|  [28]   | `FixedSizeListArray`               | nested array     | fixed child count; states a channel's arity interleave                   |
+|  [29]   | `FixedSizeListType`                | nested type      | `NestedType`; `ListSize` + `ValueDataType`, `listSize <= 0` throws       |
+|  [30]   | `FloatType.Default`                | type singleton   | `IArrowType` for a `float` field                                         |
+|  [31]   | `HalfFloatType.Default`            | type singleton   | `IArrowType` for a `Half` field                                          |
+|  [32]   | `UInt8Type.Default`                | type singleton   | `IArrowType` for a `byte` field                                          |
+|  [33]   | `Int32Type.Default`                | type singleton   | `IArrowType` for an `int` field                                          |
+|  [34]   | `IArrowArray`                      | array contract   | the `RecordBatch` column element every lane erases to                    |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -74,10 +85,17 @@
 |  [22]   | `Schema.FieldsList -> IReadOnlyList<Field>`              | property | ordered field vocabulary; schema identity   |
 |  [23]   | `RecordBatch.Schema` / `.Length` / `.Arrays`             | property | sealed batch reads back schema and length   |
 |  [24]   | `Field.Name` / `Field.DataType -> IArrowType`            | property | the `(name, TypeId)` pair a digest folds    |
+|  [25]   | `new ArrowBuffer(ReadOnlyMemory<byte> data)`             | ctor     | borrows foreign memory; no copy, no arena   |
+|  [26]   | `ArrowBuffer.Empty`                                      | static   | absent validity bitmap on a dense array     |
+|  [27]   | `new FloatArray(ArrowBuffer, ArrowBuffer, int, int, int)`| ctor     | value buffer, bitmap, length, nulls, offset |
+|  [28]   | `new FixedSizeListType(IArrowType value, int listSize)`  | ctor     | fixed child count; names the child `item`   |
+|  [29]   | `new FixedSizeListArray(IArrowType, int, IArrowArray, ArrowBuffer, int, int)` | ctor | flat child at a fixed stride |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
+- Zero-copy construction is the second root: `new ArrowBuffer(ReadOnlyMemory<byte>)` borrows a caller's contiguous slice, a primitive array's `(valueBuffer, nullBitmapBuffer, length, nullCount, offset)` constructor binds it at the element width, `ArrowBuffer.Empty` fills the dense array's absent validity bitmap, and `FixedSizeListArray` states an interleave the borrowed bytes already carry — no builder, no allocator, no gather.
+- Narrow lanes bind `HalfFloatArray`/`UInt8Array` at their stored width and never widen to `FloatArray`: widening at the wrap re-spells values its producer's tolerance proof certified narrow, and a reader needing floats widens on read.
 - Metadata-bearing construction has one root: build typed arrays under the per-lane `MemoryAllocator`, build one `Schema` whose fields match the array order one-for-one and whose `Metadata` carries every receipt fact, then call `new RecordBatch(schema, arrays, points)`. `RecordBatch.Builder` exposes neither `Schema` injection nor `Metadata`, so it discards `content_key`/`strategy`/`at`/`points`, and a batch whose metadata omits the content key is the drift defect.
 - Each `DoeDataset` column bulk-appends its backing span — `Coordinates`/`Responses` through `DoubleArray.Builder.Append(span)`, `OnFront` through `BooleanArray.Builder.Append(span)`, `Reserve(points)` pre-sizing each allocator-owned buffer — never a scalar `Append(T)` loop.
 - `MemoryAllocator` injects through typed-array `Build(allocator)` and `RecordBatch.Builder(allocator)`; `Schema.Builder.Build()` and `RecordBatch.Builder.Build()` take none, so a staging-bounded lane (`Tensor/memory#STREAM_POOL`) passes its allocator to every array build and buffers charge the lane budget.
@@ -95,6 +113,6 @@
 
 [RAIL_LAW]:
 - Package: `Apache.Arrow`
-- Owns: the columnar-table construction seam — typed-array builders, `Schema.Builder`/`Field.Builder`, the public `RecordBatch` constructor, metadata-free `RecordBatch.Builder`, the `IArrowType.Default` descriptors, and `MemoryAllocator` — projecting `DoeDataset`/`ChargebackDataset` into a self-describing `RecordBatch`
-- Accept: whole-span column appends pre-sized by `Reserve`, `Schema.Builder.Metadata` carrying receipt facts, `new RecordBatch(schema, arrays, points)`, metadata-free `RecordBatch.Builder` use, and an `Instant` through `TimestampType.Default`
-- Reject: `RecordBatch.Builder` for a metadata-bearing batch; a per-element `Append(T)` loop where a span append exists; a hand-rolled columnar layout `RecordBatch` owns; divergent schema-field and array order; a bare `DateTime` column; the shared `MemoryAllocator.Default` where a lane arena exists; any IPC/ADBC/Flight/compression member; a Compute-side Flight listener or re-encode of the opaque `GeoArrowRequest.ArrowIpc` relay
+- Owns: the columnar-table construction seam — typed-array builders, `Schema.Builder`/`Field.Builder`, the public `RecordBatch` constructor, metadata-free `RecordBatch.Builder`, the `IArrowType.Default` descriptors, and `MemoryAllocator` — projecting `DoeDataset`, `ChargebackDataset`, and the `GeometryDataset` kernel-encode corpus into self-describing batches
+- Accept: whole-span column appends pre-sized by `Reserve`, `Schema.Builder.Metadata` carrying receipt facts, `new RecordBatch(schema, arrays, points)`, metadata-free `RecordBatch.Builder` use, an `Instant` through `TimestampType.Default`, and the buffer-borrowing constructors — `ArrowBuffer` over foreign memory beneath a primitive array and a `FixedSizeListArray` over that child — wherever the caller already owns contiguous bytes at the lane's width
+- Reject: `RecordBatch.Builder` for a metadata-bearing batch; a per-element `Append(T)` loop where a span append exists; a builder copy where the caller's bytes are already contiguous at the lane width; a half or unorm lane widened at the wrap; a per-component scalar fan-out where `FixedSizeListArray` states the arity; a hand-rolled columnar layout `RecordBatch` owns; divergent schema-field and array order; a bare `DateTime` column; the shared `MemoryAllocator.Default` where a lane arena exists; any IPC/ADBC/Flight/compression member; a Compute-side Flight listener or re-encode of the opaque `GeoArrowRequest.ArrowIpc` relay

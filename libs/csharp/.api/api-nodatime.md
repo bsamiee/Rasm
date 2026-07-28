@@ -165,19 +165,21 @@
 |  [07]   | `ParseResult<T>.Convert<TTarget>(Func<T, TTarget>)`            | instance | maps the value arm                  |
 |  [08]   | `ParseResult<T>.ConvertError<TTarget>()`                       | instance | re-tags the fault arm               |
 |  [09]   | `ZonedDateTimePattern.Create`                                  | factory  | full zoned-pattern mint             |
-|  [10]   | `LocalDatePattern.WithCalendar(CalendarSystem)`                | instance | swaps calendar                      |
-|  [11]   | `ZonedDateTimePattern.WithResolver(ZoneLocalMappingResolver)`  | instance | swaps mapping policy                |
-|  [12]   | `ZonedDateTimePattern.WithZoneProvider(IDateTimeZoneProvider)` | instance | swaps zone lookup                   |
-|  [13]   | `CompositePatternBuilder<T>.Add(IPattern<T>, Func<T, bool>)`   | instance | registers a format predicate        |
-|  [14]   | `CompositePatternBuilder<T>.Build() -> IPattern<T>`            | instance | folds the set to one pattern        |
-|  [15]   | `Stopwatch.ElapsedDuration() -> Duration`                      | static   | measured elapsed intake             |
-|  [16]   | `XmlSerializationSettings.DateTimeZoneProvider`                | property | zone provider XML round-trip binds  |
-|  [17]   | `TypeConverterSettings.DateTimeZoneProvider`                   | property | zone provider `TypeConverter` binds |
+|  [10]   | `LocalDatePattern.CreateWithInvariantCulture(string)`          | factory  | culture-free date-pattern mint      |
+|  [11]   | `LocalDatePattern.WithCalendar(CalendarSystem)`                | instance | swaps calendar                      |
+|  [12]   | `ZonedDateTimePattern.WithResolver(ZoneLocalMappingResolver)`  | instance | swaps mapping policy                |
+|  [13]   | `ZonedDateTimePattern.WithZoneProvider(IDateTimeZoneProvider)` | instance | swaps zone lookup                   |
+|  [14]   | `CompositePatternBuilder<T>.Add(IPattern<T>, Func<T, bool>)`   | instance | registers a format predicate        |
+|  [15]   | `CompositePatternBuilder<T>.Build() -> IPattern<T>`            | instance | folds the set to one pattern        |
+|  [16]   | `Stopwatch.ElapsedDuration() -> Duration`                      | static   | measured elapsed intake             |
+|  [17]   | `XmlSerializationSettings.DateTimeZoneProvider`                | property | zone provider XML round-trip binds  |
+|  [18]   | `TypeConverterSettings.DateTimeZoneProvider`                   | property | zone provider `TypeConverter` binds |
 
 Pattern types mint through their own static family and reconfigure through instance transforms returning a new pattern, each transform riding the types whose fields admit it.
 
 - `ZonedDateTimePattern`: every mint takes an `IDateTimeZoneProvider`, and `Create` takes `(string, CultureInfo, ZoneLocalMappingResolver, IDateTimeZoneProvider, ZonedDateTime)`.
 - `PeriodPattern`: singletons only, carrying no mint or transform family.
+- `LocalDatePattern.CreateWithInvariantCulture(string)`: mints culture-free, so every durable segment key renders byte-identically on any host locale — `Rasm.Compute/Runtime/codecs` binds it once as `MonthSegment` for the lake partition name.
 
 [PATTERN_MINTS]: `CreateWithInvariantCulture(string)` `CreateWithCurrentCulture(string)` `Create(string, CultureInfo)` `Create(string, CultureInfo, T)`
 [PATTERN_TRANSFORMS]: `WithCulture(CultureInfo)` `WithTemplateValue(T)` `WithTwoDigitYearMax(int)` `WithPatternText(string)`

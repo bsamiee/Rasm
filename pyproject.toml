@@ -9,6 +9,7 @@ dependencies = [
     "azure-keyvault-secrets",                  # [RUNTIME]: Azure Key Vault secret backend closing the SecretTier.cloud provider family beside the GCP and Vault arms
     "beartype",
     "cloudpickle",                             # [RUNTIME]: kernel and closure shipping across the worker process/subinterpreter seams
+    "cryptography",                            # [RUNTIME]: AES-GCM envelope and key-wrap primitives behind the journal's per-subject crypto-shredding
     "cyclopts",
     "expression",
     "google-cloud-secret-manager",             # [RUNTIME]: cloud secret backend for SecretTier.cloud admission
@@ -35,6 +36,7 @@ dependencies = [
     "opentelemetry-processor-baggage",         # [RUNTIME]: baggage-to-span-attribute promotion for the tenant dimension
     "opentelemetry-resource-detector-containerid", # [RUNTIME]: container.id resource detector for containerized daemon identity
     "opentelemetry-sdk",
+    "opentelemetry-semantic-conventions",      # [RUNTIME]: Schemas roster the one branch schema-url pin reads, so a semconv bump moves the pin
     "pebble",                                  # [RUNTIME]: terminal-deadline worker kill and per-worker task recycling
     "psutil",
     "pydantic",
@@ -85,7 +87,7 @@ dependencies = [
     "gmsh",                                    # [COMPUTE]: 1/2/3-D unstructured mesh generation with physical groups feeding scikit-fem assembly and the meshio round-trip
     "highspy",                                 # [COMPUTE]: HiGHS LP/MIP/QP simplex + interior-point solver; cvxpy backend beside the Clarabel/SCS conic arms
     "interpax; python_version<'3.15'",         # [COMPUTE]: JAX interpolation and splines
-    "jax; python_version<'3.15'",              # [COMPUTE]: XLA accelerator
+    "jax; python_version<'3.15'",              # [COMPUTE]: XLA accelerator; jax is pure-Python and the marker gates its mandatory jaxlib pin, which ships no cp315 wheel and no sdist at any release
     "jaxtyping",                               # [COMPUTE]: array/PyTree shape-and-dtype contracts, jaxtyped(typechecker=beartype); jax-free at import
     "lineax; python_version<'3.15'",           # [COMPUTE]: JAX linear solvers
     "mpmath",                                  # [COMPUTE]: arbitrary-precision real and complex math

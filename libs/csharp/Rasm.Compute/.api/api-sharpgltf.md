@@ -38,15 +38,15 @@
 
 [PUBLIC_TYPE_SCOPE]: Core Schema2 — model root and I/O contexts
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]                                                            |
-| :-----: | :------------------- | :------------ | :---------------------------------------------------------------------- |
-|  [01]   | `ModelRoot`          | class         | glTF root object; owns all logical collections                          |
-|  [02]   | `ReadContext`        | class         | reads glTF/GLB from file, stream, or bytes                              |
-|  [03]   | `ReadSettings`       | class         | validation policy and URI-resolution options for read                   |
-|  [04]   | `WriteContext`       | class         | writes glTF/GLB to file, stream, or callback                            |
-|  [05]   | `WriteSettings`      | class         | write policy; members in `[05]-[WRITESET]`                              |
-|  [06]   | `ExtensionsFactory`  | class         | global extension registry; `RegisterExtension<TParent,TExt>` adds types |
-|  [07]   | `LogicalChildOfRoot` | class         | base for all logical resources; `LogicalParent` walks to root           |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]                                                             |
+| :-----: | :------------------- | :------------ | :----------------------------------------------------------------------- |
+|  [01]   | `ModelRoot`          | class         | glTF root object; owns all logical collections                           |
+|  [02]   | `ReadContext`        | class         | reads glTF/GLB from file, stream, or bytes                               |
+|  [03]   | `ReadSettings`       | class         | validation policy and URI-resolution options for read                    |
+|  [04]   | `WriteContext`       | class         | writes glTF/GLB to file, stream, or callback                             |
+|  [05]   | `WriteSettings`      | class         | write policy; members in `[05]-[WRITESET]`                               |
+|  [06]   | `ExtensionsFactory`  | class         | global extension registry; `RegisterExtension(name, factory)` adds types |
+|  [07]   | `LogicalChildOfRoot` | class         | base for all logical resources; `LogicalParent` walks to root            |
 
 - [05]-[WRITESET]: `WriteSettings` — `MergeBuffers` (default `true`, merges `LogicalBuffers` pre-serialize), `BuffersMaxSize` (merged-chunk byte cap, glTF-only when merging), `JsonIndented`/`JsonOptions` (STJ `JsonWriterOptions`), `ImageWriting` (`ResourceWriteMode`: `BufferView` embeds GLB-native, `EmbeddedAsBase64` embeds glTF-JSON only), `ImageWriteCallback` (per-image `ResourceWriteMode` override), `JsonPostprocessor` (raw-JSON transform pass), `Validation` (`ValidationMode`, read and write).
 
@@ -347,7 +347,7 @@ Core carries no `KnownChannel` (that enum is Toolkit); the public Core PBR-exten
 - I/O folds through `ModelRoot`: read enters `Load` (file), `ParseGLB` (bytes), or `ReadGLB` (stream); write enters `Save` (format by extension) or `WriteGLB` (bytes); `ReadSettings.Validation` and `WriteSettings.Validation` thread `ValidationMode` at both ends, and a custom URI resolver rides a `ReadContext` file-reader delegate set before `ReadSchema2`. WriteSettings members in `[05]-[WRITESET]`.
 - Toolkit build folds `VertexBuilder<TvG,TvM,TvS>` (geometry + material + skinning fragment) → `MeshBuilder` → `SceneBuilder.AddRigidMesh` → `SceneBuilder.ToGltf2()` → `ModelRoot`; `SceneBuilderSchema2Settings` drives strided buffers, buffer merge, and GPU-instancing threshold, `MaterialBuilder` mutates channels through its fluent setters or `UseChannel(KnownChannel)`, and `VertexBufferColumns.CalculateSmoothNormals`/`CalculateTangents` generate normals and tangents.
 - Ext.3DTiles emit folds `Tiles3DExtensions.RegisterExtensions()` at the `ExtensionsFactory` before any `ModelRoot` write; the `TILE_PARTITION` leaf bodies then build the `EXT_structural_metadata` schema on the root and bind feature ids per primitive and instance, while the tileset.json manifest rides the codec page's own `Utf8JsonWriter` fold.
-- Every extension registers at `ExtensionsFactory.RegisterExtension<TParent,TExt>(name)` before any read or write that touches it; the KHR material and texture extensions ship in-box, reached through the public `Material`/`Texture` surface, and a custom extension implements `JsonSerializable` and registers on the same factory.
+- Every extension registers at `ExtensionsFactory.RegisterExtension<TParent,TExt>(name, factory)` before any read or write that touches it, the `Func<TParent, JsonSerializable>` argument supplying the instance; the name-only overload carries `[Obsolete]` naming this one, and the package's own in-box registrations all take the factory. KHR material and texture extensions ship registered, reached through the public `Material`/`Texture` surface, and a custom extension implements `JsonSerializable` and registers on the same factory.
 - Core carries the extension framework but zero geometry codec: no type matches `KHR_draco_mesh_compression` or `EXT_meshopt_compression`, so the encode leg routes to the sibling meshopt codec that rewrites the authored buffer views.
 
 [STACKING]:

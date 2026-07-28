@@ -208,6 +208,15 @@
 |  [06]   | `(ThemeVariant)platformThemeVariant`                           | operator | OS-probe cast       |
 |  [07]   | `FluentTheme.Palettes[ThemeVariant]`                           | property | palette key         |
 
+[COMPILED_TEMPLATE_OPERATIONS]: per-control compiled template and theme binding
+
+| [INDEX] | [SURFACE]                                          | [SHAPE]  | [CAPABILITY]                     |
+| :-----: | :------------------------------------------------- | :------- | :------------------------------- |
+|  [01]   | `TemplatedControl.Template -> IControlTemplate?`   | property | compiled visual-tree template    |
+|  [02]   | `TemplatedControl.TemplateProperty`                | static   | styled slot the template binds   |
+|  [03]   | `StyledElement.Theme -> ControlTheme?`             | property | per-element control-theme bind   |
+|  [04]   | `StyledElement.ThemeProperty`                      | static   | styled slot the theme binds      |
+
 [NOTIFICATION_OPERATIONS]: toast presentation surfaces
 
 | [INDEX] | [SURFACE]                                    | [SHAPE]  | [CAPABILITY]          |

@@ -36,18 +36,27 @@ Every factory returns the same `Transport`, so `createClient` stays protocol-agn
 
 [PUBLIC_TYPE_SCOPE]: server adapter and HTTP/2 session surface — `ConnectNodeAdapterOptions` extends `ConnectRouterOptions`, `Http2SessionManager`/`Http2SessionOptions` own the client-lane keepalive; rail serve/live.
 
-| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                          |
-| :-----: | :---------------------------------------- | :-------------- | :----------------------------------------------------------- |
-|  [01]   | `ConnectNodeAdapterOptions`               | server mount    | extends `ConnectRouterOptions`; the router mount options     |
-|  [02]   | `.routes: (router) => void`               | route builder   | `router.service(Service, impl)` mounts the emitted service   |
-|  [03]   | `.contextValues?: (req) => ContextValues` | per-req context | tenant/principal/deadline per inbound request                |
-|  [04]   | `.fallback?: NodeHandlerFn`               | 404 fallback    | handler when no RPC path matches                             |
-|  [05]   | `.requestPathPrefix?: string`             | mount prefix    | serve all handlers under a path prefix                       |
-|  [06]   | `NodeHandlerFn`                           | handler         | `(req, res) => void` — the `http.RequestListener` value      |
-|  [07]   | `NodeServerRequest`/`NodeServerResponse`  | node io         | `http.IncomingMessage` \| `http2.Http2ServerRequest` + res   |
-|  [08]   | `Http2SessionManager`                     | keepalive class | `state`/`connect`/`request`/`abort`/`notifyResponseByteRead` |
-|  [09]   | `Http2SessionOptions`                     | keepalive knobs | PING interval/timeout/idle-connection/idle-timeout ms        |
-|  [10]   | `NodeHttpClientOptions`                   | client fn opts  | `createNodeHttpClient` shape — `@private`, no semver         |
+| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                                       |
+| :-----: | :---------------------------------------- | :-------------- | :------------------------------------------------------------------------ |
+|  [01]   | `ConnectNodeAdapterOptions`               | server mount    | extends `ConnectRouterOptions`; the router mount options                  |
+|  [02]   | `.routes: (router) => void`               | route builder   | `router.service(Service, impl)` mounts the emitted service                |
+|  [03]   | `.contextValues?: (req) => ContextValues` | per-req context | tenant/principal/deadline per inbound request                             |
+|  [04]   | `.fallback?: NodeHandlerFn`               | 404 fallback    | handler when no RPC path matches                                          |
+|  [05]   | `.requestPathPrefix?: string`             | mount prefix    | serve all handlers under a path prefix                                    |
+|  [06]   | `NodeHandlerFn`                           | handler         | `(req, res) => void` — the `http.RequestListener` value                   |
+|  [07]   | `NodeServerRequest`/`NodeServerResponse`  | node io         | `http.IncomingMessage` \| `http2.Http2ServerRequest` + res                |
+|  [08]   | `Http2SessionManager`                     | keepalive class | `state`/`connect`/`request`/`abort`/`notifyResponseByteRead`              |
+|  [09]   | `Http2SessionOptions`                     | keepalive knobs | PING interval/timeout/idle-connection/idle-timeout ms                     |
+|  [10]   | `NodeHttpClientOptions`                   | client fn opts  | `createNodeHttpClient` shape — `@private`, no semver                      |
+|  [11]   | `ConnectRouterOptions`                    | router options  | `extends Partial<UniversalHandlerOptions>`; `grpc?`/`grpcWeb?`/`connect?` |
+|  [12]   | `UniversalHandlerOptions.interceptors`    | server onion    | `Interceptor[]` over every call the router serves; inherited, not own     |
+|  [13]   | `.acceptCompression`/`.compressMinBytes`  | server codec    | inherited router-wide compression floor and admitted algorithms           |
+|  [14]   | `.readMaxBytes`/`.writeMaxBytes`          | server frames   | inherited frame caps refusing an oversized request or response            |
+|  [15]   | `.maxTimeoutMs`/`.shutdownSignal`         | server lifetime | inherited deadline ceiling; the abort signal draining handlers            |
+|  [16]   | `.requireConnectProtocolHeader`           | server guard    | inherited; refuses a unary call missing its protocol header               |
+|  [17]   | `.interceptors` on every transport option | client onion    | `Interceptor[]` on the connect, grpc, and grpc-web records                |
+
+[SERVER_INTERCEPTOR_TRAP]: `ConnectNodeAdapterOptions` declares NO own `interceptors` field — the option arrives through `ConnectRouterOptions extends Partial<UniversalHandlerOptions>`, and that interface carries an `@private Internal code, does not follow semantic versioning` marker while exporting only from the `@connectrpc/connect/protocol` subpath. Every inherited row above ([12] through [16]) rides that same marker, so a composing fence binds them as declared traps a version bump re-proves, never as stable adapter fields; naming `interceptors` on the adapter record alone reads as a first-class option and silently drops when the inheritance moves.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -82,7 +91,8 @@ Every factory returns the same `Transport`, so `createClient` stays protocol-agn
 - `@connectrpc/connect`(`core/.api/connectrpc-connect.md`): the three factories return the `Transport` for `createClient`; `connectNodeAdapter` mounts a `ConnectRouter` threading per-request `ContextValues`; the `ConnectError`/`Code` fold, the `Interceptor` onion, and `CallOptions` stay `connect`-owned.
 - `@bufbuild/protobuf`(`core/.api/bufbuild-protobuf.md`): client and server share the emitted `DescService`; `useBinaryFormat` + `binaryOptions`/`jsonOptions` select the codec — binary content-stable for the C#-emitted services, JSON the debuggable Connect default.
 - `effect` + `@effect/platform-node`(`../../.api/effect.md`, `../../.api/effect-platform-node.md`): transports construct once at the `net/client.md` root, each unary method lifting through `Effect.tryPromise` and each server-streaming through `Stream.fromAsyncIterable`; `CallOptions.signal` binds fiber interruption to `Code.Canceled`; the `NodeHandlerFn` mounts under the platform-node HTTP server at `serve/live.md`; `nodeOptions` carries `Config`-decoded TLS/socket policy.
-- `@effect/opentelemetry`(`runtime/.api/effect-opentelemetry.md`): the hand-written W3C `Interceptor` pair reads `Tracer.currentOtelSpan` and writes/reads `traceparent` — injected on client egress via `interceptors`, extracted on server ingress in the router — carrying trace both directions since no TS `otelconnect` exists; `otel/emit.md`'s `Propagation` owns the header codec.
+- `@effect/opentelemetry`(`runtime/.api/effect-opentelemetry.md`): the hand-written W3C `Interceptor` pair reads `Tracer.currentOtelSpan` and writes/reads `traceparent` — injected on client egress via `interceptors`, extracted on server ingress through the inherited router option — carrying trace both directions since no TS `otelconnect` exists; `otel/emit.md`'s `Propagation` owns the header codec. `Interceptor` is `(next: AnyFn) => AnyFn` over an UNEXPORTED `AnyFn = (req: UnaryRequest | StreamRequest) => Promise<UnaryResponse | StreamResponse>`, so a composing fence spells the onion through the exported `Interceptor` alias and never annotates the inner function; the carrier is `header: Headers` on `RequestCommon` — present on BOTH request arms — beside `header`/`trailer` on `ResponseCommon`, which carries no `contextValues` at all.
+- `@effect/platform-node`(`../../.api/effect-platform-node.md`) node-handler lift: `HttpApp` exposes `fromWebHandler` over a FETCH-shaped handler alone and no member accepting a `NodeHandlerFn`, so an adapter reaches `HttpApp.Default` by pulling the request inside an effect and driving `NodeHttpServerRequest.toIncomingMessage`/`toServerResponse` — the identical accessor pair `serve/route.md`'s rail mount already drives a raw node handler through, and the mount rides `Seam.guard` by construction because the router attaches that middleware once above every mounted row.
 - `net/client.md` lane budget (within-lib): the transport inherits the lane table's timeout/retry/circuit rows — `defaultTimeoutMs` and `readMaxBytes`/`writeMaxBytes` are `Config`-decoded and the retry `Schedule` gates on retryable `ConnectError.code`; a bespoke gRPC client bypassing the lane budget is the defect.
 
 [LOCAL_ADMISSION]:

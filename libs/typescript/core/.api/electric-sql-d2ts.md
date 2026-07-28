@@ -5,7 +5,7 @@
 - module: ESM only (`type: module`); `.` barrel + two peer-gated subpaths — `./sqlite` (durable operator state), `./electric` (live-replication binding).
 - asset: `dist/index.d.ts`; the `.` core bundles `fractional-indexing` + `murmurhash-js`, peer-free.
 - runtime: pure-TS in-process dataflow under node, bun, browser, worker; `.` core browser-safe, `./sqlite` needs the `better-sqlite3` peer (node), `./electric` the `@electric-sql/client` peer (Postgres replication) — neither peer crosses `state`'s transport-free import surface.
-- ABI: synchronous fixpoint scheduler — `run()`/`step()` drain the operator queue on the calling thread; every barrel-reachable operator is sync.
+- abi: synchronous fixpoint scheduler — `run()`/`step()` drain the operator queue on the calling thread; every barrel-reachable operator is sync.
 - plane: `plane:runtime` (W1); folder-local to `state`.
 - rail: incremental-dataflow / fold-maintenance.
 

@@ -1,6 +1,6 @@
 # [PY_DATA_API_ADBC_DRIVER_POSTGRESQL]
 
-`adbc-driver-postgresql` supplies the native ADBC PostgreSQL driver for the data partition rail: a `connect` factory binding `libadbc_driver_postgresql.so` to a libpq URI as an `AdbcDatabase`, and two `enum.Enum` option vocabularies `ConnectionOptions`/`StatementOptions` keying `adbc.postgresql.*` settings. Its distinctive capability is `COPY`-path bulk ingest under `StatementOptions.USE_COPY`, with partitioned reads over libpq server-side cursors. `adbc_driver_manager` owns the DBAPI, ingest, partition, and metadata surface; this catalog adds the postgres option vocabulary and `COPY` law.
+`adbc-driver-postgresql` supplies the native ADBC PostgreSQL driver for the data partition rail: a `connect` factory binding `libadbc_driver_postgresql.so` to a libpq URI as an `AdbcDatabase`, and two `enum.Enum` option vocabularies `ConnectionOptions`/`StatementOptions` keying `adbc.postgresql.*` settings. Its distinctive capability is `COPY`-path bulk ingest under `StatementOptions.USE_COPY`; partitioned execution refuses outright. `adbc_driver_manager` owns the DBAPI, ingest, partition, and metadata surface; this catalog adds the postgres option vocabulary and `COPY` law.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -45,7 +45,7 @@
 |  [02]   | `USE_COPY`              | `adbc.postgresql.use_copy`              | toggle the binary `COPY` path for reads and ingest (default on) |
 
 [ENTRYPOINT_SCOPE]: bulk ingest (manager `Cursor`, postgres `COPY` backing)
-- `Cursor.adbc_ingest` is the manager's; the postgres driver backs it with libpq binary `COPY`. Partition reads (`adbc_execute_partitions`/`adbc_read_partition`) and metadata (`adbc_get_objects`/`adbc_get_table_schema`/`adbc_get_statistics`) stay the manager's surface over libpq server-side cursors.
+- `Cursor.adbc_ingest` is the manager's; the postgres driver backs it with libpq binary `COPY`. Metadata (`adbc_get_objects`/`adbc_get_table_schema`/`adbc_get_statistics`) stays the manager's surface, while partitioned execution refuses at the driver.
 
 | [INDEX] | [SURFACE]            | [SHAPE]  | [CAPABILITY]                                           |
 | :-----: | :------------------- | :------- | :----------------------------------------------------- |
@@ -58,23 +58,25 @@
 - factory axis: one `connect` binds the native driver with the libpq URI in `db_kwargs`; `dbapi.connect` derives the DBAPI `Connection` adding `conn_kwargs` and `autocommit` — the database object is shared, connections derive from it, never a parallel client class.
 - option axis: `ConnectionOptions`/`StatementOptions` values are the canonical `adbc.postgresql.*` keys, flowing as `conn_kwargs`/statement-option dicts keyed by enum value, never ad hoc string literals; no `DatabaseOptions`, since identity and TLS keywords ride the libpq URI.
 - ingest axis: `Cursor.adbc_ingest` streams a `pyarrow.Table`/`RecordBatch`/`RecordBatchReader` (or any `__arrow_c_stream__` producer) into a table over binary `COPY`, keyed by `mode` (`append`/`create`/`create_append`/`replace`), returning the row count; `USE_COPY` gates the fast path and `BATCH_SIZE_HINT_BYTES` bounds the assembled batch.
-- partition axis: `adbc_execute_partitions` yields serialized partition descriptors, each rebound onto the calling cursor by `adbc_read_partition` (returning `None`) and drained off that cursor's own fetch over libpq server-side cursors.
+- partition axis: postgres REFUSES partitioned execution — its `AdbcStatementExecutePartitions` is a 21-instruction stub calling nothing, answering `NOT_IMPLEMENTED` (status 2) once initialized and `INVALID_STATE` (6) otherwise and writing no error message — so a partitioned read plan collapses to one streamed cursor or a caller-side key-range fan-out.
+- refusal law: `Cursor.adbc_execute_partitions(operation, parameters=None) -> tuple[list[bytes], pyarrow.Schema]` raises `adbc_driver_manager.NotSupportedError` on a refusing driver, its `str()` reading exactly `NOT_IMPLEMENTED` (gaining `: <driver msg>` only where the driver wrote one) and its `status_code` reading `AdbcStatusCode.NOT_IMPLEMENTED` (value 2); exported symbol presence proves nothing, since every driver ships the flat-C wrapper and only the body decides.
+- `AdbcStatusCode` carries NO `NOT_SUPPORTED` member: the enum is `OK`/`UNKNOWN`/`NOT_IMPLEMENTED`/`NOT_FOUND`/`ALREADY_EXISTS`/`INVALID_ARGUMENT`/`INVALID_STATE`/`INVALID_DATA`/`INTEGRITY`/`INTERNAL`/`IO`/`CANCELLED`/`TIMEOUT`/`UNAUTHENTICATED`/`UNAUTHORIZED`.
 - transport axis: TLS rides libpq keywords (`sslmode`, `sslrootcert`, `sslcert`, `sslkey`) inside the connection URI; pooling and identity minting stay outside the driver.
 - telemetry axis: inherits the manager's ADBC Go-driver OTel contract (`adbc-driver-manager.md` `[04]-[IMPLEMENTATION_LAW]`) with no postgres delta.
 
 [STACKING]:
-- `adbc-driver-manager`(`.api/adbc-driver-manager.md`): postgres `connect` pre-binds the driver library; `dbapi.connect`/`Connection`/`Cursor`, `Cursor.adbc_ingest`, `adbc_execute_partitions`/`adbc_read_partition`, `adbc_get_objects`/`adbc_get_table_schema`/`adbc_get_statistics`, and the PEP 249 error tree with `AdbcStatusCode` are the manager's, postgres backing ingest with binary `COPY` and partition reads with libpq server-side cursors.
+- `adbc-driver-manager`(`.api/adbc-driver-manager.md`): postgres `connect` pre-binds the driver library; `dbapi.connect`/`Connection`/`Cursor`, `Cursor.adbc_ingest`, `adbc_execute_partitions`/`adbc_read_partition`, `adbc_get_objects`/`adbc_get_table_schema`/`adbc_get_statistics`, and the PEP 249 error tree with `AdbcStatusCode` are the manager's, postgres backing ingest with binary `COPY` and refusing `adbc_execute_partitions` outright.
 - `arro3-core`(`.api/arro3-core.md`): each result `RecordBatchReader` exposes `__arrow_c_stream__`, feeding `arro3.core.RecordBatchReader.from_stream` with zero copy; fan partitions across workers and collapse with one terminal `read_all`/`fetch_arrow_table`.
 - `polars`(`.api/polars.md`): `polars.from_arrow(cursor.fetch_record_batch())` consumes the same capsule with zero copy when a frame is wanted.
 
 [LOCAL_ADMISSION]:
 - import `adbc_driver_postgresql` (and `.dbapi`) at boundary scope only; the manifest import policy bans module-level import.
 - catalog, schema, table, and column discovery route through the manager's `adbc_get_objects` at the requested `depth`, with `adbc_get_table_schema` and `adbc_get_statistics` returning Arrow — never a hand-written `information_schema`/`pg_catalog` query.
-- each connection captures a partition receipt: resolved URI (credentials redacted), applied option keys, ingest mode and row count, partition count, and Arrow schema.
-- `adbc_driver_postgresql` owns libpq transport, `COPY` ingest, option application, and partition retrieval, emitting Arrow record batches to the data partition owner; result materialization and dataframe conversion route to `pyarrow`/`polars`, and credential identity minting stays with the runtime owner.
+- each connection captures a partition receipt: resolved URI (credentials redacted), applied option keys, ingest mode and row count, and Arrow schema.
+- `adbc_driver_postgresql` owns libpq transport, `COPY` ingest, option application, and streamed Arrow result delivery, emitting Arrow record batches to the data partition owner; result materialization and dataframe conversion route to `pyarrow`/`polars`, and credential identity minting stays with the runtime owner.
 
 [RAIL_LAW]:
 - Package: `adbc-driver-postgresql`
-- Owns: libpq endpoint binding, Arrow `COPY`-path bulk ingest, partitioned Arrow result retrieval over server-side cursors, and the postgres `adbc.postgresql.*` option vocabulary
-- Accept: remote postgres partition deepening feeding Arrow record batches to the data partition, query, and dataframe owners; Arrow-table bulk load over binary `COPY`
-- Reject: wrapper-renames of `connect`/`dbapi.connect`; a hand-stitched `COPY` encoder or per-row insert loop where `adbc_ingest` streams the whole Arrow table; a hand-written `pg_catalog` query where the manager's `adbc_get_objects` returns Arrow; a `DatabaseOptions`-style table duplicating libpq URI keywords; string-literal option keys bypassing `ConnectionOptions`/`StatementOptions`
+- Owns: libpq endpoint binding, Arrow `COPY`-path bulk ingest, streamed Arrow result delivery, and the postgres `adbc.postgresql.*` option vocabulary
+- Accept: remote postgres reads feeding Arrow record batches to the data partition, query, and dataframe owners; Arrow-table bulk load over binary `COPY`
+- Reject: a partitioned-read plan over postgres where `AdbcStatementExecutePartitions` refuses; wrapper-renames of `connect`/`dbapi.connect`; a hand-stitched `COPY` encoder or per-row insert loop where `adbc_ingest` streams the whole Arrow table; a hand-written `pg_catalog` query where the manager's `adbc_get_objects` returns Arrow; a `DatabaseOptions`-style table duplicating libpq URI keywords; string-literal option keys bypassing `ConnectionOptions`/`StatementOptions`

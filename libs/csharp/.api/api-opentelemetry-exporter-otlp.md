@@ -38,6 +38,7 @@
 |  [08]   | `ExportProcessorType`         | `Batch`, traces alone                                                       |
 |  [09]   | `BatchExportProcessorOptions` | trace batch tuning, traces alone                                            |
 
+- `ApplyConfigurationUsingSpecificationEnvVars` parses the endpoint, protocol, headers, timeout, and compression keys during OPTIONS CONSTRUCTION, so a value the registration delegate assigns lands after the parse and outranks it; the type's own remark omits the compression key while the body binds it, and every option left unassigned falls to its shipped default — `Grpc` at 4317 and `None` — so a wire pin carried by an env key nothing publishes ships gRPC and uncompressed.
 - Setting `Endpoint` disables per-signal path appending, so an explicit endpoint carries its own `/v1/<signal>` suffix.
 - `HttpClientFactory` is the one seam a persistent-queue or custom-certificate handler installs through, and the SHIPPED factory a set value displaces is the sole application point for both `HttpClient.Timeout` and the mutual-auth client — a replacement carries both or loses both.
 - mTLS carriers stay internal with no public option, armed from `OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE` and `OTEL_EXPORTER_OTLP_CLIENT_KEY` inside that shipped factory alone, so a deployment configuring mutual auth through environment loses it the moment a composition seats its own factory.
@@ -50,17 +51,17 @@
 
 [ENTRYPOINT_SCOPE]: egress registration; every `AddOtlpExporter` family carries a `string? name` prefix overload, and the metric and log families a second leg carrying `MetricReaderOptions` or `LogRecordExportProcessorOptions`.
 
-| [INDEX] | [SURFACE]                                                                 | [SHAPE] | [CAPABILITY]                             |
-| :-----: | :------------------------------------------------------------------------ | :------ | :--------------------------------------- |
-|  [01]   | `IOpenTelemetryBuilder.UseOtlpExporter()`                                 | static  | all three signals on one hosted root     |
-|  [02]   | `IOpenTelemetryBuilder.UseOtlpExporter(OtlpExportProtocol, Uri)`          | static  | protocol and base URL inline             |
-|  [03]   | `TracerProviderBuilder.AddOtlpExporter(Action<OtlpExporterOptions>)`      | static  | span egress with its batch square        |
-|  [04]   | `MeterProviderBuilder.AddOtlpExporter(Action<OtlpExporterOptions>)`       | static  | metric egress on exporter options alone  |
+| [INDEX] | [SURFACE]                                                                  | [SHAPE] | [CAPABILITY]                             |
+| :-----: | :------------------------------------------------------------------------- | :------ | :--------------------------------------- |
+|  [01]   | `IOpenTelemetryBuilder.UseOtlpExporter()`                                  | static  | all three signals on one hosted root     |
+|  [02]   | `IOpenTelemetryBuilder.UseOtlpExporter(OtlpExportProtocol, Uri)`           | static  | protocol and base URL inline             |
+|  [03]   | `TracerProviderBuilder.AddOtlpExporter(Action<OtlpExporterOptions>)`       | static  | span egress with its batch square        |
+|  [04]   | `MeterProviderBuilder.AddOtlpExporter(Action<OtlpExporterOptions>)`        | static  | metric egress on exporter options alone  |
 |  [05]   | `MeterProviderBuilder.AddOtlpExporter(Action<Otlp…, MetricReaderOptions>)` | static  | metric egress with temporality + cadence |
-|  [06]   | `LoggerProviderBuilder.AddOtlpExporter(Action<OtlpExporterOptions>)`      | static  | log egress on exporter options alone     |
-|  [07]   | `LoggerProviderBuilder.AddOtlpExporter(Action<Otlp…, LogRecordExport…>)`  | static  | log egress with its processor shape      |
-|  [08]   | `OpenTelemetryLoggerOptions.AddOtlpExporter(Action<OtlpExporterOptions>)` | static  | log egress on the `ILogger` bridge seat  |
-|  [09]   | `OtlpTraceExporter(OtlpExporterOptions)`                                  | ctor    | exporter instance for a custom processor |
+|  [06]   | `LoggerProviderBuilder.AddOtlpExporter(Action<OtlpExporterOptions>)`       | static  | log egress on exporter options alone     |
+|  [07]   | `LoggerProviderBuilder.AddOtlpExporter(Action<Otlp…, LogRecordExport…>)`   | static  | log egress with its processor shape      |
+|  [08]   | `OpenTelemetryLoggerOptions.AddOtlpExporter(Action<OtlpExporterOptions>)`  | static  | log egress on the `ILogger` bridge seat  |
+|  [09]   | `OtlpTraceExporter(OtlpExporterOptions)`                                   | ctor    | exporter instance for a custom processor |
 
 - Rows [05] and [07] are the ONLY public seats for reader temporality, reader cadence, and the log-record batch square: the cross-signal claim verb routes each through `OtlpExporterBuilder`, `OtlpExporterBuilderOptions`, and `IOtlpExporterOptions`, all three `internal` at this pin, so no composition behind row [01] or [02] can set them.
 
@@ -98,11 +99,11 @@
 - `OpenTelemetry.Extensions.Hosting`(`api-opentelemetry-hosting.md`): `UseOtlpExporter` extends the `IOpenTelemetryBuilder` that `AddOpenTelemetry()` mints.
 - `Microsoft.Extensions.Options`(`Rasm.AppHost/.api/api-options.md`): `OtlpExporterOptions` resolves as named options through `IOptionsMonitor<OtlpExporterOptions>`, so the `string? name` prefix on each `AddOtlpExporter` family selects one policy record.
 - instrumentation packages(`api-otel-instrumentation-*.md`): each subscribed source and meter produces the spans and metrics this surface drains, so an admitted instrumentation row and an egress row are one decision.
-- AppHost observability root(`Rasm.AppHost/Observability/telemetry#SIGNAL_GOVERNANCE`): `SignalGovernance.Govern` binds all three per-signal seats — `SpanBatch` on the trace leg, delta temporality and `ReaderCadence` on the metric leg, and `LogBatch` on the log leg — and `Durable` replaces `HttpClientFactory` with the branch-owned queue handler wherever the resolved profile carries a durable queue root; that handler overrides `Send` and `SendAsync` alike, and `TelemetryComposition` opens the queue set before the provider builds and disposes it at the telemetry drain band, because the options delegate runs from the processor factory past a sealed service collection.
+- AppHost observability root(`Rasm.AppHost/Observability/telemetry#SIGNAL_GOVERNANCE`): `SignalGovernance.Govern` binds the three per-signal seats — `SpanBatch`, delta temporality beside `ReaderCadence`, `LogBatch` — and `SignalGovernance.Egress` binds each arm's wire, stamping `Protocol` and `Compression` off `WireProtocol`/`WireCompression` and taking `HttpClientFactory` for the queue handler a durable profile arms; `api-otel-persistent-storage.md` owns that handler's lifetime.
 - BCL transport trust(`api-bcl-net-http.md`, `api-bcl-cryptography.md`): `OtlpTrust.Mount` reads the `_CERTIFICATE`/`_CLIENT_CERTIFICATE`/`_CLIENT_KEY` rows into `SocketsHttpHandler.SslOptions` — `X509Certificate2.CreateFromPemFile` onto `ClientCertificates`, an `X509ChainPolicy` at `CustomRootTrust` onto `CertificateChainPolicy` — so a replacement factory presents the mutual-auth identity the internal `OtlpMtlsOptions` leg owns.
 
 [LOCAL_ADMISSION]:
-- Egress and trust bind from `OTEL_EXPORTER_OTLP_*` — the endpoint, headers, timeout, and compression keys, their `_TRACES_`/`_METRICS_`/`_LOGS_` per-signal overrides, and the `_CERTIFICATE`/`_CLIENT_CERTIFICATE`/`_CLIENT_KEY` triple; source literals carry neither.
+- Egress and trust bind from `OTEL_EXPORTER_OTLP_*` — the endpoint, protocol, headers, timeout, and compression keys, their `_TRACES_`/`_METRICS_`/`_LOGS_` per-signal overrides, and the `_CERTIFICATE`/`_CLIENT_CERTIFICATE`/`_CLIENT_KEY` triple; a deployment-plane coordinate rides its key and an estate wire pin rides the options delegate, because that delegate runs after the parse and wins.
 - Direct `OtlpTraceExporter`/`OtlpMetricExporter`/`OtlpLogExporter` construction rides a custom `BaseProcessor<T>` seat alone; every ordinary root registers through the extension verbs.
 
 [RAIL_LAW]:

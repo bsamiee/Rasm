@@ -115,17 +115,24 @@
 
 | [INDEX] | [SURFACE]                                                                    | [SHAPE]       | [CAPABILITY]                       |
 | :-----: | :--------------------------------------------------------------------------- | :------------ | :--------------------------------- |
-|  [01]   | `Machine.make` / `makeSerializable` / `boot` / `snapshot` / `restore`        | actor         | `work/flow/durable` durable actors |
-|  [02]   | `Persistence.layerResult` / `layerResultMemory` / `layerResultKeyValueStore` | result store  | schema-typed result tier           |
-|  [03]   | `Persistence.layerMemory` / `layerKeyValueStore`                             | backing store | raw-byte backing tier              |
-|  [04]   | `PersistedQueue.make` / `makeFactory` / `layer` / `layerStoreMemory`         | durable queue | `work/queue/job` durable jobs      |
-|  [05]   | `PersistedCache.make(...)`                                                   | durable cache | `work` idempotency cache           |
-|  [06]   | `Reactivity.mutation` / `query` / `stream` / `invalidate(keys)` / `layer`    | reactive      | `store/project` read-your-writes   |
-|  [07]   | `Sse.makeChannel(...)` / `makeParser(...)` / `encoder`                       | SSE codec     | `edge/live` SSE codec              |
-|  [08]   | `RateLimiter.make` / `layer` / `layerStoreMemory`                            | rate limit    | `edge/api/middleware` limiter      |
-|  [09]   | `RateLimiter.makeWithRateLimiter` / `makeSleep`                              | rate limit    | `algorithm`/`onExceeded` policy    |
-|  [10]   | `RequestResolver.dataLoader(...)` / `persisted(...)`                         | batching      | curried batch/persist combinators  |
-|  [11]   | `DevTools.layer(url?)` / `layerWebSocket(url?)`                              | dev           | `telemetry ./dev` DevTools export  |
+|  [01]   | `Machine.procedures.make(state)` / `.add<Req>()(tag, handler)`               | procedures    | build the request-handler list     |
+|  [02]   | `Machine.make` / `makeWith<State, Input>()` / `makeSerializable`             | actor def     | `work/flow/durable` durable actors |
+|  [03]   | `Machine.retry(policy)`                                                      | actor def     | re-drive a failed initialization   |
+|  [04]   | `Machine.boot` / `snapshot` / `restore`                                      | actor         | run one; carry it across restarts  |
+|  [05]   | `Persistence.layerResult` / `layerResultMemory` / `layerResultKeyValueStore` | result store  | schema-typed result tier           |
+|  [06]   | `Persistence.layerMemory` / `layerKeyValueStore`                             | backing store | raw-byte backing tier              |
+|  [07]   | `PersistedQueue.make` / `makeFactory` / `layer` / `layerStoreMemory`         | durable queue | `work/queue/job` durable jobs      |
+|  [08]   | `PersistedCache.make(...)`                                                   | durable cache | `work` idempotency cache           |
+|  [09]   | `Reactivity.mutation` / `query` / `stream` / `invalidate(keys)` / `layer`    | reactive      | `store/project` read-your-writes   |
+|  [10]   | `Sse.makeChannel(...)` / `makeParser(...)` / `encoder`                       | SSE codec     | `edge/live` SSE codec              |
+|  [11]   | `RateLimiter.make` / `layer` / `layerStoreMemory`                            | rate limit    | `edge/api/middleware` limiter      |
+|  [12]   | `RateLimiter.makeWithRateLimiter` / `makeSleep`                              | rate limit    | `algorithm`/`onExceeded` policy    |
+|  [13]   | `RequestResolver.dataLoader(...)` / `persisted(...)`                         | batching      | curried batch/persist combinators  |
+|  [14]   | `DevTools.layer(url?)` / `layerWebSocket(url?)`                              | dev           | `telemetry ./dev` DevTools export  |
+
+- `Machine.procedures.make(initialState, { identifier? })` seeds an empty `ProcedureList`; `procedures.add<Req>()(list, tag, handler)` curries the request type first and then runs `Function.dual`, so each call widens the list's Public union by `Req` and its `R` by the handler's requirements. `addPrivate` lands the same handler on the Private union, and `serializable` is the twin module a `makeSerializable` definition builds through.
+- `Machine.makeWith<State, Input>()` pins the state and input types up front and then takes the same initializer `make` does, which is what admits a recursive or self-referencing state a bare `make` cannot infer.
+- `Machine.retry(self, policy)` wraps the DEFINITION rather than a booted actor: the `Schedule` reads `Machine.InitError<M> | MachineDefect` as its input and the result widens the machine's context by the schedule's `R`, so a boot whose initialization fails re-drives under the policy.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

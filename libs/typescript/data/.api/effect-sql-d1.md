@@ -7,7 +7,8 @@
 [PACKAGE_SURFACE]: `@effect/sql-d1`
 - package: `@effect/sql-d1` (MIT)
 - effect-peer: `effect`, `@effect/sql` (`.api/effect-sql.md`), `@effect/experimental` (`Reactivity`), `@effect/platform`
-- backing: the Workers `D1Database` runtime binding, no bundled driver; `@cloudflare/workers-types` supplies the binding types
+- backing: the Workers `D1Database` runtime binding, no bundled driver
+- binding types: `@cloudflare/workers-types` is a hard dependency this package installs, so no consumer manifest carries a row for it
 - module format: ESM + CJS dual (`dist/dts` typings); subpath `@effect/sql-d1/D1Client`; `sideEffects: []`
 - runtime: Cloudflare Workers only — node/bun ride `-sqlite-node`/`-sqlite-bun`, the browser `-sqlite-wasm`
 - rail: the `store` `lane/sqlite` managed-edge dialect — the pg spine's journal and projection contracts minus interactive transactions
@@ -25,6 +26,7 @@
 |  [04]   | `D1ClientConfig.db` (`D1Database`)                     | binding adopt   | adopts the `env.DB` handle as a value            |
 |  [05]   | `D1ClientConfig.prepareCacheSize` / `.prepareCacheTTL` | statement cache | prepared-statement hot-path lever from `Config`  |
 |  [06]   | `D1ClientConfig` (base)                                | transform base  | shared telemetry and snake↔camel name transforms |
+|  [07]   | `D1ClientConfig["db"]`                                 | indexed read    | spells the binding type with no foreign import   |
 
 ## [03]-[ENTRYPOINTS]
 

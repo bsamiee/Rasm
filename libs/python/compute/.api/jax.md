@@ -10,7 +10,7 @@
 - owner: `compute`
 - rail: accelerator
 - default precision: 32-bit arrays; `config.update("jax_enable_x64", True)` promotes the rail to float64
-- capability: XLA-compiled array computation with composable transforms — JIT compilation, forward/reverse-mode autodiff, automatic vectorization, device-parallel mapping, structured control flow, pytree registration, and a NumPy/SciPy-API mirror on XLA
+- capability: XLA-compiled array computation with composable transforms — JIT compilation, forward/reverse-mode autodiff, automatic vectorization, device-parallel mapping, structured control flow, pytree registration, a NumPy/SciPy-API mirror on XLA, the ahead-of-time staging ladder with its compile reports, and trace capture with an in-process trace reader
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -43,8 +43,36 @@
 |  [07]   | `jax.sharding`            | sharding API    | `Mesh`, `Sharding`, `NamedSharding`, and `PartitionSpec`                     |
 |  [08]   | `jax.debug`               | side-effect ops | `print`/`callback`/`breakpoint` legal inside `jit`/`grad`/`vmap`             |
 |  [09]   | `jax.config`              | runtime config  | `update("jax_enable_x64", ...)`, `jax_default_matmul_precision`, etc.        |
-|  [10]   | `jax.experimental.ode`    | ODE staging     | `odeint` (legacy ODE); production ODE solves route to `diffrax`              |
-|  [11]   | `jax.experimental.sparse` | sparse staging  | `BCOO`/`BCSR` sparse arrays and sparsified transforms                        |
+|  [10]   | `jax.stages`              | staging ladder  | `Traced`/`Lowered`/`Compiled` ahead-of-time compile stages and their reports |
+|  [11]   | `jax.profiler`            | profiling       | trace capture, device-memory pprof, annotations, and the in-process reader   |
+|  [12]   | `jax.experimental.ode`    | ODE staging     | `odeint` (legacy ODE); production ODE solves route to `diffrax`              |
+|  [13]   | `jax.experimental.sparse` | sparse staging  | `BCOO`/`BCSR` sparse arrays and sparsified transforms                        |
+
+[PUBLIC_TYPE_SCOPE]: ahead-of-time staging ladder (`jax.stages`)
+
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [CAPABILITY]                                                                |
+| :-----: | :---------------- | :------------ | :-------------------------------------------------------------------------- |
+|  [01]   | `Wrapped`         | protocol      | the object `jit` returns; `.trace`/`.lower` open the staging ladder         |
+|  [02]   | `Traced`          | class         | a traced-but-unlowered stage; `.lower()` advances it, `.out_avals` reports  |
+|  [03]   | `Lowered`         | class         | a lowered stage carrying StableHLO text and pre-compile cost estimates      |
+|  [04]   | `Compiled`        | class         | a compiled executable carrying optimized-HLO text, cost, and memory reports |
+|  [05]   | `CompilerOptions` | type alias    | the `dict` of backend compiler flags `Lowered.compile` accepts              |
+|  [06]   | `ArgInfo`         | struct        | one argument's aval and donation flag on `Lowered.args_info`                |
+
+[PUBLIC_TYPE_SCOPE]: profiling annotations and the in-process trace reader (`jax.profiler`)
+
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY] | [CAPABILITY]                                                                |
+| :-----: | :--------------------------- | :------------ | :-------------------------------------------------------------------------- |
+|  [01]   | `ProfileOptions()`           | class         | collector levels the trace arms; subclasses the jaxlib native options       |
+|  [02]   | `ProfileData`                | native class  | an opened `.xplane.pb` trace; the root of the in-process reader walk        |
+|  [03]   | `ProfilePlane`               | native class  | one device or host plane inside a trace; `.name`, `.lines`, `.stats`        |
+|  [04]   | `ProfileLine`                | native class  | one timeline row inside a plane; `.name`, `.events`                         |
+|  [05]   | `ProfileEvent`               | native class  | one timed event; `.name`, `.start_ns`, `.duration_ns`, `.end_ns`, `.stats`  |
+|  [06]   | `TraceAnnotation(name)`      | context class | names a span on the trace timeline for the enclosed block                   |
+|  [07]   | `StepTraceAnnotation(name)`  | context class | names a step span; `step_num=` keyword drives per-step analysis             |
+
+- `ProfileData`/`ProfilePlane`/`ProfileLine`/`ProfileEvent` bind from the jaxlib native extension, so they carry no stub file and reflect only under an installed `jaxlib`.
+- Plane traversal is four tiers: `ProfileData.planes` -> `ProfilePlane.lines` -> `ProfileLine.events` -> `ProfileEvent`; reading events off a plane skips the line tier and yields nothing.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -79,6 +107,49 @@
 |  [06]   | `closure_convert(fun, *example_args)`                                   | tracing         | converts captured constants to arguments  |
 |  [07]   | `pure_callback(callback, result_shape_dtypes, *args, vmap_method=None)` | host callback   | pure Python callback inside a transform   |
 |  [08]   | `disable_jit(disable=True)`                                             | tracing control | context manager disabling JIT             |
+
+[ENTRYPOINT_SCOPE]: ahead-of-time staging and compile reports (`jax.stages`)
+- `Lowered.cost_analysis` and `Compiled.cost_analysis`/`memory_analysis` answer `None` on a backend or runtime that reports nothing, so every read admits the absent case rather than assuming a mapping.
+- Cost and memory payloads are unstructured nested data whose keys shift across jax and jaxlib releases; fold them by tally or key lookup, never by a pinned field roster.
+
+| [INDEX] | [SURFACE]                                            | [SHAPE]  | [CAPABILITY]                                        |
+| :-----: | :--------------------------------------------------- | :------- | :-------------------------------------------------- |
+|  [01]   | `Wrapped.trace(*args, **kwargs) -> Traced`           | instance | stage a jitted function to its traced form          |
+|  [02]   | `Wrapped.lower(*args, **kwargs) -> Lowered`          | instance | trace and lower in one step                         |
+|  [03]   | `Traced.lower(*, lowering_platforms) -> Lowered`     | instance | lower a traced stage for named target platforms     |
+|  [04]   | `Lowered.compile(compiler_options) -> Compiled`      | instance | compile a lowered stage to an executable            |
+|  [05]   | `Lowered.as_text(dialect, *, debug_info) -> str`     | instance | StableHLO (or `"hlo"`) text of the lowered program  |
+|  [06]   | `Lowered.compiler_ir(dialect)`                       | instance | the lowering's IR object; `None` when unavailable   |
+|  [07]   | `Lowered.cost_analysis()`                            | instance | pre-compile execution-cost estimates; `None` if any |
+|  [08]   | `Compiled.as_text() -> str`                          | instance | optimized-HLO text of the compiled executable       |
+|  [09]   | `Compiled.cost_analysis()`                           | instance | post-compile cost estimates; `None` when absent     |
+|  [10]   | `Compiled.memory_analysis()`                         | instance | peak/argument/output memory estimates; `None` if so |
+|  [11]   | `Compiled.input_shardings` / `output_shardings`      | property | resolved per-argument and per-output shardings      |
+
+[ENTRYPOINT_SCOPE]: profiling capture, annotation, and the in-process reader (`jax.profiler`)
+- `trace`/`start_trace` write a TensorBoard-layout tree under `log_dir`: `<log_dir>/plugins/profile/<run>/` holds one `*.xplane.pb` beside one gzipped `*.trace.json.gz` Chrome trace, both written on every run.
+- `perfetto_trace.json.gz` lands in that same run folder only under `create_perfetto_trace=True` or `create_perfetto_link=True`, and `create_perfetto_link` blocks the process until the served trace is opened.
+- `device_memory_profile` returns gzip-compressed pprof bytes, so a caller writing them itself reproduces `save_device_memory_profile` and never re-compresses.
+- trace-capture carry: `log_dir`, `create_perfetto_link`, `create_perfetto_trace`, `profiler_options`
+
+| [INDEX] | [SURFACE]                                                  | [SHAPE]  | [CAPABILITY]                                            |
+| :-----: | :--------------------------------------------------------- | :------- | :------------------------------------------------------ |
+|  [01]   | `trace(...)`                                               | static   | context manager bracketing one trace capture            |
+|  [02]   | `start_trace(...)`                                         | static   | begin a trace; one runs at a time per process           |
+|  [03]   | `stop_trace()`                                             | static   | end the running trace and write it to `log_dir`         |
+|  [04]   | `device_memory_profile(backend) -> bytes`                  | static   | gzipped pprof snapshot of live device allocations       |
+|  [05]   | `save_device_memory_profile(filename, backend)`            | static   | write that snapshot straight to a file                  |
+|  [06]   | `annotate_function(func, name, **decorator_kwargs)`        | static   | decorator naming a function's span on the timeline      |
+|  [07]   | `start_server(port, requires_backend) -> ProfilerServer`   | static   | serve on-demand profiling; one server per process       |
+|  [08]   | `stop_server()`                                            | static   | tear the profiler server down                           |
+|  [09]   | `register_subprocess(pid, port) -> Callable`               | static   | fold a subprocess's server into this process's captures |
+|  [10]   | `ProfileData.from_file(path) -> ProfileData`               | factory  | open an emitted `.xplane.pb` with no TensorBoard hop    |
+|  [11]   | `ProfileData.from_serialized_xspace(bytes) -> ProfileData` | factory  | open a trace already held as serialized bytes           |
+|  [12]   | `ProfileData.find_plane_with_name(name) -> ProfilePlane`   | instance | select one plane by exact name                          |
+
+- `start_server`: raises when a server is already active, and `stop_server` raises when none is; both guard on one process-global handle.
+- `start_trace`: raises when a trace is already running, so concurrent captures serialize at the caller.
+- `register_subprocess`: covers CPU profiling of the subprocess only, and its returned callable unregisters on call or on garbage collection.
 
 [ENTRYPOINT_SCOPE]: device placement, PRNG, and control flow
 
@@ -166,6 +237,8 @@
 - `random.key`/`split` is the determinism backbone every stochastic sibling consumes — `diffrax` Brownian paths, `numpyro`/`blackjax` MCMC chains, `equinox.nn` initialization, `optax.add_noise` — never a reseeded global RNG
 - `config.update("jax_enable_x64", True)` is a rail-wide precondition: `lineax`/`optimistix`/`diffrax` solves and `numpyro` log-densities assume float64
 - `custom_jvp`/`custom_vjp` attach analytic derivative rules where a sibling's internal solve is non-differentiable or the implicit-function theorem gives a closed-form adjoint (the mechanism `lineax`/`optimistix` use internally for differentiable solves)
+- `numerics/jit#JIT`: `_capture_jax` stages one `jit(kernel).lower(*probe)`, advances it to `Compiled`, and folds `Lowered.as_text` and `Compiled.as_text` extents beside `cost_analysis` entries into the same `EngineProfile` band the numba `inspect_llvm`/`inspect_asm` extents fill, so one profile shape spans both engines
+- `numerics/jit#JIT`: `_traced` brackets the warm probe in `profiler.trace`, walks the emitted `.xplane.pb` through `ProfileData.from_file` -> `planes` -> `lines` -> `events`, and folds event counts and `duration_ns` totals beside `device_memory_profile` byte length into the xla case's trace band
 
 [LOCAL_ADMISSION]:
 - numeric-study kernels are pure functions wrapped with `jit` (or `equinox.filter_jit` for `Module` carriers) at the call boundary, never inside a hot loop
@@ -174,9 +247,11 @@
 - batch dimensions express through `vmap`; device parallelism uses `shard_map` over a `Mesh`
 - host interaction inside a transform routes through `pure_callback` (functionally pure) or `debug.callback` (ordered side effect) with declared `result_shape_dtypes`/`ShapeDtypeStruct`
 - custom array carriers register via `tree_util.register_pytree_node` so the sibling transforms treat them as first-class leaves
+- compile evidence reads the staging ladder rather than wall-clock timing: `lower`/`compile` report the program the backend built, and a `None` cost or memory report records absent evidence rather than a zero
+- trace capture stays caller-armed and disarmed by default — one trace runs per process, and an always-on capture pays device-trace cost on every compile while serializing concurrent solves at the profiler's own lock
 
 [RAIL_LAW]:
 - Package: `jax`
-- Owns: XLA compilation, automatic differentiation, vectorization, device parallelism, structured control flow, the `jax.numpy`/`jax.scipy` array+linalg mirror, and the `tree_util` pytree protocol every sibling carrier registers against
-- Accept: pure numeric-study functions compiled through `jit`, differentiated through `grad`/`jacrev`/`custom_vjp`, batched through `vmap`, with state carried as registered pytrees and randomness threaded through split keys
-- Reject: hand-rolled autodiff or XLA pipelines; a Python loop over traced values where `lax` control flow applies; a reseeded global RNG where a split key threads; ad-hoc Python containers where a registered pytree carries state
+- Owns: XLA compilation, automatic differentiation, vectorization, device parallelism, structured control flow, the `jax.numpy`/`jax.scipy` array+linalg mirror, the `jax.stages` compile-report ladder, the `jax.profiler` capture and reader surface, and the `tree_util` pytree protocol every sibling carrier registers against
+- Accept: pure numeric-study functions compiled through `jit`, differentiated through `grad`/`jacrev`/`custom_vjp`, batched through `vmap`, with state carried as registered pytrees, randomness threaded through split keys, and compile evidence read off the staging ladder
+- Reject: hand-rolled autodiff or XLA pipelines; a Python loop over traced values where `lax` control flow applies; a reseeded global RNG where a split key threads; ad-hoc Python containers where a registered pytree carries state; a wall-clock stopwatch or a TensorBoard round trip where the staging reports and the in-process trace reader answer directly

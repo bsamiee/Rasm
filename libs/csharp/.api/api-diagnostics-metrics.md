@@ -42,39 +42,42 @@
 
 [ENTRYPOINT_SCOPE]: every create leads on `string name`, closes on optional `string? unit`, `string? description`, and an `IEnumerable<KeyValuePair<string, object?>>` tag tail; `CreateHistogram<T>` appends `InstrumentAdvice<T>?`, every observable create takes its callback second. Each synchronous write overloads one-to-three `KeyValuePair<string, object?>` args over `params KeyValuePair<string, object?>[]` and `in TagList`.
 
-| [INDEX] | [SURFACE]                                                                     | [SHAPE]  | [CAPABILITY]                              |
-| :-----: | :---------------------------------------------------------------------------- | :------- | :---------------------------------------- |
-|  [01]   | `IMeterFactory.Create(MeterOptions) -> Meter`                                 | instance | the one provider-scoped meter mint        |
-|  [02]   | `MeterFactoryExtensions.Create(IMeterFactory, string) -> Meter`               | static   | name-shaped mint over an injected factory |
-|  [03]   | `MeterOptions(string)`                                                        | ctor     | scope name the property set completes     |
-|  [04]   | `Meter.CreateCounter<T>(string) -> Counter<T>`                                | instance | monotonic count bind                      |
-|  [05]   | `Meter.CreateUpDownCounter<T>(string) -> UpDownCounter<T>`                    | instance | signed-delta bind                         |
-|  [06]   | `Meter.CreateHistogram<T>(string) -> Histogram<T>`                            | instance | distribution bind under bucket advice     |
-|  [07]   | `Meter.CreateGauge<T>(string) -> Gauge<T>`                                    | instance | call-site last-value bind                 |
-|  [08]   | `Meter.CreateObservableCounter<T>(string, Func<T>)`                           | instance | monotonic total over a reader             |
-|  [09]   | `Meter.CreateObservableUpDownCounter<T>(string, Func<T>)`                     | instance | signed total over a reader                |
-|  [10]   | `Meter.CreateObservableGauge<T>(string, Func<T>)`                             | instance | scalar level over a cell reader           |
-|  [11]   | `Meter.CreateObservableGauge<T>(string, Func<IEnumerable<Measurement<T>>>)`   | instance | keyed family as tagged measurements       |
-|  [12]   | `Counter<T>.Add(T, params ReadOnlySpan<KeyValuePair<string, object?>>)`       | instance | tagged count write                        |
-|  [13]   | `UpDownCounter<T>.Add(T, params ReadOnlySpan<KeyValuePair<string, object?>>)` | instance | tagged signed-delta write                 |
-|  [14]   | `Histogram<T>.Record(T, params ReadOnlySpan<KeyValuePair<string, object?>>)`  | instance | tagged distribution write                 |
-|  [15]   | `Gauge<T>.Record(T, params ReadOnlySpan<KeyValuePair<string, object?>>)`      | instance | tagged last-value write                   |
-|  [16]   | `TagList(params ReadOnlySpan<KeyValuePair<string, object?>>)`                 | ctor     | tag set built once on the stack           |
-|  [17]   | `TagList.Add(string, object?)`                                                | instance | append one dimension                      |
-|  [18]   | `Measurement<T>(T, params ReadOnlySpan<KeyValuePair<string, object?>>)`       | ctor     | one observed value with its tags          |
-|  [19]   | `Instrument.Enabled`                                                          | property | listener gate before a tag build          |
-|  [20]   | `Instrument<T>.Advice`                                                        | property | the bucket advice the create bound        |
+| [INDEX] | [SURFACE]                                                                           | [SHAPE]  | [CAPABILITY]                            |
+| :-----: | :---------------------------------------------------------------------------------- | :------- | :-------------------------------------- |
+|  [01]   | `IMeterFactory.Create(MeterOptions) -> Meter`                                       | instance | the one provider-scoped meter mint      |
+|  [02]   | `MeterFactoryExtensions.Create(IMeterFactory, string) -> Meter`                     | static   | name-shaped mint on an injected factory |
+|  [03]   | `MeterOptions(string)`                                                              | ctor     | scope name the property set completes   |
+|  [04]   | `Meter.CreateCounter<T>(string) -> Counter<T>`                                      | instance | monotonic count bind                    |
+|  [05]   | `Meter.CreateUpDownCounter<T>(string) -> UpDownCounter<T>`                          | instance | signed-delta bind                       |
+|  [06]   | `Meter.CreateHistogram<T>(string) -> Histogram<T>`                                  | instance | distribution bind under bucket advice   |
+|  [07]   | `Meter.CreateGauge<T>(string) -> Gauge<T>`                                          | instance | call-site last-value bind               |
+|  [08]   | `Meter.CreateObservableCounter<T>(string, Func<IEnumerable<Measurement<T>>>)`       | instance | monotonic total; absence spellable      |
+|  [09]   | `Meter.CreateObservableUpDownCounter<T>(string, Func<IEnumerable<Measurement<T>>>)` | instance | signed total; absence spellable         |
+|  [10]   | `Meter.CreateObservableGauge<T>(string, Func<IEnumerable<Measurement<T>>>)`         | instance | level or keyed family, tagged           |
+|  [11]   | `Meter.CreateObservable{Counter,UpDownCounter,Gauge}<T>(string, Func<T>)`           | instance | scalar twin; publishes every read       |
+|  [12]   | `Counter<T>.Add(T, params ReadOnlySpan<KeyValuePair<string, object?>>)`             | instance | tagged count write                      |
+|  [13]   | `UpDownCounter<T>.Add(T, params ReadOnlySpan<KeyValuePair<string, object?>>)`       | instance | tagged signed-delta write               |
+|  [14]   | `Histogram<T>.Record(T, params ReadOnlySpan<KeyValuePair<string, object?>>)`        | instance | tagged distribution write               |
+|  [15]   | `Gauge<T>.Record(T, params ReadOnlySpan<KeyValuePair<string, object?>>)`            | instance | tagged last-value write                 |
+|  [16]   | `TagList(params ReadOnlySpan<KeyValuePair<string, object?>>)`                       | ctor     | tag set built once on the stack         |
+|  [17]   | `TagList.Add(string, object?)`                                                      | instance | append one dimension                    |
+|  [18]   | `Measurement<T>(T, params ReadOnlySpan<KeyValuePair<string, object?>>)`             | ctor     | one observed value with its tags        |
+|  [19]   | `Instrument.Enabled`                                                                | property | listener gate before a tag build        |
+|  [20]   | `Instrument<T>.Advice`                                                              | property | the bucket advice the create bound      |
 
 [ENTRYPOINT_SCOPE]: in-process subscription — the read path an SDK-less consumer binds against a published meter
 
-| [INDEX] | [SURFACE]                                                          | [SHAPE]  | [CAPABILITY]                              |
-| :-----: | :----------------------------------------------------------------- | :------- | :---------------------------------------- |
-|  [01]   | `MeterListener.InstrumentPublished`                                | property | per-instrument admission callback         |
-|  [02]   | `MeterListener.EnableMeasurementEvents(Instrument, object?)`       | instance | subscribe one admitted instrument         |
-|  [03]   | `MeterListener.SetMeasurementEventCallback<T>(MeasurementCallback<T>?)` | instance | typed receiver per measurement type   |
-|  [04]   | `MeterListener.Start()`                                            | instance | publish existing instruments, observe none |
-|  [05]   | `MeterListener.RecordObservableInstruments()`                      | instance | observe every subscribed observable once  |
-|  [06]   | `MeterListener.MeasurementsCompleted`                              | property | instrument or meter disposal callback     |
+| [INDEX] | [SURFACE]                                                               | [SHAPE]  | [CAPABILITY]                             |
+| :-----: | :---------------------------------------------------------------------- | :------- | :--------------------------------------- |
+|  [01]   | `MeterListener.InstrumentPublished`                                     | property | per-instrument admission callback        |
+|  [02]   | `MeterListener.EnableMeasurementEvents(Instrument, object?)`            | instance | subscribe one admitted instrument        |
+|  [03]   | `MeterListener.SetMeasurementEventCallback<T>(MeasurementCallback<T>?)` | instance | typed receiver per measurement type      |
+|  [04]   | `MeterListener.Start()`                                                 | instance | publish instruments, observe none        |
+|  [05]   | `MeterListener.RecordObservableInstruments()`                           | instance | observe every subscribed observable once |
+|  [06]   | `MeterListener.MeasurementsCompleted`                                   | property | instrument or meter disposal callback    |
+|  [07]   | `MeasurementCallback<T>(Instrument, T, tags span, object?)`             | delegate | four-arg receiver each typed bind takes  |
+|  [08]   | `Instrument.Name`                                                       | property | key a listener folds a measurement under |
+|  [09]   | `Instrument.IsObservable`                                               | property | pushed-versus-pulled polarity at a call  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -95,7 +98,7 @@
 - `Rasm.Element`: `ElementInstruments.Rows` declares the closed `rasm.element.*` roster through the kernel factories over `rasm.element.<dimension>` slots, and `GraphInstrument.Project` is the one generated-`Switch` fold where each `ElementFact` case meets an `InstrumentSet.Write` — the mounted `LevelCells` stays empty because the seam owns no pulled level, so an unprojected fact breaks the tap at compile time rather than dropping a series.
 - Both AEC rows band their fault dimension on the kernel `KernelInstruments.CategorySlot` rather than a package const, so one query answers which failure class burns across every emitting package.
 - `Rasm.Persistence`: `StoreInstruments.Rows` is a static `InstrumentSpec` roster whose bounds read the kernel `Buckets` policy rows, and `StoreInstruments.Arms` is the slot-keyed table where every receipt wire name meets an `InstrumentSet.Write` or an `InstrumentSet.Level` — both cell families in one page, the scalar for engine hit ratios and the keyed for embedded memory regions beside the per-tenant usage census, whose entries mount for a partitioning tenant alone; two slots carrying one receipt shape bind one parameterized arm mint under distinct tag values rather than a second body, and a receipt column family — step tells, memory regions, profile phases, I/O events, egress settlement outcomes — rides one instrument under a `(wire field, tag value)` row table, so the write set stays single-owned while the series separate, declared cardinality equals stamped cardinality, and a settlement table covering every column its receipt's drained count partitions keeps the share's denominator whole; `StoreDescriptors.Pack` rides the same contributor port, so the panels and the settlement, plan-stability, headroom, and drain-latency indicators prove against the roster the mounting root just bound.
-- `Rasm` telemetry spine: `TelemetryIdentity.Metered` folds the `MeterOptions` mint (its `Mint` sibling adding the paired `ActivitySource` a composing root admits into a band) and `InstrumentSpec.Bind` is the one delegate slot every create lives in — `InstrumentKind` names the family and `MeasureForm` closes the measurement type, so a single generic body spells `CreateCounter`, `CreateUpDownCounter`, `CreateHistogram` (advised through `Buckets.Advised` or plain for the exponential default), `CreateGauge`, `CreateObservableCounter`, `CreateObservableUpDownCounter`, and both `CreateObservableGauge` overloads exactly once; `InstrumentSet.Write` is the one pushed measurement entry, discriminating `Counter<T>`/`UpDownCounter<T>`/`Histogram<T>`/`Gauge<T>` off the bound handle onto a typed rail, `InstrumentSet.Level` its pulled peer gating each write on the mounted row's `InstrumentKind.Pulled` column, and `LevelCells.Reader<T>` serves both the scalar and the `Func<IEnumerable<Measurement<T>>>` keyed families; every contributing package reaches the surface as a `TelemetryContributorPort` row carrying its instrument roster beside whatever `BoardPack` those rows declare, and `TelemetryContributorPort.Admit` proves that pack against the set a root just mounted.
+- `Rasm` telemetry spine: `TelemetryIdentity.Metered` folds the `MeterOptions` mint (its `Mint` sibling adding the paired `ActivitySource` a composing root admits into a band) and `InstrumentSpec.Bind` is the one delegate slot every create lives in — `InstrumentKind` names the family and `MeasureForm` closes the measurement type, so a single generic body spells `CreateCounter`, `CreateUpDownCounter`, `CreateHistogram` (advised through `Buckets.Advised` or plain for the exponential default), `CreateGauge`, `CreateObservableCounter`, `CreateObservableUpDownCounter`, and both `CreateObservableGauge` overloads exactly once; `InstrumentSet.Write` is the one pushed measurement entry, discriminating `Counter<T>`/`UpDownCounter<T>`/`Histogram<T>`/`Gauge<T>` off the bound handle onto a typed rail, `InstrumentSet.Level` and `InstrumentSet.Bind` its pulled pair — a call-site push and an owner-lifetime registration — each gating on the mounted row's `InstrumentKind.Pulled` column, and `LevelCells.Reader<T>` serves the scalar and the keyed families through the one `Func<IEnumerable<Measurement<T>>>` shape every observable create also accepts — a cell no producer wrote yields no measurement, where the `Func<T>` twin publishes a level on every collection and has no spelling for absence; one bound name holds a SET of `LevelProbe` rows, so row [18]'s params-span ctor carries each owner's own tags off an array materialized at registration, every probe reads inside its own fence against the cycle-wide `AggregateException` fold, and the returned scope retires exactly one registration; every contributing package reaches the surface as a `TelemetryContributorPort` row carrying its instrument roster beside whatever `BoardPack` those rows declare, and `TelemetryContributorPort.Admit` proves that pack against the set a root just mounted; `InstrumentTally` is the branch's one `MeterListener` composition — it admits by HANDLE identity against a mounted `InstrumentSet` so a same-named foreign instrument never enters the read, registers one typed callback per `MeasureForm` row so a measurement type the mint admits can never be a type the listener drops, discriminates `Instrument.IsObservable` to replace a republished observable value where a pushed one accumulates, and drives `RecordObservableInstruments` inside `Read` under a fence because the runtime folds one cycle's throwing callbacks into a single `AggregateException`.
 
 [LOCAL_ADMISSION]:
 - Create and write calls live inside a package's declared telemetry-spine fences; an emitting page declares instrument rows.

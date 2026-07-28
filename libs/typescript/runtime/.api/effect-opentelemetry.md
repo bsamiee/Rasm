@@ -80,7 +80,20 @@
 - native-first: `Otlp.layer` is the default export rail — Effect's `Tracer`/`Metric`/`Logger` serialize straight to the OTLP endpoint over `HttpClient`; `NodeSdk`/`WebSdk` recover only SDK-only exporters (OTLP-gRPC, vendor exporters, batch processors).
 - one resource, one identity: both lanes consume one `Resource` derived from `AppIdentity`, so a per-app telemetry fork is structurally impossible.
 - runtime rides the lane, never a fork: `WebSdk` binds `sdk-trace-web`, `NodeSdk` binds `sdk-trace-node`, and the native lane rides whichever `HttpClient` the runtime supplies — a node↔bun↔browser move is an `HttpClient`/SDK Layer selection at the app root.
-- `[OTEL_PIN_BLOCK]`: native parity retires the `@opentelemetry` sdk/exporter machinery as one unit; `@opentelemetry/api`, `resources` (the shared `Resource`-identity substrate), `semantic-conventions`, and the `@opentelemetry/core` W3C propagation family persist as the native lane's substrate.
+- `[OTEL_PIN_BLOCK]`: native parity retires the `@opentelemetry` sdk/exporter machinery as one unit; `@opentelemetry/api`, `resources` (the shared `Resource`-identity substrate), `semantic-conventions`, and the `@opentelemetry/core` W3C propagation family persist as the native lane's substrate. This row is the block's one definition — a catalog or design page citing the token resolves here, and the criteria table below is the whole roster deciding when the block retires.
+
+[PIN_BLOCK_PARITY]: criteria the block carries — each names the seat the pin withholds and what the estate loses until it opens; every criterion clears before the block retires
+
+| [INDEX] | [CRITERION]         | [WITHHELD_SEAT]                                         | [COST_UNTIL_IT_OPENS]                                |
+| :-----: | :------------------ | :------------------------------------------------------ | :---------------------------------------------------- |
+|  [01]   | boundary scrub      | native lane exposes no span-attribute hook               | a scrub-mandating posture selects an SDK lane        |
+|  [02]   | sender encoding     | native options carry no compression field                | the gzip pin holds on the SDK node sender alone      |
+|  [03]   | producer governance | producer seats on the reader, past every view selector   | dimension governance rides the collection projection |
+|  [04]   | exemplar seat       | `sdk-metrics` exports no `ExemplarFilter`, reaches none  | click-through rides the gateway span-derived series  |
+
+- Law: criteria state capability facts re-proved on the installed rail, never preferences — the browser exporter build declares neither `compression` nor `keepAlive` while the node build declares both, so criterion [02] is a SENDER column rather than a lane-wide gap.
+- Law: criteria [03] and [04] compound — the producer emits data points carrying no exemplar slot, so opening the SDK filter alone leaves every `rasm.*` series exemplar-free and both seats gate one criterion clear.
+- Law: every criterion projects onto the `TELEMETRY_CONVENTION` entry's capability-absence disposition, so a branch ceiling and the corpus digest carry one value and a pin bump opening a seat fails at that digest until the row re-values.
 
 [STACKING]:
 - `@effect/platform`(`.api/effect-platform.md`): the native lane demands `HttpClient` — satisfied by `net/client` default-policy rows (timeout/retry/proxy) on node/bun or `BrowserHttpClient.layerXMLHttpRequest` in the browser, so OTLP egress inherits the shared net-client retry/proxy posture.

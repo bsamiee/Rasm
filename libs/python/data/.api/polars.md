@@ -35,6 +35,9 @@
 |  [16]   | `DataTypeExpr`                    | dtype expr      | deferred dtype expression (`dtype_of`, `self_dtype`) for schema-dependent logic |
 |  [17]   | `Categories`                      | category store  | shared category registry for `Categorical` columns                              |
 |  [18]   | `ScanCastOptions` / `CompatLevel` | scan/io policy  | cast-on-scan policy and Arrow compat-level for `to_arrow`/IPC                   |
+|  [19]   | `EngineType`                      | engine selector | `'auto'` / `'in-memory'` / `'streaming'` / `'gpu'` or a `GPUEngine`             |
+|  [20]   | `ExplainFormat` / `PlanStage`     | plan vocabulary | plan text format `('plain','tree')` and plan stage `('ir','physical')`          |
+|  [21]   | `InProcessQuery`                  | query handle    | handle from `collect(background=True)`: `fetch`/`fetch_blocking`/`cancel`       |
 
 [PUBLIC_TYPE_SCOPE]: dtype vocabulary
 
@@ -82,6 +85,7 @@
 - `scan_iceberg`: accepts a live `pyiceberg.table.Table` as `src`; `scan_pyarrow_dataset` pushes predicates into the dataset scan.
 - `scan_arrow_c_stream(source) -> LazyFrame`: lazily scans any object exposing `__arrow_c_stream__` (a `pyarrow.RecordBatchReader`, nanoarrow stream), consuming it batch by batch during execution.
 - `io.plugins.register_io_source`: `(io_source, *, schema, validate_schema, is_pure) -> LazyFrame`; the generator yields `DataFrame` windows under projection/predicate/`n_rows`/`batch_size` pushdown.
+- `explain_all(lazy_frames, *, optimizations=QueryOptFlags(...)) -> str`; `collect_all`/`collect_all_async` take the same bundle, so one flag set governs a batch exactly as it governs a single frame.
 
 [ENTRYPOINT_SCOPE]: DataFrame and LazyFrame operations
 
@@ -112,10 +116,17 @@
 |  [23]   | `sql` / `SQLContext` / `sql_expr`                               | run SQL over frames; parse a SQL fragment to `Expr` |
 |  [24]   | `slice` / `head` / `height`                                     | row-offset slice, first-n rows, row count           |
 |  [25]   | `Series.to_frame` / `Series.rename`                             | promote a `Series` to a one-column frame; rename it |
-|  [26]   | `LazyFrame.profile`                                             | collect beside a per-node execution-timing frame    |
+|  [26]   | `LazyFrame.profile`                                             | collect beside a per-stage execution-timing frame   |
+|  [27]   | `LazyFrame.collect_async`                                       | await a collect scheduled on the engine             |
+|  [28]   | `InProcessQuery.fetch` / `fetch_blocking` / `cancel`            | poll, block on, or cancel a background collect      |
+|  [29]   | `QueryOptFlags.no_optimizations` / `none` / `update`            | build and derive optimizer flag bundles             |
+|  [30]   | `Config.set_verbose` / `Config.set_engine_affinity`             | engine tracing to stderr; default engine choice     |
 
-- `collect`: `(engine=, optimizations=QueryOptFlags(...), background=False)`; `sink_*` add `partition_by`, `storage_options`, `credential_provider`, `mkdir`, `sync_on_close`.
-- `profile`: `(*, show_plot=False, truncate_nodes=0, figsize=(18, 8), engine='auto', optimizations=QueryOptFlags(...), **opt-toggle kwargs) -> tuple[DataFrame, DataFrame]` — the result frame beside a `{node: String, start: UInt64, end: UInt64}` timing frame whose spans are MICROSECONDS off one monotonic origin, the first row `optimization` and each later row one plan node. It takes the same `engine=` selector `collect` does, so profiling never silently changes which backend ran the query.
+- `collect(*, no_optimization=False, engine: EngineType='auto', background=False, optimizations=QueryOptFlags(...)) -> DataFrame | InProcessQuery` — `background=True` hands back an `InProcessQuery` whose `fetch()` polls to `DataFrame | None`, `fetch_blocking()` waits out the query, and `cancel()` drops it; `collect_async(*, gevent=False, engine='auto', optimizations=QueryOptFlags(...))` rides the same selector and bundle, and `sink_*` add `partition_by`, `storage_options`, `credential_provider`, `mkdir`, `sync_on_close`.
+- `profile(*, type_coercion=True, predicate_pushdown=True, projection_pushdown=True, simplify_expression=True, no_optimization=False, slice_pushdown=True, comm_subplan_elim=True, comm_subexpr_elim=True, cluster_with_columns=True, collapse_joins=True, show_plot=False, truncate_nodes=0, figsize=(18, 8), engine: EngineType='auto', optimizations=QueryOptFlags(...)) -> tuple[DataFrame, DataFrame]` — returns the result frame beside a timing frame of EXACTLY `node: String, start: UInt64, end: UInt64`, whose `start`/`end` are MICROSECOND OFFSETS from query start and never durations. Granularity stays COARSE and FUSED — one row per fused pipeline stage and one synthetic `optimization` row, never one row per logical operator — so a per-operator cost model has no source here. `engine=` matches `collect`, so profiling never silently reroutes the backend.
+- `explain(*, format: ExplainFormat='plain', optimized=True, streaming=False, engine: EngineType='auto', tree_format: bool | None=None, optimizations=QueryOptFlags(...)) -> str` renders the plan as text; `show_graph(*, optimized=True, show=True, output_path=None, raw_output=False, figsize=(16.0, 12.0), engine='auto', plan_stage: PlanStage='ir', _check_order=True, optimizations=QueryOptFlags(...)) -> str | None` renders it as a DAG, and `raw_output=True` returns DOT source under zero rendering dependency while `plan_stage='physical'` draws the executed plan.
+- `QueryOptFlags(*, predicate_pushdown, projection_pushdown, simplify_expression, slice_pushdown, comm_subplan_elim, comm_subexpr_elim, cluster_with_columns, collapse_joins, check_order_observe, fast_projection, sort_collapse, pre_partition_hive)` takes `None | bool` per flag and owns optimizer policy canonically — `no_optimizations`, `none`, and `update` derive bundles — and FOUR of those flags reach nothing through the `collect(**kwargs)` spelling: `check_order_observe`, `fast_projection`, `sort_collapse`, `pre_partition_hive`.
+- `Config.set_verbose(active: bool | None=True)` and `Config.set_engine_affinity(engine: EngineType | None=None)` are the two telemetry-relevant setters; `POLARS_VERBOSE`, `POLARS_ENGINE_AFFINITY`, and `POLARS_WARN_UNSTABLE` carry the same knobs from the environment, and no profiling-specific `Config` knob exists.
 
 [ENTRYPOINT_SCOPE]: expression functions and namespaces
 
@@ -153,6 +164,7 @@
 [TOPOLOGY]:
 - `DataFrame` and `LazyFrame` share one `Expr` transformation API; `LazyFrame` records a graph and `collect` runs the optimizer, whose passes toggle per call through `QueryOptFlags` or boolean kwargs.
 - `collect(engine=)` selects in-memory, streaming out-of-core, or `GPUEngine` execution; `background=True` returns an `InProcessQuery`, and `collect_batches`/`sink_batches` stream the result as `RecordBatch`es.
+- `POLARS_VERBOSE=1` writes to STDERR rather than stdout and streams the streaming-engine node state machine with per-transition NANOSECOND timings — a granularity `profile` never reaches, since `profile` reports fused stage spans; the two rails compose, verbose owning transition-level tracing and `profile` owning stage accounting.
 - Expressions stay lazy regardless of frame: `col("x") * 2` is an `Expr` until evaluated inside `select`/`with_columns`/`filter`/`group_by(...).agg`/`Expr.over`; `DataTypeExpr`/`dtype_of`/`self_dtype` defer schema-dependent dtype decisions into the graph.
 - Dtypes are value objects: `Datetime`/`Duration` carry a `time_unit`, `Categorical`/`Enum` bind a string-cache identity through `Categories`, and `Struct`/`List`/`Array` nest inner dtypes.
 - Temporal windowing folds through `group_by_dynamic`, `Expr.rolling`, and `Expr.over(order_by=, mapping_strategy=)`; `join_asof` joins sorted keys and `join_where` joins inequality predicates.
@@ -165,7 +177,7 @@
 - within-lib: the `data` folder composes `scan_*` into a `LazyFrame` `Expr` pipeline closed by `collect(engine='streaming')` or a `sink_*`, native plugins grafting domain kernels onto the same graph.
 
 [LOCAL_ADMISSION]:
-- A `scan_*` `LazyFrame` pipeline closed by `collect(engine='streaming')` or a `sink_*` wins over eager `read_*`, gaining pushdown and out-of-core execution.
+- `scan_*` into a `LazyFrame` pipeline closed by `collect(engine='streaming')` or a `sink_*` wins over eager `read_*`, gaining pushdown and out-of-core execution.
 - Express transforms as `Expr` composition inside `select`/`with_columns`/`filter`/`group_by(...).agg`; address columns with `selectors`, reduce with namespace accessors (`.str`/`.dt`/`.list`/`.arr`/`.struct`/`.cat`/`.bin`) and `fold`/`reduce`.
 - Reach for `register_plugin_function` (native) before `map_batches`/`map_elements` (Python); wrap categorical-heavy joins in `StringCache`.
 

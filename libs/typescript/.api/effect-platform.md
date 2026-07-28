@@ -123,7 +123,7 @@
 
 [ENTRYPOINT_SCOPE]: config, logging, and process lifecycle boundary
 - rail: system-apis
-- `PlatformConfigProvider`: `.fromDotEnv(path)` `.layerDotEnv` `.fromFileTree` `.layerFileTree`. `PlatformLogger.toFile(path, { batchWindow })`; `Runtime`: `.makeRunMain(f)` `.RunMain` `.defaultTeardown`. `Headers.redact(headers, keys)`, `Cookies.toCookieHeader`, `UrlParams.schemaStruct(schema)`. `Etag`: `.Generator` `.layer` `.layerWeak` with `HttpServerResponse.setBody(HttpBody.fileWeb(file))`.
+- `PlatformConfigProvider`: `.fromDotEnv(path)` `.layerDotEnv` `.fromFileTree` `.layerFileTree`. `PlatformLogger.toFile(path, { batchWindow })`; `Runtime`: `.makeRunMain(f)` `.RunMain` `.defaultTeardown`. `Headers.empty`/`.redact(headers, keys)`, `Cookies.toCookieHeader`, `UrlParams.schemaStruct(schema)`. `HttpTraceContext`: `.toHeaders(span)` `.fromHeaders(headers)` `.b3` `.xb3` `.w3c`. `Etag`: `.Generator` `.layer` `.layerWeak` with `HttpServerResponse.setBody(HttpBody.fileWeb(file))`.
 
 | [INDEX] | [SURFACE]                           | [SHAPE]       | [CAPABILITY]                                                                   |
 | :-----: | :---------------------------------- | :------------ | :----------------------------------------------------------------------------- |
@@ -132,6 +132,7 @@
 |  [03]   | `Runtime`                           | run-main      | each runtime's `runMain` type; `-node`/`-bun`/`-browser` drain signals on exit |
 |  [04]   | `Headers` / `Cookies` / `UrlParams` | web value     | `security` redaction, `serve` cookie serialization, typed query-param decode   |
 |  [05]   | `Etag`                              | caching       | `serve/route` static-asset ETag generation and immutable-asset responses       |
+|  [06]   | `HttpTraceContext`                  | trace codec   | `otel` — W3C and B3 span context read from and written to the header frame     |
 
 ## [04]-[MEMBER_SIGNATURES]
 
@@ -148,12 +149,26 @@ Shipped declarations for the platform members whose call shape and behavioral co
 - `Cookie["options"]` is the whole attribute vocabulary the codec renders.
 - `toSetCookieHeaders` is plural, one `Set-Cookie` per cookie; `toCookieHeader` is the request-side single-header join. `Cookies` owns `Set-Cookie` serialization.
 
-[SIGNATURE_SCOPE]: `Headers.redact` — the log-path mask
+[SIGNATURE_SCOPE]: `Headers` — the empty frame and the log-path mask
 - rail: boundaries
 
+[HEADERS]: `Headers extends Redactable { readonly [HeadersTypeId]: HeadersTypeId; readonly [key: string]: string }`
+[EMPTY]: `empty: Headers`
 [REDACT]: `redact.call(string|RegExp|ReadonlyArray<string|RegExp>) -> (self:Headers)=>Record<string,string|Redacted.Redacted>` `redact.call(Headers,string|RegExp|ReadonlyArray<string|RegExp>) -> Record<string,string|Redacted.Redacted>`
 
+- `empty` mints the zero-entry frame every header-taking member accepts; `HeadersTypeId` brands the type, so an object literal refuses in its place and `fromInput()` with no argument returns this same value.
 - `redact` replaces matched values with `Redacted` carriers, so a logged header bag prints `<redacted>` for matched keys with zero call-site masking.
+
+[SIGNATURE_SCOPE]: `HttpTraceContext` — the span-context header codec
+- rail: boundaries
+
+[DECODER]: `FromHeaders: (headers: Headers.Headers) => Option.Option<Tracer.ExternalSpan>`
+[SURFACES]: `toHeaders(span:Tracer.Span) -> Headers.Headers` `fromHeaders(headers:Headers.Headers) -> Option.Option<Tracer.ExternalSpan>` `b3: FromHeaders` `xb3: FromHeaders` `w3c: FromHeaders`
+
+- `toHeaders` takes `Tracer.Span`, the live half of the `Tracer.AnySpan` union, so an ingress-recovered `ExternalSpan` refuses at the type and an egress seed derives from a live span alone.
+- `toHeaders` writes both dialects into one frame — `b3` as `traceId-spanId-sampled[-parentSpanId]`, `traceparent` at version `00` — and carries neither `tracestate` nor baggage.
+- `fromHeaders` folds `w3c`, then `b3`, then `xb3`, returning the first hit; each decoder stays separately callable under `FromHeaders` for single-dialect ingress.
+- `w3c` admits version `00` alone and refuses a `traceId`/`spanId` failing its 32/16 hex-digit test; `b3` and `xb3` default `sampled` to true when the sampling field is absent.
 
 [SIGNATURE_SCOPE]: `HttpApiSecurity.bearer` / `HttpApiMiddleware.Tag` / `HttpApiBuilder.securityDecode` — the declarative guard seam
 - rail: services-and-layers
@@ -178,7 +193,7 @@ Shipped declarations for the platform members whose call shape and behavioral co
 [STACKING]:
 - `effect`(`.api/effect.md`): every contract is an `Effect`-returning service keyed by `Context.Tag`; endpoint payloads, request/response bodies are `Schema`; middleware and client policy are effect transformers. Platform tier adds no new rail — `effect` applied to the boundary.
 - `@effect/platform-node`(`.api/effect-platform-node.md`): `NodeContext.layer` satisfies `FileSystem`/`Path`/`CommandExecutor`/`Terminal`/`Worker` in one Layer, `NodeHttpServer.layer` binds `HttpServer`, `NodeHttpClient.layerUndici` binds `HttpClient`. `@effect/platform-bun`(`.api/effect-platform-bun.md`) and `-browser`(`.api/effect-platform-browser.md`) are peer swaps behind the same Tags.
-- `@effect/opentelemetry`(`runtime/.api/effect-opentelemetry.md`): `HttpClient.withTracerPropagation` and `HttpMiddleware` inject the W3C `traceparent`, `Tracer.makeExternalSpan`/`withSpanContext` continue an inbound one into an Effect parent span, and `Otlp.layer` under the graph exports every server and client-egress span over the shared `HttpClient` with no handler change; `otel/emit` owns the extract-and-continue seam.
+- `@effect/opentelemetry`(`runtime/.api/effect-opentelemetry.md`): `HttpClient.withTracerPropagation` and `HttpMiddleware` inject the W3C `traceparent`, `HttpTraceContext.toHeaders` seeds that frame by hand where egress leaves the client (an RPC hop), `HttpTraceContext.fromHeaders` recovers the inbound `ExternalSpan` for `Tracer.makeExternalSpan`/`withSpanContext` to continue into an Effect parent span, and `Otlp.layer` under the graph exports every server and client-egress span over the shared `HttpClient` with no handler change; `otel/emit` owns the extract-and-continue seam.
 - `security`(`security/.api/jose.md`, `arctic.md`, `node-rs-argon2.md`): `HttpApiSecurity.bearer`/`.apiKey` declares the endpoint scheme, `HttpApiBuilder.securityDecode` decodes the credential from `HttpServerRequest`, and the `security` middleware verifies it (`jose` JWKS validation, `@node-rs/argon2` API-key digest) inside the `Effect` rail.
 - `@effect/rpc`(`runtime/.api/effect-rpc.md`): `RpcGroup`/`RpcServer` is the second `serve` contribution family beside `HttpApiGroup`, served over a `Protocol` Layer built on `HttpRouter`/`HttpApp`/`Socket`/`Worker`. `@effect/cli`(`runtime/.api/effect-cli.md`): a `Command` value composes the `Terminal`/`FileSystem`/`Path` `Environment`, `Command.run` the argv boundary — one assembly law across HTTP, RPC, and CLI surfaces.
 - `@effect/sql`(`data/.api/effect-sql.md`) and `@effect/cluster`(`runtime/.api/effect-cluster.md`) build on these contracts (`Socket`, `FileSystem`) and expose `SqlClient`/`MessageStorage` Tags the app root satisfies with a `store` driver `Layer`; `SqlMessageStorage.layer` binds the cluster message store onto the SQL spine.
