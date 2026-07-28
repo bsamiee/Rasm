@@ -7,8 +7,8 @@ export const meta = {
         { title: 'Probe', detail: 'native build-probe lanes: sdist builds at the 3.15 floor, Forge rows + redeploy, provision evidence' },
         { title: 'Recon', detail: 'codex read lanes; dossier to campaign home, thin receipt on the wire' },
         { title: 'Freeze', detail: 'wire field rosters frozen as the PH0 dossier artifact binding phases 2-5' },
-        { title: 'Write', detail: 'opus implementation writers, one per territory or central manifest' },
-        { title: 'Critique', detail: 'codex write lanes: predicate-positive conformance audit repaired in place', model: 'sonnet' },
+        { title: 'Write', detail: 'implementation writers, one per territory — fable in territory chains, opus on central manifests' },
+        { title: 'Critique', detail: 'native predicate-positive conformance audit repaired in place', model: 'opus' },
         { title: 'RedTeam', detail: 'opus predicate-negative pre-mortem, rebuilt in place' },
         { title: 'Gate', detail: 'phase acceptance: restore/lock/install, assay static, docgen, verdict rows' },
         { title: 'Drain', detail: 'pooled residual carry merge; phase-6 fixpoint drain and custodian dispatch' },
@@ -228,22 +228,6 @@ const CODEX_READ_LAW =
     'of {concept, ends: [string], note}), "coverage" ({requested, read, skipped, unverified} — arrays of paths), "summary" ' +
     '(string). JSON only: no prose around it, no code fences. Use [] for empty lists; never guess.\n</output_contract>';
 
-const CODEX_WRITE_LAW =
-    '<context_gathering>\nTerritory: the pages the task names are yours to EDIT; read freely the campaign doc, wire-freeze doc, ' +
-    'folder README/ARCHITECTURE/RULINGS, docs/stacks/<language>/ doctrine, and the .api catalogs the task names. Budget: at most ' +
-    '120 tool calls.\n</context_gathering>\n\n<review_bar>\nYou are the conformance and capability-completeness audit over pages ' +
-    'another engineer just wrote. Derive your own defect list from the pages on disk first. Verify: every required law of the ' +
-    'campaign doc and wire-freeze doc holds on these pages; fences meet the language doctrine under docs/stacks/; every external ' +
-    'member cited is real (verify against the .api catalogs; an unverifiable member becomes a residual row, never left standing); ' +
-    'names, arities, and vocabularies agree with the wire-freeze rosters; index docs and counterpart obligations for these pages ' +
-    'landed. Repair every miss IN PLACE with your own edits — you hold full writer authority over the named pages. Edits outside ' +
-    'the named pages are forbidden; record such needs as residual rows. An edit requires a named violated law and the concrete ' +
-    'case; a clean verdict from an attack that finds nothing is a first-class result.\n</review_bar>\n\n<output_contract>\nWrite ' +
-    'your COMPLETE fixlog as one JSON file at the path the task names, with exactly these keys: files (paths you edited), deltas ' +
-    '([{symbol, change}]), landed (claims you verified or repaired), beyond (fixes past the charter), residual ([{files, claim, ' +
-    'owner, class: "capability"|"truth"|"seam"|"cosmetic"}]), harvest ([{lesson, hardens, evidence}] — usually empty), summary. ' +
-    'Your final message is the single word done.\n</output_contract>';
-
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
 const pagesOf = (t) => t.pages.join(', ');
@@ -265,7 +249,9 @@ const codexRead = (key, task, report, phaseTitle) =>
             report +
             '.lane/law.md and the TASK block below VERBATIM to ' +
             report +
-            '.lane/task.md, composing neither. (2) Run ONE Bash call with run_in_background true: ' +
+            '.lane/task.md, composing neither. Delete any leftover report with one Bash call: rm -f ' +
+            report +
+            " — a stale file from a prior run otherwise passes step (3) as this run's product. (2) Run ONE Bash call with run_in_background true: " +
             LANE_SH +
             ' --task ' +
             report +
@@ -313,70 +299,33 @@ const codexRead = (key, task, report, phaseTitle) =>
         )
         .then(shapeReceipt(key));
 
-// Codex write lane (critique): workspace-write sandbox, edits land directly, fixlog to disk.
-const codexCritique = (t, fixlogPath) =>
+// Critique runs NATIVE at opus: the codex write-lane wrapper proved flaky inside workflow subagents
+// (early returns before the backgrounded lane finished), so the chain is fable(write) -> opus(critique)
+// -> opus(redteam). The fixlog still lands on disk — the redteam's read contract is unchanged.
+const critique = (t, fixlogPath) =>
     agent(
-        'DISPATCH ROLE: codex performs the complete TASK below through one supervised lane run; never perform, edit, judge, or ' +
-            'relay the work yourself. (1) Write the LANE LAW block below VERBATIM to ' +
-            fixlogPath +
-            '.lane/law.md and the TASK block below VERBATIM to ' +
-            fixlogPath +
-            '.lane/task.md. (2) Run ONE Bash call with run_in_background true: ' +
-            LANE_SH +
-            ' --task ' +
-            fixlogPath +
-            '.lane/task.md --law ' +
-            fixlogPath +
-            '.lane/law.md --dir ' +
-            fixlogPath +
-            '.lane --cwd ' +
-            REPO +
-            ' --model ' +
-            CODEX_MODEL +
-            ' --sandbox workspace-write --effort high; then WAIT for it: call TaskOutput on the returned task id with ' +
-            'block=true and timeout 600000, and REPEAT that blocking call until the task reports completed — NEVER end your ' +
-            'turn while the lane runs, and never poll with sleep. When it completes, Read ' +
-            fixlogPath +
-            '.lane/receipt.json. Recovery is ONCE-only: reason "crash" re-runs with --resume ' +
-            '<thread_id> and a continuation task; any other failure re-runs once untouched. (3) Verify with one Bash call: ' +
-            'jq -e ".files" ' +
-            fixlogPath +
-            ' >/dev/null; on a miss return ok=false with the probe error. (4) Return ok, report = the fixlog path, entries = ' +
-            'files count, headline = one line, failure empty — or ok=false with the receipt reason VERBATIM.\n\nLANE LAW:\n\n' +
-            CODEX_WRITE_LAW +
-            '\n\nTASK:\n\n' +
-            'CRITIQUE the territory pages just written for the texture campaign: ' +
+        'ROLE: CRITIQUE reviewer with full writer authority over ' +
             pagesOf(t) +
-            '. Campaign doc: ' +
-            CAMPAIGN +
-            ' (read IN FULL; [ADOPTED_AMENDMENTS] supersede). Wire rosters: ' +
-            FREEZE +
-            ' (binding). Charter the writer worked to: ' +
+            '. The pages were authored by ANOTHER engineer and are naive, shallow, or illusory until they survive a real attack; ' +
+            'the burden of proof is on the work, and dense, confident, idiom-fluent output is the PRIME suspect for hollowness. ' +
+            DOCTRINE +
+            '\n\nCOLD PASS FIRST: derive your own defect list from the pages on disk before consulting anything else. Your ' +
+            'objective is predicate-POSITIVE — the clause-by-clause conformance and capability-completeness audit: every required ' +
+            'law of the campaign doc and wire-freeze rosters holds on these pages; fences meet the language doctrine under ' +
+            'docs/stacks/; every external member cited verifies against its .api catalog (an unverifiable member is repaired or ' +
+            'becomes a residual, never left standing); names, arities, and vocabularies agree with the frozen rosters; index docs ' +
+            'and counterpart obligations landed. Repair every miss IN PLACE and cite the clause. Go BEYOND fixing: types and ' +
+            'operations sharing a discriminant COLLAPSE into stronger owners, thin owners EXTEND to their full domain, and a ' +
+            'fundamentally stronger design once seen is BUILT. NO CHURN: every edit names a violated law and the concrete case; ' +
+            'a clean verdict from an attack that finds nothing is a first-class result. CHARTER THE WRITER WORKED TO: ' +
             t.charter +
-            ' Write your fixlog JSON to ' +
+            '\n\nWrite your COMPLETE fixlog JSON (keys files, deltas, landed, beyond, residual, harvest, summary) to ' +
             fixlogPath +
-            '.',
-        { label: 'codex-crit:' + t.key, phase: 'Critique', model: 'sonnet', effort: 'low', schema: RECEIPT },
-    ).then((r) =>
-        r && !r.ok && /usage|quota|limit/i.test(r.failure || '')
-            ? agent(
-                  'ROLE: CRITIQUE reviewer with full writer authority over ' +
-                      pagesOf(t) +
-                      ' (native fallback for a dead codex lane). ' +
-                      DOCTRINE +
-                      '\n\nCOLD PASS FIRST: derive your own defect list from the pages on disk. Predicate-POSITIVE audit: clause-by-clause ' +
-                      'conformance and capability-completeness against the campaign doc, wire-freeze rosters, and language doctrine; repair ' +
-                      'every miss in place; cite the clause. NO CHURN. CHARTER: ' +
-                      t.charter +
-                      ' Write your fixlog JSON (keys files, deltas, landed, beyond, residual, harvest, summary) to ' +
-                      fixlogPath +
-                      ' with the Write tool, then return the thin receipt. ' +
-                      LAW_RESIDUAL +
-                      ' ' +
-                      LAW_HARVEST,
-                  { label: 'critique:' + t.key, phase: 'Critique', model: 'opus', effort: 'high', schema: RECEIPT },
-              )
-            : r,
+            ' with the Write tool (delete any prior file at that path first), then return the thin receipt. ' +
+            LAW_RESIDUAL +
+            ' ' +
+            LAW_HARVEST,
+        { label: 'critique:' + t.key, phase: 'Critique', model: 'opus', effort: 'high', schema: RECEIPT },
     );
 
 const writePrompt = (t) =>
@@ -426,8 +375,8 @@ const redteamPrompt = (t, fixlogPath) =>
 // One territory chain: opus write -> codex critique (write lane) -> opus redteam. Redteam reads the
 // critique fixlog from disk; only thin receipts cross the wire.
 const chain = (t) =>
-    agent(writePrompt(t), { label: 'write:' + t.key, phase: 'Write', model: 'opus', effort: 'high', schema: FIXLOG }).then((fix) =>
-        codexCritique(t, SCRATCH + '/' + t.key + '-critique-fixlog.json').then(() =>
+    agent(writePrompt(t), { label: 'write:' + t.key, phase: 'Write', model: 'fable', effort: 'high', schema: FIXLOG }).then((fix) =>
+        critique(t, SCRATCH + '/' + t.key + '-critique-fixlog.json').then(() =>
             agent(redteamPrompt(t, SCRATCH + '/' + t.key + '-critique-fixlog.json'), {
                 label: 'redteam:' + t.key,
                 phase: 'RedTeam',
