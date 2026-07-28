@@ -313,6 +313,9 @@ public static class AppearanceProjection {
     // defect); the NodeId is the content hash of ToCanonicalBytes (id excluded) re-stamped through the seam
     // Node.Relabel (a class-root [Union] Node case generates no `with`; the cast is arm-guaranteed) — the SAME Mint the
     // Rasm.Materials ComponentProjector composes, so two structurally-identical appearances dedup to one node.
+    // `tolerance` is the SEAM's own `ToCanonicalBytes(tolerance)` arity — the appearance ARM writes only the
+    // raw-bit `AppearanceKey`, so the value cannot fork this node's identity; it threads because the seam member
+    // demands it, never because this page reads it.
     static Node.Appearance Mint(AppearanceSummary summary, double tolerance) {
         Node.Appearance draft = new(NodeId.Content(ReadOnlySpan<byte>.Empty), summary);
         return (Node.Appearance)draft.Relabel(NodeId.Content(draft.ToCanonicalBytes(tolerance).Span));

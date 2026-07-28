@@ -234,7 +234,10 @@ public readonly record struct Reservoir(double WeightSum, int SampleCount, long 
 // survivor, Uniform draws one row scaled by count, Stratified rotates the row by (pixel + ordinal).
 [SmartEnum<string>]
 public sealed partial class SamplePolicy {
-    public static readonly SamplePolicy Restir = new("restir", static (_, _, _, _) => new SampleDecision.ReservoirReuse());
+    // The reuse decision is payload-free, so ONE cached case serves every pixel-sample — a fresh record per
+    // sample allocates on the hottest loop the page owns for a value that never varies.
+    static readonly SampleDecision Reused = new SampleDecision.ReservoirReuse();
+    public static readonly SamplePolicy Restir = new("restir", static (_, _, _, _) => Reused);
     public static readonly SamplePolicy Uniform = new("uniform", static (_, _, count, random) =>
         new SampleDecision.Direct(Math.Min((int)(random * count), count - 1), count));
     public static readonly SamplePolicy Stratified = new("stratified", static (pixel, ordinal, count, _) =>

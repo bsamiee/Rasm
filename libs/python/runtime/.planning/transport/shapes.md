@@ -379,7 +379,7 @@ class PackEntry(Struct, frozen=True):
     present: list[bool] = msgspec.field(default_factory=list)
     format: str = ""
     mips: int = 0
-    digest: str = ""
+    blob: str = ""  # [04.3] spells the pack address `blob`; the mirror clause binds the snake_case NAME, and MapEntry alone spells `digest`
     file: str = ""
     byte_length: WireU64 = 0
 

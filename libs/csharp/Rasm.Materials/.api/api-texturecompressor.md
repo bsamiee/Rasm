@@ -31,9 +31,6 @@
 |  [12]   | `TextureCubeFace`                | enum                   | the six cube faces                                                 |
 |  [13]   | `TexturePayloadSizeMode`         | enum                   | block payload sizing convention                                    |
 
-[TextureValueKind]: sample interpretation
-[TextureComponents]: `R` `Rg` `Rgb` `Rgba` `Bgr` `Bgra` `Bgrx` `Argb` `Abgr` `Alpha` `Luminance` `LuminanceAlpha` `Intensity` `Yuv` `Yuva` `Depth` `Stencil` `DepthStencil`
-
 [TextureValueKind]: `UNorm` `SNorm` `UInt` `SInt` `Float` `Srgb` `XR` `XRSrgb` `DepthStencil`
 [TextureComponents]: `R` `Rg` `Rgb` `Rgba` `Bgr` `Bgra` `Bgrx` `Argb` `Abgr` `Alpha` `Luminance` `LuminanceAlpha` `Intensity` `Yuv` `Yuva` `Depth` `Stencil` `DepthStencil`
 
@@ -80,7 +77,7 @@
 |  [05]   | `BptcTextureCoder`                                               | sealed class  | BC6H unsigned and signed float, BC7 UNorm and sRGB |
 |  [06]   | `S3tcTextureCoder`                                               | sealed class  | BC1, BC2, BC3 (DXT1/3/5)                           |
 |  [07]   | `RgtcLatcTextureCoder`                                           | sealed class  | BC4 and BC5 scalar and two-channel                 |
-|  [08]   | `AstcTextureCoder` / `Astc3DTextureCoder`                        | sealed class  | ASTC LDR, sRGB, and HDR block families             |
+|  [08]   | `AstcTextureCoder` / `Astc3DTextureCoder`                        | sealed class  | ASTC: 15 2D extents (`RgbaAstc4x4*`..`RgbaAstc12x12*`) + 10 3D extents (`RgbaAstc3x3x3*`..`RgbaAstc6x6x6*`), each in `UNorm`/`Srgb`/`Float` arms — the HDR arm SPELLS `Float`, never `Hdr` |
 |  [09]   | `EtcTextureCoder`                                                | sealed class  | ETC1, ETC2, and EAC R11/RG11                       |
 |  [10]   | `BasisUastcLdr4x4TextureCoder`                                   | sealed class  | Basis UASTC LDR 4x4                                |
 |  [11]   | `BasisEtc1sTextureCoder`                                         | sealed class  | Basis ETC1S with endpoint and selector palettes    |

@@ -19,7 +19,7 @@ Scheduling is the page's load-bearing decision, and it exists because the ops ge
 - Law: `Remap` closes the tonal family on one case. `RemapCurve.Levels.Invert` is a ROW of the levels case — black at one, white at zero — so the `roughness = 1 − gloss` ingest inversion, a contrast stretch, and a gamma lift are one curve family rather than an `Invert` op beside a `Levels` op. Every curve evaluates in the LINEAR domain over decoded lanes, which is what makes an `srgb`-authored gloss plane invert correctly rather than forking the roughness silently.
 - Law: `Project` is TOTAL and runs before any rental. It folds the whole sequence into a final `PlaneShape`, so a shape refusal anywhere in the chain leaves the source untouched and costs nothing — a mid-chain refusal after three rentals is the failure mode the plan-first order forecloses. Retyping resolves through `PlaneFormat.For`, so a lane-count change lands on the storage row the semantic count rounds up to and never on a fabricated format.
 - Law: shape refusals rail `MaterialFault.Parameter` on band 2450. This page reaches band 2460 nowhere: a filter has no container, no device, and no synthesizer, so a `RasterFault` here would be a shape refusal wearing a mechanical code.
-- Entry: `PlaneOp.Apply(TexturePlane source, Seq<PlaneOp> ops, Op key)` is the ONE entry over every arity — an empty sequence returns the source with an empty receipt, a single op and a chain take the identical path, and no `ApplyOne`/`ApplyMany` pair exists.
+- Entry: `PlaneOp.Apply(TexturePlane source, Seq<PlaneOp> ops, Op key, TimeProvider? clock = null)` is the ONE entry over every arity — an empty sequence returns the source with an empty receipt, a single op and a chain take the identical path, and no `ApplyOne`/`ApplyMany` pair exists; the clock rides so the receipt's elapsed is measured, and `press#TEXTURE_PRESS` threads its own.
 - Packages: `plane#TEXTURE_PLANE` (composed — `TexturePlane.Of`/`Read`/`Write`/`Layer`, `PlaneFormat.For`, `PlaneTransfer`, `AlphaMode`, `PlaneRange`, `NormalConvention`), TinyEXR.NET (composed — `ResizeFilter`/`EdgeMode` the resample vocabulary, `Lut3D.TryParseCube`/`Apply` the `.cube` curve), `Rasm.Numerics` (`Dimension`, `UnitInterval`), `Rasm.Domain` (`Op`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new transform is one `PlaneOp` case declaring its `StageKind` plus one `Project` arm and one kernel arm — the scheduler, the receipt, and every consumer are untouched. A new convolution is one `ConvolveKernel` case, a new curve one `RemapCurve` case, a new derived field one `HeightDerivative` case, a new lane projection one `SwizzleLane` row.
 - Boundary: this page transforms DECODED planes and decides nothing about what a plane MEANS. Channel semantics, neutrals, packing, and mip law are `set#TEXTURE_CHANNEL`'s; containers are `codec#RASTER_CODEC`'s; the mip chain is `plane#TEXTURE_PYRAMID`'s and `Resize` is deliberately NOT its alias — a level is a halving under a declared policy, so a resize can never produce a level a sampler then trilinearly blends against a different filter's neighbours.
@@ -223,92 +223,127 @@ using static LanguageExt.Prelude;
 namespace Rasm.Materials.Raster;
 
 // --- [MODELS] ------------------------------------------------------------------------------
-// One scheduled group. Ops is a fused pointwise run or exactly one non-fusing op, so the runner reads the group's
-// own StageKind rather than re-deriving it per op.
-public readonly record struct PlaneStage(StageKind Kind, Seq<PlaneOp> Ops, PlaneShape Shape, int Radius);
+// One scheduled group. Ops is a fused pointwise run or exactly one non-fusing op, EACH op paired with the shape it
+// ENDS at — a fused run may change lane count mid-chain (a swizzle before a remap), so the runner threads each
+// op's own output shape rather than assuming the stage-terminal one, and Shape is the terminal the rental reads.
+public readonly record struct PlaneStage(StageKind Kind, Seq<(PlaneOp Op, PlaneShape Shape)> Ops, PlaneShape Shape, int Radius);
 
-public readonly record struct PlaneReceipt(Seq<string> Operations, Seq<string> Stages, long Texels, Option<HeightEvidence> Height) {
-    public static readonly PlaneReceipt Empty = new(Seq<string>.Empty, Seq<string>.Empty, 0L, None);
+public readonly record struct PlaneReceipt(Seq<string> Operations, Seq<string> Stages, long Texels, Option<HeightEvidence> Height, double ElapsedMs) {
+    public static readonly PlaneReceipt Empty = new(Seq<string>.Empty, Seq<string>.Empty, 0L, None, 0.0);
+
+    // The one correctness signal that survives preconditioning and cancellation — press#PRESS_RECEIPT projects it
+    // rather than re-deriving the evidence chain.
+    public Option<double> Residual => Height.Map(static evidence => evidence.Residual);
 }
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public abstract partial record PlaneOp {
     // ONE entry over every arity. An empty sequence returns the source and an empty receipt, so a caller composing a
-    // possibly-empty post chain needs no guard of its own.
-    public static Fin<(TexturePlane Plane, PlaneReceipt Receipt)> Apply(TexturePlane source, Seq<PlaneOp> ops, Op key) =>
-        ops.IsEmpty
-            ? Fin.Succ((source, PlaneReceipt.Empty))
-            : Schedule(PlaneShape.Of(source), ops, key).Bind(stages => Run(source, stages, ops, key));
+    // possibly-empty post chain needs no guard of its own; the injected clock is what makes the receipt's elapsed a
+    // measurement rather than a literal zero, and press#TEXTURE_PRESS threads its own.
+    public static Fin<(TexturePlane Plane, PlaneReceipt Receipt)> Apply(TexturePlane source, Seq<PlaneOp> ops, Op key, TimeProvider? clock = null) {
+        if (ops.IsEmpty) { return Fin.Succ((source, PlaneReceipt.Empty)); }
+        TimeProvider ticks = clock ?? TimeProvider.System;
+        long opened = ticks.GetTimestamp();
+        return Schedule(PlaneShape.Of(source), ops, key).Bind(stages => Run(source, stages, ops, key, ticks, opened));
+    }
 
     // PLAN then SCHEDULE: the shape folds across every op first, so a refusal costs no rental; the fold then groups
-    // consecutive fusing ops into one stage and gives every non-fusing op its own, carrying the shape each stage ENDS
-    // at so the runner rents exactly once per stage.
+    // consecutive fusing ops into one stage and gives every non-fusing op its own, pairing EVERY op with the shape it
+    // ends at — a fused run may change lane count mid-chain, and a runner holding only the terminal shape would hand
+    // a mid-run op the wrong stride.
     private static Fin<Seq<PlaneStage>> Schedule(PlaneShape input, Seq<PlaneOp> ops, Op key) =>
         ops.Fold(Fin.Succ((Shape: input, Stages: Seq<PlaneStage>.Empty)), (state, op) => state.Bind(carry =>
             op.Project(carry.Shape, key).Map(shape => (
                 Shape: shape,
                 Stages: !carry.Stages.IsEmpty && carry.Stages.Last.Kind.Fuses && op.Stage.Fuses
-                    ? carry.Stages.Init.Add(carry.Stages.Last with { Ops = carry.Stages.Last.Ops.Add(op), Shape = shape })
-                    : carry.Stages.Add(new PlaneStage(op.Stage, Seq1(op), shape, op.Radius))))))
+                    ? carry.Stages.Init.Add(carry.Stages.Last with { Ops = carry.Stages.Last.Ops.Add((op, shape)), Shape = shape })
+                    : carry.Stages.Add(new PlaneStage(op.Stage, Seq1((op, shape)), shape, op.Radius))))))
         .Map(static carry => carry.Stages);
 
     // RUN: one rental per stage, the previous intermediate disposed at the boundary, the SOURCE never touched — so a
-    // twenty-op chain holds at most two planes and the caller's input survives to be re-used or re-keyed.
-    private static Fin<(TexturePlane, PlaneReceipt)> Run(TexturePlane source, Seq<PlaneStage> stages, Seq<PlaneOp> ops, Op key) =>
+    // twenty-op chain holds at most two planes and the caller's input survives to be re-used or re-keyed. Execute is
+    // Fin-valued: a solver refusal PROPAGATES and the failed stage's rental disposes, because an integration that
+    // could not factor swallowed into an empty Option ships a plane of zeros wearing a success.
+    private static Fin<(TexturePlane, PlaneReceipt)> Run(
+        TexturePlane source, Seq<PlaneStage> stages, Seq<PlaneOp> ops, Op key, TimeProvider ticks, long opened) =>
         stages.Fold(Fin.Succ((Plane: source, Evidence: Option<HeightEvidence>.None)), (state, stage) => state.Bind(carry =>
             TexturePlane.Of(stage.Shape.Format, stage.Shape.Width, stage.Shape.Height, stage.Shape.Transfer,
                     stage.Shape.Alpha, key, Some(stage.Shape.Layers), Some(stage.Shape.Range), AllocationMode.Default)
-                .Map(destination => {
-                    Option<HeightEvidence> evidence = PlaneKernel.Execute(carry.Plane, destination, stage, key);
-                    if (!ReferenceEquals(carry.Plane, source)) { carry.Plane.Dispose(); }
-                    return (Plane: destination, Evidence: evidence.IfNone(() => carry.Evidence));
-                })))
+                .Bind(destination => PlaneKernel.Execute(carry.Plane, destination, stage, key)
+                    .Map(evidence => {
+                        if (!ReferenceEquals(carry.Plane, source)) { carry.Plane.Dispose(); }
+                        return (Plane: destination, Evidence: evidence.IfNone(() => carry.Evidence));
+                    })
+                    .MapFail(fault => { destination.Dispose(); return fault; }))))
         .Map(carry => (carry.Plane, new PlaneReceipt(
             ops.Map(static op => op.Switch(
                 resize: static _ => "resize", convolve: static _ => "convolve", heightNormal: static _ => "heightNormal",
                 fromHeight: static _ => "fromHeight", remap: static _ => "remap", swizzle: static _ => "swizzle")),
             stages.Map(static stage => stage.Kind.Key),
             carry.Plane.Texels,
-            carry.Evidence)));
+            carry.Evidence,
+            ticks.GetElapsedTime(opened).TotalMilliseconds)));
 }
 
 // The stage runner. Pointwise fuses into ONE row pass; neighbourhood takes a bordered pass; global takes the whole
 // plane. Every body is a fixed-extent index walk over caller-owned buffers — the page's named kernel exemption.
+// Execute is Fin-valued and dispatches through the vocabulary's own generated Switch, so a new StageKind row breaks
+// here at compile time and a solver refusal reaches the rail rather than an empty Option.
 internal static class PlaneKernel {
-    internal static Option<HeightEvidence> Execute(TexturePlane source, TexturePlane destination, PlaneStage stage, Op key) =>
-        stage.Kind.Key switch {
-            "pointwise" => Pointwise(source, destination, stage, key),
-            "neighbourhood" => Neighbourhood(source, destination, stage, key),
-            _ => Global(source, destination, stage, key),
-        };
+    internal static Fin<Option<HeightEvidence>> Execute(TexturePlane source, TexturePlane destination, PlaneStage stage, Op key) =>
+        stage.Kind.Switch(
+            state: (Source: source, Destination: destination, Stage: stage, Key: key),
+            pointwise:     static s => Pointwise(s.Source, s.Destination, s.Stage),
+            neighbourhood: static s => Neighbourhood(s.Source, s.Destination, s.Stage, s.Key),
+            global:        static s => Global(s.Source, s.Destination, s.Stage, s.Key));
 
-    // The fused row pass: one partition over height x layers, one lane scratch per partition, every op in the group
-    // applied in order to the same decoded row before it is written once.
-    private static Option<HeightEvidence> Pointwise(TexturePlane source, TexturePlane destination, PlaneStage stage, Op key) {
+    // The fused row pass: one partition over height x layers, each op in the run threaded through a PING-PONG pair
+    // at ITS OWN shape — the previous op's output is the next op's input, so a swizzle-then-remap chain remaps the
+    // swizzled lanes rather than the untouched source, and a two-swizzle chain composes rather than racing.
+    private static Fin<Option<HeightEvidence>> Pointwise(TexturePlane source, TexturePlane destination, PlaneStage stage) {
         PointwiseRows action = new(source, destination, stage.Ops);
         ParallelHelper.For(0, destination.Height.Value * destination.Layers.Value, in action);
-        return None;
+        return Fin.Succ(Option<HeightEvidence>.None);
     }
 
-    private readonly struct PointwiseRows(TexturePlane source, TexturePlane destination, Seq<PlaneOp> ops) : IAction {
+    private readonly struct PointwiseRows(TexturePlane source, TexturePlane destination, Seq<(PlaneOp Op, PlaneShape Shape)> ops) : IAction {
         public void Invoke(int index) {
             int layer = index / destination.Height.Value, row = index % destination.Height.Value;
-            using SpanOwner<double> input = SpanOwner<double>.Allocate(source.Width.Value * source.Lanes);
-            using SpanOwner<double> output = SpanOwner<double>.Allocate(destination.Width.Value * destination.Lanes);
-            source.Read(row, layer, input.Span);
-            input.Span.CopyTo(output.Span[..Math.Min(input.Length, output.Length)]);
-            foreach (PlaneOp op in ops) { Apply(op, input.Span, output.Span, source.Lanes, destination.Lanes); }
-            destination.Write(row, layer, output.Span);
+            int widest = Math.Max(source.Width.Value * 4, destination.Width.Value * 4);
+            using SpanOwner<double> ping = SpanOwner<double>.Allocate(widest);
+            using SpanOwner<double> pong = SpanOwner<double>.Allocate(widest);
+            source.Read(row, layer, ping.Span[..source.RowScalars]);
+            Span<double> current = ping.Span;
+            Span<double> next = pong.Span;
+            int lanes = source.Lanes;
+            foreach ((PlaneOp op, PlaneShape shape) in ops) {
+                int outLanes = shape.Format.Components;
+                Thread(op, current, next, source.Width.Value, lanes, outLanes);
+                (current, next) = (next, current);
+                lanes = outLanes;
+            }
+            destination.Write(row, layer, current[..destination.RowScalars]);
         }
 
-        private static void Apply(PlaneOp op, Span<double> input, Span<double> output, int inLanes, int outLanes) =>
-            op.Switch(
-                remap: curve => Remap(curve.Curve, output, outLanes),
-                swizzle: lanes => Project(lanes.Lanes, input, output, inLanes, outLanes),
-                resize: static _ => { }, convolve: static _ => { }, heightNormal: static _ => { }, fromHeight: static _ => { });
+        // One op, one shape hop. Remap runs in place on the copied row; a swizzle projects lane-for-lane. The
+        // pattern switch is deliberate: the row spans are ref structs no generated dispatch state can carry, and
+        // the kernel is the page's named statement exemption — the non-fusing cases are unreachable by scheduling.
+        private static void Thread(PlaneOp op, ReadOnlySpan<double> input, Span<double> output, int width, int inLanes, int outLanes) {
+            switch (op) {
+                case PlaneOp.Remap remap:
+                    input[..(width * inLanes)].CopyTo(output);
+                    Remap(remap.Curve, output[..(width * inLanes)], inLanes);
+                    break;
+                case PlaneOp.Swizzle swizzle:
+                    Project(swizzle.Lanes, input, output, width, inLanes, outLanes);
+                    break;
+                default: break;
+            }
+        }
 
-        private static void Project(Seq<SwizzleLane> lanes, ReadOnlySpan<double> input, Span<double> output, int inLanes, int outLanes) {
-            for (int x = 0; x * inLanes < input.Length; x++) {
+        private static void Project(Seq<SwizzleLane> lanes, ReadOnlySpan<double> input, Span<double> output, int width, int inLanes, int outLanes) {
+            for (int x = 0; x < width; x++) {
                 ReadOnlySpan<double> texel = input.Slice(x * inLanes, inLanes);
                 for (int lane = 0; lane < Math.Min(lanes.Count, outLanes); lane++) {
                     output[(x * outLanes) + lane] = lanes[lane].Project(texel);
@@ -316,13 +351,32 @@ internal static class PlaneKernel {
             }
         }
 
+        // Levels is affine-plus-gamma in place; Lut stages the row's colour triple through the composed .cube fold.
+        // Both leave the alpha lane untouched — a tonal curve over coverage darkens every edge.
         private static void Remap(RemapCurve curve, Span<double> row, int lanes) {
-            if (curve is not RemapCurve.Levels levels) { return; }
-            double span = levels.White - levels.Black;
-            for (int i = 0; i < row.Length; i++) {
-                if (lanes > 1 && (i % lanes) == lanes - 1) { continue; }
-                double normalized = span == 0.0 ? 0.0 : (row[i] - levels.Black) / span;
-                row[i] = Math.Pow(double.Clamp(normalized, 0.0, 1.0), levels.Gamma);
+            switch (curve) {
+                case RemapCurve.Levels levels: {
+                    double span = levels.White - levels.Black;
+                    for (int i = 0; i < row.Length; i++) {
+                        if (lanes > 1 && (i % lanes) == lanes - 1) { continue; }
+                        double normalized = span == 0.0 ? 0.0 : (row[i] - levels.Black) / span;
+                        row[i] = Math.Pow(double.Clamp(normalized, 0.0, 1.0), levels.Gamma);
+                    }
+                    break;
+                }
+                case RemapCurve.Lut lut: {
+                    int texels = row.Length / lanes;
+                    using SpanOwner<float> triple = SpanOwner<float>.Allocate(texels * 3);
+                    for (int x = 0; x < texels; x++) {
+                        for (int c = 0; c < 3; c++) { triple.Span[(x * 3) + c] = (float)row[(x * lanes) + Math.Min(c, lanes - 1)]; }
+                    }
+                    lut.Table.Apply(triple.Span, triple.Span, texels, lut.Interpolation);
+                    for (int x = 0; x < texels; x++) {
+                        for (int c = 0; c < Math.Min(3, lanes); c++) { row[(x * lanes) + c] = triple.Span[(x * 3) + c]; }
+                    }
+                    break;
+                }
+                default: break; // Histogram is StageKind.Global by its own row and never reaches the fused pass.
             }
         }
     }
@@ -330,29 +384,30 @@ internal static class PlaneKernel {
     // The bordered pass. The whole SOURCE materializes into one interleaved staging run so the kernel can address a
     // neighbour the row rail alone cannot reach, and the stage's own EdgeMode addresses every out-of-extent tap —
     // clamping, reflecting, or wrapping, the last being what makes a tiled plane convolve without a seam.
-    private static Option<HeightEvidence> Neighbourhood(TexturePlane source, TexturePlane destination, PlaneStage stage, Op key) {
+    private static Fin<Option<HeightEvidence>> Neighbourhood(TexturePlane source, TexturePlane destination, PlaneStage stage, Op key) {
         using MemoryOwner<double> staging = MemoryOwner<double>.Allocate(
             source.Width.Value * source.Height.Value * source.Layers.Value * source.Lanes);
         Materialize(source, staging.Span);
-        return stage.Ops.Head.Switch(
-            convolve: op => { Separable(staging.Span, source, destination, op); return Option<HeightEvidence>.None; },
-            heightNormal: op => Some(HeightField.ToNormal(source, destination, op.Evidence, key)),
-            fromHeight: op => Some(Derive(staging.Span, source, destination, op, key)),
-            resize: static _ => Option<HeightEvidence>.None,
-            remap: static _ => Option<HeightEvidence>.None,
-            swizzle: static _ => Option<HeightEvidence>.None);
+        return stage.Ops.Head.Op.Switch(
+            convolve: op => { Separable(staging.Span, source, destination, op); return Fin.Succ(Option<HeightEvidence>.None); },
+            heightNormal: op => Fin.Succ(Some(HeightField.ToNormal(source, destination, op.Evidence, key))),
+            fromHeight: op => Fin.Succ(Some(Derive(staging.Span, source, destination, op, key))),
+            resize: static _ => Fin.Succ(Option<HeightEvidence>.None),
+            remap: static _ => Fin.Succ(Option<HeightEvidence>.None),
+            swizzle: static _ => Fin.Succ(Option<HeightEvidence>.None));
     }
 
     // The whole-plane pass. A resize is separable and delegates to the composed resampler; a histogram match gathers
-    // the source distribution BEFORE it maps a texel; a height integration solves once over the whole grid.
-    private static Option<HeightEvidence> Global(TexturePlane source, TexturePlane destination, PlaneStage stage, Op key) =>
-        stage.Ops.Head.Switch(
-            resize: op => { Resample(source, destination, op); return Option<HeightEvidence>.None; },
-            remap: op => { Match(source, destination, op.Curve); return Option<HeightEvidence>.None; },
-            heightNormal: op => HeightField.ToHeight(source, destination, op.Solver, op.Evidence, key).ToOption(),
-            convolve: static _ => Option<HeightEvidence>.None,
-            fromHeight: static _ => Option<HeightEvidence>.None,
-            swizzle: static _ => Option<HeightEvidence>.None);
+    // the source distribution BEFORE it maps a texel; a height integration solves once over the whole grid and its
+    // refusal PROPAGATES — an unfactorable Laplacian swallowed to absence ships a zero plane wearing a success.
+    private static Fin<Option<HeightEvidence>> Global(TexturePlane source, TexturePlane destination, PlaneStage stage, Op key) =>
+        stage.Ops.Head.Op.Switch(
+            resize: op => { Resample(source, destination, op); return Fin.Succ(Option<HeightEvidence>.None); },
+            remap: op => { Match(source, destination, op.Curve); return Fin.Succ(Option<HeightEvidence>.None); },
+            heightNormal: op => HeightField.ToHeight(source, destination, op.Solver, op.Evidence, key).Map(Some),
+            convolve: static _ => Fin.Succ(Option<HeightEvidence>.None),
+            fromHeight: static _ => Fin.Succ(Option<HeightEvidence>.None),
+            swizzle: static _ => Fin.Succ(Option<HeightEvidence>.None));
 
     // The composed separable resample over one interleaved staging run. The extent groups bracket the two spans and
     // the channel count follows BOTH, so a source-extent-then-channel-count spelling transposes the destination; the

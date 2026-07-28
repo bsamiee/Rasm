@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_SCIKIT_IMAGE]
 
-`scikit-image` (`skimage`) owns array-level image processing on the artifacts imaging rail: every domain operation is a pure function over `numpy.ndarray` with no private image class, so the rail composes by passing arrays rather than objects. Decode, encode, and rendering stay outside the boundary — skimage holds the array-transform middle, drawing input from the `pillow`/`tifffile` codec owners and feeding the visualization and mesh tiers downstream.
+`scikit-image` — FLOOR-GATED: `pyproject.toml` markers it `python_version<'3.15'` (pythran lowers through gast 0.6.0, which breaks on the 3.15 AST), so NO member below imports on the canonical venv; every composition routes through the sub-3.15 offload worker until pythran rides gast>=0.7 or scikit-image drops its pythran leg — (`skimage`) owns array-level image processing on the artifacts imaging rail: every domain operation is a pure function over `numpy.ndarray` with no private image class, so the rail composes by passing arrays rather than objects. Decode, encode, and rendering stay outside the boundary — skimage holds the array-transform middle, drawing input from the `pillow`/`tifffile` codec owners and feeding the visualization and mesh tiers downstream.
 
 ## [01]-[PACKAGE_SURFACE]
 

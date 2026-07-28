@@ -15,7 +15,7 @@ Typed texels size the arena because bytes cannot: `byte[]` caps at `Array.MaxLen
 
 - Owner: `PlaneDepth` the storage-component axis carrying its byte width and its integer flag; `PlaneTransfer` the encoded-transfer axis carrying its `TinyEXR.V3.TransferFunction` binding and the quantity it declares; `AlphaMode` the association axis; `PlaneRange` the stored-value-range axis; `NormalConvention` the green-polarity axis; `MipPolicy` the level-fold axis carrying its separable filter and its two post-fold flags.
 - Cases: depth {`u8`, `u16`, `f16`, `f32`} · transfer {`linear`, `srgb`, `raw`, `pq`, `hlg`} · alpha {`straight`, `associated`, `none`} · range {`unit`, `signed`} · convention {`gl`, `dx`} · mip {`box`, `kaiser`, `normalRenormalize`, `roughnessVariance`, `none`}.
-- Law: `PlaneQuantity` splits the transfer rows by WHAT the stored number is — `light` for a scene-linear radiometric value, `parameter` for a shading input no colour transform may touch, `display` for a display-referred encoding. `PlaneQuantity` keeps `raw` and `linear` two rows rather than one alias: both decode by identity, but a colour transform legally reaches a `light` plane and never a `parameter` plane. `display` is the `pq`/`hlg` pair, legal on an environment plane alone and refused at `set#TEXTURE_SET` `TextureSet.Of` for every channel plane.
+- Law: `PlaneQuantity` splits the transfer rows by WHAT the stored number is — `light` for a scene-linear radiometric value, `parameter` for a shading input no colour transform may touch, `display` for a display-referred encoding. `PlaneQuantity` keeps `raw` and `linear` two rows rather than one alias: both decode by identity, but a colour transform legally reaches a `light` plane and never a `parameter` plane. `SceneReferred` is the SEPARATE bake-legality column the `set#TEXTURE_SET` admission gate reads: `srgb` is display-referred as an ENCODING yet scene-referred as a BAKE TARGET because `Read` decodes it to scene-linear, so `linear`, `srgb`, and `raw` carry `true` while `pq` and `hlg` — legal on an environment plane alone — carry `false` and refuse at `TextureSet.Of` for every channel plane. Folding legality onto `Quantity` would refuse every srgb colour channel the wire freeze legalizes.
 - Law: `PlaneRange` is the SIGNED-ENCODE owner and the only site in the corpus that spells `(v + 1) / 2` or `2v − 1`. `PlaneRange.Signed` packs its `[-1,1]` value into the storage `[0,1]` span at integer depth and unpacks on read, and stores the signed value verbatim at float depth, so a normal, a tangent, or a curvature plane carries one declaration and every kernel above reads the signed value whatever the depth beneath it.
 - Law: `NormalConvention` homes HERE because green polarity is a property of the stored plane exactly as association and transfer are. `gl` is the canonical `+Y` wire form; `dx` is admitted at ingest and converted once through the `filter#PLANE_OP` `Swizzle` lane inversion before the plane is keyed, so no plane leaves the estate carrying `−Y` green and the silent lighting inversion is unrepresentable.
 - Law: `MipPolicy.Kaiser` binds the widest separable filter the composed resampler ships. `Box` is the arithmetic 2×2 mean, `NormalRenormalize` folds box and then unit-normalizes each texel vector, `RoughnessVariance` folds box and then absorbs the directional variance its paired normal chain lost at the same level, and `None` declares a single-level plane. Every fold runs in the LINEAR domain — a plane decodes, folds, and re-encodes per level, because averaging `srgb`-encoded texels darkens the pyramid.
@@ -67,17 +67,20 @@ public sealed partial class PlaneDepth {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PlaneTransfer {
-    public static readonly PlaneTransfer Linear = new("linear", TransferFunction.Linear, PlaneQuantity.Light);
-    public static readonly PlaneTransfer Srgb = new("srgb", TransferFunction.Srgb, PlaneQuantity.Display);
-    public static readonly PlaneTransfer Raw = new("raw", function: null, PlaneQuantity.Parameter);
-    public static readonly PlaneTransfer Pq = new("pq", TransferFunction.Pq, PlaneQuantity.Display);
-    public static readonly PlaneTransfer Hlg = new("hlg", TransferFunction.Hlg, PlaneQuantity.Display);
+    public static readonly PlaneTransfer Linear = new("linear", TransferFunction.Linear, PlaneQuantity.Light, sceneReferred: true);
+    public static readonly PlaneTransfer Srgb = new("srgb", TransferFunction.Srgb, PlaneQuantity.Display, sceneReferred: true);
+    public static readonly PlaneTransfer Raw = new("raw", function: null, PlaneQuantity.Parameter, sceneReferred: true);
+    public static readonly PlaneTransfer Pq = new("pq", TransferFunction.Pq, PlaneQuantity.Display, sceneReferred: false);
+    public static readonly PlaneTransfer Hlg = new("hlg", TransferFunction.Hlg, PlaneQuantity.Display, sceneReferred: false);
 
     public TransferFunction? Function { get; }
     public PlaneQuantity Quantity { get; }
+    // The bake-legality column set#TEXTURE_SET reads: srgb decodes to scene-linear at Read, so it bakes; pq/hlg are
+    // environment-only display transfers that refuse on every channel plane.
+    public bool SceneReferred { get; }
     public bool Identity => Function is null or TransferFunction.Linear;
-    private PlaneTransfer(string key, TransferFunction? function, PlaneQuantity quantity) : this(key) =>
-        (Function, Quantity) = (function, quantity);
+    private PlaneTransfer(string key, TransferFunction? function, PlaneQuantity quantity, bool sceneReferred) : this(key) =>
+        (Function, Quantity, SceneReferred) = (function, quantity, sceneReferred);
 
     // Decode reads an ENCODED lane run and writes scene-linear; Encode is its inverse. Both delegate to the composed
     // span fold, which admits a destination aliasing its source at the same start — so one scratch run threads a row.
@@ -107,6 +110,12 @@ public sealed partial class AlphaMode {
     public bool Premultiplied { get; }
     private AlphaMode(string key, bool carries, bool premultiplied) : this(key) =>
         (Carries, Premultiplied) = (carries, premultiplied);
+
+    // The ONE crossing predicate: identity always converts, a lane add or drop never does, and the
+    // straight-associated crossing admits only above 8 bits — the [04] ToAlpha gate and the set#TEXTURE_SET
+    // admission both read THIS row fact, so the 16-bit floor has one spelling.
+    public bool Convertible(AlphaMode target, PlaneDepth depth) =>
+        target == this || (Carries == target.Carries && depth != PlaneDepth.U8);
 }
 
 // PlaneRange rows carry the stored value range and the corpus's ONLY spelling of the signed integer packing. A float
@@ -275,7 +284,7 @@ public sealed partial class PlaneFormat {
 ## [04]-[TEXTURE_PLANE]
 
 - Owner: `PlaneStore` the arena base with its `IPlaneFold` re-entry seam; `PlaneStore<T>` the ONE generic realization; `TexturePlane` the admitted plane carrying format, extent, layers, transfer, association, range, and store.
-- Entry: `TexturePlane.Of(format, width, height, transfer, alpha, key, layers, range)` is the one admission; `Read(row, layer, lanes)`/`Write(row, layer, lanes)` are the one decoded row rail; `Layer(index)` windows one layer; `ToAlpha(target, key)` is the one association conversion; `Key` is the streaming content key.
+- Entry: `TexturePlane.Of(format, width, height, transfer, alpha, key, layers, range)` is the one admission; `Read(row, layer, lanes)`/`Write(row, layer, lanes)` are the one decoded LANE row rail and `ReadShade(row, layer, texels)`/`WriteShade(row, layer, texels)` its `ShadeVec4` projection — the tile, set, press, and environment folds all stage `ShadeVec4` rows, so the lane-to-register correspondence (single-lane replication, alpha seat, four-lane identity) is declared ONCE here rather than re-derived per consumer; `RowScalars` sizes a consumer's lane scratch; `Layer(index)` windows one layer; `ToAlpha(target, key)` is the one association conversion; `Key` is the streaming content key.
 - Law: a ten-case store union is the DELETED form. Ten cases carried one field pair and one disposal, so the arena is one generic record and typed code re-enters through `Accept<TFold, TResult>` — a `struct` or `ref struct` fold the JIT specializes per texel, allocating nothing and capturing nothing. `PlaneFormat` rows carry their own `Rent` column, deleting the `format.Key` switch that throws on an unmatched row: an unmatched format is unrepresentable rather than an exception in a fallible path.
 - Law: `Of` refuses BEFORE it rents. `MaterialFault.Parameter` rails a non-positive extent or layer count, an element count above `Array.MaxLength`, and an association the storage row cannot hold, each carrying the offending axis in its reason. `width × height × layers` texels bound admission and make the typed arena worth its shape: a 16k four-lane 16-bit plane counts 268 435 456 and admits, while the same plane's byte count exceeds the runtime bound.
 - Law: layer `n` occupies rows `[n × height, (n + 1) × height)` of one arena. `Layer` windows that band without a second rental, so a cube face set, an array slice, a volume slab, and a flipbook frame are all one plane and the `set#TEXTURE_SET` `LayerLaw` row is the only thing that names which.
@@ -294,6 +303,7 @@ using CommunityToolkit.HighPerformance.Buffers;
 using LanguageExt;
 using Rasm.Domain;                                // Op, ContentHash
 using Rasm.Materials.Appearance.Bsdf;             // MaterialFault
+using Rasm.Materials.Appearance.Texture;          // ShadeVec4 — the four-lane register the Shade row rails project
 using Rasm.Numerics;                              // Dimension
 using static LanguageExt.Prelude;
 
@@ -353,7 +363,9 @@ public sealed record TexturePlane(
         Dimension layerCount = layers.IfNone(Single);
         long rows = (long)height.Value * layerCount.Value;
         long elements = (long)width.Value * rows;
-        return (width.Value, height.Value, layerCount.Value, elements, alpha.Carries == format.Alpha.Carries) switch {
+        // A padded lane is legal — AlphaMode.None over a four-lane row is the [03] three-component law — so the
+        // storage gate refuses only an alpha the row cannot HOLD, never a declaration narrower than the row.
+        return (width.Value, height.Value, layerCount.Value, elements, !alpha.Carries || format.Alpha.Carries) switch {
             ( <= 0, _, _, _, _) or (_, <= 0, _, _, _) or (_, _, <= 0, _, _) =>
                 MaterialFault.Parameter(key, $"<plane-extent:{width.Value}x{height.Value}x{layerCount.Value}>"),
             (_, _, _, > Array.MaxLength, _) =>
@@ -366,6 +378,7 @@ public sealed record TexturePlane(
     }
 
     public int Lanes => Store.Lanes;
+    public int RowScalars => Width.Value * Lanes;
     public long Texels => (long)Width.Value * Height.Value * Layers.Value;
 
     // One layer as a plane of its own over the SHARED rental, so a cube face folds its own pyramid and lifts its own
@@ -384,14 +397,45 @@ public sealed record TexturePlane(
     public void Write(int row, int layer, ReadOnlySpan<double> lanes) =>
         Store.Accept<RowWrite, Unit>(new RowWrite(this, (layer * Height.Value) + row, lanes));
 
+    // The ShadeVec4 projection of the decoded row rail — ONE lane-to-register correspondence for every consumer
+    // staging four-lane rows: a single lane replicates across XYZ, a two-lane pair fills X and Y, four lanes map
+    // straight through, and the alpha register reads the coverage lane where the plane carries one, else 1.0.
+    // WriteShade inverts it, so the tile fold, the press staging, the set mean, and the sky sweep never re-derive
+    // a lane seat and a plane's arity change breaks HERE rather than in five consumers.
+    public void ReadShade(int row, int layer, Span<ShadeVec4> texels) {
+        using SpanOwner<double> lanes = SpanOwner<double>.Allocate(RowScalars);
+        Read(row, layer, lanes.Span);
+        int stride = Lanes, colour = Alpha.Carries ? stride - 1 : stride;
+        for (int x = 0; x < Width.Value; x++) {
+            ReadOnlySpan<double> texel = lanes.Span.Slice(x * stride, stride);
+            texels[x] = new ShadeVec4(
+                texel[0],
+                colour > 1 ? texel[1] : texel[0],
+                colour > 2 ? texel[2] : texel[0],
+                Alpha.Carries ? texel[stride - 1] : 1.0);
+        }
+    }
+
+    public void WriteShade(int row, int layer, ReadOnlySpan<ShadeVec4> texels) {
+        using SpanOwner<double> lanes = SpanOwner<double>.Allocate(RowScalars);
+        int stride = Lanes, colour = Alpha.Carries ? stride - 1 : stride;
+        for (int x = 0; x < Width.Value; x++) {
+            Span<double> texel = lanes.Span.Slice(x * stride, stride);
+            texel[0] = texels[x].X;
+            if (colour > 1) { texel[1] = texels[x].Y; }
+            if (colour > 2) { texel[2] = texels[x].Z; }
+            if (Alpha.Carries) { texel[stride - 1] = texels[x].W; }
+        }
+        Write(row, layer, lanes.Span);
+    }
+
     // Association conversion on decoded lanes. The 16-bit floor is structural: at eight bits the un-association
     // divides by a quantized coverage and amplifies its own step into colour error the inverse cannot recover.
+    // Convertible is the one crossing predicate; set#TEXTURE_SET reads the same row fact at admission.
     public Fin<TexturePlane> ToAlpha(AlphaMode target, Op key) =>
         target == Alpha ? Fin.Succ(this)
-        : target.Carries != Alpha.Carries
-            ? MaterialFault.Parameter(key, $"<plane-alpha-lane:{Alpha.Key}->{target.Key}>")
-        : Format.Depth == PlaneDepth.U8
-            ? MaterialFault.Parameter(key, $"<plane-alpha-depth:{Format.Depth.Key}>")
+        : !Alpha.Convertible(target, Format.Depth)
+            ? MaterialFault.Parameter(key, $"<plane-alpha-crossing:{Alpha.Key}->{target.Key}:{Format.Depth.Key}>")
         : Of(Format, Width, Height, Transfer, target, key, Some(Layers), Some(Range), AllocationMode.Default)
               .Map(Reassociate);
 
@@ -470,8 +514,9 @@ internal readonly ref struct RowWrite(TexturePlane plane, int storageRow, ReadOn
     }
 }
 
-// KeyRows streams STORAGE bytes, not decoded lanes: identity is what the object store holds, so a transfer or
-// association change re-keys the plane exactly as a texel edit does.
+// KeyRows streams STORAGE bytes, not decoded lanes: identity is what the object store holds, so a texel edit
+// re-keys and a declaration retag does NOT — transfer, range, and association ride the wire's channel row, never
+// the blob preimage, which is what lets ingest re-declare a decoded container per role without re-addressing it.
 internal readonly struct KeyRows(XxHash128 hash) : IPlaneFold<Unit> {
     public Unit Fold<T>(Memory2D<T> view) where T : unmanaged, ITexel<T> {
         for (int row = 0; row < view.Height; row++) { hash.Append(MemoryMarshal.AsBytes(view.Span.GetRowSpan(row))); }
@@ -606,19 +651,12 @@ public sealed record TexturePyramid(Seq<TexturePlane> Levels, MipPolicy Policy, 
             ? MaterialFault.Parameter(key, $"<pyramid-layered:{Base.Layers.Value}>")
             : TextureSource.Image.Of(Base.Width, Base.Height, Levels.Map(static level => Materialize(level)), key);
 
+    // The lane-to-register correspondence is the plane's own ReadShade rail, so the bridge stages rows and owns
+    // no second projection law.
     private static ReadOnlyMemory<ShadeVec4> Materialize(TexturePlane level) {
         ShadeVec4[] texels = new ShadeVec4[level.Width.Value * level.Height.Value];
-        using SpanOwner<double> lanes = SpanOwner<double>.Allocate(level.Width.Value * level.Lanes);
         for (int row = 0; row < level.Height.Value; row++) {
-            level.Read(row, layer: 0, lanes.Span);
-            for (int x = 0; x < level.Width.Value; x++) {
-                ReadOnlySpan<double> texel = lanes.Span.Slice(x * level.Lanes, level.Lanes);
-                texels[(row * level.Width.Value) + x] = new ShadeVec4(
-                    texel[0],
-                    level.Lanes > 1 ? texel[1] : texel[0],
-                    level.Lanes > 2 ? texel[2] : texel[0],
-                    level.Alpha.Carries ? texel[level.Lanes - 1] : 1.0);
-            }
+            level.ReadShade(row, layer: 0, texels.AsSpan(row * level.Width.Value, level.Width.Value));
         }
         return texels;
     }

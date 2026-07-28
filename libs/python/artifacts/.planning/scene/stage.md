@@ -16,7 +16,7 @@
 - Auto: prim identity is VALUE-derived at every seam, so the graph a material authors is a function of what it declares and never of how a caller spelled it. Every `st` reader keys by primvar NAME, so a twelve-map set authors one reader and a second uv set is one more name; the sampler and its placement key by the `Texture` value's own digest, so a packed sheet feeding three inputs authors ONE `UsdUVTexture` the three read on three ports — the reason the port is a required column rather than a defaulted one — where a slot-derived path authors that file once per input and pays a decode for each. `bind` folds SLOT-SORTED and `_dress` taxonomy-sorted because authoring order is serialization order: an insertion-ordered fold exports two byte streams for one appearance and forks its content key. `Texture` carries the sampler's whole surface — per-axis wrap, source colour space, the `value * scale + bias` decode an 8-bit tangent-space normal needs, the unresolved-file fallback, and an optional `UsdTransform2d` placement whose absence leaves the reader as the st stream rather than an identity node.
 - Receipt: each USD/USDZ export contributes `core/receipt#RECEIPT` `ArtifactReceipt.Scene(key, target, bytes, facts)` at `scene/render#SCENE`. `ComputeUsdStageStats` counts, up-axis, scale, `BBoxCache` diagonal, and `labels:*` sets return through `apply`; each new fact remains one band key.
 - Growth: a new USD schema is one `PrimKind` case with one `define` arm; placement is one `XformOp` case; a new surface input is one `SurfaceInput` member with its `_SURFACE` row, which `admitted` and `wire` both pick up unedited; a new binding modality is one `InputSource` case with one `wire` arm; a new sampler knob is one `Texture` field, which joins the identity digest with no `_sampler` edit and correctly splits two bindings that now differ on it; semantics enrich `PrimNode`; composition is one `AssetArc` case; layer format is one `LayerFormat` row; packaging is one `PackageOp` and `PackageFault` case pair; and receipt evidence is one facts-band key. Source, graph, and package axes retain one owner each.
-- Boundary: USD token vocabularies stay foreign spellings held at this seam — `Wrap`, `ColorSpace`, `TextureChannel`, and `SurfaceInput` carry the schema's own strings verbatim so the shader graph needs no translation column, and the cross-branch channel roster the texture sub-domain transcribes never reaches these members. Texture BYTES, their egress leaf names, and the lowering that binds a canonical channel role onto a preview-surface slot are `graphic/texture/set#TEXTURE_SET`'s; this page consumes a resolved asset path with the slot and port a caller already chose, and authors the graph that reads it.
+- Boundary: USD token vocabularies stay foreign spellings held at this seam — `Wrap`, `ColorSpace`, `OutputPort`, and `SurfaceInput` carry the schema's own strings verbatim so the shader graph needs no translation column, and the cross-branch channel roster the texture sub-domain transcribes never reaches these members. Texture BYTES, their egress leaf names, and the lowering that binds a canonical channel role onto a preview-surface slot are `graphic/texture/set#TEXTURE_SET`'s; this page consumes a resolved asset path with the slot and port a caller already chose, and authors the graph that reads it.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -116,7 +116,7 @@ class ColorSpace(StrEnum):
     AUTO = "auto"
 
 
-class TextureChannel(StrEnum):
+class OutputPort(StrEnum):
     # UsdUVTexture output ports; `rgb` carries float3 and the four singles carry float
     R = "r"
     G = "g"
@@ -294,7 +294,7 @@ class PbrMap(Struct, frozen=True, kw_only=True):
     # one texture bound to one surface input through one output port; the port is REQUIRED because a packed
     # sheet feeds three inputs off one file and a defaulted port would silently hand all three the same channel
     texture: Texture
-    channel: TextureChannel
+    channel: OutputPort
 
 
 @tagged_union(frozen=True)
@@ -309,7 +309,7 @@ class InputSource:
         return InputSource(constant=value)
 
     @staticmethod
-    def Texture(texture: Texture, channel: TextureChannel) -> "InputSource":
+    def Texture(texture: Texture, channel: OutputPort) -> "InputSource":
         return InputSource(texture=PbrMap(texture=texture, channel=channel))
 
     @staticmethod
@@ -328,7 +328,7 @@ class InputSource:
             case InputSource(tag="texture", texture=bound):
                 # Port `rgb` carries float3 and every single port carries float, so the port matches the input
                 # exactly when the component counts agree — one derived rule rather than a per-input legal-port list
-                if (bound.channel is TextureChannel.RGB) is not (law.channels == 3):
+                if (bound.channel is OutputPort.RGB) is not (law.channels == 3):
                     raise ValueError(f"{slot.value} takes {law.channels} component(s) and cannot read the {bound.channel.value} port")
                 if not bound.texture.file or not bound.texture.st:
                     raise ValueError(f"{slot.value} texture needs a file and an st primvar name")

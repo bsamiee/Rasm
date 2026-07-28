@@ -821,7 +821,7 @@ public readonly record struct StageOutput(string Role, string BlobKey, int Width
 public sealed record StageRequest(
     string Stage, string ModelCardId, LicenseClass LicenseClass, Seq<StageInput> Inputs,
     int InputWidth, int InputHeight, int OutputWidth, int OutputHeight,
-    int TileWidth, int TileHeight, int Overlap, string PadMode, string Bucket,
+    int TileWidth, int TileHeight, int Overlap, string Pad, string Bucket,
     string Provider, string Precision, ulong Seed, Op Op) {
 
     // Wire spellings resolve at the ROSTER that owns the rows, so this record holds no translation table and a
@@ -844,13 +844,16 @@ public sealed record StageRequest(
     // ONE plan construction lives here. Extent, bucket, overlap, pad, and scale come off this record; channels,
     // roster, layout, and blend come off the leased session, the only surface knowing the model. `TilePlan`'s own
     // validator then owns the fixed-bucket law, so no predicate here restates it and no later compare exists to
-    // catch two spellings drifting. `PadMode` here reads the TYPE, not this record's string column of the same name.
+    // catch two spellings drifting. The wire's `padMode` field lands as the `Pad` column: a same-named `PadMode`
+    // property SHADOWS the `PadMode` type inside this record (simple-name lookup binds the string member and
+    // `string.TryGet` is CS1061; the static gate below hits CS0120), so the interior spelling shortens and the
+    // wire projection restores `padMode` — the same interior-versus-wire split every other flat tile column takes.
     public Fin<TilePlan> Plan(int sourceChannels, Seq<TileProduct> products, TileBlend blend, TileLayout layout) =>
         Scale.Case is not int scale
             ? Fin.Fail<TilePlan>(new ComputeFault.ModelRejected(
                 $"<stage-scale:{InputWidth}x{InputHeight}:{OutputWidth}x{OutputHeight}>"))
-            : !PadMode.TryGet(PadMode, out PadMode? pad)
-                ? Fin.Fail<TilePlan>(new ComputeFault.ModelRejected($"<stage-pad:{PadMode}>"))
+            : !PadMode.TryGet(Pad, out PadMode? pad)
+                ? Fin.Fail<TilePlan>(new ComputeFault.ModelRejected($"<stage-pad:{Pad}>"))
                 : TilePlan.Validate(
                         sourceWidth: InputWidth, sourceHeight: InputHeight, channels: sourceChannels, products: products,
                         tileWidth: TileWidth, tileHeight: TileHeight, overlap: Overlap, scale: scale,
@@ -868,7 +871,7 @@ public sealed record StageRequest(
                 ? Fin.Fail<StageRequest>(new ComputeFault.ModelRejected($"<stage-precision:{request.Precision}>"))
                 : request.Scale.IsNone
                     || !StringComparer.Ordinal.Equals(request.Bucket, $"{request.TileWidth}x{request.TileHeight}")
-                    || !PadMode.TryGet(request.PadMode, out PadMode? _)
+                    || !PadMode.TryGet(request.Pad, out PadMode? _)
                     ? Fin.Fail<StageRequest>(new ComputeFault.ModelRejected($"<stage-shape:{request.Bucket}>"))
                     : Fin.Succ(request);
 }
@@ -951,7 +954,10 @@ public static class StageRun {
 
     // ONE lease, ONE plan, ONE grid. Leasing reports the model's products, the request folds them into a plan, that
     // plan seats the flow, and the grid runs once for every plane the model emits — a fold per output re-infers the
-    // whole image once per plane a single forward pass already produced.
+    // whole image once per plane a single forward pass already produced. The partitions read below is the
+    // sessions#MODEL_SESSIONS `Warm` counterpart obligation: the APP ROOT registers each request's bucket through
+    // `ModelSessions.Warm(key, request.Bucket, shape)` before the first run, so an unmeasured bucket here names a
+    // composition that skipped its registration, never a missing surface — the refusal is the seam's proof.
     static Fin<(Seq<StageOutput> Products, int Partitions, int Tiles)> Run(
         StageRequest request, StagePorts ports, (ReadOnlyMemory<float> Plane, int Width, int Height, int Channels) source,
         ExecutionProvider selected, ModelPrecision precision, RunOptions options, CancelScope scope) =>

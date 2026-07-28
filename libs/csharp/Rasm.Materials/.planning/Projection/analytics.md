@@ -256,7 +256,12 @@ public static class AnalyticsProjection {
     // than as a set with no roughness at all.
     public static Seq<TextureChannelAnalyticsRow> Textures(Seq<TextureSetWire> sets, ProjectionContext frame) =>
         sets.Bind(set => toSeq(set.Channels)
-            .Map(row => Row(set, row.Role, row.Transfer, row.Format, Some(row.KtxPayload), Some(row.BlockFormat),
+            // ONE spelling of absence: a non-KTX2 channel's wire "none" lowers to the SAME typed absence the pack
+            // rows carry — otherwise a payload grouping counts the literal string "none" as a declaration while
+            // the pack rows' NULL sits outside it, and the query the design justifies itself with double-counts.
+            .Map(row => Row(set, row.Role, row.Transfer, row.Format,
+                row.KtxPayload == "none" ? None : Some(row.KtxPayload),  // "none" is the frozen wire literal for a non-KTX2 file; the KtxPayload roster carries no such row
+                row.BlockFormat == BlockFormat.None.Key ? None : Some(row.BlockFormat),
                 (int)row.Mips, row.Blob, row.ByteLength, frame))
             // Packs declare NO single payload class or block format: a sheet's lanes carry three different channels'
             // policies, so the two columns stay absent rather than filled with one lane's value promoted to speak for the

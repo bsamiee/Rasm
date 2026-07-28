@@ -39,7 +39,7 @@ Every enum is exported twice — as a class with members and as bare module cons
 
 | [INDEX] | [ENUM]              | [ROWS]                                                                                |
 | :-----: | :------------------ | :------------------------------------------------------------------------------------ |
-|  [01]   | `Compression`       | `NO` `RLE` `ZIPS` `ZIP` `PIZ` `PXR24` `B44` `B44A` `DWAA` `DWAB` `HTJ2K256` `HTJ2K32` |
+|  [01]   | `Compression`       | `NO_COMPRESSION` `RLE_COMPRESSION` `ZIPS_COMPRESSION` `ZIP_COMPRESSION` `PIZ_COMPRESSION` `PXR24_COMPRESSION` `B44_COMPRESSION` `B44A_COMPRESSION` `DWAA_COMPRESSION` `DWAB_COMPRESSION` `HTJ2K256_COMPRESSION` `HTJ2K32_COMPRESSION` — every member carries the `_COMPRESSION` suffix; a bare `Compression.DWAA` is an `AttributeError` |
 |  [02]   | `PixelType`         | `UINT` (32-bit int), `HALF`, `FLOAT` — the per-channel storage type                   |
 |  [03]   | `Storage`           | `scanlineimage` `tiledimage` `deepscanline` `deeptile` — the header `type`            |
 |  [04]   | `LevelMode`         | `ONE_LEVEL` `MIPMAP_LEVELS` `RIPMAP_LEVELS`                                           |

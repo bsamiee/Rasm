@@ -116,13 +116,13 @@ class IblProducts(Struct, frozen=True):
     def entry(self, digests: frozendict[IblProduct, str], /) -> IblEntry:
         return IblEntry(
             sh9=list(self.sh9),
-            equirect_file=leaf(IblProduct.EQUIRECT.value, 0, DeepFormat.EXR),
+            equirect_file=leaf(IblProduct.EQUIRECT.value, DeepFormat.EXR),
             equirect_digest=digests[IblProduct.EQUIRECT],
-            specular_files=[leaf(IblProduct.SPECULAR.value, index, DeepFormat.EXR) for index in range(len(self.specular))],
+            specular_files=[leaf(IblProduct.SPECULAR.value, DeepFormat.EXR, variant=index) for index in range(len(self.specular))],
             roughness_per_mip=list(self.roughness_per_mip),
-            brdf_lut_file=leaf(IblProduct.BRDF_LUT.value, 0, DeepFormat.EXR) if self.brdf_lut is not None else "",
+            brdf_lut_file=leaf(IblProduct.BRDF_LUT.value, DeepFormat.EXR) if self.brdf_lut is not None else "",
             brdf_lut_digest=digests.get(IblProduct.BRDF_LUT, ""),
-            luminance_cdf_file=leaf(IblProduct.LUMINANCE_CDF.value, 0, DeepFormat.EXR) if self.luminance_cdf is not None else "",
+            luminance_cdf_file=leaf(IblProduct.LUMINANCE_CDF.value, DeepFormat.EXR) if self.luminance_cdf is not None else "",
             intensity=self.intensity,
             up_axis=_UP_AXIS,  # FROZEN `z`; a `y` value is a decode refusal at every reader
         )
@@ -130,8 +130,8 @@ class IblProducts(Struct, frozen=True):
 
 class Ibl(Struct, frozen=True):
     source: DeepPlane
+    lane: LanePolicy  # the caller-threaded offload seam the producer requires — declared BEFORE the defaulted kind, because msgspec raises TypeError at class creation for a required field after a defaulted one
     kind: SetKind = SetKind.IBL
-    lane: LanePolicy  # the caller-threaded offload seam the producer requires; an optional lane is a type break at the compose
     mips: int = 6
     samples: int = _PREFILTER_SAMPLES
     intensity: float = 1.0
@@ -213,7 +213,7 @@ class Ibl(Struct, frozen=True):
             # Its extent is the harmonics' own band limit — a degree-two field is smooth, and storing it at source
             # resolution stores nothing the nine coefficients did not already carry.
             irradiance=DeepPlane(
-                levels=(sh_reconstructed(sh9, _directions(*_IRRADIANCE_EXTENT)) / np.float32(np.pi),),
+                levels=(sh_reconstructed(sh9, _directions(*_IRRADIANCE_EXTENT)),),  # E(n) itself — the consumer applies albedo/pi per the reconstruction law, and dividing here double-pays it
                 depth=PlaneDepth.F16,
                 space=PlaneSpace.LINEAR,
             ),
@@ -356,7 +356,11 @@ def _hammersley(count: int, /) -> tuple[np.ndarray, np.ndarray]:
     # that same generator ships. Second coordinate carries the radical inverse in base 2.
     index = np.arange(count, dtype=np.uint32)
     bits = index.copy()
-    for shift, mask in ((16, 0x55555555), (8, 0x33333333), (4, 0x0F0F0F0F), (2, 0x00FF00FF)):
+    # Van der Corput pairing: the 16-bit half swap first, then each shift with ITS OWN mask — (1, 0x5555...),
+    # (2, 0x3333...), (4, 0x0F0F...), (8, 0x00FF...) — a transposed pairing is not the radical inverse and the
+    # prefilter integrates a clumped point set that sparkles at the tap budget.
+    bits = ((bits << 16) | (bits >> 16)) & 0xFFFFFFFF
+    for shift, mask in ((1, 0x55555555), (2, 0x33333333), (4, 0x0F0F0F0F), (8, 0x00FF00FF)):
         bits = ((bits & np.uint32(mask)) << np.uint32(shift)) | ((bits & np.uint32(~mask & 0xFFFFFFFF)) >> np.uint32(shift))
     return ((index.astype(np.float32) / count), (bits.astype(np.float64) * 2.3283064365386963e-10).astype(np.float32))
 

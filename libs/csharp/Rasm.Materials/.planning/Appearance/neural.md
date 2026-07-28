@@ -548,7 +548,7 @@ public static class StagePlan {
     // through the ordered sequence binding each stage to its producer.
     public static Fin<Seq<StageRequest>> Plan(StageIntent intent, Op key) =>
         from covered in Cover(intent.Requested, key)
-        from ordered in Fin.Succ(Refine(Closure(covered), intent))
+        let ordered = Refine(Closure(covered), intent)
         from requests in Thread(ordered, intent, key)
         select requests;
 

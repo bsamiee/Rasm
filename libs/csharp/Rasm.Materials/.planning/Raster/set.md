@@ -97,7 +97,7 @@ public sealed partial class SinkSlot {
     public static readonly SinkSlot BaseColor = new("baseColor", portOrdinal: 1, modality: Channel.Color,  encode: Verbatim, read: static s => ShadeVec4.FromColor(s.BaseColorLinear), fallback: static p => new PortValue.Color(p.BaseColor));
     public static readonly SinkSlot Metalness = new("metalness", portOrdinal: 2, modality: Channel.Scalar, encode: Verbatim, read: static s => Lane(s.Metalness),                       fallback: static p => new PortValue.Scalar(p.Metalness));
     public static readonly SinkSlot Roughness = new("roughness", portOrdinal: 3, modality: Channel.Scalar, encode: Verbatim, read: static s => Lane(s.Roughness),                       fallback: static p => new PortValue.Scalar(p.Roughness));
-    public static readonly SinkSlot Normal    = new("normal",    portOrdinal: 4, modality: Channel.Vector, encode: Bias,     read: static s => Axis(s.ShadingFrame.Value.ZAxis),         fallback: static _ => new PortValue.Vector(new Vector3d(0.5, 0.5, 1.0)));
+    public static readonly SinkSlot Normal    = new("normal",    portOrdinal: 4, modality: Channel.Vector, encode: Bias,     read: static s => Axis(s.ShadingFrame.ZAxis),               fallback: static _ => new PortValue.Vector(new Vector3d(0.5, 0.5, 1.0)));
     public static readonly SinkSlot Emission  = new("emission",  portOrdinal: 6, modality: Channel.Color,  encode: Verbatim, read: static s => ShadeVec4.FromColor(s.EmissionLinear),   fallback: static p => new PortValue.Color(p.Emission));
 
     public PortId Port => PortId.Of(PortOrdinal);
@@ -208,8 +208,8 @@ public sealed partial class TextureChannel {
     public static readonly TextureChannel GeometryOpacity     = new("geometry_opacity",      group: ChannelGroup.Geometry, components: 1, transfer: PlaneTransfer.Linear, neutral: Scalar(1.0),        unit: ChannelUnit.None, mip: MipPolicy.Box,               payload: KtxPayload.Uastc, origin: new ChannelOrigin.Geometric(static _ => Scalar(1.0)),                              mtlx: MtlxBinding.Verbatim, slot: None,             aliases: Seq("opacity", "alpha", "mask", "transparency"));
     public static readonly TextureChannel GeometryNormal      = new("geometry_normal",       group: ChannelGroup.Geometry, components: 3, transfer: PlaneTransfer.Raw,    neutral: Rgb(0.0, 0.0, 1.0), unit: ChannelUnit.None, mip: MipPolicy.NormalRenormalize, payload: KtxPayload.Uastc, origin: new ChannelOrigin.Geometric(static _ => Rgb(0.0, 0.0, 1.0)),                       mtlx: MtlxBinding.Verbatim, slot: SinkSlot.Normal,  aliases: Seq("normal", "nor", "nrm", "n", "normalgl", "nordx", "normaldx"));
     public static readonly TextureChannel GeometryCoatNormal  = new("geometry_coat_normal",  group: ChannelGroup.Geometry, components: 3, transfer: PlaneTransfer.Raw,    neutral: Rgb(0.0, 0.0, 1.0), unit: ChannelUnit.None, mip: MipPolicy.NormalRenormalize, payload: KtxPayload.Uastc, origin: new ChannelOrigin.Geometric(static _ => Rgb(0.0, 0.0, 1.0)),                       mtlx: MtlxBinding.Verbatim, slot: None,             aliases: Empty);
-    public static readonly TextureChannel GeometryTangent     = new("geometry_tangent",      group: ChannelGroup.Geometry, components: 3, transfer: PlaneTransfer.Raw,    neutral: Rgb(1.0, 0.0, 0.0), unit: ChannelUnit.None, mip: MipPolicy.NormalRenormalize, payload: KtxPayload.Uastc, origin: new ChannelOrigin.Geometric(static p => Axis(p.Frame.Value.XAxis)),                mtlx: MtlxBinding.Verbatim, slot: None,             aliases: Empty);
-    public static readonly TextureChannel GeometryCoatTangent = new("geometry_coat_tangent", group: ChannelGroup.Geometry, components: 3, transfer: PlaneTransfer.Raw,    neutral: Rgb(1.0, 0.0, 0.0), unit: ChannelUnit.None, mip: MipPolicy.NormalRenormalize, payload: KtxPayload.Uastc, origin: new ChannelOrigin.Geometric(static p => Axis(p.Frame.Value.XAxis)),                mtlx: MtlxBinding.Verbatim, slot: None,             aliases: Empty);
+    public static readonly TextureChannel GeometryTangent     = new("geometry_tangent",      group: ChannelGroup.Geometry, components: 3, transfer: PlaneTransfer.Raw,    neutral: Rgb(1.0, 0.0, 0.0), unit: ChannelUnit.None, mip: MipPolicy.NormalRenormalize, payload: KtxPayload.Uastc, origin: new ChannelOrigin.Geometric(static p => Axis(p.Frame.XAxis)),                mtlx: MtlxBinding.Verbatim, slot: None,             aliases: Empty);
+    public static readonly TextureChannel GeometryCoatTangent = new("geometry_coat_tangent", group: ChannelGroup.Geometry, components: 3, transfer: PlaneTransfer.Raw,    neutral: Rgb(1.0, 0.0, 0.0), unit: ChannelUnit.None, mip: MipPolicy.NormalRenormalize, payload: KtxPayload.Uastc, origin: new ChannelOrigin.Geometric(static p => Axis(p.Frame.XAxis)),                mtlx: MtlxBinding.Verbatim, slot: None,             aliases: Empty);
 
     // --- [DERIVED_CHANNELS]
     // No OpenPBR input; each carries BOTH the sibling channel it folds from and the filter#PLANE_OP step that
@@ -232,6 +232,13 @@ public sealed partial class TextureChannel {
     public MtlxBinding Mtlx { get; }
     public Option<SinkSlot> Slot { get; }
     public Seq<string> Aliases { get; }
+
+    private TextureChannel(
+        string key, ChannelGroup group, int components, PlaneTransfer transfer, ShadeVec4 neutral, ChannelUnit unit,
+        MipPolicy mip, KtxPayload payload, ChannelOrigin origin, MtlxBinding mtlx, Option<SinkSlot> slot, Seq<string> aliases)
+        : this(key) =>
+        (Group, Components, Transfer, Neutral, Unit, Mip, Payload, Origin, Mtlx, Slot, Aliases) =
+        (group, components, transfer, neutral, unit, mip, payload, origin, mtlx, slot, aliases);
 
     // The declaration-order rank the set key preimage and the press binding order both sort on. Items is
     // IReadOnlyList<T>, which carries no IndexOf, so the rank is one lazily-derived index and never a per-call
@@ -337,16 +344,21 @@ public sealed partial class LayerLaw {
     public partial bool Admits(int layers);
 }
 
-// The Mari UDIM index: 1001 + (row-1)*10 + (column-1), columns 1..10, rows 1..100. Column/Row are DERIVED,
-// never stored, so a tile and its grid coordinate cannot disagree.
+// The Mari UDIM index: 1001 + (row-1)*10 + (column-1), columns 1..10, rows 1..100 — so the admitted band is
+// exactly [1001, 2000] and the derived Column/Row are total over it. Column/Row are DERIVED, never stored, so a
+// tile and its grid coordinate cannot disagree.
 [ValueObject<int>]
 public readonly partial struct UdimTile {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
-        if (value is < 1001 or > 9999 || (value - 1001) % 10 > 9)
+        if (value is < 1001 or > 2000)
             validationError = new ValidationError($"<udim-out-of-mari-range:{value}>");
     }
 
     public static UdimTile Of(int value) => Create(value);
+    // The non-throwing admission the PURE classify fold reads: a four-digit token past the Mari band is an
+    // ordinary unresolved stem, never an exception inside a total fold.
+    public static Option<UdimTile> Admit(int value) =>
+        Validate(value, null, out UdimTile tile) is null ? Some(tile) : Option<UdimTile>.None;
     public int Column => (Value - 1001) % 10 + 1;
     public int Row => (Value - 1001) / 10 + 1;
 }
@@ -581,7 +593,7 @@ public static class SetIngest {
     // stem into Unresolved, so the fold is total and the caller sees exactly what went unclaimed.
     static SetManifest One(PlaneProbe probe) {
         Seq<string> tokens = Tokenize(probe.Stem);
-        Option<UdimTile> tile = tokens.Choose(static t => int.TryParse(t, out int v) && v >= 1001 ? Some(UdimTile.Of(v)) : Option<UdimTile>.None).HeadOrNone();
+        Option<UdimTile> tile = tokens.Choose(static t => int.TryParse(t, out int v) ? UdimTile.Admit(v) : Option<UdimTile>.None).HeadOrNone();
         Option<NormalConvention> convention = tokens.Choose(static t => Conventions.Value.TryGetValue(t, out NormalConvention? c) ? Some(c) : Option<NormalConvention>.None).HeadOrNone();
         Option<ChannelPack> pack = tokens.Choose(static t => Packs.Value.TryGetValue(t, out ChannelPack? p) ? Some(p) : Option<ChannelPack>.None).HeadOrNone();
         return pack.Match(
@@ -717,12 +729,11 @@ public static class SetBind {
             .Bind(row => MaterialParameters.Of(row, key));
 
     static ShadeVec4 Mean(TexturePlane plane) {
-        using SpanOwner<float> scratch = SpanOwner<float>.Allocate(plane.RowScalars);
         using SpanOwner<ShadeVec4> field = SpanOwner<ShadeVec4>.Allocate(plane.Width.Value);
         ShadeVec4 total = ShadeVec4.Splat(0.0);
         for (int layer = 0; layer < plane.Layers.Value; layer++) {
             for (int row = 0; row < plane.Height.Value; row++) {
-                plane.Read(layer, row, scratch.Span, field.Span);
+                plane.ReadShade(row, layer, field.Span);
                 for (int x = 0; x < field.Span.Length; x++) { total += field.Span[x]; }
             }
         }

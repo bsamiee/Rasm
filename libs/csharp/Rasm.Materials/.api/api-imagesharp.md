@@ -146,7 +146,7 @@ Six Labors' Split License grants Apache-2.0 unconditionally to an open-source co
 |  [07]   | `Image.Metadata` / `ImageMetadata.IccProfile`                 | property        | attach or read the ICC profile    |
 |  [08]   | `new ColorSpaceConverter(ColorSpaceConverterOptions)`         | ctor            | bind white points and spaces      |
 |  [09]   | `ColorSpaceConverter.ToCieXyz(in Rgb) -> CieXyz`              | instance        | one space-to-space conversion     |
-|  [10]   | `ColorSpaceConverter.Convert(ReadOnlySpan<TFrom>, Span<TTo>)` | instance        | bulk span conversion              |
+|  [10]   | `ColorSpaceConverter.Convert(ReadOnlySpan<CieLch>, Span<CieLab>)` | instance        | bulk span conversion — one row of a ~100-pair CONCRETE overload matrix; no generic `Convert<TFrom,TTo>` exists at this major (that shape is the 4.x `ColorProfileConverter`'s) |
 |  [11]   | `ColorSpaceConverter.Adapt(in CieXyz, in CieXyz) -> CieXyz`   | instance        | chromatic adaptation              |
 
 ## [04]-[IMPLEMENTATION_LAW]

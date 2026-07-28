@@ -362,7 +362,7 @@ def converted(plane: DeepPlane, container: DeepFormat, /, *, depth: PlaneDepth, 
 - Law: `OpenEXR.File(header, channels)` derives the extent from the channel arrays and needs neither a `channels` nor a `dataWindow` key. `OpenEXR.Header(w, h)` seeds are NOT re-passable: its `channels` value is a `Channel` dict the constructor refuses outright and its `dataWindow` is an `Imath.Box2i` refused as "expected a box2i tuple", so a header is authored as a bare attribute dict. That constructor also MUTATES the channels dict handed in, replacing every array with a `Channel` object, so a verify pass keeps an independent expected-array dict. `Part.name`/`type`/`width`/`height`/`compression` and `Channel.type`/`name` are METHODS; read without the call they yield a bound method comparing equal to nothing.
 - Law: `tiff_decode` DEFAULTS to `index=0` and a whole float TIFF read passes `index=None`. At the default a 4-component `(16, 16, 4)` plane decodes as `(16, 4)` — a silently reshaped array that passes every dtype check and fails no exception, so the default index is the one TIFF trap this row spells out.
 - Law: MIP AND RIP PYRAMIDS DO NOT SURVIVE AN EXR WRITE. Parts whose `tiles.mode` is `MIPMAP_LEVELS` or `RIPMAP_LEVELS` write level 0 alone and leaves a chunk table the reader rejects — the re-read warns `corrupt chunk table` and reports ZERO parts. `mips` is `True` on the `KTX2` row ALONE; every other pyramid ships as one file per level under the `set#TEXTURE_SET` egress grammar.
-- Law: KTX2 encode is DUAL-LEG and the probe decides. `ktx`, provisioned as a CLI, holds the immovable FLOOR both branches spawn — its subcommand roster is `create`/`deflate`/`extract`/`encode`/`transcode`/`info`/`validate`/`compare` — and `pyktx` is the in-process ACCELERATION row that skips the spawn and the intermediate file, both binding the SAME `libktx`. Neither leg is a caller flag: `_ktx_leg` reads presence and the CLI leg's absence faults `tool_absent`.
+- Law: KTX2 encode is DUAL-LEG and the probe decides. `ktx`, provisioned as a CLI, holds the immovable FLOOR both branches spawn — its subcommand roster is `create`/`deflate`/`extract`/`encode`/`transcode`/`info`/`validate`/`compare` — and `pyktx` is the in-process ACCELERATION row that skips the spawn and the intermediate file, both binding the SAME `libktx`. Neither leg is a caller flag: `ktx_leg` reads presence and the CLI leg's absence faults `tool_absent`.
 - Law: every `ktx` binary prints `GIT-NOTFOUND` for `--version` — KTX-Software bakes its version from `git describe` and the nixpkgs fetch strips git metadata — so a probe asserts PRESENCE and the subcommand roster, NEVER version text.
 - Law: a supercompressed KTX2 reads `vk_format` back as `VK_FORMAT_UNDEFINED` until transcode. Every reader branches on `needs_transcoding`; a reader branching on `vk_format` classes every wire-legal payload as malformed. `transcode_basis` further REFUSES on a texture still holding its Zstd supercompression (`KtxError(TRANSCODE_FAILED)`), so an encode-then-transcode inside one process crosses `write_to_named_file`/`create_from_named_file`, whose load inflates the payload.
 - Law: KTX2 READ-BACK crosses a file by construction. `KtxTexture2` carries `create_from_named_file` and NO memory constructor, and the same file crossing is what inflates a deflated payload into a transcodable one — the two constraints resolve to the one `NamedTemporaryFile` leg. `transcode_basis(KtxTranscodeFmt.RGBA32)` lands the uncompressed target so the read-back needs no second block decoder, `image_offset(level, layer, face_slice)` and `image_size(level)` slice `data` per level, and `imagecodecs.bcn_decode(payload, BCN.FORMAT.BC7, shape=…)` is the block-target verify leg beside it.
@@ -529,7 +529,7 @@ def storage_format(depth: PlaneDepth, channels: int, /) -> str:
     return _KTX_VK[(depth, _STORAGE_WIDTH[channels])]
 
 
-def _ktx_leg() -> KtxLeg:
+def ktx_leg() -> KtxLeg:
     # presence decides, never a caller flag: the in-process binding takes the row when it imports, the provisioned
     # CLI is the floor otherwise, and its own absence is the `tool_absent` refusal the set-level admission reads.
     try:
@@ -717,7 +717,7 @@ DEEP_CODEC: Final[frozendict[DeepFormat, CodecRow]] = frozendict({
         mips=True,  # the ONE row carrying its own pyramid; a ktx2 channel NEVER takes a mip variant filename
         policy="ktx",
         lossy=frozenset({"ktx"}),  # UASTC and ETC1S are block codecs; only an uncompressed `--format` row survives
-        probe=lambda: _ktx_leg() is KtxLeg.IN_PROCESS,
+        probe=lambda: ktx_leg() is KtxLeg.IN_PROCESS,
         encode=_ktx_encoded,
         decode=_ktx_decoded,
     ),
@@ -792,7 +792,7 @@ flowchart LR
     Gate -->|"gate fails"| Faults["TextureFault codec_absent / encode / depth / space / shape / alpha"]
     Gate --> Arm["row.encode arm"]
     Arm --> IC["imagecodecs: exr / rgbe / png / tiff / jpegxl / avif / webp"]
-    Arm --> KTX["_ktx_encoded: _ktx_leg probe -> pyktx | ktx CLI"]
+    Arm --> KTX["_ktx_encoded: ktx_leg probe -> pyktx | ktx CLI"]
     IC --> Out["container bytes"]
     KTX --> Out
     Out --> Key["DeepPlane.digest: ContentIdentity.key over ENCODED bytes"]

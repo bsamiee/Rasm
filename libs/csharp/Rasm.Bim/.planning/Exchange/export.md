@@ -106,6 +106,10 @@ public sealed partial class GltfChannel {
     public static readonly GltfChannel FuzzColor    = new("fuzz_color",           Seq(KnownChannel.SheenColor),               KhrExtension.MaterialsSheen);
     public static readonly GltfChannel FuzzRough    = new("fuzz_roughness",       Seq(KnownChannel.SheenRoughness),           KhrExtension.MaterialsSheen);
     public static readonly GltfChannel FilmWeight   = new("thin_film_weight",     Seq(KnownChannel.Iridescence),              KhrExtension.MaterialsIridescence);
+    // KHR iridescence reads its thickness TEXTURE as a [0,1] factor lerping iridescenceThicknessMinimum..Maximum
+    // (both nanometres) — a THIRD thickness convention beside the frozen nm plane and the .mtlx micrometre input.
+    // The binder therefore writes Minimum=0 and Maximum=the set's declared thickness span and normalizes the nm
+    // plane against that span before binding; a raw nm plane bound as the factor is wrong by ~2.5 orders.
     public static readonly GltfChannel FilmThick    = new("thin_film_thickness",  Seq(KnownChannel.IridescenceThickness),     KhrExtension.MaterialsIridescence);
     public static readonly GltfChannel Anisotropy   = new("specular_roughness_anisotropy", Seq(KnownChannel.Anisotropy),      KhrExtension.MaterialsAnisotropy);
 
@@ -126,10 +130,15 @@ public sealed partial class GltfChannel {
 // PNG/JPG/DDS/WEBP/KTX2 containers), the resolved GltfChannel row, the UV set the primitive samples it through, the
 // wrap pair, and the optional KHR_texture_transform frame the Semantics/appearance#APPEARANCE_PROJECTION UvTransform
 // owns. This rail ENCODES nothing: a texture-set owner seals the bytes and the composing edge hands them here, so the
-// GLB author stays a binder and no image codec enters Rasm.Bim. Container names the KhrExtension row the chosen
-// container obliges (KTX2 -> TextureBasisu, WebP -> TextureWebp, DDS -> TextureDds), None for a PNG/JPG core
-// container, and a transform-bearing row obliges TextureTransform — the union of those rows with the channel's own
-// registers before the write, so no format#FORMAT_AXIS row serializes unregistered.
+// GLB author stays a binder and no image codec enters Rasm.Bim. Container is SNIFFED off the payload's own magic
+// bytes (KTX2 -> TextureBasisu, WebP's RIFF -> TextureWebp, DDS -> TextureDds, PNG/JPG -> None) — a caller knob
+// here is the same unowned call-site correspondence the KnownChannel law above deletes, because a WebP payload
+// registered as basisu lights the wrong extension and nothing raises — and a transform-bearing row obliges
+// TextureTransform; the union of those rows with the channel's own registers before the write, so no
+// format#FORMAT_AXIS row serializes unregistered. A KTX2 payload additionally admits ONLY the Basis-transcodable
+// classes: the frozen wire-legality law makes a rawBcn KTX2 the file the estate's own viewer refuses, and this
+// egress is exactly the consumer edge that law protects, so the sniff reads the DFD's supercompression scheme and
+// refuses a raw-BCn container at admission.
 public sealed record ChannelImage {
     private ChannelImage(
         GltfChannel channel, ReadOnlyMemory<byte> bytes, string name, int coordinateSet,
@@ -151,8 +160,19 @@ public sealed record ChannelImage {
     public static Option<ChannelImage> Of(
         string channel, ReadOnlyMemory<byte> bytes, string name, int coordinateSet = 0,
         TextureWrapMode wrapS = TextureWrapMode.REPEAT, TextureWrapMode wrapT = TextureWrapMode.REPEAT,
-        Option<UvTransform> transform = default, Option<KhrExtension> container = default) =>
-        GltfChannel.From(channel).Map(row => new ChannelImage(row, bytes, name, coordinateSet, wrapS, wrapT, transform, container));
+        Option<UvTransform> transform = default) =>
+        GltfChannel.From(channel).Map(row => new ChannelImage(row, bytes, name, coordinateSet, wrapS, wrapT, transform, Sniffed(bytes.Span)));
+
+    // The magic-byte correspondence, spelled once: KTX2 identifier, RIFF+WEBP, DDS fourcc; anything else is a
+    // core PNG/JPG container obliging no extension row.
+    static Option<KhrExtension> Sniffed(ReadOnlySpan<byte> payload) =>
+        payload.Length >= 12 && payload[..12].SequenceEqual((ReadOnlySpan<byte>)[0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A])
+            ? Some(KhrExtension.TextureBasisu)
+            : payload.Length >= 12 && payload[..4].SequenceEqual("RIFF"u8) && payload[8..12].SequenceEqual("WEBP"u8)
+                ? Some(KhrExtension.TextureWebp)
+                : payload.Length >= 4 && payload[..4].SequenceEqual("DDS "u8)
+                    ? Some(KhrExtension.TextureDds)
+                    : Option<KhrExtension>.None;
 
     // Binding walks the channels: UseChannel opens (or creates) each target channel, UseTexture opens its
     // TextureBuilder, and the fluent sampler/transform members write the glTF sampler and the
@@ -162,16 +182,18 @@ public sealed record ChannelImage {
     // per-channel With* members are the live spellings — so a channel value never rides the deprecated vector form.
     public MaterialBuilder Bind(MaterialBuilder material) {
         ImageBuilder image = ImageBuilder.From(Wrapped(Bytes), Name);
-        return Channel.Targets.Fold(material, (held, target) => {
-            TextureBuilder texture = held
+        // Iter, not Fold: the builder MUTATES and the accumulator never changes, so a fold spelling here reads
+        // as construction while performing iteration — the honest verb is the iteration.
+        Channel.Targets.Iter(target => {
+            TextureBuilder texture = material
                 .UseChannel(target)
                 .UseTexture()
                 .WithPrimaryImage(image)
                 .WithCoordinateSet(CoordinateSet)
                 .WithSampler(WrapS, WrapT);
             Transform.IfSome(uv => texture.WithTransform(uv.Offset, uv.Scale, (float)uv.Rotation));
-            return held;
         });
+        return material;
     }
 
     // Obliges names the extension rows this binding carries: its channel's own row, its container row (when the

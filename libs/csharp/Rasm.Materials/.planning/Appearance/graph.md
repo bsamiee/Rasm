@@ -202,9 +202,11 @@ public sealed record SurfaceShade(Unicolour BaseColorLinear, double Metalness, d
 // AppearanceNode.Produces column Compile already proved. An Option<PortValue> is unspellable on this rail: a Span-addressed scratch cell
 // cannot hold one through the generated Switch's state parameter.
 public readonly record struct PortSlot(bool Produced, PortValue Value) {
+    // ZeroScalar declares BEFORE Sink: static field initializers run in declaration order, so the reversed order
+    // seats a null Value inside the Sink sentinel — the type-init trap texture.md's own tables name.
+    internal static readonly PortValue ZeroScalar = new PortValue.Scalar(0.0);
     public static readonly PortSlot Sink = new(false, ZeroScalar);
     public static PortSlot Of(PortValue value) => new(true, value);
-    internal static readonly PortValue ZeroScalar = new PortValue.Scalar(0.0);
 }
 
 public static class NodeEvaluator {
@@ -270,9 +272,13 @@ public sealed record MaterialGraph(Seq<AppearanceNode> Nodes, PortId Sink) {
                from ___ in guard(dag.IsDirectedAcyclicGraph(), MaterialFault.Graph(key, "<cyclic-appearance-graph>"))
                let order = toSeq(dag.SourceFirstTopologicalSort()).Map(id => byId[id])
                // Slots freeze the node -> scratch-cell correspondence at the compiled order: the rail writes cell n
-               // for order position n and reads an operand at Slots[dependency]. One sort, one index.
-               select new CompiledGraph(order, output,
-                   order.Map(static (node, index) => KeyValuePair.Create(node.Id, index)).ToFrozenDictionary());
+               // for order position n and reads an operand at Slots[dependency]. One sort, one index — and the
+               // per-node OPERAND SLOT ARRAYS resolve here too, because Dependencies is a COMPUTED Seq whose
+               // per-texel read would allocate millions of sequences across a 4k plane; the compiled int[] rows
+               // are the allocation-free form the batched rail indexes.
+               let slots = order.Map(static (node, index) => KeyValuePair.Create(node.Id, index)).ToFrozenDictionary()
+               select new CompiledGraph(order, output, slots,
+                   order.Map(node => node.Dependencies.Map(d => slots[d]).ToArray()).Strict());
     }
 
     // Evaluate is the ONE-SHOT convenience: Compile + Shade in one call for a single sample (a preview, a wire-egress shade). It RE-SORTS
@@ -296,7 +302,7 @@ public sealed record MaterialGraph(Seq<AppearanceNode> Nodes, PortId Sink) {
     }
 }
 
-public sealed record CompiledGraph(Seq<AppearanceNode> Order, AppearanceNode.BsdfOutput Output, FrozenDictionary<PortId, int> Slots) {
+public sealed record CompiledGraph(Seq<AppearanceNode> Order, AppearanceNode.BsdfOutput Output, FrozenDictionary<PortId, int> Slots, Seq<int[]> OperandSlots) {
     // ScratchWidth and OperandWidth are the two rentals a batched caller sizes against, RESOLVED AT COMPILE: one scratch cell per compiled
     // node, one operand cell per widest dependency list. Both derive from the frozen order, so a widened sink or a new node kind moves the
     // rental with no caller edit — a hardcoded five overflows the day BsdfOutput takes a sixth port — and neither re-folds the order on a
@@ -328,7 +334,8 @@ public sealed record CompiledGraph(Seq<AppearanceNode> Order, AppearanceNode.Bsd
         for (int p = 0; p < points.Length; p++) {
             for (int n = 0; n < Order.Count; n++) {
                 AppearanceNode node = Order[n];
-                for (int d = 0; d < node.Dependencies.Count; d++) { operands[d] = scratch[Slots[node.Dependencies[d]]]; }
+                int[] sources = OperandSlots[n];
+                for (int d = 0; d < sources.Length; d++) { operands[d] = scratch[sources[d]]; }
                 Fin<PortSlot> produced = NodeEvaluator.Apply(node, points[p], parameters, operands, key);
                 if (produced.IsFail) { return Indexed(produced, p, key).Map(static _ => unit); }
                 PortSlot slot = produced.IfFail(PortSlot.Sink);
@@ -342,22 +349,30 @@ public sealed record CompiledGraph(Seq<AppearanceNode> Order, AppearanceNode.Bsd
     }
 
     // Indexed names WHICH point failed — the arm's own reason with its window index appended — because a plane fails at ONE of sixteen million
-    // points that all ran the same program. A bare out-of-gamut or degenerate-frame message is undiagnosable at bake scale, where the
-    // coordinate is the whole difference between a broken graph and one bad input value; the press then joins the band origin to reach the texel.
+    // points that all ran the same program. The re-wrap PRESERVES the fault's own case: a gamut refusal at texel
+    // twelve million is still a gamut refusal, and flattening every span failure onto Graph would erase the one
+    // discrimination the recovery vocabulary dispatches on.
     static Fin<T> Indexed<T>(Fin<T> failed, int index, Op key) =>
         failed.Match(
             Succ: static value => Fin.Succ(value),
-            Fail: error => Fin.Fail<T>(MaterialFault.Graph(key, $"<shade-span-point:{index}:{error.Message}>")));
+            Fail: error => Fin.Fail<T>(error is MaterialFault.GamutCase gamut
+                ? MaterialFault.Gamut(key, $"<shade-span-point:{index}:{gamut.Detail}>")
+                : MaterialFault.Graph(key, $"<shade-span-point:{index}:{error.Message}>")));
 
     // Assemble reads the scratch DIRECTLY in ONE assembly. A Func<PortId, Fin<PortValue>> port reader is unspellable here — a lambda may not
     // capture a Span<T> — and minting a second environment shape to dodge that is exactly the divergence the single rail forecloses. Compile
-    // proved each of the five sink ports known and producing, so reads are total and the gamut gate is the one failure this fold can carry.
+    // proved each of the five sink ports known and producing but NOT their types, so the one non-projection read —
+    // the normal frame — REFUSES a non-Frame production: a sink mis-wired onto a scalar node would otherwise shade
+    // the whole plane unperturbed with nothing raised, the silent wrong answer the total projections cannot produce.
     static Fin<SurfaceShade> Assemble(AppearanceNode.BsdfOutput sink, ShadePoint point, ReadOnlySpan<PortValue> scratch, FrozenDictionary<PortId, int> slots, Op key) {
+        if (scratch[slots[sink.NormalFrame]] is not PortValue.Frame frame) {
+            return Fin.Fail<SurfaceShade>(MaterialFault.Graph(key, $"<sink-normal-not-frame:{sink.NormalFrame.Value}>"));
+        }
         SurfaceShade shade = new(
             scratch[slots[sink.BaseColor]].AsColor,
             System.Math.Clamp(scratch[slots[sink.Metalness]].AsScalar, 0.0, 1.0),
             System.Math.Clamp(scratch[slots[sink.Roughness]].AsScalar, 0.0, 1.0),
-            scratch[slots[sink.NormalFrame]] switch { PortValue.Frame f => f.Value, _ => point.Frame },
+            frame.Value,
             scratch[slots[sink.Emission]].AsColor);
         return shade.InGamut
             ? Fin.Succ(shade)

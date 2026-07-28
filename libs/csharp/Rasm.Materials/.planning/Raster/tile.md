@@ -119,16 +119,14 @@ public static class TileSynth {
               select chain
             : Fin.Fail<TexturePyramid>(RasterFault.Tile(key, $"<tile-plan-extent-mismatch:{plan.Width.Value}x{plan.Height.Value}>"));
 
-    // Row-wise writes through the plane's OWN Write rail, so alpha association, transfer encode, and depth
-    // narrowing all happen exactly once at their owner; scratch is caller-owned per row, never plane-held. The
-    // fold covers EVERY layer, because a plane whose tail layers keep their untiled texels is half-tiled.
+    // Row-wise writes through the plane's OWN WriteShade rail, so alpha association, transfer encode, and depth
+    // narrowing all happen exactly once at their owner. The fold covers EVERY layer, because a plane whose tail
+    // layers keep their untiled texels is half-tiled.
     static TexturePlane Fill(TexturePlane plane, ReadOnlyMemory2D<ShadeVec4> texels) {
-        using SpanOwner<float> scratch = SpanOwner<float>.Allocate(plane.RowScalars);
-        using SpanOwner<ShadeVec4> staging = SpanOwner<ShadeVec4>.Allocate(plane.Width.Value);
         ReadOnlySpan2D<ShadeVec4> source = texels.Span;
         for (int layer = 0; layer < plane.Layers.Value; layer++) {
             for (int row = 0; row < plane.Height.Value; row++) {
-                plane.Write(layer, row, scratch.Span, source.GetRowSpan((layer * plane.Height.Value) + row), staging.Span);
+                plane.WriteShade(row, layer, source.GetRowSpan((layer * plane.Height.Value) + row));
             }
         }
         return plane;
@@ -392,17 +390,16 @@ public static class TileGate {
     // seamless plane's two numbers agree, and the fold holds two rows at a time whatever the extent.
     static double SeamRatio(TexturePlane plane) {
         int w = plane.Width.Value, h = plane.Height.Value;
-        using SpanOwner<float> scratch = SpanOwner<float>.Allocate(plane.RowScalars);
         using SpanOwner<ShadeVec4> first = SpanOwner<ShadeVec4>.Allocate(w);
         using SpanOwner<ShadeVec4> upper = SpanOwner<ShadeVec4>.Allocate(w);
         using SpanOwner<ShadeVec4> lower = SpanOwner<ShadeVec4>.Allocate(w);
-        plane.Read(layer: 0, row: 0, scratch.Span, first.Span);
+        plane.ReadShade(row: 0, layer: 0, first.Span);
         double seam = 0.0, interior = 0.0;
         for (int y = 0; y < h; y++) {
-            plane.Read(layer: 0, row: y, scratch.Span, upper.Span);
+            plane.ReadShade(row: y, layer: 0, upper.Span);
             seam += Delta(upper.Span[w - 1], upper.Span[0]);
             if (y + 1 >= h) { for (int x = 0; x < w; x++) { seam += Delta(upper.Span[x], first.Span[x]); } break; }
-            plane.Read(layer: 0, row: y + 1, scratch.Span, lower.Span);
+            plane.ReadShade(row: y + 1, layer: 0, lower.Span);
             for (int x = 0; x + 1 < w; x++) { interior += Delta(upper.Span[x], lower.Span[x]) + Delta(upper.Span[x], upper.Span[x + 1]); }
         }
         double normalizedSeam = seam / (w + h), normalizedInterior = interior / Math.Max(1, 2 * (w - 1) * (h - 1));
@@ -416,11 +413,10 @@ public static class TileGate {
     // place under the symmetric FourierOptions.Default scaling, so the measured fraction is scale-invariant.
     static double LatticeLeak(TexturePlane plane) {
         int w = plane.Width.Value, h = plane.Height.Value;
-        using SpanOwner<float> scratch = SpanOwner<float>.Allocate(plane.RowScalars);
         using SpanOwner<ShadeVec4> field = SpanOwner<ShadeVec4>.Allocate(w);
         Complex[] spectrum = new Complex[w * h];
         for (int y = 0; y < h; y++) {
-            plane.Read(layer: 0, row: y, scratch.Span, field.Span);
+            plane.ReadShade(row: y, layer: 0, field.Span);
             for (int x = 0; x < w; x++) { spectrum[(y * w) + x] = new Complex(field.Span[x].Luminance, 0.0); }
         }
         Fourier.Forward2D(spectrum, h, w, FourierOptions.Default);

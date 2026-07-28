@@ -57,7 +57,7 @@ from rasm.artifacts.graphic.texture.ingest import (
 )
 from rasm.artifacts.graphic.texture.plane import (
     DEEP_CODEC, PLANE_FMT, AlphaMode, DeepFormat, DeepPlane, EncodePolicy, Extent, KtxLeg, KtxPayload, MipPolicy, PlaneDepth, PlaneSpace, TextureFault,
-    converted, decode, encode, quantized, storage_format,
+    converted, decode, encode, ktx_leg, quantized, storage_format,
 )
 
 from beartype import beartype
@@ -320,7 +320,7 @@ def _passed(decoded: tuple[DeepFormat, DeepPlane], declared: DeepFormat, raw: by
         else Ok(
             MapFact(
                 slot=request.slot,
-                file=leaf(request.slot.value, request.tile, declared),
+                file=leaf(request.slot.value, declared, variant=request.tile if request.tile else None),
                 payload=raw,
                 digest=plane.digest(raw),
                 format=declared,
@@ -360,7 +360,7 @@ def _stored_space(slot: MapSlot, depth: PlaneDepth, /) -> PlaneSpace:
 
 
 def _converted_for(plane: DeepPlane, request: MapRequest, /) -> Result[DeepPlane, TextureFault]:
-    return converted(plane, depth=request.spec.depth, space=_stored_space(request.slot, request.spec.depth), alpha=plane.alpha)
+    return converted(plane, request.spec.format, depth=request.spec.depth, space=_stored_space(request.slot, request.spec.depth), alpha=plane.alpha)
 
 
 def _mipped(plane: DeepPlane, request: MapRequest, companion: DeepPlane | None, /) -> Result[DeepPlane, TextureFault]:
@@ -397,7 +397,7 @@ def _stored(plane: DeepPlane, request: MapRequest, /) -> Result[MapFact, Texture
             return encode(ready, fmt, _ENCODE_POLICY[fmt]).map(
                 lambda payload: MapFact(
                     slot=request.slot,
-                    file=leaf(request.slot.value, request.tile, fmt),
+                    file=leaf(request.slot.value, fmt, variant=request.tile if request.tile else None),
                     payload=payload,
                     digest=ready.digest(payload),
                     format=fmt,
@@ -426,7 +426,7 @@ def _core_version(fmt: DeepFormat, /) -> str:
 - Law: every KTX2 file HOLDS its own pyramid, so a `ktx2` channel NEVER carries a mip variant. Per-mip EXR pyramids spell `<channel>.00.exr`, `<channel>.01.exr` ascending; per-channel FILES are the canonical cross-branch EXR form and multipart or named-AOV EXR is branch-local optimization no parity fixture depends on.
 - Law: THREE hex spellings exist and folding two mints an address fork. Python wire keys spell `f"{key.value:032x}"` — `ContentKey.hex` carries the `:<fmt>` tail its own projection defines, so a wire digest field spelling `.hex` is that fork. Path segments carry the same lowercase 32 hex, so the TS `assets/<digest>/<file>` join needs no case move; a consumer joining a wire key to a path lowers the key, and uppercasing a path segment to match is the deleted direction.
 - Law: the SET key is a MERKLE fold over the channel-ordered plane digests, never a hash of the spec. `ContentIdentity.key` lifts a `tuple[ContentKey, ...]` to the merkle source, the order is the `TextureRole` roster order — which IS the wire's channel order — and a set re-encoded byte-identically re-keys identically while a set whose one roughness plane changed re-keys once.
-- Law: the `ktx` CLI is the ENCODE FLOOR in all three branches and `pyktx` the in-process acceleration row; both bind the SAME `libktx` and agree byte-for-byte on the container. `_ktx_leg` reads presence — never a caller flag — and a host carrying neither leg faults `tool_absent`, refusing the whole set rather than silently degrading a `ktx2` map to a `png16` one.
+- Law: the `ktx` CLI is the ENCODE FLOOR in all three branches and `pyktx` the in-process acceleration row; both bind the SAME `libktx` and agree byte-for-byte on the container. `ktx_leg` reads presence — never a caller flag — and a host carrying neither leg faults `tool_absent`, refusing the whole set rather than silently degrading a `ktx2` map to a `png16` one.
 - Law: the DETERMINISTIC FLOOR is DERIVED, never listed. `_FLOOR` is the set of rows whose `plane#PLANE` `CodecRow.lossless` holds under this page's own `_ENCODE_POLICY` default — `EXR` at `zip`, `PNG16`, `TIFF_F32`, and both `JXL` rows at their lossless flag. Sets whose maps stay inside it produce byte-identically on any host with no provisioned binary; a set reaching for `ktx2` declares a host requirement, which is a boundary the caller reads and never a silent substitution. Hand-listed floors carry a second truth about losslessness that drifts the first time a policy default moves, and both lists still parse afterward.
 - Law: a `ktx` binary prints `GIT-NOTFOUND` for `--version` — KTX-Software bakes its version from `git describe` and the packaging fetch strips git metadata — so the probe asserts PRESENCE and the subcommand roster and the manifest's `tool_version` carries the provisioned attribute, never the binary's own text.
 - Law: encode and transcode in ONE process cross the file. `transcode_basis` refuses on a texture still holding its Zstd supercompression with `KtxError(TRANSCODE_FAILED)`; the reloaded texture reports its scheme back at `NONE` with `needs_transcoding` still true and transcodes clean. Readers branch on `needs_transcoding` and never on `vk_format`, which reads `VK_FORMAT_UNDEFINED` until transcode.
@@ -473,24 +473,28 @@ _KTX_VERSION: Final[str] = "ktx-tools"  # the PROVISIONED attribute name, never 
 _KTX_TF: Final[frozendict[PlaneSpace, str]] = frozendict({PlaneSpace.LINEAR: "linear", PlaneSpace.SRGB: "srgb", PlaneSpace.RAW: "linear"})
 _ROSTER: Final[tuple[MapSlot, ...]] = (*TextureRole, *IblProduct, *ChannelPack)  # declaration order IS the wire order IS the merkle preimage order
 _EGRESS_ROOT: Final[str] = "materials/texture"
+_EGRESS_ENVIRONMENT: Final[str] = "materials/environment"  # the frozen second root: IBL/HDRI products never publish under the texture root
 ```
 
 ```python signature
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def leaf(channel: str, variant: int, fmt: DeepFormat, /) -> str:
+def leaf(channel: str, fmt: DeepFormat, /, *, variant: int | None = None) -> str:
     # PUBLIC because `ibl#IBL` names the same leaves in its `IblEntry` legs; a second spelling there would fork the
     # grammar the TS `assets/<digest>/<file>` join reads. The FROZEN form: `<channel>[.<variant>].<ext>` with at most one variant infix — a four-digit UDIM
-    # tile, or a two-digit zero-padded mip or layer index. A ktx2 file holds its own pyramid and takes none.
-    infix = "" if not variant else f".{variant:04d}" if variant >= 1001 else f".{variant:02d}"
+    # tile, or a two-digit zero-padded mip or layer index. Absence is None, never zero: mip 0 is a REAL variant the
+    # frozen grammar spells `.00`, and a falsy-zero test silently deleted the first level of every pyramid ladder.
+    # A ktx2 file holds its own pyramid and takes none.
+    infix = "" if variant is None else f".{variant:04d}" if variant >= 1001 else f".{variant:02d}"
     return f"{channel}{infix}.{_EXT[fmt]}"
 
 
-def egress(key: ContentKey, leaf: str, /) -> str:
+def egress(key: ContentKey, leaf: str, /, *, environment: bool = False) -> str:
     # Owns the ONE lowering site: the wire key is `f"{value:032x}"` and the path segment is the same 32 lowercase hex,
-    # so the TS `assets/<digest>/<file>` join needs no case move and no consumer uppercases a path to match.
-    return f"{_EGRESS_ROOT}/{key.value:032x}/{leaf}"
+    # so the TS `assets/<digest>/<file>` join needs no case move and no consumer uppercases a path to match. The
+    # environment arm publishes IBL/HDRI products under the frozen second root.
+    return f"{_EGRESS_ENVIRONMENT if environment else _EGRESS_ROOT}/{key.value:032x}/{leaf}"
 
 
 def _mip_policy(slot: MapSlot, spec: MapSpec, /) -> MipPolicy:
@@ -536,7 +540,7 @@ def _requested(spec: SetSpec, slot: MapSlot, map_spec: MapSpec, /) -> MapRequest
         chain=prefix,
         companion=companion,
         convention=spec.convention,
-        leg=_ktx_leg() if map_spec.format is DeepFormat.KTX2 else KtxLeg.TOOL,
+        leg=ktx_leg() if map_spec.format is DeepFormat.KTX2 else KtxLeg.TOOL,
     )
 
 
@@ -611,7 +615,7 @@ def _ktx_stored(plane: DeepPlane, request: MapRequest, /) -> Result[MapFact, Tex
     return encoded.map(
         lambda payload: MapFact(
             slot=request.slot,
-            file=leaf(request.slot.value, request.tile, DeepFormat.KTX2),
+            file=leaf(request.slot.value, DeepFormat.KTX2, variant=request.tile if request.tile else None),
             payload=payload,
             digest=plane.digest(payload),
             format=DeepFormat.KTX2,
@@ -644,7 +648,7 @@ def _assembled(spec: SetSpec, entries: tuple[MapEntry, ...], tools: frozendict[s
         source=spec.source,
         width=spec.extent[0],
         height=spec.extent[1],
-        normal_convention=spec.convention.map(lambda row: row.value).default_value(""),
+        normal_convention=spec.convention.map(lambda row: row.value).default_value("gl"),  # the bytes are always gl; the freeze roster admits no empty value
         alpha_mode=spec.alpha.value,
         udim=spec.udim.value,
         udim_tiles=list(spec.udim_tiles),
@@ -662,7 +666,7 @@ def _assembled(spec: SetSpec, entries: tuple[MapEntry, ...], tools: frozendict[s
                 present=[_authored(spec, member) for member in _PACK_MEMBERS[ChannelPack(entry.role)]],
                 format=entry.format,
                 mips=entry.mips,
-                digest=entry.digest,
+                blob=entry.digest,  # PackEntry spells the [04.3] `blob` name; the MapEntry stream keeps `digest`
                 file=entry.file,
                 byte_length=entry.byte_length,
             )
@@ -800,7 +804,7 @@ flowchart LR
     Src --> Conv["_converted_for: _stored_space depth-conditional srgb/linear"]
     Conv --> Mip["_mipped via _mip_policy; ROUGHNESS_VARIANCE folds the staged paired normal, absent -> BOX floor"]
     Mip --> Sgn["_stored: signed_encoded at an INTEGER store only"]
-    Sgn -->|"ktx2"| KTX["_ktx_stored: _ktx_leg -> pyktx | _ktx_probe -> ktx CLI; neither leg -> tool_absent"]
+    Sgn -->|"ktx2"| KTX["_ktx_stored: ktx_leg -> pyktx | _ktx_probe -> ktx CLI; neither leg -> tool_absent"]
     Sgn -->|"every other row"| Enc["encode under _ENCODE_POLICY; EXR/PNG16/JXL are the deterministic floor"]
     KTX --> Fact["MapFact(digest over ENCODED bytes, file, tool, tool_version)"]
     Enc --> Fact

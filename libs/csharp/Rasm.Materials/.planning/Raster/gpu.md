@@ -236,15 +236,31 @@ public sealed partial class KernelReduce {
 }
 
 // The GPU encoding of the appearance vocabularies. NoiseBasis/FractalMode/CellularDistance/CellularReturn are
-// [SmartEnum<int>], so their KEYS are the codes and this table never re-numbers them; MathOp and MixOp are
-// string-keyed, so their codes derive from Items declaration order behind a Lazy accessor — graph.md owns the
-// vocabulary, this page owns its GPU encoding, and neither hand-numbers the other.
+// [SmartEnum<int>], so their KEYS are the codes and this table never re-numbers them. MathOp and MixOp codes are
+// EXPLICIT rows pinned to the WGSL switch arms below — the shader text hand-numbers its cases (WGSL admits no
+// generated dispatch), so an Items-order derivation beside it would be a SECOND numbering that drifts silently
+// the day graph.md reorders a declaration; one visible correspondence, asserted total at type initialization so
+// a roster append breaks the load rather than a texel.
 public static class WgslOpCode {
-    static readonly Lazy<FrozenDictionary<MathOp, uint>> MathCodes =
-        new(static () => MathOp.Items.Select(static (row, index) => (Row: row, Code: (uint)index)).ToFrozenDictionary(static e => e.Row, static e => e.Code));
+    static readonly Lazy<FrozenDictionary<MathOp, uint>> MathCodes = new(static () => new (MathOp Row, uint Code)[] {
+        (MathOp.Add, 0u), (MathOp.Subtract, 1u), (MathOp.Multiply, 2u), (MathOp.Divide, 3u), (MathOp.Modulo, 4u),
+        (MathOp.Scale, 5u), (MathOp.Power, 6u), (MathOp.Sqrt, 7u), (MathOp.Abs, 8u), (MathOp.Sin, 9u),
+        (MathOp.Cos, 10u), (MathOp.Min, 11u), (MathOp.Max, 12u), (MathOp.DotProduct, 13u), (MathOp.CrossProduct, 14u),
+        (MathOp.Normalize, 15u), (MathOp.Clamp01, 16u), (MathOp.OneMinus, 17u), (MathOp.Fresnel, 18u),
+    }.ToFrozenDictionary(static e => e.Row, static e => e.Code));
 
-    static readonly Lazy<FrozenDictionary<MixOp, uint>> MixCodes =
-        new(static () => MixOp.Items.Select(static (row, index) => (Row: row, Code: (uint)index)).ToFrozenDictionary(static e => e.Row, static e => e.Code));
+    static readonly Lazy<FrozenDictionary<MixOp, uint>> MixCodes = new(static () => new (MixOp Row, uint Code)[] {
+        (MixOp.Lerp, 0u), (MixOp.Multiply, 1u), (MixOp.Screen, 2u), (MixOp.Overlay, 3u), (MixOp.Darken, 4u),
+        (MixOp.Lighten, 5u), (MixOp.Dodge, 6u), (MixOp.Burn, 7u), (MixOp.HardLight, 8u), (MixOp.SoftLight, 9u),
+        (MixOp.Difference, 10u), (MixOp.Exclusion, 11u), (MixOp.Hue, 12u), (MixOp.Saturation, 13u),
+        (MixOp.Colour, 14u), (MixOp.Luminosity, 15u),
+    }.ToFrozenDictionary(static e => e.Row, static e => e.Code));
+
+    static WgslOpCode() {
+        if (MathCodes.Value.Count != MathOp.Items.Count || MixCodes.Value.Count != MixOp.Items.Count) {
+            throw new InvalidOperationException($"<wgsl-op-roster-drift:{MathCodes.Value.Count}/{MathOp.Items.Count}:{MixCodes.Value.Count}/{MixOp.Items.Count}>");
+        }
+    }
 
     public static uint Of(MathOp op) => MathCodes.Value[op];
     public static uint Of(MixOp op) => MixCodes.Value[op];
@@ -277,9 +293,14 @@ public sealed partial class WgslKernel {
     public GoldenVector Golden { get; }
 
     // Layers ride the Z axis: a six-face cube is one dispatch, and a hardcoded Z of one makes the cube kernel's
-    // own gid.z face selector unreachable.
+    // own gid.z face selector unreachable. A REDUCTION row dispatches LINEAR — its grid-stride loop reads only
+    // gid.x and wid.x, so a texel-tiled (X, Y) dispatch hands every Y-row workgroup wid.x = 0 and races them all
+    // onto partials[0]; the workgroup count is ceil(texels / 4096) (64 lanes x 64 texels per lane) and the
+    // kernel's own `groups` uniform word MUST carry the same number the binding dispatches.
     public (uint X, uint Y, uint Z) Groups(Dimension width, Dimension height, Dimension layers) =>
-        (((uint)width.Value + WorkgroupX - 1) / WorkgroupX, ((uint)height.Value + WorkgroupY - 1) / WorkgroupY, (uint)layers.Value);
+        Reduce.Stride > 0
+            ? ((uint)(((long)width.Value * height.Value * layers.Value) + 4095) / 4096u, 1u, 1u)
+            : (((uint)width.Value + WorkgroupX - 1) / WorkgroupX, ((uint)height.Value + WorkgroupY - 1) / WorkgroupY, (uint)layers.Value);
 
     static readonly Seq<BindingKind> Field   = Seq(BindingKind.Uniform, BindingKind.Write);
     static readonly Seq<BindingKind> Sampled = Seq(BindingKind.Uniform, BindingKind.Read, BindingKind.Write);
@@ -826,18 +847,27 @@ public static class Golden {
         Input: Seq<ReadOnlyMemory<float>>(new[] { 0.5f, 0.5f, 0.5f, 1f }, new[] { 0.5f, 0.5f, 0.5f, 1f }),
         Expected: new[] { 0.25f, 0.25f, 0.25f, 1f }, Width: One, Height: One, Layers: One, Tolerance: 1e-6, Relative: false);
 
-    // Two faces, two facts. The +X centre is d = (1,0,0), so u = 0.5 + atan2(0,1)/2pi = 0.5 and v = acos(0)/pi
-    // = 0.5 — the azimuth origin and the equator. The +Z centre is d = (0,0,1), so v = acos(1)/pi = 0 — the up
-    // axis. The +Z centre pins NOTHING about azimuth, because atan2(0,0) at the pole is the one place u is
-    // undefined, so a fixture resting on it proves half of what it claims. The 4x2 equirect reads its rows at
-    // v = 0.25 and v = 0.75 and its columns at u = 0.125..0.875, so the +X face samples texel (2,1) and the
-    // +Z face samples texel (2,0): the input paints exactly those two texels and no other.
+    // ALL SIX face centres in one dispatch at edge 1, faces riding gid.z. Per face centre: +X is d = (1,0,0), so
+    // u = 0.5 (the azimuth origin) and v = 0.5 (the equator) — texel (2,1), painted white; -X lands u = 1.0 -> the
+    // clamped column 3 at v = 0.5 — texel (3,1), black; +Y lands u = 0.75 -> (3,1), black; -Y lands u = 0.25 ->
+    // (1,1), black; +Z is v = 0 with atan2(0,0) = 0 -> texel (2,0), the painted RGB probe — the UP-AXIS
+    // discriminator, which pins nothing about azimuth because u is undefined at the pole; -Z is v = 1 -> the
+    // clamped row 1 at u = 0.5 — texel (2,1), white again. The 4x2 input paints exactly (2,1) white and (2,0)
+    // as the probe, so the six expected texels jointly discriminate the face ORDER, the up axis, AND the azimuth
+    // origin — the single-face form pinned only one of the three.
     internal static readonly GoldenVector CubeFaceCentre = new("cube-face-centre",
         KernelUniform.Empty.U32(0).U32(1).U32(4).U32(2),
         Input: Seq<ReadOnlyMemory<float>>(new[] {
             0f, 0f, 0f, 1f,  0f, 0f, 0f, 1f,  0.25f, 0.5f, 0.75f, 1f,  0f, 0f, 0f, 1f,
             0f, 0f, 0f, 1f,  0f, 0f, 0f, 1f,  1f,    1f,   1f,    1f,  0f, 0f, 0f, 1f }),
-        Expected: new[] { 0.25f, 0.5f, 0.75f, 1f }, Width: One, Height: One, Layers: One, Tolerance: 1e-6, Relative: false);
+        Expected: new[] {
+            1f, 1f, 1f, 1f,          // +X: equator at the azimuth origin — the white texel
+            0f, 0f, 0f, 1f,          // -X
+            0f, 0f, 0f, 1f,          // +Y
+            0f, 0f, 0f, 1f,          // -Y
+            0.25f, 0.5f, 0.75f, 1f,  // +Z: the pole probe — the up-axis discriminator
+            1f, 1f, 1f, 1f },        // -Z: the opposite pole row clamps back onto the white equator texel
+        Width: One, Height: One, Layers: Six, Tolerance: 1e-6, Relative: false);
 
     // L = 1 over the whole sphere. The kernel is a MIDPOINT quadrature, so its exact answer is the closed-form
     // sum, not the analytic integral: sum over rows of sin((j+0.5)pi/h) is csc(pi/2h), so
@@ -897,6 +927,7 @@ public static class Golden {
     static readonly Dimension Two = Dimension.Create(2);
     static readonly Dimension Three = Dimension.Create(3);
     static readonly Dimension Four = Dimension.Create(4);
+    static readonly Dimension Six = Dimension.Create(6);
     static readonly Dimension ThirtyTwo = Dimension.Create(32);
     static readonly Dimension SixtyFour = Dimension.Create(64);
 }

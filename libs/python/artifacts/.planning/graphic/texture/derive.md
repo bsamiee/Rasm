@@ -280,9 +280,12 @@ _VIPS_KERNEL: Final[frozendict[ResampleKernel, str]] = frozendict({
     ResampleKernel.LANCZOS3: "lanczos3",
 })
 _PACK_SLOTS: Final[frozendict[ChannelPack, tuple[int, int, int]]] = frozendict({
-    # Fixes the operand index each RGB slot draws from; the row IS the order and no caller passes a tuple
+    # Fixes the operand index each RGB slot draws from; the row IS the order and no caller passes a tuple.
+    # BOTH rows are the identity because `default_spec` already builds the operand tuple in the pack's own member
+    # order — a reversing permutation here composed onto an already-ordered tuple wrote occlusion into MRA's R slot,
+    # the exact freeze [03.5] inversion this table exists to make unrepresentable.
     ChannelPack.ORM: (0, 1, 2),
-    ChannelPack.MRA: (2, 1, 0),
+    ChannelPack.MRA: (0, 1, 2),
 })
 ```
 

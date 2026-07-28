@@ -124,20 +124,30 @@ public sealed partial class RasterFormat {
     public static readonly RasterFormat Png16 = new("png16", "png", AlphaMode.Straight, PlaneDepth.U16,
         new RasterEngine.Managed(PngFormat.Instance, static depth => new PngEncoder {
             BitDepth = depth == PlaneDepth.U8 ? PngBitDepth.Bit8 : PngBitDepth.Bit16, ColorType = PngColorType.RgbWithAlpha }),
-        static payload => Image.DetectFormat(payload) == PngFormat.Instance);
+        static payload => Sniff(payload) == PngFormat.Instance);
 
     public static readonly RasterFormat Tiff16 = new("tiff16", "tif", AlphaMode.Straight, PlaneDepth.U16,
         new RasterEngine.Managed(TiffFormat.Instance, static _ => new TiffEncoder {
             BitsPerPixel = TiffBitsPerPixel.Bit48, PhotometricInterpretation = TiffPhotometricInterpretation.Rgb }),
-        static payload => Image.DetectFormat(payload) == TiffFormat.Instance);
+        static payload => Sniff(payload) == TiffFormat.Instance);
 
     public static readonly RasterFormat WebP = new("webp", "webp", AlphaMode.Straight, PlaneDepth.U8,
         new RasterEngine.Managed(WebpFormat.Instance, static _ => new WebpEncoder { FileFormat = WebpFileFormatType.Lossless }),
-        static payload => Image.DetectFormat(payload) == WebpFormat.Instance);
+        static payload => Sniff(payload) == WebpFormat.Instance);
 
     public static readonly RasterFormat Qoi = new("qoi", "qoi", AlphaMode.Straight, PlaneDepth.U8,
         new RasterEngine.Managed(QoiFormat.Instance, static _ => new QoiEncoder()),
-        static payload => Image.DetectFormat(payload) == QoiFormat.Instance);
+        static payload => Sniff(payload) == QoiFormat.Instance);
+
+    // ONE managed sniff shared by the four Managed probes. The held major's Image.DetectFormat THROWS
+    // UnknownImageFormatException on foreign bytes, so a per-row bare call would tear the claim fold down on
+    // every EXR, HDR, and KTX2 payload before those rows' own probes ever ran — this is the platform-forced
+    // boundary capture, and null is the typed no-claim the probes compare against.
+    private static IImageFormat? Sniff(ReadOnlySpan<byte> payload) {
+        try { return Image.DetectFormat(payload); }
+        catch (UnknownImageFormatException) { return null; }
+        catch (InvalidImageContentException) { return null; }
+    }
 
     public static readonly RasterFormat Exr = new("exr", "exr", AlphaMode.Associated, PlaneDepth.F32,
         new RasterEngine.OpenExr(Deep: false), static payload => ExrFile.IsExr(payload));
@@ -242,7 +252,7 @@ public sealed record EncodePolicy(
 - Owner: `RasterCodec` the container boundary — claim, decode, association normalization, and encode.
 - Entry: `Decode(ReadOnlyMemory<byte> payload, Op key)` takes NO declared format and returns the chain the container held; `Encode(TexturePyramid subject, RasterFormat format, EncodePolicy policy, Op key)` takes one row and one policy. Arity is discriminated by the SUBJECT: a flat container writes the chain's base level and a pyramid-holding container writes every level, so no `EncodeLevel`/`EncodeChain` pair exists and no boolean selects between them.
 - Law: the claim is a FOLD over `RasterFormat.Items` reading each row's own probe, first match wins, and an unclaimed payload rails `Decode`. `Decode` takes no declared format: a caller who must name the container has already read the magic bytes, and a caller who names the wrong one gets a misparse rather than a refusal.
-- Law: decode NORMALIZES the file's canonical association into the plane's declaration and encode CONVERTS the plane's declaration into the format's canonical association — EXR is associated, PNG, TIFF, WebP, QOI, and KTX2 are straight, Radiance carries none. Neither direction is a caller knob, and both route through the `plane#TEXTURE_PLANE` `ToAlpha` gate, so the 16-bit floor on a straight-associated crossing is enforced once for the whole estate.
+- Law: decode TAGS the file's canonical association onto the plane it mints — EXR is associated, PNG, TIFF, WebP, QOI, and KTX2 are straight, Radiance carries none — and encode CONVERTS the plane's declaration into the format's canonical association through the `plane#TEXTURE_PLANE` `ToAlpha` gate, so the 16-bit floor on a straight-associated crossing is enforced once for the whole estate. Neither direction is a caller knob; the bridge itself moves ENCODED STORAGE lanes and never premultiplies, decodes, or unpacks, because those are plane declarations applied at `Read` and a bridge running them would double-apply every curve the file already carries.
 - Law: encode REFUSES a plane deeper than the row's `MaxDepth` rather than narrowing it. `MaxDepth` exists to name exactly that silent narrow, and the caller either states a shallower plane or picks a row that holds the depth.
 - Law: every composed container throws on a malformed payload — `ImageFormatException`, `UnknownImageFormatException`, and the block engine's own — so every package call crosses the `Try.lift(...).Run()` funnel and lowers with the foreign message preserved inside the `Detail` discriminant. `Funnel` catches every container exception at the boundary and carries the foreign message verbatim, so nothing escapes and no re-wrap erases it.
 - Law: the ImageSharp leg binds the plane's OWN arena through `Image.WrapMemory` rather than copying it. `Image.WrapMemory` overloads split on ownership — the `Memory<TPixel>` form borrows and leaves disposal with the plane, the `IMemoryOwner<TPixel>` form transfers it. Picking the transferring form over a plane the caller still owns double-returns the rental, so the borrowing form is the one this page takes and the plane outlives the encode.
@@ -253,7 +263,9 @@ public sealed record EncodePolicy(
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
 using System.IO;
+using System.Numerics;                            // Vector4 — the pixel ladder's scaled projection
 using System.Runtime.InteropServices;             // MemoryMarshal — the ONE reinterpretation at the staging bridge
+using CommunityToolkit.HighPerformance;           // Memory2D — the storage folds' view
 using CommunityToolkit.HighPerformance.Buffers;
 using LanguageExt;
 using Rasm.Domain;                                // Op
@@ -273,11 +285,18 @@ public static partial class RasterCodec {
     // One Configuration per process rather than per call: the allocator, the contiguity preference, and the
     // parallelism are an ENCODE PROFILE, and constructing one per plane re-registers the whole format manager.
     // Contiguity is preferred BEFORE any decode, because it is what makes the single-buffer probe hold at all.
-    private static readonly Configuration Profile =
-        Configuration.Default.Clone().Apply(static c => { c.PreferContiguousImageBuffers = true; return c; });
+    private static readonly Configuration Profile = Configured();
+
+    private static Configuration Configured() {
+        Configuration profile = Configuration.Default.Clone();
+        profile.PreferContiguousImageBuffers = true;
+        return profile;
+    }
 
     // No declared format: the row's own probe claims the bytes. First match wins over the ordered roster, and an
-    // unclaimed payload is a typed refusal rather than a guess.
+    // unclaimed payload is a typed refusal rather than a guess. Every engine arm — the block container included —
+    // crosses the one Funnel, because KtxCodec.Read throws on a malformed container exactly as the managed
+    // packages do and an unfunnelled arm is the one escape hatch off the rail.
     public static Fin<TexturePyramid> Decode(ReadOnlyMemory<byte> payload, Op key) =>
         Claim(payload.Span)
             .ToFin(RasterFault.Decode(key, $"<raster-magic:{payload.Length}>"))
@@ -285,18 +304,17 @@ public static partial class RasterCodec {
                 managed:  arm => Funnel(() => ReadManaged(payload.Span, format, key), key, decoding: true),
                 openExr:  arm => Funnel(() => Exr(payload, arm.Deep, key), key, decoding: true),
                 radiance: _   => Funnel(() => Radiance(payload.Span, key), key, decoding: true),
-                ktx:      _   => KtxGate.Decode(payload.Span, key))
-                .Bind(chain => Associate(chain, format.CanonicalAlpha, chain.Base.Alpha, key)));
+                ktx:      _   => Funnel(() => KtxGate.Decode(payload.Span, key), key, decoding: true)));
 
     public static Fin<ReadOnlyMemory<byte>> Encode(TexturePyramid subject, RasterFormat format, EncodePolicy policy, Op key) =>
         subject.Base.Format.Depth.Bytes > format.MaxDepth.Bytes
-            ? RasterFault.Encode(key, $"<raster-depth:{subject.Base.Format.Depth.Key}>{format.MaxDepth.Key}:{format.Key}>")
+            ? RasterFault.Encode(key, $"<raster-depth:{subject.Base.Format.Depth.Key}>{format.MaxDepth.Key}@{format.Key}>")
             : Associate(subject, subject.Base.Alpha, format.CanonicalAlpha, key)
                 .Bind(normalized => format.Engine.Switch(
                     managed:  arm => Funnel(() => WriteManaged(normalized, arm, key), key, decoding: false),
                     openExr:  arm => Funnel(() => WriteExr(normalized, arm.Deep, policy, key), key, decoding: false),
                     radiance: _   => Funnel(() => WriteRadiance(normalized, key), key, decoding: false),
-                    ktx:      _   => KtxGate.Encode(normalized, policy, key)));
+                    ktx:      _   => Funnel(() => KtxGate.Encode(normalized, policy, key), key, decoding: false)));
 
     private static Option<RasterFormat> Claim(ReadOnlySpan<byte> payload) {
         foreach (RasterFormat row in RasterFormat.Items) { if (row.Claim(payload)) { return Some(row); } }
@@ -324,19 +342,28 @@ public static partial class RasterCodec {
 
 ```csharp signature
 // --- [OPERATIONS] --------------------------------------------------------------------------
-// Each managed leg rides the ONE staging bridge beneath it. Every container in the estate crosses as an INTERLEAVED
-// float run — ImageSharp reads and writes texels, TinyEXR models a part planar and named, and the block engine takes
-// a borrowed span plane — so six near-identical staging functions collapse to one Fill/Drain pair over the plane's
-// own decoded row rails, and each leg contributes only its container call.
+// Each leg rides the ONE staging bridge beneath it, and the bridge carries ENCODED UNIT LANES — the domain the
+// texel witnesses' Project/Compose already speak. A container stores encoded values and so does the arena, so the
+// bridge runs NO transfer, NO unpack, and NO un-association in either direction: those are declarations the plane
+// carries and applies at Read. Routing container texels through the decode ladder would double-encode every write
+// and hand every read a curve the file already applied — the defect this bridge shape forecloses.
 namespace Rasm.Materials.Raster;
 
 public static partial class RasterCodec {
-    // ReadManaged mints ONE level at MipPolicy.None because the flat container held no pyramid, so a consumer that
-    // wants levels folds them through TexturePyramid.Of rather than trusting a fabricated chain.
+    // ReadManaged mints ONE level at MipPolicy.None because the flat container held no pyramid. Rgba64 texels
+    // project through ToScaledVector4 into encoded unit lanes — an 8-bit source expands losslessly — and land in
+    // Rgba16 storage bit-faithful. The srgb transfer is the integer colour container's declared assumption;
+    // set#SET_INGEST re-declares per role, which re-keys nothing because identity is storage bytes alone.
     private static Fin<TexturePyramid> ReadManaged(ReadOnlySpan<byte> payload, RasterFormat format, Op key) {
         using Image<Rgba64> image = Image.Load<Rgba64>(Profile, payload);
+        using MemoryOwner<Rgba64> pixels = MemoryOwner<Rgba64>.Allocate(image.Width * image.Height);
         using MemoryOwner<float> staging = MemoryOwner<float>.Allocate(image.Width * image.Height * 4);
-        image.CopyPixelDataTo(MemoryMarshal.AsBytes(staging.Span));
+        image.CopyPixelDataTo(pixels.Span);
+        for (int i = 0; i < pixels.Length; i++) {
+            Vector4 texel = pixels.Span[i].ToScaledVector4();
+            (staging.Span[i * 4], staging.Span[(i * 4) + 1], staging.Span[(i * 4) + 2], staging.Span[(i * 4) + 3]) =
+                (texel.X, texel.Y, texel.Z, texel.W);
+        }
         return Fill(staging.Span, image.Width, image.Height, 4, PlaneFormat.Rgba16, PlaneTransfer.Srgb,
             format.CanonicalAlpha, PlaneRange.Unit, key);
     }
@@ -344,8 +371,15 @@ public static partial class RasterCodec {
     private static Fin<ReadOnlyMemory<byte>> WriteManaged(TexturePyramid chain, RasterEngine.Managed arm, Op key) =>
         Drain(chain.Base, key).Map(staging => {
             using (staging) {
-                using Image<Rgba64> image = Image.LoadPixelData<Rgba64>(Profile,
-                    MemoryMarshal.AsBytes(staging.Span), chain.Base.Width.Value, chain.Base.Height.Value);
+                using MemoryOwner<Rgba64> pixels = MemoryOwner<Rgba64>.Allocate(chain.Base.Width.Value * chain.Base.Height.Value);
+                for (int i = 0; i < pixels.Length; i++) {
+                    Rgba64 texel = default;
+                    texel.FromScaledVector4(new Vector4(
+                        staging.Span[i * 4], staging.Span[(i * 4) + 1], staging.Span[(i * 4) + 2], staging.Span[(i * 4) + 3]));
+                    pixels.Span[i] = texel;
+                }
+                using Image<Rgba64> image = Image.LoadPixelData<Rgba64>(Profile, pixels.Span,
+                    chain.Base.Width.Value, chain.Base.Height.Value);
                 using MemoryStream sink = new();
                 image.Save(sink, arm.Encoder(chain.Base.Format.Depth));
                 return (ReadOnlyMemory<byte>)sink.ToArray();
@@ -353,8 +387,7 @@ public static partial class RasterCodec {
         });
 
     // EXR crosses through the container's own planar-to-interleaved bridge, so an arbitrary named-AOV part flattens
-    // into the same float run every other leg fills. The deep arm reads its per-pixel COUNTS before its samples,
-    // because the counts are what size the sample destinations; the reverse order sizes nothing.
+    // into the same encoded run every other leg fills — float storage IS its encoded form, so the lanes cross verbatim.
     private static Fin<TexturePyramid> Exr(ReadOnlyMemory<byte> payload, bool deep, Op key) {
         ReaderResult<TinyEXR.V3.Image> read = ExrFile.LoadFromMemory(payload, options: null);
         return read is { IsSuccess: true, Value: { } file }
@@ -362,7 +395,7 @@ public static partial class RasterCodec {
                   InterleavedFloatImage flat = PartConversion.ToInterleavedFloat(part);
                   return Fill(flat.Data, flat.Width, flat.Height, flat.Channels,
                       PlaneFormat.For(flat.Channels, PlaneDepth.F32).IfNone(PlaneFormat.Rgba32F),
-                      PlaneTransfer.Linear, AlphaMode.Associated, PlaneRange.Unit, key);
+                      PlaneTransfer.Linear, flat.Channels is 4 ? AlphaMode.Associated : AlphaMode.None, PlaneRange.Unit, key);
               })
             : RasterFault.Decode(key, $"<exr-read:{read.Status}>");
     }
@@ -396,45 +429,64 @@ public static partial class RasterCodec {
             }
         });
 
-    // THE BRIDGE. Fill admits a plane and writes an interleaved float run through the plane's own decode ladder;
-    // Drain is its exact inverse. Both are the section's [EXPRESSION_SPINE] kernel exemption — index walks over a
-    // caller-owned staging run — and together they are why no leg above carries a second transfer, association, or
-    // normalization step.
-    private static Fin<TexturePyramid> Fill(
+    // THE BRIDGE. Fill composes encoded unit lanes into STORAGE texels through the arena's own witnesses; Drain
+    // projects them back. Both re-enter through the typed store's Accept, so the JIT specializes one body per texel
+    // type and the codec never touches the decode ladder. A non-positive extent REFUSES — a malformed container
+    // reporting a zero edge is a decode fault, never a fabricated 1x1 plane of pool residue.
+    internal static Fin<TexturePyramid> Fill(
         ReadOnlySpan<float> staging, int width, int height, int lanes, PlaneFormat format,
         PlaneTransfer transfer, AlphaMode alpha, PlaneRange range, Op key) =>
-        from w in Fin.Succ(Dimension.Create(value: Math.Max(1, width)))
-        from h in Fin.Succ(Dimension.Create(value: Math.Max(1, height)))
-        from plane in TexturePlane.Of(format, w, h, transfer, alpha, key, layers: default, Some(range), AllocationMode.Default)
-        from chain in Write(plane, staging, lanes, key)
-        select chain;
-
-    private static Fin<TexturePyramid> Write(TexturePlane plane, ReadOnlySpan<float> staging, int lanes, Op key) {
-        using SpanOwner<double> row = SpanOwner<double>.Allocate(plane.Width.Value * plane.Lanes);
-        for (int y = 0; y < plane.Height.Value; y++) {
-            for (int x = 0; x < plane.Width.Value; x++) {
-                for (int c = 0; c < plane.Lanes; c++) {
-                    int source = ((y * plane.Width.Value) + x) * lanes;
-                    row.Span[(x * plane.Lanes) + c] = c < lanes ? staging[source + c] : (c == plane.Lanes - 1 ? 1.0 : 0.0);
-                }
-            }
-            plane.Write(y, layer: 0, row.Span);
-        }
-        return TexturePyramid.Of(plane, MipPolicy.None, key);
-    }
+        width <= 0 || height <= 0
+            ? RasterFault.Decode(key, $"<raster-extent:{width}x{height}>")
+            : TexturePlane.Of(format, Dimension.Create(width), Dimension.Create(height), transfer, alpha, key,
+                    layers: default, Some(range), AllocationMode.Default)
+                .Map(plane => {
+                    plane.Store.Accept<ComposeRows, Unit>(new ComposeRows(staging, lanes));
+                    return plane;
+                })
+                .Bind(plane => TexturePyramid.Of(plane, MipPolicy.None, key));
 
     // Drain rents a HEAP-SAFE owner rather than a stack-scoped one: the staging run crosses a Fin boundary and a
     // ref-struct rental cannot be a rail's type argument, so the pooled owner is the shape and the caller disposes it.
     private static Fin<MemoryOwner<float>> Drain(TexturePlane plane, Op key) {
         MemoryOwner<float> staging = MemoryOwner<float>.Allocate(plane.Width.Value * plane.Height.Value * plane.Lanes);
-        using SpanOwner<double> row = SpanOwner<double>.Allocate(plane.Width.Value * plane.Lanes);
-        for (int y = 0; y < plane.Height.Value; y++) {
-            plane.Read(y, layer: 0, row.Span);
-            for (int i = 0; i < plane.Width.Value * plane.Lanes; i++) {
-                staging.Span[(y * plane.Width.Value * plane.Lanes) + i] = (float)row.Span[i];
+        plane.Store.Accept<ProjectRows, Unit>(new ProjectRows(staging.Span, plane.Lanes));
+        return Fin.Succ(staging);
+    }
+}
+
+// The two storage folds — the section's [EXPRESSION_SPINE] kernel exemption. ComposeRows pads an absent lane with
+// zero and an absent alpha with one; ProjectRows is its exact inverse. Both speak encoded unit lanes, the witnesses'
+// own domain, so no curve and no packing arithmetic exists on this page.
+internal readonly ref struct ComposeRows(ReadOnlySpan<float> staging, int lanes) : IPlaneFold<Unit> {
+    public Unit Fold<T>(Memory2D<T> view) where T : unmanaged, ITexel<T> {
+        Span<double> texel = stackalloc double[4];
+        for (int y = 0; y < view.Height; y++) {
+            Span<T> row = view.Span.GetRowSpan(y);
+            for (int x = 0; x < row.Length; x++) {
+                int at = ((y * row.Length) + x) * lanes;
+                for (int c = 0; c < T.Lanes; c++) {
+                    texel[c] = c < lanes ? staging[at + c] : (c == T.Lanes - 1 ? 1.0 : 0.0);
+                }
+                row[x] = T.Compose(texel[..T.Lanes]);
             }
         }
-        return Fin.Succ(staging);
+        return Unit.Default;
+    }
+}
+
+internal readonly ref struct ProjectRows(Span<float> staging, int lanes) : IPlaneFold<Unit> {
+    public Unit Fold<T>(Memory2D<T> view) where T : unmanaged, ITexel<T> {
+        Span<double> texel = stackalloc double[4];
+        for (int y = 0; y < view.Height; y++) {
+            ReadOnlySpan<T> row = view.Span.GetRowSpan(y);
+            for (int x = 0; x < row.Length; x++) {
+                T.Project(in row[x], texel[..T.Lanes]);
+                int at = ((y * row.Length) + x) * lanes;
+                for (int c = 0; c < lanes && c < T.Lanes; c++) { staging[at + c] = (float)texel[c]; }
+            }
+        }
+        return Unit.Default;
     }
 }
 ```
@@ -454,9 +506,13 @@ public static partial class RasterCodec {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using System.IO;                                  // Path, File, Directory — the CLI arm's sidecar staging
 using System.Linq;
+using System.Runtime.InteropServices;             // MemoryMarshal — the Rgba32Float lane cast
+using CommunityToolkit.HighPerformance.Buffers;   // SpanOwner — the staging row rental
 using LanguageExt;
 using Rasm.Domain;                                // Op
+using Rasm.Materials.Appearance.Texture;          // ShadeVec4 — the plane's Shade row rail register
 using TextureCompressor.Bitmaps;                  // IBitmap, ArrayBitmap, BitmapView
 using TextureCompressor.Codecs;
 using TextureCompressor.Colors;                   // Rgba32Float
@@ -469,35 +525,104 @@ namespace Rasm.Materials.Raster;
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 internal static class KtxGate {
+    // ONE materialization serves the raw-BCn and the Basis populations alike: the payload class only decides WHICH
+    // TextureFormat resolves the coder, and the per-level fold past that resolution is identical — so a Transcode
+    // sibling beside a Lift sibling was two names for one body and is deleted. The header's Vulkan token reads
+    // undefined for every wire-legal supercompressed file, so the class resolves from the parsed payload format
+    // matched against the roster's own Basis rows, never from the header token.
     internal static Fin<TexturePyramid> Decode(ReadOnlySpan<byte> payload, Op key) {
         KtxTexture container = KtxCodec.Read(payload);
-        // KtxPayload.Transcodable is the branch. The header's Vulkan token reads undefined for every wire-legal
-        // supercompressed file, so branching on it classes the whole transcodable population as malformed.
-        return KtxPayload.Items
-            .Where(row => row.Format == container.Texture.Format || row.SrgbFormat == container.Texture.Format)
+        TextureFormat declared = container.Texture.Format;
+        TextureFormat resolved = KtxPayload.Items
+            .Where(row => row.Format == declared || row.SrgbFormat == declared)
             .HeadOrNone()
-            .Filter(static row => row.Transcodable)
-            .Match(Some: row => Transcode(container, row, key), None: () => Lift(container, key));
+            .Bind(static row => Optional(row.Format))
+            .IfNone(declared);
+        return Materialize(container, resolved, key);
     }
 
-    // Transcode decodes a transcodable payload THROUGH its Basis coder at the plane's own depth; a raw block payload
-    // decodes directly. Both land in the same staging run, so the container's pyramid rebuilds as one chain rather
-    // than as two shapes a consumer then has to discriminate.
-    private static Fin<TexturePyramid> Transcode(KtxTexture container, KtxPayload payload, Op key) =>
-        Lift(container, key);
+    // The container's OWN pyramid maps onto the plane chain: a KTX2 holds its mip levels, so each level decodes off
+    // its subresource payload through a bake-scoped coder and the chain assembles in level order — a refold here
+    // would silently replace the encoder's own filter. Rgba32Float staging is the non-quantizing path; the
+    // Rgba8UNorm-bound convenience facade never appears.
+    private static Fin<TexturePyramid> Materialize(KtxTexture container, TextureFormat format, Op key) {
+        TextureCoderManager coders = new();
+        using IDisposable? scope = TextureCompressionRegistrationFactory.Create(coders, format, TextureCompressionLevel.High);
+        return coders.TryGetCoder(format, out ITextureCoder? coder) && coder is not null
+            ? toSeq(Enumerable.Range(0, container.Texture.MipLevelCount))
+                .Fold(Fin.Succ(Seq<TexturePlane>()), (state, level) => state.Bind(levels =>
+                    Level(container, coder, level, key).Map(levels.Add)))
+                .Map(levels => new TexturePyramid(levels,
+                    container.Texture.MipLevelCount > 1 ? MipPolicy.Box : MipPolicy.None, Coupled: false))
+            : Fin.Fail<TexturePyramid>(RasterFault.Decode(key, $"<ktx-coder-unresolved:{format}>"));
+    }
 
-    // Lift maps the container's OWN pyramid onto the plane chain: a KTX2 holds its mip levels, so the levels read off
-    // its subresource list rather than refolding, and a refold here silently replaces the encoder's own filter.
-    private static Fin<TexturePyramid> Lift(KtxTexture container, Op key) { /* per mip level: KtxCodec.Decode<Rgba32Float> the subresource, fill a TexturePlane through its row rail, and assemble the Seq in level order */ }
+    private static Fin<TexturePlane> Level(KtxTexture container, ITextureCoder coder, int level, Op key) {
+        TextureSubresource subresource = container.Texture.GetSubresource(level, arrayLayer: 0);
+        ArrayBitmap<Rgba32Float> bitmap = new(subresource.Width, subresource.Height);
+        coder.Decode(subresource.Payload.Span, bitmap.AsView());
+        return RasterCodec.Fill(MemoryMarshal.Cast<Rgba32Float, float>(bitmap.PixelSpan), subresource.Width,
+                subresource.Height, 4, PlaneFormat.Rgba16F, PlaneTransfer.Linear, AlphaMode.Straight, PlaneRange.Unit, key)
+            .Map(static chain => chain.Base);
+    }
 
     // Cli is the provisioned floor, the SAME binary the python and TypeScript estates spawn, so one encoder produces
-    // every branch's bytes; the probe asserts presence and the subcommand roster, never version text, because the
-    // packaging strips the binaries' source metadata and a version assertion fails against a correct provisioning.
-    private static Fin<ReadOnlyMemory<byte>> Cli(TexturePyramid chain, EncodePolicy policy, Op key) { /* stage each level as a sidecar, spawn `ktx create` with the payload row's own arguments, read the container back, and rail RasterFault.Encode on a non-zero exit carrying the tool's stderr in the discriminant */ }
+    // every branch's bytes. Levels stage as per-level EXR sidecars — the float-faithful interchange the tool ingests
+    // — and `ktx create` receives the payload row's own arguments; a non-zero exit rails RasterFault.Encode carrying
+    // the tool's stderr in the discriminant. The probe asserts presence and the subcommand roster, never version
+    // text, because the packaging strips the binaries' source metadata and a version assertion fails against a
+    // correct provisioning.
+    private static Fin<ReadOnlyMemory<byte>> Cli(TexturePyramid chain, EncodePolicy policy, Op key) {
+        string stage = Path.Combine(Path.GetTempPath(), $"rasm-ktx-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(stage);
+        try {
+            return chain.Levels.Map((level, index) =>
+                    RasterCodec.Encode(new TexturePyramid(Seq1(level), MipPolicy.None, Coupled: false),
+                            RasterFormat.Exr, policy, key)
+                        .Map(bytes => {
+                            string leaf = Path.Combine(stage, $"level{index:D2}.exr");
+                            File.WriteAllBytes(leaf, bytes.Span);
+                            return leaf;
+                        }))
+                .Sequence()
+                .Bind(leaves => Spawn(leaves, Path.Combine(stage, "out.ktx2"), policy, chain.Base.Transfer, key))
+                .Map(static path => (ReadOnlyMemory<byte>)File.ReadAllBytes(path));
+        } finally { Directory.Delete(stage, recursive: true); }
+    }
+
+    private static Fin<string> Spawn(Seq<string> leaves, string sink, EncodePolicy policy, PlaneTransfer transfer, Op key) {
+        string payload = policy.Payload == KtxPayload.Etc1s ? "--encode basis-lz" : "--encode uastc --zstd 18";
+        string format = transfer == PlaneTransfer.Srgb ? "R16G16B16A16_SFLOAT --convert-oetf srgb" : "R16G16B16A16_SFLOAT";
+        using System.Diagnostics.Process ktx = new() {
+            StartInfo = new System.Diagnostics.ProcessStartInfo("ktx") {
+                Arguments = $"create --format {format} {payload} {string.Join(' ', leaves)} {sink}",
+                RedirectStandardError = true, UseShellExecute = false,
+            },
+        };
+        ktx.Start();
+        string stderr = ktx.StandardError.ReadToEnd();
+        ktx.WaitForExit();
+        return ktx.ExitCode is 0 ? Fin.Succ(sink) : RasterFault.Encode(key, $"<ktx-create:{ktx.ExitCode}:{stderr}>");
+    }
 
     // Stage borrows each level as a plane view at the chain's own depth, never through the Rgba8UNorm-bound facade
     // that quantizes a float channel before any coder sees it.
-    private static Fin<IReadOnlyList<IBitmap<Rgba32Float>>> Stage(TexturePyramid chain, Op key) { /* per level: rent an ArrayBitmap<Rgba32Float> and fill it from the level's decoded row rail */ }
+    private static Fin<IReadOnlyList<IBitmap<Rgba32Float>>> Stage(TexturePyramid chain, Op key) =>
+        chain.Levels.Map(level => {
+            ArrayBitmap<Rgba32Float> bitmap = new(level.Width.Value, level.Height.Value);
+            Span<Rgba32Float> pixels = bitmap.PixelSpan;
+            using SpanOwner<ShadeVec4> row = SpanOwner<ShadeVec4>.Allocate(level.Width.Value);
+            for (int y = 0; y < level.Height.Value; y++) {
+                level.ReadShade(y, layer: 0, row.Span);
+                for (int x = 0; x < level.Width.Value; x++) {
+                    pixels[(y * level.Width.Value) + x] = new Rgba32Float(
+                        (float)row.Span[x].X, (float)row.Span[x].Y, (float)row.Span[x].Z, (float)row.Span[x].W);
+                }
+            }
+            return (IBitmap<Rgba32Float>)bitmap;
+        }).Strict() is var staged
+            ? Fin.Succ((IReadOnlyList<IBitmap<Rgba32Float>>)staged.ToList())
+            : Fin.Fail<IReadOnlyList<IBitmap<Rgba32Float>>>(RasterFault.Encode(key, "<ktx-stage>"));
 
     // Every encode runs the provisioned floor; the in-process arm accelerates a CLI-EQUIVALENT branch and yields the
     // moment its own output fails the floor's validator, so the two arms never produce divergent bytes.

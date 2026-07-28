@@ -215,19 +215,24 @@ public static class TexturePress {
     }
 
     // The CPU lane: compile once, fold every non-derived binding, post-process, derive, mip against pairs, tile,
-    // admit. The set is minted LAST so a failed stage never leaves a half-keyed bundle behind.
+    // admit. Each binding's staging arena lives exactly one Finish and disposes at its fold step — a press never
+    // holds N staging arenas at once — and the set is minted LAST so a failed stage never leaves a half-keyed
+    // bundle behind. Intermediates a derivation pulled in but no binding requested are DROPPED from the set and
+    // disposed with it.
     static Fin<PressProduct> Mint(PressSubject subject, PressPlan plan, Op key, TimeProvider ticks, long opened) =>
         from program in Compile(subject, plan, key)
-        from staged in plan.Bindings.Filter(static b => b.Channel.Origin is not ChannelOrigin.Derived)
-            .Fold(Fin.Succ(HashMap<TextureChannel, Memory2D<ShadeVec4>>.Empty), (acc, binding) =>
-                acc.Map(map => map.Add(binding.Channel, Fold(program, plan, binding, key))))
-        from posted in staged.Fold(Fin.Succ((Planes: HashMap<TextureChannel, TexturePyramid>.Empty, Evidence: HashMap<TextureChannel, PlaneReceipt>.Empty, Downgraded: Seq<TextureChannel>())), (acc, pair) =>
-            acc.Bind(carried => Finish(plan, pair.Key, pair.Value, carried.Planes, key, ticks).Map(built => (
-                Planes: carried.Planes.Add(pair.Key, built.Pyramid),
-                Evidence: carried.Evidence.Add(pair.Key, built.Receipt),
-                Downgraded: built.Downgraded ? carried.Downgraded.Add(pair.Key) : carried.Downgraded))))
+        from posted in plan.Bindings.Filter(static b => b.Channel.Origin is not ChannelOrigin.Derived)
+            .Fold(Fin.Succ((Planes: HashMap<TextureChannel, TexturePyramid>.Empty, Evidence: HashMap<TextureChannel, PlaneReceipt>.Empty, Downgraded: Seq<TextureChannel>())), (acc, binding) =>
+                acc.Bind(carried => {
+                    using MemoryOwner<ShadeVec4> arena = Fold(program, plan, binding, key);
+                    return Finish(plan, binding, arena.Memory.AsMemory2D(plan.Height.Value * plan.Layers.Value, plan.Width.Value), carried.Planes, key, ticks)
+                        .Map(built => (
+                            Planes: carried.Planes.Add(binding.Channel, built.Pyramid),
+                            Evidence: carried.Evidence.Add(binding.Channel, built.Receipt),
+                            Downgraded: built.Downgraded ? carried.Downgraded.Add(binding.Channel) : carried.Downgraded));
+                }))
         from derived in plan.Bindings.Filter(static b => b.Channel.Origin is ChannelOrigin.Derived)
-            .Fold(Fin.Succ(posted), (acc, binding) => acc.Bind(carried => Derive(plan, binding, carried, key, ticks)))
+            .Fold(Fin.Succ(posted), (acc, binding) => acc.Bind(carried => Derive(program, plan, binding, carried, key, ticks)))
         from set in TextureSet.Of(new TextureSetDraft(plan.Width, plan.Height, plan.Layers, plan.Law,
             NormalConvention.Gl, plan.Alpha, plan.HeightScaleMm, Option<TileProof>.None, Seq<UdimTile>(),
             derived.Planes.Filter((c, _) => plan.Bindings.Exists(b => b.Channel == c)), Seq<ChannelPackPlane>(),
@@ -268,13 +273,13 @@ public static class TexturePress {
     // The band fold. ParallelHelper.For over a SEEDED struct IAction allocates nothing, inlines, clamps to the
     // processor count, and invokes inline for a single partition; the unseeded overload default-constructs the
     // action and would hand every band an empty program. The arena is one pooled MemoryOwner per binding.
-    static Memory2D<ShadeVec4> Fold(PressProgram program, PressPlan plan, ChannelBinding binding, Op key) {
+    static MemoryOwner<ShadeVec4> Fold(PressProgram program, PressPlan plan, ChannelBinding binding, Op key) {
         int rows = plan.Height.Value * plan.Layers.Value;
         MemoryOwner<ShadeVec4> arena = MemoryOwner<ShadeVec4>.Allocate(plan.Width.Value * rows, AllocationMode.Default);
         Memory2D<ShadeVec4> target = arena.Memory.AsMemory2D(rows, plan.Width.Value);
         int band = Math.Max(BandFloor, rows / (Environment.ProcessorCount * 4));
         ParallelHelper.For(0, (rows + band - 1) / band, in new PressRows(program, plan, binding.Channel, target, band, rows, key));
-        return target;
+        return arena;
     }
 
     // Staging crosses into the plane substrate ONCE, through the plane's own row Write rail: alpha
@@ -284,47 +289,67 @@ public static class TexturePress {
     // resolves its companion from the landed map, downgrading to Box (the declared quality floor) and naming
     // the channel when the plan bound none — refusing the whole press for a floor is the deleted response.
     static Fin<(TexturePyramid Pyramid, PlaneReceipt Receipt, bool Downgraded)> Finish(
-        PressPlan plan, TextureChannel channel, Memory2D<ShadeVec4> staging, HashMap<TextureChannel, TexturePyramid> landed, Op key, TimeProvider ticks) =>
-        from binding in plan.Bindings.Find(b => b.Channel == channel).ToFin(MaterialFault.Parameter(key, $"<press-binding-lost:{channel.Key}>"))
-        from blank in TexturePlane.Of(binding.Format, plan.Width, plan.Height, channel.Transfer, plan.Alpha, key, Some(plan.Layers))
+        PressPlan plan, ChannelBinding binding, Memory2D<ShadeVec4> staging, HashMap<TextureChannel, TexturePyramid> landed, Op key, TimeProvider ticks) =>
+        from blank in TexturePlane.Of(binding.Format, plan.Width, plan.Height, binding.Channel.Transfer,
+            binding.Format.Alpha.Carries ? plan.Alpha : AlphaMode.None, key, Some(plan.Layers))
         let filled = Fill(blank, staging)
         from posted in PlaneOp.Apply(filled, binding.Post, key, ticks)
-        let paired = Companion(channel, landed)
-        let policy = binding.Policy.Paired && paired.IsNone ? MipPolicy.Box : binding.Policy
+        let paired = Companion(binding.Channel, landed)
+        let policy = binding.Policy.Coupled && paired.IsNone ? MipPolicy.Box : binding.Policy
         from chain in TexturePyramid.Of(posted.Plane, policy, key, paired)
         select (chain, posted.Receipt, policy != binding.Policy);
 
     static Option<TexturePyramid> Companion(TextureChannel channel, HashMap<TextureChannel, TexturePyramid> landed) =>
         channel.Pair.Bind(name => TextureChannel.TryGet(name, out TextureChannel? row) ? landed.Find(row) : Option<TexturePyramid>.None);
 
-    // Row-wise write through the plane's OWN rail over EVERY layer; scratch and staging are caller-owned per
-    // call, never plane-held, so a parallel band fold never serializes on a shared buffer.
+    // Row-wise write through the plane's OWN ShadeVec4 rail over EVERY layer, so the lane-to-register
+    // correspondence has one owner and the press encodes no texel itself.
     static TexturePlane Fill(TexturePlane plane, Memory2D<ShadeVec4> texels) {
-        using SpanOwner<float> scratch = SpanOwner<float>.Allocate(plane.RowScalars);
-        using SpanOwner<ShadeVec4> staging = SpanOwner<ShadeVec4>.Allocate(plane.Width.Value);
         ReadOnlySpan2D<ShadeVec4> source = texels.Span;
         for (int layer = 0; layer < plane.Layers.Value; layer++) {
-            for (int row = 0; row < plane.Height.Value; row++) { plane.Write(layer, row, scratch.Span, source.GetRowSpan((layer * plane.Height.Value) + row), staging.Span); }
+            for (int row = 0; row < plane.Height.Value; row++) {
+                plane.WriteShade(row, layer, source.GetRowSpan((layer * plane.Height.Value) + row));
+            }
         }
         return plane;
     }
 
     // A derived channel folds from its LANDED source plane through the ROSTER's own declared step, composed
     // before the caller's post chain — the press never re-derives a normal integration, an occlusion sweep, or
-    // a curvature stencil, and a caller cannot omit the operation that makes the channel what it is.
+    // a curvature stencil, and a caller cannot omit the operation that makes the channel what it is. Ensure
+    // produces a MISSING source as an intermediate first — occlusion without height presses height from
+    // geometry_normal, and geometry_normal itself folds off the shade point — so the [02] plan law "an unbound
+    // source is produced, never refused" is real: the recursion grounds at the roster's non-derived origins and
+    // an unbound intermediate is dropped at the set filter rather than keyed.
     static Fin<(HashMap<TextureChannel, TexturePyramid> Planes, HashMap<TextureChannel, PlaneReceipt> Evidence, Seq<TextureChannel> Downgraded)> Derive(
-        PressPlan plan, ChannelBinding binding, (HashMap<TextureChannel, TexturePyramid> Planes, HashMap<TextureChannel, PlaneReceipt> Evidence, Seq<TextureChannel> Downgraded) carried, Op key, TimeProvider ticks) =>
+        PressProgram program, PressPlan plan, ChannelBinding binding, (HashMap<TextureChannel, TexturePyramid> Planes, HashMap<TextureChannel, PlaneReceipt> Evidence, Seq<TextureChannel> Downgraded) carried, Op key, TimeProvider ticks) =>
         binding.Channel.Origin is ChannelOrigin.Derived derived && TextureChannel.TryGet(derived.From, out TextureChannel? from)
-            ? from source in carried.Planes.Find(from).ToFin(MaterialFault.Parameter(key, $"<derived-source-absent:{binding.Channel.Key}:{derived.From}>"))
+            ? from sourced in Ensure(program, plan, from!, carried, key, ticks)
+              from source in sourced.Planes.Find(from!).ToFin(MaterialFault.Parameter(key, $"<derived-source-absent:{binding.Channel.Key}:{derived.From}>"))
               from folded in PlaneOp.Apply(source.Base, derived.Fold.Cons(binding.Post), key, ticks)
-              let paired = Companion(binding.Channel, carried.Planes)
-              let policy = binding.Policy.Paired && paired.IsNone ? MipPolicy.Box : binding.Policy
+              let paired = Companion(binding.Channel, sourced.Planes)
+              let policy = binding.Policy.Coupled && paired.IsNone ? MipPolicy.Box : binding.Policy
               from chain in TexturePyramid.Of(folded.Plane, policy, key, paired)
-              select (carried.Planes.Add(binding.Channel, chain),
-                      carried.Evidence.Add(binding.Channel, folded.Receipt),
-                      policy != binding.Policy ? carried.Downgraded.Add(binding.Channel) : carried.Downgraded)
+              select (sourced.Planes.Add(binding.Channel, chain),
+                      sourced.Evidence.Add(binding.Channel, folded.Receipt),
+                      policy != binding.Policy ? sourced.Downgraded.Add(binding.Channel) : sourced.Downgraded)
             : Fin.Fail<(HashMap<TextureChannel, TexturePyramid>, HashMap<TextureChannel, PlaneReceipt>, Seq<TextureChannel>)>(
                 MaterialFault.Parameter(key, $"<derived-origin-unresolved:{binding.Channel.Key}>"));
+
+    // A missing source materializes through an IMPLICIT solver-grade binding — float storage, no pyramid, no
+    // post — recursing through Derive for a derived source and through the band fold for a shaded or geometric
+    // one. The intermediate joins the landed map so a second consumer reuses it, and the set filter drops it.
+    static Fin<(HashMap<TextureChannel, TexturePyramid> Planes, HashMap<TextureChannel, PlaneReceipt> Evidence, Seq<TextureChannel> Downgraded)> Ensure(
+        PressProgram program, PressPlan plan, TextureChannel channel, (HashMap<TextureChannel, TexturePyramid> Planes, HashMap<TextureChannel, PlaneReceipt> Evidence, Seq<TextureChannel> Downgraded) carried, Op key, TimeProvider ticks) {
+        if (carried.Planes.ContainsKey(channel)) { return Fin.Succ(carried); }
+        ChannelBinding implicitBinding = new(channel,
+            PlaneFormat.For(channel.Components, PlaneDepth.F32).IfNone(PlaneFormat.Rgba32F),
+            Some(MipPolicy.None), Option<ChannelPack>.None, Seq<PlaneOp>());
+        if (channel.Origin is ChannelOrigin.Derived) { return Derive(program, plan, implicitBinding, carried, key, ticks); }
+        using MemoryOwner<ShadeVec4> arena = Fold(program, plan, implicitBinding, key);
+        return Finish(plan, implicitBinding, arena.Memory.AsMemory2D(plan.Height.Value * plan.Layers.Value, plan.Width.Value), carried.Planes, key, ticks)
+            .Map(built => (carried.Planes.Add(channel, built.Pyramid), carried.Evidence.Add(channel, built.Receipt), carried.Downgraded));
+    }
 
     // The GPU lowering gate mirrors the plan admission exactly, so a caller that passed admission cannot fail
     // here for a reason admission could have named.

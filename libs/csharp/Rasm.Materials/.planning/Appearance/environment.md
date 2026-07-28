@@ -406,9 +406,7 @@ public static class SkyRender {
         public void Invoke(int stacked) {
             (int width, int height) = (plane.Width.Value, plane.Height.Value);
             (int layer, int y) = (stacked / height, stacked % height);
-            using SpanOwner<float> scratch = SpanOwner<float>.Allocate(plane.RowScalars, AllocationMode.Clear);
             using SpanOwner<ShadeVec4> field = SpanOwner<ShadeVec4>.Allocate(width, AllocationMode.Clear);
-            using SpanOwner<ShadeVec4> staging = SpanOwner<ShadeVec4>.Allocate(width, AllocationMode.Clear);
             UnitInterval v = UnitInterval.Create((y + 0.5) / height);
             Span<ShadeVec4> lanes = field.Span;
             for (int x = 0; x < width; x++) {
@@ -416,7 +414,7 @@ public static class SkyRender {
                     layout.Inverse(UnitInterval.Create((x + 0.5) / width), v, layer), sun, atmosphere);
                 lanes[x] = new ShadeVec4(radiance.R, radiance.G, radiance.B, 1.0);
             }
-            plane.Write(layer, y, scratch.Span, lanes, staging.Span);
+            plane.WriteShade(y, layer, lanes);
         }
     }
 }
@@ -486,13 +484,10 @@ public sealed record EnvironmentMap(
     static Fin<TexturePlane> Face(TexturePlane plane, int layer, Op key) =>
         TexturePlane.Of(PlaneFormat.Rgba32F, plane.Width, plane.Height, PlaneTransfer.Linear, AlphaMode.None, key)
             .Map(face => {
-                using SpanOwner<float> source = SpanOwner<float>.Allocate(plane.RowScalars, AllocationMode.Clear);
-                using SpanOwner<float> sink = SpanOwner<float>.Allocate(face.RowScalars, AllocationMode.Clear);
                 using SpanOwner<ShadeVec4> field = SpanOwner<ShadeVec4>.Allocate(plane.Width.Value, AllocationMode.Clear);
-                using SpanOwner<ShadeVec4> staging = SpanOwner<ShadeVec4>.Allocate(plane.Width.Value, AllocationMode.Clear);
                 for (int row = 0; row < plane.Height.Value; row++) {
-                    plane.Read(layer, row, source.Span, field.Span);
-                    face.Write(layer: 0, row: row, sink.Span, field.Span, staging.Span);
+                    plane.ReadShade(row, layer, field.Span);
+                    face.WriteShade(row, layer: 0, field.Span);
                 }
                 return face;
             });
@@ -550,16 +545,14 @@ public sealed record EnvironmentMap(
         public void Invoke(int stacked) {
             (int width, int height) = (plane.Width.Value, plane.Height.Value);
             (int layer, int y) = (stacked / height, stacked % height);
-            using SpanOwner<float> scratch = SpanOwner<float>.Allocate(plane.RowScalars, AllocationMode.Clear);
             using SpanOwner<ShadeVec4> field = SpanOwner<ShadeVec4>.Allocate(width, AllocationMode.Clear);
-            using SpanOwner<ShadeVec4> staging = SpanOwner<ShadeVec4>.Allocate(width, AllocationMode.Clear);
             UnitInterval v = UnitInterval.Create((y + 0.5) / height);
             Span<ShadeVec4> lanes = field.Span;
             for (int x = 0; x < width; x++) {
                 RgbSpectrum radiance = source.Stored(target.Inverse(UnitInterval.Create((x + 0.5) / width), v, layer), lod: 0.0);
                 lanes[x] = new ShadeVec4(radiance.R, radiance.G, radiance.B, 1.0);
             }
-            plane.Write(layer, y, scratch.Span, lanes, staging.Span);
+            plane.WriteShade(y, layer, lanes);
         }
     }
 }
@@ -779,13 +772,11 @@ public sealed record LuminanceCdf(ReadOnlyMemory<double> Conditional, ReadOnlyMe
     public Fin<TexturePlane> Plane(Op key) =>
         TexturePlane.Of(PlaneFormat.R32F, Dimension.Create(Width), Dimension.Create(Height + 1), PlaneTransfer.Raw, AlphaMode.None, key)
             .Map(plane => {
-                using SpanOwner<float> scratch = SpanOwner<float>.Allocate(plane.RowScalars, AllocationMode.Clear);
                 using SpanOwner<ShadeVec4> field = SpanOwner<ShadeVec4>.Allocate(Width, AllocationMode.Clear);
-                using SpanOwner<ShadeVec4> staging = SpanOwner<ShadeVec4>.Allocate(Width, AllocationMode.Clear);
                 for (int row = 0; row <= Height; row++) {
                     ReadOnlySpan<double> source = row < Height ? Conditional.Span.Slice(row * Width, Width) : Marginal.Span;
                     for (int x = 0; x < Width; x++) { field.Span[x] = new ShadeVec4(x < source.Length ? source[x] : 0.0, 0.0, 0.0, 1.0); }
-                    plane.Write(layer: 0, row: row, scratch.Span, field.Span, staging.Span);
+                    plane.WriteShade(row, layer: 0, field.Span);
                 }
                 return plane;
             });
@@ -871,9 +862,7 @@ public static class IblPrefilter {
     readonly struct SpecularSweep(EnvironmentMap map, IblPolicy policy, double alpha, double sourceSolidAngle, TexturePlane plane) : IAction {
         public void Invoke(int y) {
             (int width, int height) = (plane.Width.Value, plane.Height.Value);
-            using SpanOwner<float> scratch = SpanOwner<float>.Allocate(plane.RowScalars, AllocationMode.Clear);
             using SpanOwner<ShadeVec4> field = SpanOwner<ShadeVec4>.Allocate(width, AllocationMode.Clear);
-            using SpanOwner<ShadeVec4> staging = SpanOwner<ShadeVec4>.Allocate(width, AllocationMode.Clear);
             Span<ShadeVec4> lanes = field.Span;
             UnitInterval v = UnitInterval.Create((y + 0.5) / height);
             for (int x = 0; x < width; x++) {
@@ -893,7 +882,7 @@ public static class IblPrefilter {
                 double norm = weight > 0.0 ? 1.0 / weight : 0.0;
                 lanes[x] = new ShadeVec4(r * norm, g * norm, b * norm, 1.0);
             }
-            plane.Write(layer: 0, row: y, scratch.Span, lanes, staging.Span);
+            plane.WriteShade(y, layer: 0, lanes);
         }
 
         // One orthonormal completion per texel rotates every tangent-space tap onto the texel's own normal.
@@ -921,9 +910,7 @@ public static class IblPrefilter {
     readonly struct LutSweep(IblPolicy policy, TexturePlane plane) : IAction {
         public void Invoke(int y) {
             int extent = plane.Width.Value;
-            using SpanOwner<float> scratch = SpanOwner<float>.Allocate(plane.RowScalars, AllocationMode.Clear);
             using SpanOwner<ShadeVec4> field = SpanOwner<ShadeVec4>.Allocate(extent, AllocationMode.Clear);
-            using SpanOwner<ShadeVec4> staging = SpanOwner<ShadeVec4>.Allocate(extent, AllocationMode.Clear);
             Span<ShadeVec4> lanes = field.Span;
             double alpha = Microfacet.AlphaOf((y + 0.5) / extent);
             for (int x = 0; x < extent; x++) {
@@ -942,7 +929,7 @@ public static class IblPrefilter {
                 }
                 lanes[x] = new ShadeVec4(scale / policy.LutTaps, bias / policy.LutTaps, 0.0, 1.0);
             }
-            plane.Write(layer: 0, row: y, scratch.Span, lanes, staging.Span);
+            plane.WriteShade(y, layer: 0, lanes);
         }
     }
 
@@ -1050,8 +1037,8 @@ public sealed record EnvironmentLight(
     public RgbSpectrum Irradiance(LocalVector normal) =>
         Products.Irradiance.Irradiance(EnvironmentMap.Rotated(normal.Normalize(), -Map.Rotation)).Scale(Map.Intensity);
 
-    // SplitSum answers the pair a shading pass multiplies its F0 by: X the Fresnel scale, Y the bias, read off the LUT
-    // the prefilter integrated with the SAME Smith visibility the surface shades under, through the SAME sampler. That
+    // SplitSum answers the pair a shading pass multiplies its F0 by: X the Fresnel scale, Y the bias, read off the LUT the
+    // prefilter integrated with the SAME Smith visibility the surface shades under, through the SAME sampler. That
     // LUT is environment-independent, so neither rotation nor intensity touches this read.
     public (double Scale, double Bias) SplitSum(UnitInterval cosView, UnitInterval roughness) =>
         TextureUv.Sample(Products.BrdfSource, new UvSample(cosView, roughness, Vector3d.Zero, Vector3d.ZAxis, 0.0), LutSampler, Map.Key)
