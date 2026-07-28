@@ -1065,33 +1065,25 @@ if (PHASE === '5') {
         pages: [
             'tests/contracts/MANIFEST.md',
             'tests/contracts/',
-            'libs/.planning/ARCHITECTURE.md',
-            'libs/.planning/RULINGS.md',
             'docs/laws/topology.md',
             'docs/glossary/domain.md',
             'docs/glossary/estate.md',
-            'libs/csharp/.planning/ARCHITECTURE.md',
-            'libs/csharp/.planning/RULINGS.md',
             'libs/csharp/.planning/IDEAS.md',
-            'libs/typescript/.planning/ARCHITECTURE.md',
-            'libs/typescript/.planning/RULINGS.md',
         ],
         charter:
-            'THE cross-tier single writer per CAMPAIGN "CROSS-CUTTING DESIGN" + amendments 5, 10, 26, 27, 28. Every anchor you ' +
-            'write MUST resolve on disk — phases 2-4 landed the surfaces; verify each before citing. (1) tests/contracts/: the ' +
-            'frozen shared schema fragment file (transcribed from ' +
+            'THE cross-tier single writer per CAMPAIGN "CROSS-CUTTING DESIGN" + amendments 5, 26, 27, 28. The Tier-0 ' +
+            'ARCHITECTURE/RULINGS repairs and every branch-registry row (csharp S4 roster + mermaid edge, WebGPU promotion and ' +
+            'encode-owners-plural rulings, TS digest-directory and routing rows, python roster widening) ALREADY LANDED in a ' +
+            'prior pass — verify they stand, never re-land them. Every anchor you write MUST resolve on disk — phases 2-4 landed ' +
+            'the surfaces; verify each before citing. (1) tests/contracts/: the frozen shared schema fragment file (transcribed ' +
+            'from ' +
             FREEZE +
             ', homed per the contracts README convention), then MANIFEST entries [TEXTURE_SET_BY_KEY], [ASSET_SET_MANIFEST], ' +
             '[MATERIAL_WIRE], [SIGNED_ARTIFACT] — ledger row + H3 record in field order, DESIGN-PIN with the blockers the ' +
-            'campaign names; GLB_BY_KEY untouched. (2) Tier-0 ARCHITECTURE [04]-[GEOMETRY_FLOW] bullet-2 truth repair exactly as ' +
-            'ruled; NO new section. (3) csharp branch ARCHITECTURE [02]-[STRATA] S4 roster row gains Rasm.Materials + mermaid ' +
-            'edge; branch RULINGS WebGPU substrate-promotion row naming the Silk.NET 3.x swap-point owner. (4) TS branch RULINGS ' +
-            'digest-directory row (_addressedAll ↔ Glb.assetDir, one wave) + branch ARCHITECTURE routing row. (5) topology rows ' +
-            '[40]-[43] per the campaign roster (verify free indices first). (6) glossary domain.md [07]-[APPEARANCE] + estate.md ' +
-            'asset address — topology row [17] coupling honored, no .greptile edit. (7) cross-libs RULINGS row: photo→PBR mints ' +
-            'no corpus entry; csharp branch COLLAPSE row: raster encode owners stay plural per stratum. (8) the [BLOCKED] ' +
-            'Rhino-RenderMaterial-adapter IDEAS card at libs/csharp/.planning/IDEAS.md, armed on a product shell landing. (9) ' +
-            'DRAIN the carry file ' +
+            'campaign names; GLB_BY_KEY untouched. (2) topology rows [40]-[43] per the campaign roster (verify free indices ' +
+            'first). (3) glossary domain.md [07]-[APPEARANCE] + estate.md asset address — topology row [17] coupling honored, no ' +
+            '.greptile edit. (4) the [BLOCKED] Rhino-RenderMaterial-adapter IDEAS card at libs/csharp/.planning/IDEAS.md, armed ' +
+            'on a product shell landing. (5) DRAIN the carry file ' +
             CARRY +
             ': every open row whose owner is a phase-5 surface lands here; re-verify each against disk first.',
     };
