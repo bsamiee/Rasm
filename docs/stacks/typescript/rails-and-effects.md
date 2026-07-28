@@ -420,16 +420,24 @@ Telemetry is a transformer stack attached at the owner declaration, and every si
 - Boundary: exporter wiring is not surface law — the `@effect/opentelemetry` spine (`Otlp.layer`, `Otlp.layerJson`, `Otlp.layerProtobuf`) lands as Layer rows at the composition root, `services-and-layers.md`'s provision; a surface names its span and metrics, never an exporter.
 
 [BOUNDED_DIMENSIONS]:
-- Law: a metric tag value is drawn from a bounded vocabulary — the derived outcome union, the family's reason rows — because every distinct value mints a series; interpolating an identifier into a tag is the cardinality defect. Identifier-grade context belongs in span attributes and log annotations, which are per-occurrence, never per-series.
-- Law: instruments are declared once beside the family they measure — `Metric.counter` with `incremental: true` for monotonic counts, `Metric.gauge` written through `Metric.set` at the observation point for level reads no fold accumulates, `Metric.frequency` over the reason vocabulary so its value set is exactly the derived union, `Metric.timerWithBoundaries` with boundaries the budget names, `MetricBoundaries.exponential` where the range spans decades, `Metric.summary` where quantiles matter and no boundary row pre-names the range — and `Metric.tagged` at call time is licensed only by a bounded value.
+- Law: the OTLP bridge seats a `MetricProducer` on the reader rather than mounting instruments on a provider, so no view, aggregation selector, or cardinality ceiling ever observes these metrics — the declaration is the only seam that shapes them.
+- Law: one `as const` row table declares the family and one mount projects every row, so name, description, unit tag, and bucket layout apply at a single seam and a new measure is one row.
+- Law: a tag value is drawn from a bounded vocabulary — the derived outcome union, the family's reason rows — because every distinct value mints a series, so `Metric.tagged` at call time is licensed only by such a value.
+- Law: identifier-grade context rides span attributes and log annotations, which are per-occurrence; interpolating an identifier into a tag is the cardinality defect.
+- Law: an instrument name is dotted `<namespace>.<domain>.<measure>`, carrying no `_total` tail and no unit suffix.
+- Law: the constructors take no unit option, so the UCUM code rides a `unit` tag the bridge lifts into the descriptor; the value stays constant per instrument, so the tag mints no series and the export lane drops it by key.
+- Law: `Metric.counter` with `incremental: true` states a monotonic count, `Metric.gauge` written through `Metric.set` states a level no fold accumulates, and `Metric.frequency` states a word census whose value set is exactly the derived union and whose word lands on a `key` dimension.
+- Law: `Metric.histogram` fixes bucket layout at the mint from a `MetricBoundaries` value — `MetricBoundaries.exponential({ start, factor, count })` generates the factor-2 spread a decade-spanning range takes, `MetricBoundaries.fromIterable` carries the edge list a budget names.
+- Law: `Metric.summary` states the quantile read where no boundary row pre-names the range, fanning on the wire into `_quantiles`, `_count`, and `_sum` names under a `quantile` dimension the bridge mints.
+- Reject: `Metric.timer` and `Metric.timerWithBoundaries` — each stamps a second tag `time_unit` valued `milliseconds`, no UCUM code and a second key to strip; `Metric.mapInput` over a declared histogram admits the same `Duration` under one tag.
 
 [OUTCOME_FROM_EXIT]:
-- Law: one `Exit` fold derives the outcome dimension for every signal, discriminating in interrupt-first order — `Cause.isInterruptedOnly`, then `Cause.failureOption`, then defect — because an interrupted run has no outcome and a defect is not a fault; the dimension vocabulary anchors as a type — the three cause rows plus a template over the family's own reason axis — and the fold's stated annotation governs it, so a new reason widens the vocabulary at the anchor, never inside an arm.
+- Law: one `Exit` fold derives the outcome dimension for every signal, discriminating in interrupt-first order — `Cause.isInterruptedOnly`, then `Cause.failureOption`, then defect — because an interrupted run has no outcome and a defect is not a fault; the dimension vocabulary anchors as a type — the three cause rows beside a template over the family's own reason axis — and the fold's stated annotation governs it, so a new reason widens the vocabulary at the anchor, never inside an arm.
 - Law: `Effect.onExit` is the single emission point — once per computation, after the outcome settles; outcome strings minted inside recovery arms drift, double-count retried attempts, and never see defects.
 - Law: measurement placement follows `[05]`'s layering law — `Metric.trackDuration` and `Metric.trackErrorWith` below the retry stack measure attempts, above it the composed operation; the choice is the instrument's meaning, stated by its position.
 
 ```typescript conceptual
-import { Cause, Data, Effect, Exit, Metric, Option } from "effect";
+import { Cause, Data, Duration, Effect, Exit, Metric, MetricBoundaries, Option, Record } from "effect";
 
 class PourFault extends Data.TaggedError("PourFault")<{ readonly reason: "clog" | "spill" }> {}
 
@@ -446,21 +454,50 @@ const outcomeOf: (exit: Exit.Exit<unknown, PourFault>) => Outcome = Exit.match({
     onSuccess: () => "resolved" as const,
 });
 
-const _poured = Metric.counter("pour_total", { description: "<terminal outcomes>", incremental: true });
-const _reasons = Metric.frequency("pour_fault_reason");
-const _latency = Metric.timerWithBoundaries("pour_latency_millis", [5, 25, 125, 625]);
+// each row states one declaration whole: dotted name off its own key carrying no type or unit tail, UCUM code, description, bucket edges
+type _Measure = { readonly unit: string; readonly text: string };
+
+const unitTag = "unit"; // egress reads this key twice: the bridge lifts it into the descriptor, the export lane drops it from attributes
+
+const _TALLIES = {
+    "app.pour.calls": { unit: "1", text: "<terminal outcomes>" },
+    "app.pour.volume": { unit: "By", text: "<poured payload>" },
+} as const satisfies Record.ReadonlyRecord<string, _Measure>;
+
+const _CENSUS = {
+    "app.pour.fault": { unit: "1", text: "<refusal reasons>" },
+} as const satisfies Record.ReadonlyRecord<string, _Measure>;
+
+const _SPREADS = {
+    // each row fixes its own buckets at the mint: a generated factor-2 spread by default, an explicit edge list where a budget names one
+    "app.pour.duration": { unit: "ms", text: "<resolve latency>", edges: MetricBoundaries.exponential({ start: 0.5, factor: 2, count: 24 }) },
+    "app.pour.admission": { unit: "ms", text: "<queue wait>", edges: MetricBoundaries.fromIterable([5, 25, 125, 625]) },
+} as const satisfies Record.ReadonlyRecord<string, _Measure & { readonly edges: MetricBoundaries.MetricBoundaries }>;
+
+// one seam applies the tag, so every table mints through its own constructor without restating a name, a unit, or a description
+const _mount = <K extends string, R extends _Measure, Type, In, Out>(
+    rows: Record.ReadonlyRecord<K, R>,
+    mint: (name: K, row: R) => Metric.Metric<Type, In, Out>,
+): Record.ReadonlyRecord<K, Metric.Metric<Type, In, Out>> =>
+    Record.map(rows, (row, name) => Metric.tagged(mint(name, row), unitTag, row.unit));
+
+const _tallies = _mount(_TALLIES, (name, row) => Metric.counter(name, { description: row.text, incremental: true }));
+const _census = _mount(_CENSUS, (name, row) => Metric.frequency(name, { description: row.text }));
+const _spreads = _mount(_SPREADS, (name, row) => Metric.mapInput(Metric.histogram(name, row.edges, row.text), Duration.toMillis));
+
+const _region = { surface: "<surface-a>" };
 
 const observed = <A, R>(pour: Effect.Effect<A, PourFault, R>): Effect.Effect<A, PourFault, R> =>
     pour.pipe(
-        Metric.trackDuration(_latency),
-        Metric.trackErrorWith(_reasons, (fault: PourFault) => fault.reason),
-        Effect.onExit((exit) => Metric.increment(Metric.tagged(_poured, "outcome", outcomeOf(exit)))),
-        Effect.withSpan("pour.resolve", { attributes: { "pour.surface": "<surface-a>" } }),
-        Effect.annotateLogs({ surface: "<surface-a>" }),
+        Metric.trackDuration(_spreads["app.pour.duration"]),
+        Metric.trackErrorWith(_census["app.pour.fault"], (fault: PourFault) => fault.reason),
+        Effect.onExit((exit) => Metric.increment(Metric.tagged(_tallies["app.pour.calls"], "outcome", outcomeOf(exit)))),
+        Effect.withSpan("pour.resolve", { attributes: _region }),
+        Effect.annotateLogs(_region),
     );
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { observed, outcomeOf, PourFault };
+export { observed, outcomeOf, PourFault, unitTag };
 export type { Outcome };
 ```
