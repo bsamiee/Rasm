@@ -1,22 +1,22 @@
 # [APPUI_RENDER_PATHTRACE]
 
-The path-trace integrator for the infinite viewport: `PathTracePass` accumulates global illumination through BVH build-and-refit with ReSTIR reservoirs and progressive denoising, and the integrator shades every scene point from `LayeredBsdf`, the product of `SlabStack` lowering and the `MaterialGraph` sink. The page owns the BVH build/refit, the ReSTIR reservoir, ray-cone texture footprint, progressive accumulation, edge-aware denoise, and exact `LayeredBsdf.Sample`/`Evaluate` consumption at the `PATH_TRACE` seam; `BsdfProjection` owns the sole oracle-tuple projection into the Materials `ShadingFrame`/`Direction`/`Op` vocabulary. The render graph schedules the pass, meshlet bounds feed the BVH, the CPU integrator is the correctness oracle, and GPU acceleration consumes the same contracts.
+`PathTracePass` integrates global illumination for the infinite viewport through BVH build-and-refit with ReSTIR reservoirs and progressive denoising, and shades every scene point from `LayeredBsdf`, the product of `SlabStack` lowering and the `MaterialGraph` sink. `PathTracePass` and its oracle kernels own the BVH build/refit, the ReSTIR reservoir, ray-cone texture footprint, progressive accumulation, edge-aware denoise, and exact `LayeredBsdf.Sample`/`Evaluate` consumption at the `PATH_TRACE` seam; `BsdfProjection` owns the sole oracle-tuple projection into the Materials `ShadingFrame`/`Direction`/`Op` vocabulary. `Render/pipeline` schedules the pass, meshlet bounds feed the BVH, the CPU integrator is the correctness oracle, and GPU acceleration consumes the same contracts.
 
 Every appearance value crosses as a Materials VALUE: `SurfaceAttribution` resolves a hit into a real parameterization and `MaterialBinding` answers one composition-bound query per hit with the whole `SurfaceMaterial` — layered BSDF, tangent-space normal, opacity, emission — sampled by the Materials `SetBind`/`TextureUv` rails at the point's own UV and ray-cone mip level, so a bound `TextureSet` shades here exactly as it shades on the raster twin and this page mints no sampler, no channel name, and no transfer. `LightSource.Environment` carries the resolved `Rasm.Materials.Appearance.EnvironmentLight` row, so the dome answers directional radiance, a luminance-CDF importance draw, and its own solid-angle density on the owner that prefiltered it. Radiance is the scene-linear `RgbSpectrum` throughout — a display-referred host colour never enters the transport — and the world basis is the frozen `+Z`-up OpenPBR frame the `bsdf#SHADING_FRAME` `LocalVector` basis and the equirect correspondence share.
 
 ## [01]-[INDEX]
 
 - [02]-[PATH_TRACE]: Real recursive SAH BVH, kernel-shaped degradation refit, ReSTIR reservoirs, ray-cone footprint, environment MIS, honest accumulation, denoise.
-- [03]-[LIGHT_RIG]: The ONE `LightSource` row family shared by both integrators; the resolved `EnvironmentLight` dome and the Compute solar-position composition.
-- [04]-[BSDF_SHADING]: The integrator shades from the Materials `LayeredBsdf`/`SlabStack`/`SetBind`, never re-deriving lobe math or texture reconstruction.
+- [03]-[LIGHT_RIG]: `LightSource` mints the ONE row family both integrators share, carrying the resolved `EnvironmentLight` dome and the Compute solar-position composition.
+- [04]-[BSDF_SHADING]: `PathTracePass` shades from the Materials `LayeredBsdf`/`SlabStack`/`SetBind`, never re-deriving lobe math or texture reconstruction.
 
 ## [02]-[PATH_TRACE]
 
 - Owner: `Bvh` the bounding-volume hierarchy — PAGE-LOCAL and PRIVATE (a measured oracle kernel over wire-decoded meshlet bounds; the kernel spatial engine is the federation broad-phase owner behind the `[PLACEMENT_LAW]`(e) firebreak, its cross-package acceleration crossing stays wire-shaped `SpatialAnswer.Wire` `NodeLinkProjection`, so an AppUi acceleration wire or a second exported BVH is unrepresentable); `Reservoir` the ReSTIR sample reservoir carried per pixel ON the accumulation target; `SamplePolicy` the light-selection dispatch row; `RayCone` the propagated texture footprint; `TraceLimits` the transport policy row; `PathTracePass` the progressive accumulation pass; `Denoiser` the edge-aware denoise fold over the target's own guide plane.
-- Law: a texture LOD is derived, never chosen. `RayCone` propagates the pixel's angular spread from the camera through every hit — width grows by the spread over the traversed distance and the spread itself grows by twice the surface curvature the hit reports — and the cone's footprint at the hit divides the plane's texel span into the mip level `MaterialBinding` samples at. The cone rides the SHADOW segment too, so a blocker's cut-out reads at the blocker's own distance and the blocker's own texel density; carrying the shading point's level down a shadow ray aliases a distant foliage card into hard-edged speckle. Sampling mip 0 at every distance is the aliasing defect this forecloses, and a caller-supplied LOD is the knob it forecloses.
-- Law: environment transport is MULTIPLE-IMPORTANCE-SAMPLED, not double-counted. Once the dome answers a guided draw as an NEE candidate, the BSDF continuation that escapes into the same dome carries the balance-heuristic weight `pdfBsdf / (pdfBsdf + pdfEnv)` and the NEE draw carries its complement, so the two estimators sum to one estimate. A delta row — sun, spot, point-shaped emissive, luminaire — reports a zero density, which the weight reads as the delta case and passes through unweighted; that one sentinel replaces a parallel delta-versus-area light flag.
-- Law: every `SamplePolicy` arm estimates the SAME integral at the SAME energy. Resampled importance sampling weights each streamed candidate by its target function over its own source density, and rows stream uniformly, so the reservoir weight carries the row count exactly as the `Uniform` arm's single scaled draw does. A bare target function makes the reservoir arm darker by the row count — two interchangeable rows disagreeing on brightness, which reads as a denoiser or an exposure problem and is neither.
-- Law: shadow rays honour `geometry_opacity`. A blocker whose sampled opacity is below one attenuates rather than occludes, the walk continuing past it up to `TraceLimits.CutoutSteps` and multiplying transmittance, so a foliage card, a perforated screen, and a cut-out railing cast their real shadow instead of a solid one. The step cap, the opacity floor, and the ray-origin epsilon are policy columns, never literals in the walk — and the epsilon doubles as the emitter-proximity floor, so a positional row coincident with the shading point refuses rather than dividing by a distance the shadow ray cannot step across.
+- Law: `RayCone` derives every texture LOD and no caller chooses one. `RayCone` propagates the pixel's angular spread from the camera through every hit — width grows by the spread over the traversed distance and the spread itself grows by twice the surface curvature the hit reports — and its footprint at the hit divides the plane's texel span into the mip level `MaterialBinding` samples at. `RayCone` rides the SHADOW segment too, so a blocker's cut-out reads at the blocker's own distance and the blocker's own texel density; carrying the shading point's level down a shadow ray aliases a distant foliage card into hard-edged speckle. Sampling mip 0 at every distance is the aliasing defect this forecloses, and a caller-supplied LOD is the knob it forecloses.
+- Law: environment transport is MULTIPLE-IMPORTANCE-SAMPLED, not double-counted. Once the dome answers a guided draw as an NEE candidate, the BSDF continuation that escapes into the same dome carries the balance-heuristic weight `pdfBsdf / (pdfBsdf + pdfEnv)` and the NEE draw carries its complement, so the two estimators sum to one estimate. Sun, spot, point-shaped emissive, and luminaire rows report a zero density, which the weight reads as the delta case and passes through unweighted; that one sentinel replaces a parallel delta-versus-area light flag.
+- Law: every `SamplePolicy` arm estimates the SAME integral at the SAME energy. Resampled importance sampling weights each streamed candidate by its target function over its own source density, and rows stream uniformly, so the reservoir weight carries the row count exactly as the `Uniform` arm's single scaled draw does. Streaming a bare target function makes the reservoir arm darker by the row count — two interchangeable rows disagreeing on brightness, which reads as a denoiser or an exposure problem and is neither.
+- Law: shadow rays honour `geometry_opacity`. Sampled opacity below one attenuates a blocker rather than occluding it, the walk continuing past it up to `TraceLimits.CutoutSteps` and multiplying transmittance, so a foliage card, a perforated screen, and a cut-out railing cast their real shadow instead of a solid one. `TraceLimits` carries the step cap, the opacity floor, and the ray-origin epsilon as policy columns, never literals in the walk — and its epsilon doubles as the emitter-proximity floor, so a positional row coincident with the shading point refuses rather than dividing by a distance the shadow ray cannot step across.
 - Entry: `public Fin<AccumulationTarget> Accumulate(AccumulationTarget target, ViewCamera camera, LightRig rig, int sampleBudget, long sampleSeed)` — accumulates one progressive sample set onto the running per-pixel mean under the one camera row and returns the ADVANCED `AccumulationTarget` (`Ordinal + sampleBudget`), so two sequential batches against one target produce the weighted mean of both and the next pass reads the total sample count from the same state owner; convergence is the accumulated sample count, never a wall-clock timer.
 - Auto: `Bvh.Build` constructs the hierarchy by a REAL recursive surface-area-heuristic split over the meshlet bounds — children emitted, leaf criterion at four primitives or no cost-improving split; `Refit` is a REAL bottom-up re-bound (leaves re-enclose their moved primitives, interior nodes re-enclose their two children in reverse emission order) and `Maintain` adopts the kernel `[DEGRADATION_REFIT]` shape (`Rasm/.planning/Spatial/index.md`): topology-stable in-place re-bounding and a deterministic `SahCost` rebuild trigger, so a moving scene refits until quality degrades measurably and then rebuilds deterministically; NEE light selection DISPATCHES on the `SamplePolicy` row — `Restir` streams every rig row through the pixel's `Reservoir` (the prior frame's reservoir seeds the stream decayed to `TemporalCap`, the target function is the unshadowed luminance-times-cosine, ONLY the surviving sample pays a shadow ray, and the advanced reservoir writes back to `AccumulationTarget.Reservoirs[pixel]` so temporal reuse is a real state transition), `Uniform` draws one row scaled by count, `Stratified` rotates the row by pixel-plus-ordinal; the progressive accumulator folds each sample set onto the running mean keyed by the accumulation ordinal and advances that ordinal on the returned target — `AccumulationTarget` is the ONE progression owner (`Of` mints it, `Advanced` weights the next batch, `Reset` clears mean, reservoirs, and guides together on camera motion) and no second sample counter exists — so a static camera converges frame over frame and the render graph resets the same target on camera motion; the primary hit writes each pixel's normal/depth guide onto the target's `NormalDepth` plane, and `Denoiser.Resolve` folds the noisy mean with those guides through the 3x3 joint-bilateral weights so an early-frame estimate is presentable before full convergence while the render-hash lane pins the RAW mean.
 - Packages: SkiaSharp, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Materials (project)
@@ -30,25 +30,25 @@ using Rasm.Materials.Appearance;                      // EnvironmentLight, Envir
 using Rasm.Materials.Appearance.Bsdf;                 // LayeredBsdf, ShadingFrame, LocalVector, RgbSpectrum
 using Rasm.Numerics;                                  // Direction, UnitInterval, Dimension
 
-// The pixel's angular footprint carried along the path. Width is the cone diameter at the current vertex and Spread
-// its per-unit-distance growth; a hit widens the spread by twice the surface curvature the attribution reports, so a
-// convex hit blurs downstream taps and a planar hit does not. Akenine-Moller ray-cone LOD, one struct, no per-lobe row.
+// RayCone carries the pixel's angular footprint along the path: Width is the cone diameter at the current vertex and
+// Spread its per-unit-distance growth; a hit widens the spread by twice the surface curvature the attribution reports,
+// so a convex hit blurs downstream taps and a planar hit does not. Akenine-Moller ray-cone LOD, one struct, no per-lobe row.
 public readonly record struct RayCone(double Width, double Spread) {
-    // The primary cone opens at the pixel solid angle: half the vertical field over the film height.
+    // Primary opens the cone at the pixel solid angle: half the vertical field over the film height.
     public static RayCone Primary(double pixelSpread) => new(0.0, pixelSpread);
 
     public RayCone Advanced(double distance) => this with { Width = Width + (Spread * distance) };
     public RayCone Scattered(double curvature) => this with { Spread = Spread + (2.0 * curvature) };
 
-    // The mip level a plane of `texels` across is sampled at: the cone's footprint in UV, projected against the
+    // MipLevel returns where a plane of `texels` across is sampled: the cone's footprint in UV, projected against the
     // grazing angle, expressed in halvings. A degenerate cosine clamps rather than diverging to the coarsest level.
     public double MipLevel(int texels, double uvScale, double cosine) =>
         Math.Max(0.0, Math.Log2(Math.Max(Width * uvScale * texels / Math.Max(Math.Abs(cosine), 1e-3), 1e-9)));
 }
 
-// The transport bounds, as policy columns rather than literals scattered through the walk. CutoutSteps caps the
-// alpha-cutout shadow traversal, OpacityFloor is the transmittance below which a blocker counts as solid, and
-// SurfaceOffset is the shadow/continuation ray origin epsilon.
+// TraceLimits carries the transport bounds as policy columns rather than literals scattered through the walk:
+// CutoutSteps caps the alpha-cutout shadow traversal, OpacityFloor is the transmittance below which a blocker counts
+// as solid, and SurfaceOffset is the shadow/continuation ray origin epsilon.
 public readonly record struct TraceLimits(int CutoutSteps, double OpacityFloor, double SurfaceOffset) {
     public static readonly TraceLimits Default = new(CutoutSteps: 4, OpacityFloor: 1e-3, SurfaceOffset: 1e-4);
 }
@@ -144,8 +144,8 @@ public sealed record Bvh(ImmutableArray<BvhNode> Nodes, ImmutableArray<int> Prim
     }
 
     // Real enclosing sphere: centroid mean, radius = max(center distance + primitive radius) — a
-    // center-sum with a bare max-radius is the deleted form. The index run arrives as a SPAN, so a leaf re-bound reads
-    // the retained order in place instead of copying the whole primitive array once per leaf.
+    // center-sum with a bare max-radius is the deleted form. Enclose takes the index run as a SPAN, so a leaf re-bound
+    // reads the retained order in place instead of copying the whole primitive array once per leaf.
     private static BoundingSphere Enclose(Seq<ResidencyMeshletView> meshlets, ReadOnlySpan<int> prims, int start, int count) {
         (double cx, double cy, double cz) = (0d, 0d, 0d);
         for (int at = start; at < start + count; at++) {
@@ -229,9 +229,9 @@ public readonly record struct Reservoir(double WeightSum, int SampleCount, long 
     public double Weight => SampleCount == 0 || TargetPdf <= 0d ? 0d : WeightSum / (SampleCount * TargetPdf);
 }
 
-// The light-selection policy the NEE arm DISPATCHES on — a row is behavior at the integrator, never a label:
-// Restir streams every rig row through the per-pixel reservoir with temporal reuse and shadow-tests only
-// the survivor, Uniform draws one row scaled by count, Stratified rotates the row by (pixel + ordinal).
+// SamplePolicy dispatches the NEE arm's light selection — a row is behavior at the integrator, never a label:
+// Restir streams every rig row through the per-pixel reservoir with temporal reuse and shadow-tests only the
+// survivor, Uniform draws one row scaled by count, Stratified rotates the row by (pixel + ordinal).
 [SmartEnum<string>]
 public sealed partial class SamplePolicy {
     public static readonly SamplePolicy Restir = new("restir", static (_, _, _, _) => new SampleDecision.ReservoirReuse());
@@ -292,9 +292,9 @@ public sealed record Denoiser(double NormalSigma, double DepthSigma, double Colo
     }
 }
 
-// The per-pixel running mean, its sample ordinal, the ReSTIR reservoir array, and the normal/depth guide
-// plane — the ONE progressive-state owner: Advanced weights the next batch, Reset serves camera motion, and
-// reservoirs and guides live HERE so temporal reuse and the edge-aware denoise read the same state the
+// AccumulationTarget owns the per-pixel running mean, its sample ordinal, the ReSTIR reservoir array, and the
+// normal/depth guide plane as the ONE progressive-state owner: Advanced weights the next batch, Reset serves camera
+// motion, and reservoirs and guides live HERE so temporal reuse and the edge-aware denoise read the same state the
 // accumulation transition writes; no second sample counter or side buffer exists anywhere.
 public sealed record AccumulationTarget(
     int Width,
@@ -341,8 +341,8 @@ public sealed record PathTracePass(
     // Statement-bodied oracle kernel — deterministic per-(pixel, ordinal, seed) sequence so the render-hash
     // lane pins a sample count. Path shape: primary ray + its pixel cone -> closest hit (miss folds the dome by
     // DIRECTION) -> attribution and one Materials query at the cone's own mip level -> NEE over every rig row
-    // including the guided dome (shadow rays alpha-attenuated through the same Intersect kernel, throughput via
-    // the Materials Evaluate seam) -> one BSDF-sampled continuation MIS-weighted against the dome density.
+    // including the guided dome (shadow rays alpha-attenuated through the same Intersect kernel, throughput via the
+    // Materials Evaluate seam) -> one BSDF-sampled continuation MIS-weighted against the dome density.
     private AccumulationTarget Integrate(AccumulationTarget target, ViewCamera camera, LightRig rig, int sampleBudget, long sampleSeed) {
         CameraFrame frame = camera.Frame;
         (double fx, double fy, double fz) = OracleFrame.Normalize(frame.Target.X - frame.Eye.X, frame.Target.Y - frame.Eye.Y, frame.Target.Z - frame.Eye.Z);
@@ -356,7 +356,7 @@ public sealed record PathTracePass(
                     ulong state = Mix(((ulong)(uint)((py * target.Width) + px) << 32) ^ (ulong)(target.Ordinal + s) ^ (ulong)sampleSeed);
                     double screenX = ((px + Next(ref state)) / target.Width * 2d) - 1d;
                     double screenY = 1d - ((py + Next(ref state)) / target.Height * 2d);
-                    // The camera row seeds the ray AND its cone in one switch: a perspective pixel opens an angular
+                    // ViewCamera seeds the ray AND its cone in one switch: a perspective pixel opens an angular
                     // spread of one pixel's solid angle, while an orthographic pixel carries a constant width and
                     // zero spread — parallel rays never widen, so an ortho render must not blur with distance.
                     ((double X, double Y, double Z) Origin, (double X, double Y, double Z) Direction, RayCone Cone) ray = camera.Switch(
@@ -399,8 +399,8 @@ public sealed record PathTracePass(
     // primary hit writes the pixel's normal/depth guide, the SamplePolicy row selects the light-sampling
     // arm, and only the selected candidate pays a shadow ray. The reservoir arm reads and writes
     // film.Reservoirs[pixel], so temporal reuse is a real state transition on the one progressive owner.
-    // Attribution runs BEFORE the Materials query so the query carries a real UV and the cone's own mip level;
-    // the guide plane records the PERTURBED normal, so the denoiser edge-stops on the normal the shade used.
+    // Attribution runs BEFORE the Materials query so the query carries a real UV and the cone's own mip level; the
+    // guide plane records the PERTURBED normal, so the denoiser edge-stops on the normal the shade used.
     private RgbSpectrum Lit((double X, double Y, double Z) origin, (double X, double Y, double Z) direction, RayCone cone, (int Primitive, double T) hit, LightRig rig, AccumulationTarget film, int pixel, ref ulong state) {
         BoundingSphere sphere = Scene.PrimitiveBounds[hit.Primitive];
         (double hx, double hy, double hz) = (origin.X + (direction.X * hit.T), origin.Y + (direction.Y * hit.T), origin.Z + (direction.Z * hit.T));
@@ -423,8 +423,8 @@ public sealed record PathTracePass(
     }
 
     // One candidate derivation serves every policy arm: the (direction, radiance, reach, density) of one rig row
-    // toward the shading point. A positional row reports Pdf 0 — the DELTA sentinel every MIS weight reads — while
-    // the dome reports its guided draw's true solid-angle density, so one shape spans both estimator classes and no
+    // toward the shading point. A positional row reports Pdf 0 — the DELTA sentinel every MIS weight reads — while the
+    // dome reports its guided draw's true solid-angle density, so one shape spans both estimator classes and no
     // parallel delta-versus-area flag exists. The dome is a NEE candidate here AND a miss fold in Dome; the balance
     // heuristic is what keeps the two from double-counting. Every positional arm reads its reach through Toward, whose
     // proximity refusal is what keeps an emitter coincident with the shading point from returning an unbounded
@@ -481,9 +481,9 @@ public sealed record PathTracePass(
         return (Shaded(row, point, material, wo, normal, cone, weight, u0, u1), state);
     }
 
-    // Weighted-reservoir RIS with temporal reuse: the prior frame's reservoir seeds the stream (decayed to
-    // the cap), every rig row streams a candidate weighted by its unshadowed target function, and ONLY the
-    // surviving sample pays the shadow ray, shaded with the reservoir's unbiased Weight — the advanced
+    // Weighted-reservoir RIS with temporal reuse: the prior frame's reservoir seeds the stream (decayed to the
+    // cap), every rig row streams a candidate weighted by its unshadowed target function, and ONLY the surviving
+    // sample pays the shadow ray, shaded with the reservoir's unbiased Weight — the advanced
     // reservoir writes back to the pixel's cell so the next frame reuses it. The survivor's OWN draw coordinates
     // ride along, so the shaded dome direction is the one whose target function won the stream rather than a
     // fresh draw the reservoir never measured.
@@ -517,8 +517,8 @@ public sealed record PathTracePass(
         return (Shaded(rig.Rows[survivor], point, material, wo, normal, cone, reservoir.Weight, drawn.U0, drawn.U1), state);
     }
 
-    // The shaded candidate: transmittance (alpha-cutout aware), the Materials Evaluate seam, the geometric cosine,
-    // the policy weight, and — for a non-delta row alone — the balance-heuristic MIS weight over its own density.
+    // Shaded folds transmittance (alpha-cutout aware), the Materials Evaluate seam, the geometric cosine, the policy
+    // weight, and — for a non-delta row alone — the balance-heuristic MIS weight over its own density.
     private RgbSpectrum Shaded(LightSource row, SurfacePoint point, SurfaceMaterial material, (double X, double Y, double Z) wo, (double X, double Y, double Z) normal, RayCone cone, double weight, double u0, double u1) =>
         Candidate(row, point, u0, u1)
             .Map(candidate => Transmittance(point, cone, candidate) switch {
@@ -533,9 +533,9 @@ public sealed record PathTracePass(
             })
             .IfNone(RgbSpectrum.Black);
 
-    // The shadow walk. A blocker whose sampled geometry_opacity is below one ATTENUATES and the walk resumes past
-    // it, so a foliage card or a perforated screen casts its real shadow; the traversal is bounded by the policy's
-    // own step count and terminates opaque at the transmittance floor rather than looping through an alpha stack.
+    // Transmittance walks the shadow segment. A blocker whose sampled geometry_opacity is below one ATTENUATES and the
+    // walk resumes past it, so a foliage card or a perforated screen casts its real shadow; TraceLimits.CutoutSteps
+    // bounds the traversal, which terminates opaque at the transmittance floor rather than looping through an alpha stack.
     private double Transmittance(SurfacePoint from, RayCone cone, LightCandidate candidate) {
         (double X, double Y, double Z) at = Offset(from.Position, candidate.Wi);
         (double reach, double carried) = (candidate.TMax, 1d);
@@ -546,10 +546,10 @@ public sealed record PathTracePass(
                 (at.X + (candidate.Wi.X * blocker.T), at.Y + (candidate.Wi.Y * blocker.T), at.Z + (candidate.Wi.Z * blocker.T));
             SurfaceAttributes surface = Attribution.At(blocker.Primitive, (bx, by, bz), Scene.PrimitiveBounds[blocker.Primitive]);
             walked = walked.Advanced(blocker.T);
-            // The cutout a shadow ray reads is the alpha at THIS blocker's distance over THIS primitive's own texel
-            // density — the cone advances along the shadow segment exactly as it advances along a camera path. Carrying
-            // the shading point's level instead reads a distant foliage card at the near surface's resolution, which
-            // aliases the cut-out into hard-edged shadow speckle no denoise guide edge-stops on.
+            // Shadow rays read their cutout as the alpha at THIS blocker's distance over THIS primitive's own texel
+            // density — the cone advances along the shadow segment exactly as it advances along a camera path.
+            // Carrying the shading point's level instead reads a distant foliage card at the near surface's
+            // resolution, which aliases the cut-out into hard-edged shadow speckle no denoise guide edge-stops on.
             carried *= 1d - Materials.Resolve(new SurfacePoint(
                 (bx, by, bz), surface.Frame, surface.Uv, surface.MaterialKey,
                 walked.MipLevel(surface.Texels, surface.UvScale, Dot(surface.Frame.Normal, (-candidate.Wi.X, -candidate.Wi.Y, -candidate.Wi.Z))))).Opacity;
@@ -563,7 +563,7 @@ public sealed record PathTracePass(
 
     // Every Environment row answers BY DIRECTION on its own resolved EnvironmentLight — the equirect
     // correspondence, the rotation, and the intensity all live on that owner, so this fold re-derives nothing.
-    // The balance weight makes the miss fold and the NEE draw one estimator: a primary camera ray carries no BSDF
+    // Balance makes the miss fold and the NEE draw one estimator: a primary camera ray carries no BSDF
     // density and takes the dome whole, while a BSDF-sampled continuation splits with the guided draw that already
     // paid for the same direction.
     private static RgbSpectrum Dome(LightRig rig, (double X, double Y, double Z) direction, double bsdfPdf) =>
@@ -576,10 +576,11 @@ public sealed record PathTracePass(
     private static double Balance(double primary, double other) =>
         primary <= 0d ? 1d : primary / Math.Max(primary + other, 1e-12);
 
-    // The reach toward a positional emitter, or ABSENCE when the emitter sits closer than the ray-origin epsilon: the
-    // shadow ray cannot even step across that gap, and the inverse-square fall-off at that distance returns an estimate
-    // unbounded above. Clamping the distance to a literal floor instead reports a finite number that is simply wrong —
-    // the refusal is what makes shading a point on a luminaire's own position a zero rather than a fabricated blowout.
+    // Toward reports the reach to a positional emitter, or ABSENCE when the emitter sits closer than the ray-origin
+    // epsilon: the shadow ray cannot even step across that gap, and the inverse-square fall-off at that distance
+    // returns an estimate unbounded above. Clamping the distance to a literal floor instead reports a finite number
+    // that is simply wrong — refusal is what makes shading a point on a luminaire's own position a zero rather than a
+    // fabricated blowout.
     private Option<((double X, double Y, double Z) Wi, double Distance)> Toward((double X, double Y, double Z) from, (double X, double Y, double Z) to) {
         (double dx, double dy, double dz) = (to.X - from.X, to.Y - from.Y, to.Z - from.Z);
         double distance = Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
@@ -588,8 +589,9 @@ public sealed record PathTracePass(
             : None;
     }
 
-    // The ray-origin epsilon is the policy column, so a scene authored in millimetres and one authored in kilometres
-    // both offset by their own tolerance instead of one literal that self-shadows in the first and leaks in the second.
+    // TraceLimits.SurfaceOffset carries the ray-origin epsilon as a policy column, so a scene authored in millimetres
+    // and one authored in kilometres both offset by their own tolerance instead of one literal that self-shadows in the
+    // first and leaks in the second.
     private (double X, double Y, double Z) Offset((double X, double Y, double Z) at, (double X, double Y, double Z) along) =>
         (at.X + (along.X * Limits.SurfaceOffset), at.Y + (along.Y * Limits.SurfaceOffset), at.Z + (along.Z * Limits.SurfaceOffset));
 
@@ -605,8 +607,8 @@ public sealed record PathTracePass(
         return (state >> 11) * (1.0 / (1UL << 53));
     }
 
-    // Spot cone falloff: smooth ramp between the inner (full) and outer (zero) half-angles measured off
-    // the aim; wi points surface->light, so the emitter-side direction is -wi.
+    // Spot cone falloff: smooth ramp between the inner (full) and outer (zero) half-angles measured off the
+    // aim; wi points surface->light, so the emitter-side direction is -wi.
     private static double Cone(LightSource.Spot spot, (double X, double Y, double Z) wi) {
         double cos = Dot(OracleFrame.Normalize(spot.Aim), (-wi.X, -wi.Y, -wi.Z));
         double inner = Math.Cos(double.DegreesToRadians(spot.InnerDeg));
@@ -639,10 +641,10 @@ public sealed record PathTracePass(
 - Auto: the raster shading path (`Render/shading.md`) and this oracle integrator read the SAME rig and the SAME resolved `EnvironmentLight` — this page draws the dome by direction and by guided sample, that page binds the prefilter's SH run, roughness ladder, split-sum LUT, and stored equirect as `EnvironmentRead` rows, so one dome lights both integrators and neither re-derives the other's half; the ReSTIR reservoir samples candidates from the rig rows; a reduced-quality tier caps rig evaluation through the governor pass mask, never a second light list.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Materials (project), Rasm.Compute (project), Rasm.Bim (boundary wire)
 - Growth: a new emitter kind is one `LightSource` case carrying its `Candidate` projection; a new sun site is a `SolarSite` value from the Bim `GeoReference` lowering; a new statutory study day is one `SunStudy.DesignDays` row; zero new surface.
-- Boundary: `SolarPosition.At` supplies the solar ephemeris, and Bim lowers `GeoReference` into `SolarSite` values. IES/LDT decode lands a validated `PhotometricWeb`; `Of` rejects unsorted grids and a non-total candela table, so no light row parses a file, and the read honours each axis's own topology — the polar arc clamps to its measured range while the azimuth circle interpolates across the 360 wrap rather than snapping the last measured plane's span to one column. `csharp:Rasm.Materials/Appearance/environment#IBL_PREFILTER` supplies the resolved `EnvironmentLight` over the declared `[BOUNDARY]` seam (`Render <- csharp:Rasm.Materials/Appearance # [BOUNDARY]: EnvironmentLight at the light rig`) — this page never decodes an HDRI, projects an equirect, integrates an SH band, builds a prefilter ladder, or mints a luminance guide. A rig constant carrying a fabricated uniform dome is the deleted form, because a dome the composition root has not resolved is a dome no importance sampler can draw from; `LightRig.Studio` therefore TAKES the resolved row. Render owns neither a second solar ephemeris nor a second light vocabulary.
+- Boundary: `SolarPosition.At` supplies the solar ephemeris, and Bim lowers `GeoReference` into `SolarSite` values. IES/LDT decode lands a validated `PhotometricWeb`; `Of` rejects unsorted grids and a non-total candela table, so no light row parses a file, and the read honours each axis's own topology — the polar arc clamps to its measured range while the azimuth circle interpolates across the 360 wrap rather than snapping the last measured plane's span to one column. `csharp:Rasm.Materials/Appearance/environment#IBL_PREFILTER` supplies the resolved `EnvironmentLight` over the declared `[BOUNDARY]` seam (`Render <- csharp:Rasm.Materials/Appearance # [BOUNDARY]: EnvironmentLight at the light rig`) — this page never decodes an HDRI, projects an equirect, integrates an SH band, builds a prefilter ladder, or mints a luminance guide. Fabricating a uniform dome as a rig constant is the deleted form, because a dome the composition root has not resolved is a dome no importance sampler can draw from; `LightRig.Studio` therefore TAKES the resolved row. Render owns neither a second solar ephemeris nor a second light vocabulary.
 
 ```csharp signature
-// The decoded IES/LDT photometric web: sorted polar/azimuth degree grids plus the candela table
+// PhotometricWeb carries the decoded IES/LDT web: sorted polar/azimuth degree grids plus the candela table
 // (Candela[(azimuth * PolarDeg.Length) + polar]); the file decode is an asset-boundary admission and
 // Of is the one validated constructor.
 public sealed record PhotometricWeb(ImmutableArray<double> PolarDeg, ImmutableArray<double> AzimuthDeg, ImmutableArray<double> Candela) {
@@ -670,9 +672,10 @@ public sealed record PhotometricWeb(ImmutableArray<double> PolarDeg, ImmutableAr
         return (grid.Length - 1, grid.Length - 1, 0d);
     }
 
-    // The PERIODIC bracket. A value past the last measured plane brackets that plane against the FIRST one 360 degrees
-    // on, so a web measured on 0-350 interpolates across the wrap instead of snapping every direction in the last ten
-    // degrees to one column — an asymmetric luminaire read that way carries a hard candela discontinuity at due north.
+    // Wrap brackets PERIODICALLY. A value past the last measured plane brackets that plane against the FIRST one 360
+    // degrees on, so a web measured on 0-350 interpolates across the wrap instead of snapping every direction in the
+    // last ten degrees to one column — an asymmetric luminaire read that way carries a hard candela discontinuity at
+    // due north.
     private static (int Lo, int Hi, double T) Wrap(ImmutableArray<double> grid, double value) {
         if (grid.Length is 1) { return (0, 0, 0d); }
         for (int at = 1; at < grid.Length; at++) {
@@ -703,17 +706,18 @@ public abstract partial record LightSource {
     public sealed record Area(string Key, double X, double Y, double Z, (double X, double Y, double Z) Normal, double Width, double Height, RgbSpectrum Radiance) : LightSource;
     public sealed record Ies(string Key, double X, double Y, double Z, (double X, double Y, double Z) Aim, PhotometricWeb Web, RgbSpectrum Tint, double LumenScale) : LightSource;
 
-    // The Compute solar export composed: SunPosition azimuth/altitude become the directional row.
+    // SunAt composes the Compute solar export: SunPosition azimuth/altitude become the directional row.
     public static LightSource SunAt(SolarSite site, Instant at, RgbSpectrum radiance) =>
         SolarPosition.At(site, at) switch {
             var sun => new Sun($"sun@{at}", sun.AzimuthDeg, sun.AltitudeDeg, radiance),
         };
 
-    // The +Z-up world basis: azimuth clockwise from +Y (north), altitude above the horizon, matching the OpenPBR local
-    // frame the dome's equirect correspondence also assumes. A row that HAS an orientation reports it NORMALIZED — the
-    // sun its solar direction, a spot and a luminaire their aim, a panel its emitter normal — and a row that has none
-    // reports ABSENCE. A catch-all `+Z` fabricated a direction for the panel that carries a real one and for the dome
-    // and the point emitter that carry none, and a fabricated axis lights a solar study from a hemisphere nobody chose.
+    // Direction reads the +Z-up world basis: azimuth clockwise from +Y (north), altitude above the horizon, matching
+    // OpenPBR's local frame, which the dome's equirect correspondence also assumes. A row that HAS an orientation
+    // reports it NORMALIZED — the sun its solar direction, a spot and a luminaire their aim, a panel its emitter
+    // normal — and a row that has none reports ABSENCE. A catch-all `+Z` fabricated a direction for the panel that
+    // carries a real one and for the dome and the point emitter that carry none, and a fabricated axis lights a solar
+    // study from a hemisphere nobody chose.
     public Option<(double X, double Y, double Z)> Direction => this switch {
         Sun sun => Some((
             Math.Cos(Rad(sun.AltitudeDeg)) * Math.Sin(Rad(sun.AzimuthDeg)),
@@ -728,7 +732,7 @@ public abstract partial record LightSource {
     private static double Rad(double deg) => deg * Math.PI / 180d;
 }
 
-// The rig TAKES a resolved dome — a fabricated uniform-colour constant is the deleted form, because the importance
+// LightRig TAKES a resolved dome — a fabricated uniform-colour constant is the deleted form, because the importance
 // sampler, the SH irradiance read, and the split-sum read all answer on the Materials owner that prefiltered a real
 // map, and a constant carries none of them.
 public sealed record LightRig(Seq<LightSource> Rows) {
@@ -736,7 +740,7 @@ public sealed record LightRig(Seq<LightSource> Rows) {
         new(Seq<LightSource>(new LightSource.Environment(dome)).Concat(toSeq(lamps.ToArray())));
 }
 
-// The temporal solar instrument over the ONE Compute solar export: Sweep composes SolarPosition.SunPath
+// SunStudy is the temporal solar instrument over the ONE Compute solar export: Sweep composes SolarPosition.SunPath
 // into dated Sun rows, Arc projects the swept positions into one Overlay pass (the sun-path arc and
 // analemma drawn through the supplied sheet fold), and DesignDays carries the statutory presets — the
 // date/instant scrub rides an animation Parameter track, so the shadow study and a fly-through share the
@@ -758,22 +762,23 @@ public sealed record SunStudy(SolarSite Site, RgbSpectrum Radiance) {
 ## [04]-[BSDF_SHADING]
 
 - Owner: `SurfacePoint` the per-bounce oracle point carrying its parameterization and derived mip level; `OracleFrame` the tangent basis and its normal-map perturbation; `SurfaceAttributes` the resolved per-hit parameterization; `SurfaceAttribution` the composition-bound attribute resolver over the meshlet vertex streams; `SurfaceMaterial` the whole per-point appearance answer; `MaterialBinding` the composition-bound Materials query; `BsdfProjection` the one composition-bound projection into the Materials `ShadingFrame`/`Direction`/`Op` vocabulary; `BsdfShading` the `LayeredBsdf` consumption fold.
-- Law: ONE Materials query answers a hit. `MaterialBinding.Resolve` returns the layered BSDF, the tangent-space normal, the opacity, and the emission TOGETHER, because each of them is a channel of the same `TextureSet` sampled at the same UV and the same mip level; four closures sample the set four times and disagree on the level. The same law the Materials `EnvironmentSample` return shape holds, on the other side of the seam.
+- Law: ONE Materials query answers a hit. `MaterialBinding.Resolve` returns the layered BSDF, the tangent-space normal, the opacity, and the emission TOGETHER, because each of them is a channel of the same `TextureSet` sampled at the same UV and the same mip level; four closures sample the set four times and disagree on the level. Materials `EnvironmentSample` holds the same law in its return shape, on the other side of the seam.
 - Law: the binding closure is TOTAL, not railed. `SetBind` guarantees a partial set binds against its fallback row and `TextureUv.Port` folds every fault and non-finite texel to the channel neutral, so failure resolves at closure CONSTRUCTION, in the composition root, on the Materials `Fin` rail. Per-texel `Fin` at a quarter-billion samples prices a rail that can no longer fail, and the ref-threaded sampler frame carries no monadic bind at all.
-- Law: attribution is composition-bound and its degradation is DECLARED. `SurfaceAttribution.Resolve` reads the `Render/meshlets` `BindlessTable` `uv` channel for the hit primitive; where a cluster carries no vertex stream, `SurfaceAttributes.Proxy` derives the spherical parameterization of the bounding proxy and says so on its own `Proxied` column, so a downstream consumer distinguishes a real UV from a stand-in. The proxy's plane resolution is the resolver's own `ProxyTexels` column, threaded from the bound set's extent, so a degraded parameterization still derives its mip level against the planes the scene carries. Hardcoded `(0, 0)` is the deleted form — it maps every texel of every plane to one corner — and a hardcoded texel span is the same defect one axis over.
+- Law: attribution is composition-bound and its degradation is DECLARED. `SurfaceAttribution.Resolve` reads the `Render/meshlets` `BindlessTable` `uv` channel for the hit primitive; where a cluster carries no vertex stream, `SurfaceAttributes.Proxy` derives the spherical parameterization of the bounding proxy and says so on its own `Proxied` column, so a downstream consumer distinguishes a real UV from a stand-in. `SurfaceAttribution` carries the proxy's plane resolution on its own `ProxyTexels` column, threaded from the bound set's extent, so a degraded parameterization still derives its mip level against the planes the scene carries. Hardcoded `(0, 0)` is the deleted form — it maps every texel of every plane to one corner — and a hardcoded texel span is the same defect one axis over.
 - Entry: `public Fin<(RgbSpectrum Throughput, (double X, double Y, double Z) Wi, double Pdf)> Shade(SurfacePoint point, LayeredBsdf bsdf, (double X, double Y, double Z) wo, double uLobe, double u0, double u1)` — admits the oracle point and outgoing ray through `BsdfProjection`, invokes the exact six-argument Materials `LayeredBsdf.Sample` rail, transforms the returned local direction through `ShadingFrame.ToWorld`, and applies `|cos(theta)| / pdf` once at the integrator; `Evaluate` is its deterministic NEE counterpart and `Density` the balance-heuristic density both estimators weigh against.
 - Auto: the app-platform path tracer consumes the one `LayeredBsdf` the `SlabStack.ToLayered` produces (post-split `Rasm.Materials/Appearance/surface#OPENPBR_SLAB`) and the `SurfaceShade` the `MaterialGraph.Evaluate` sink assembles, so the integrator shades every material as a weighting of the closed seven-lobe set with zero per-material code — the OpenPBR slab stack lowers to one `LayeredBsdf` the integrator reads and never re-derives lobe math; a textured material lowers the SAME way, the composition root binding `SetBind.Bind(set, fallback, new BindTarget.Point(u, v, mip), key)` at the point the integrator hands it, so a baked plane changes the parameter row and nothing else; the per-bounce world ray drives through `ShadingFrame.ToWorld` and the MIS-balanced lobe sample (`LayeredBsdf.Sample`/`Evaluate`/`Pdf`); the position-free multi-scatter random walk admits as the high-fidelity path over the Kulla-Conty fast path so a rough multi-layer material renders energy-conserving; the `SPECTRAL_REFLECTANCE_GROUNDING` per-wavelength conductor curve admits as the high-fidelity conductor path so a metal renders its spectral tint.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Materials (project)
 - Growth: a new shading path (fast versus high-fidelity) is a `LayeredBsdf` policy the Materials owner carries, never a Render-side lobe; a new per-point appearance value is one `SurfaceMaterial` column the Materials binding fills from an existing `TextureChannel` row; zero new surface — the integrator adds no lobe math and no channel name.
-- Boundary: the integrator invokes `LayeredBsdf.Sample`/`Evaluate`/`Pdf` with the exact Materials `ShadingFrame`, `Direction`, `RgbSpectrum`, and `Op` types and never re-derives lobe math. `BsdfProjection` is the single composition-time boundary from the oracle tuples to those domain values; a Render-side BSDF, host-color throughput, invented method arity, or second conversion site is rejected. `LayeredBsdf.Sample` supplies frame-local direction, value, and balanced PDF, `ShadingFrame.ToWorld` supplies the continuation ray, and the integrator alone applies `|cos(theta)| / pdf`. `SurfaceShade`, `SlabStack.ToLayered`, `SetBind.Bind`, and `TextureUv.Sample` remain Materials-owned producers of everything `MaterialBinding` answers (`Render <- csharp:Rasm.Materials/Raster # [BOUNDARY]: TextureSet / SetBind at the surface point`); a Render-side texture sampler, mip reconstruction, transfer decode, or channel roster is the rejected form — this page supplies the point, the UV, and the mip level and reads the answer. The tangent-space normal arrives DECODED and signed from the Materials plane rail, so the perturbation here is one basis rotation and never a `2v−1` decode a second surface then double-applies.
+- Boundary: `PathTracePass` invokes `LayeredBsdf.Sample`/`Evaluate`/`Pdf` with the exact Materials `ShadingFrame`, `Direction`, `RgbSpectrum`, and `Op` types and never re-derives lobe math. `BsdfProjection` is the single composition-time boundary from the oracle tuples to those domain values; a Render-side BSDF, host-color throughput, invented method arity, or second conversion site is rejected. `LayeredBsdf.Sample` supplies frame-local direction, value, and balanced PDF, `ShadingFrame.ToWorld` supplies the continuation ray, and the integrator alone applies `|cos(theta)| / pdf`. `SurfaceShade`, `SlabStack.ToLayered`, `SetBind.Bind`, and `TextureUv.Sample` remain Materials-owned producers of everything `MaterialBinding` answers (`Render <- csharp:Rasm.Materials/Raster # [BOUNDARY]: TextureSet / SetBind at the surface point`); a Render-side texture sampler, mip reconstruction, transfer decode, or channel roster is the rejected form — this page supplies the point, the UV, and the mip level and reads the answer. Materials delivers the tangent-space normal DECODED and signed from its plane rail, so the perturbation here is one basis rotation and never a `2v−1` decode a second surface then double-applies.
 
 ```csharp signature
 public readonly record struct OracleFrame(
     (double X, double Y, double Z) Normal,
     (double X, double Y, double Z) Tangent,
     (double X, double Y, double Z) Bitangent) {
-    // A basis about an axis, its helper picked as the axis's own SMALLEST component so the cross never degenerates —
-    // an up-vector literal would collapse for a surface facing it, which is exactly the ground plane in a +Z-up scene.
+    // About builds a basis around an axis, its helper picked as the axis's own SMALLEST component so the cross never
+    // degenerates — an up-vector literal would collapse for a surface facing it, which is exactly the ground plane in
+    // a +Z-up scene.
     public static OracleFrame About(double nx, double ny, double nz) {
         (double hx, double hy, double hz) = Math.Abs(nx) <= Math.Abs(ny) && Math.Abs(nx) <= Math.Abs(nz)
             ? (1d, 0d, 0d)
@@ -795,8 +800,8 @@ public readonly record struct OracleFrame(
             },
         };
 
-    // The page's ONE unit and cross fold. The basis type owns them because every consumer on the oracle path — the
-    // camera basis, the spot aim, the IES aim, the proxy parameterization — is building or reading a frame.
+    // OracleFrame owns the ONE unit and cross fold, because every consumer on the oracle path — the camera basis, the
+    // spot aim, the IES aim, the proxy parameterization — is building or reading a frame.
     internal static (double X, double Y, double Z) Normalize(double x, double y, double z) {
         double length = Math.Max(Math.Sqrt((x * x) + (y * y) + (z * z)), 1e-12);
         return (x / length, y / length, z / length);
@@ -808,10 +813,10 @@ public readonly record struct OracleFrame(
         ((ay * bz) - (az * by), (az * bx) - (ax * bz), (ax * by) - (ay * bx));
 }
 
-// The resolved per-hit parameterization. Texels and UvScale are what turn a ray-cone width into a mip level: the
-// plane resolution the material samples at and the UV-per-world-unit density of this primitive's own unwrap. Proxied
-// records that the parameterization is the bounding-sphere stand-in rather than a decoded vertex stream, so a
-// consumer never mistakes a stand-in for a real unwrap.
+// SurfaceAttributes carries the resolved per-hit parameterization. Texels and UvScale turn a ray-cone width into a
+// mip level: the plane resolution the material samples at and the UV-per-world-unit density of this primitive's own
+// unwrap. Proxied records that the parameterization is the bounding-sphere stand-in rather than a decoded vertex
+// stream, so a consumer never mistakes a stand-in for a real unwrap.
 public readonly record struct SurfaceAttributes(
     OracleFrame Frame,
     (double U, double V) Uv,
@@ -819,7 +824,7 @@ public readonly record struct SurfaceAttributes(
     int Texels,
     double UvScale,
     bool Proxied) {
-    // The declared degradation. A cluster carrying no vertex stream parameterizes on its bounding proxy — the
+    // Proxy is the declared degradation. A cluster carrying no vertex stream parameterizes on its bounding proxy — the
     // spherical map of the hit direction from the proxy centre — so a texture lookup stays total and continuous
     // instead of collapsing to one corner. The mapping is the FROZEN equirect correspondence, so a proxied hit and
     // an environment lookup address the same way and no second spherical convention enters the estate. The plane
@@ -837,10 +842,10 @@ public readonly record struct SurfaceAttributes(
     }
 }
 
-// The composition-bound attribute resolver over the Render/meshlets bindless vertex streams. Absence is the typed
-// state the proxy fills, so At is TOTAL and the integrator never branches on a nullable attribute. ProxyTexels is the
-// extent the composition root reads off the bound TextureSet, so the degraded parameterization derives its mip level
-// against the planes the scene actually carries.
+// SurfaceAttribution resolves attributes over the Render/meshlets bindless vertex streams at composition. Absence is
+// typed state the proxy fills, so At is TOTAL and the integrator never branches on a nullable attribute. ProxyTexels
+// is the extent the composition root reads off the bound TextureSet, so the degraded parameterization derives its mip
+// level against the planes the scene actually carries.
 public sealed record SurfaceAttribution(
     Func<int, (double X, double Y, double Z), Option<SurfaceAttributes>> Resolve,
     Dimension ProxyTexels) {
@@ -857,9 +862,10 @@ public readonly record struct SurfaceMaterial(
     double Opacity,
     RgbSpectrum Emission);
 
-// The composition-bound Materials query. The root binds SetBind.Bind(set, fallback, BindTarget.Point(u, v, mip), key)
-// through SlabStack.ToLayered and hands the TOTAL closure here; construction is where the Fin rail lives, because
-// SetBind always binds against its fallback row and TextureUv.Port folds every fault to the channel neutral.
+// MaterialBinding carries the composition-bound Materials query. The root binds SetBind.Bind(set, fallback,
+// BindTarget.Point(u, v, mip), key) through SlabStack.ToLayered and hands the TOTAL closure here; construction is
+// where the Fin rail lives, because SetBind always binds against its fallback row and TextureUv.Port folds every
+// fault to the channel neutral.
 public sealed record MaterialBinding(Func<SurfacePoint, SurfaceMaterial> Resolve);
 
 public readonly record struct SurfacePoint(
@@ -888,7 +894,7 @@ public static class BsdfShading {
             let throughput = sample.Value.Scale(Math.Abs(sample.Direction.CosTheta) / sample.Pdf)
             select (throughput, (wi.Value.X, wi.Value.Y, wi.Value.Z), sample.Pdf);
 
-        // The NEE arm: evaluate the one LayeredBsdf toward a KNOWN light direction — the deterministic
+        // Evaluate serves the NEE arm: the one LayeredBsdf toward a KNOWN light direction — the deterministic
         // counterpart of Shade's sampled arm, same Materials seam, zero Render-side lobe math.
         public Fin<RgbSpectrum> Evaluate(
             SurfacePoint point,
@@ -899,9 +905,9 @@ public static class BsdfShading {
             from incoming in pass.Projection.DirectionOf(wi, boundary.Frame.Context, boundary.Key)
             select bsdf.Evaluate(boundary.Frame, boundary.Outgoing, incoming);
 
-        // The balance-heuristic density: what the BSDF estimator WOULD have charged for a direction the light
-        // estimator drew. A projection failure means the frame cannot carry the direction at all, which is a zero
-        // density rather than a fault — the weight then reads the light draw as the only estimator, which it is.
+        // Density reports what the BSDF estimator WOULD have charged for a direction that the light estimator
+        // drew. A projection failure means the frame cannot carry the direction at all, which is a zero density
+        // rather than a fault — the weight then reads the light draw as the only estimator, which it is.
         public double Density(
             SurfacePoint point,
             LayeredBsdf bsdf,
@@ -943,7 +949,7 @@ flowchart LR
 
 ## [05]-[ACCELERATION_BOUNDARY]
 
-- [VIEWPORT_GPU]: `Bvh`, `Reservoir`, `AccumulationTarget`, `RayCone`, `Denoiser`, and `BsdfProjection` form the deterministic CPU oracle. The `RenderPass.PathTrace` delegate admits acceleration only under the existing `GpuBinding` lease and preserves the same raw accumulation hash, guide planes, reset rule, and `FrameReceipt` evidence.
+- [VIEWPORT_GPU]: `Bvh`, `Reservoir`, `AccumulationTarget`, `RayCone`, `Denoiser`, and `BsdfProjection` form the deterministic CPU oracle. `RenderPass.PathTrace` admits acceleration only under the existing `GpuBinding` lease and preserves the same raw accumulation hash, guide planes, reset rule, and `FrameReceipt` evidence.
 - [BSDF_SEAM]: `LayeredBsdf.Sample(ShadingFrame, Direction, double, double, double, Op)` returns `Fin<LobeSample>`, `Evaluate(ShadingFrame, Direction, Direction)` returns `RgbSpectrum`, `Pdf(ShadingFrame, Direction, Direction)` returns the balance-heuristic density, and `ShadingFrame.ToWorld(LocalVector, Op)` returns the world `Direction`. `BsdfProjection` binds oracle tuples into those exact types once; `SlabStack.ToLayered` and `MaterialGraph.Evaluate` remain the upstream producers.
 - [APPEARANCE_SEAM]: `MaterialBinding.Resolve` is the composition root's total closure over `SetBind.Bind(TextureSet, MaterialParameters, BindTarget.Point(UnitInterval, UnitInterval, double), Op)` and `SlabStack.ToLayered(Op)`; `EnvironmentLight.Radiance(LocalVector)`, `.Sample(UnitInterval, UnitInterval) -> EnvironmentSample`, and `.Pdf(LocalVector)` answer the dome. Every plane read, transfer decode, mip reconstruction, and equirect projection stays on the Materials side of both edges.
 

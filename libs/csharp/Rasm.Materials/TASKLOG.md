@@ -61,7 +61,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Arms: arm when the `python:data` peer declares the record schema and transport its Assessment wire carries.
 
 [SHADESPAN_RESEARCH_CLOSE]-[QUEUED]: Close the press page's batched-evaluator research row against the landed signature and delete the debt.
-- Capability: the press band kernel binds a signature its owner actually declares, so the one open question between the bake fold and the graph evaluator resolves into fence law rather than staying an assumption two pages hold separately.
+- Capability: the press band kernel binds the signature its owner declares, so the one open question between the bake fold and the graph evaluator resolves into fence law rather than staying an assumption two pages hold separately.
 - Shape: the `[SHADESPAN_SIGNATURE]` research row and its two call sites in `libs/csharp/Rasm.Materials/.planning/Raster/press.md`.
 - Unlocks: `IDEAS.md [MESH_SPACE_BAKE]` — a widened bake subject inherits a settled band kernel rather than an open one.
 - Anchors: `graph#MATERIAL_GRAPH` `CompiledGraph.ShadeSpan(ReadOnlySpan<ShadePoint>, MaterialParameters, Span<PortValue>, Span<SurfaceShade>, Op)` with `ScratchWidth` and `OperandWidth` the two `Compile`-resolved rentals; the compile-time ANSWERABILITY proof — dangling and non-producing dependencies both — that makes the slot read total, and the per-point `Shade` re-entering this same rail over a one-element window so the press binds the only evaluation shape there is.
@@ -94,7 +94,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [PEER_TEXTURE_SET_DECODE]-[BLOCKED]: Land the peer decode ends for the baked set document.
 - Capability: the TypeScript and Python peers decode the baked set the way they already decode the material vector — structurally, against the producer's own field order — so a texture consumer in either runtime reads channels, payload classes, and blob addresses without re-deriving an egress grammar.
 - Shape: the census and landing rows in `libs/typescript/core/.planning/interchange/codec.md` and the protocol vocabulary row in `libs/python/artifacts` runtime transport.
-- Unlocks: `IDEAS.md [ATLAS_PACKER]` — a shared-plane atlas is legible to the viewer that would render it.
+- Unlocks: `IDEAS.md [ATLAS_PACKER]` — a shared-plane atlas is legible to the viewer that renders it.
 - Anchors: the document's field order and every enum column's key spelling are frozen on the producer page; the asset address join is `assets/<digest>/<file>` with the digest the LOWERED set key.
 - Arms: arm when the corpus entries land, since a landing row without an entry is a contract a census cannot check.
 - Ripple: follows `[TEXTURE_WIRE_CORPUS_ENTRIES]`; each peer branch owns its own end.

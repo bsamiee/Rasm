@@ -88,7 +88,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Tension: a mesh-space bake makes the press a consumer of tessellated geometry, which the host-neutral boundary currently keeps entirely out of this folder — the subject must carry an already-flattened chart set as DATA rather than a host mesh, or the boundary moves.
 
 [TEXTILE_LEARNED_SCORER]-[BLOCKED]: Tileability grading gains a learned second opinion beside the deterministic spectral score.
-- Capability: the tile gate's verdict widens from one frequency-domain periodicity measure to a pair — the deterministic score and a learned perceptual one — so a field that is spectrally periodic yet visually repetitive, or spectrally imperfect yet visually seamless, is graded on the axis a viewer actually reads.
+- Capability: the tile gate's verdict widens from one frequency-domain periodicity measure to a pair — the deterministic score and a learned perceptual one — so a field that is spectrally periodic yet visually repetitive, or spectrally imperfect yet visually continuous, is graded on the axis a viewer reads.
 - Shape: one optional scorer row on the tile gate carrying its model card, its verdict column joining the existing proof; lands in `libs/csharp/Rasm.Materials/.planning/Raster/tile.md` with its registry row in `libs/csharp/Rasm.Materials/.planning/Appearance/neural.md`.
 - Unlocks: a tileability proof a human reviewer agrees with; the quality gate the ingest path needs before a third-party set is admitted as tileable.
 - Anchors: the model registry already carries licence class, tensor contract, provider ladder, and residual ceiling as columns, so a scorer is a `ModelCard` row rather than a new inference surface; `TileProof` already carries the score it measured, so a second column is a widening rather than a fork.
@@ -103,15 +103,15 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Arms: arm when a service contract with usable output licensing exists, or when a local generator whose output survives the tile coherence gate ships weights.
 - Tension: a generated set's licence follows the SERVICE terms rather than a model card, so the receipt's grant column stops being derivable from the registry and must carry the response's own declaration.
 
-[UDIM_STREAMING]-[QUEUED]: A UDIM set resolves tile by tile, so a hundred-tile film asset loads the tiles a view needs instead of the whole grid.
+[UDIM_STREAMING]-[QUEUED]: UDIM sets resolve tile by tile, so a hundred-tile film asset loads the tiles a view needs instead of the whole grid.
 - Capability: set admission and binding widen from whole-grid residency to per-tile residency, so extent, memory, and decode cost scale with what is VISIBLE rather than with what exists — the difference between a production asset that opens and one that exhausts the arena on admission.
 - Shape: a residency policy column on the set and a per-tile resolution on the bind fold; lands in `libs/csharp/Rasm.Materials/.planning/Raster/set.md` and `libs/csharp/Rasm.Materials/.planning/Raster/plane.md`.
 - Unlocks: film and vfx asset scale for the ingest path; the tiled and chunked-window growth leg the plane arena already declares.
 - Anchors: `UdimTile` already carries the Mari grammar and derives its grid coordinate; the plane arena declares its tiled window growth leg; the set content key already folds channel-ordered digests, so a per-tile digest is a preimage widening rather than a key redesign.
 - Tension: per-tile residency makes the set key a function of what is RESIDENT unless the key stays over the full declared grid — the key must remain whole-set or two views of one asset address different blobs.
 
-[ATLAS_PACKER]-[QUEUED]: The estate packs its own atlases, so N materials sharing one sheet is a produced artefact rather than an ingested convention.
-- Capability: an atlas becomes a first-class product — a packing over N sets producing one plane per channel plus the per-set UV transforms — while remaining a PLANE-level sharing fact, so each participating set keeps its own key and its own appearance identity and a texture edit re-keys exactly the sets that read it.
+[ATLAS_PACKER]-[QUEUED]: `Raster/set` packs its own atlases, so N materials sharing one sheet is a produced artefact rather than an ingested convention.
+- Capability: an atlas becomes a first-class product — a packing over N sets producing one plane per channel and the per-set UV transforms — while remaining a PLANE-level sharing fact, so each participating set keeps its own key and its own appearance identity and a texture edit re-keys exactly the sets that read it.
 - Shape: a packing fold producing the shared planes and the per-set transform rows, beside the set owner; lands in `libs/csharp/Rasm.Materials/.planning/Raster/set.md`.
 - Unlocks: draw-call reduction for the generated assemblies; the atlas half of the sharing law the set owner already states as a boundary.
 - Anchors: the atlas boundary is already ruled — N sets referencing one blob by content address, never a set-level merge behind one appearance key — so the packer produces exactly that shape; the kernel `Processing/flatten` chart packing is the same bin-packing problem already solved once in the estate.

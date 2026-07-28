@@ -24,7 +24,7 @@ Component rows feed generated assemblies and fabrication physics, capacity recei
 - [13]-[BSDF](.planning/Appearance/bsdf.md): Closed BSDF lobe family and the microfacet kernel.
 - [14]-[GRAPH](.planning/Appearance/graph.md): Material node-DAG program, its batched plane evaluator, and the material-library table.
 - [15]-[SURFACE](.planning/Appearance/surface.md): OpenPBR color-science lowering and the layered slab stack.
-- [16]-[TEXTURE](.planning/Appearance/texture.md): Texture-sampling fold over the closed texture-source union and its seamless lattice period.
+- [16]-[TEXTURE](.planning/Appearance/texture.md): Texture-sampling fold over the closed texture-source union and its wrap-exact lattice period.
 - [17]-[PHOTOMETRIC](.planning/Appearance/photometric.md): Light-unit admission fold and the in-folder UnitsNet boundary.
 - [18]-[WEATHERING](.planning/Appearance/weathering.md): Aging fold over the closed weathering-effect union.
 - [19]-[ACQUISITION](.planning/Appearance/acquisition.md): Capture-import fold over the closed capture-source union and the acquired plane set.

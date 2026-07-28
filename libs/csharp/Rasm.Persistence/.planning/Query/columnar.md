@@ -1466,12 +1466,12 @@ public static class AnalyticsSeam {
     static Fin<AnalyticsSchema> Spined(
         string dataset, TimeSpine spine, Seq<ColumnRow> rows, Seq<Identifier> keys,
         Option<Identifier> at, Option<Identifier> measure) {
-        // The custodian's own tenant column drops out of BOTH producer rosters exactly here, because a
-        // producer naming `tenant` describes the key this seam already stamps: every downstream derivation —
-        // the DDL column list, the sort key, the rollup grouping, the columnstore segment list, and the COPY
-        // roster — then reads one roster carrying it once, where a per-site filter leaves whichever site
-        // nobody remembered emitting a second column at a second physical type or a duplicate `orderby`
-        // entry the storage parameter rejects outright.
+        // This seam drops the custodian's own tenant column from BOTH producer rosters exactly here, because a
+        // producer naming `tenant` describes the key the seam already stamps: every downstream derivation — DDL
+        // column list, sort key, rollup grouping, columnstore segment list, and COPY roster — then reads one
+        // roster carrying it once, where a per-site filter leaves whichever site nobody remembered emitting a
+        // second column at a second physical type or a duplicate `orderby` entry the storage parameter rejects
+        // outright.
         Seq<ColumnRow> supplied = rows.Filter(static column => column.Name != Residence.TenantColumn);
         Seq<Identifier> key = keys.Filter(static name => name != Residence.TenantColumn);
         return at.Match(
@@ -2046,8 +2046,8 @@ public static class ResidenceRead {
     // statement and one row shape rather than a second transport ladder per residence.
     public static IO<Fin<ResidenceResult<ResidenceHealth>>> Health(ResidenceReach reach, Residence residence, AnalyticsSchema schema) {
         string probe = residence.Horizon(schema);
-        // An empty relation answers absence at both ends and reads its extent columns not at all, so the
-        // count gates the pair rather than two readers refusing on the very row that legitimately carries none.
+        // Row count gates the extent pair, because an empty relation answers absence at both ends and reads its
+        // extent columns not at all — two readers instead refuse on the very row that legitimately carries none.
         Fin<ResidenceHealth> Shape(ResidenceRow row) =>
             row.Whole(residence, 2).Bind(rows => rows == 0
                 ? Fin.Succ(new ResidenceHealth(residence.Key, (string)schema.Table, None, None, rows))
@@ -2144,8 +2144,8 @@ public static class ResidenceRead {
 
     // One drain every ADO-shaped reach shares; the row wrapper is what lets the Arrow leg reuse the caller's
     // one shape without a second delegate or a fabricated reader.
-    // The drain aborts on the FIRST refusing row and returns that fault, so a corrupt column stops the read
-    // where it happened rather than yielding a partially fabricated result set the caller cannot tell apart.
+    // `Drain` aborts on the FIRST refusing row and returns that fault, so a corrupt column stops the read where
+    // it happened rather than yielding a partially fabricated result set the caller cannot tell apart.
     static async ValueTask<Fin<Seq<T>>> Drain<T>(System.Data.Common.DbDataReader reader, Func<ResidenceRow, Fin<T>> shape) {
         List<T> rows = [];
         ResidenceRow row = new ResidenceRow.Ado(reader);
@@ -2210,10 +2210,10 @@ public static class ResidenceLanding {
                     (Seq(Residence.TenantColumn) + proved.Bound.Map(static entry => entry.Column.Name)
                         + proved.Landed.Map(static stamp => stamp.Name).ToSeq()).Map(Residence.Series.Quote));
                 await using NpgsqlConnection lane = await store.OpenConnectionAsync().ConfigureAwait(false);
-                // The importer's disposal is SCOPED, so every outcome — commit, typed refusal, cancellation,
-                // or a conversion the gate could not foresee — releases the copy exactly once and an
-                // uncompleted importer discards its staged rows on the way out; a per-branch dispose repeats
-                // the release on the paths it remembers and leaks the copy open on the ones it does not.
+                // Scoped disposal releases the copy exactly once on every outcome — commit, typed refusal,
+                // cancellation, or a conversion the gate could not foresee — and an uncompleted importer
+                // discards its staged rows on the way out; a per-branch dispose repeats that release on the
+                // paths it remembers and leaks the copy open on the ones it does not.
                 await using NpgsqlBinaryImporter importer = await lane.BeginBinaryImportAsync(
                     $"COPY {Residence.Series.Quote(schema.Table)} ({columns}) FROM STDIN (FORMAT BINARY)").ConfigureAwait(false);
                 try {
@@ -2242,9 +2242,9 @@ public static class ResidenceLanding {
                     // batch landed; a second clock read here dates the receipt after the rows it accounts for.
                     return Fin<ResidenceIngestReceipt>.Succ(new ResidenceIngestReceipt(schema.Dataset, (long)staged, landedAt, frame.Correlation));
                 }
-                // The catch names the driver base and its own conversion refusal: a SQLSTATE, a socket drop
-                // mid-copy, and a value the wire type cannot spell are one ingest refusal, and each renders
-                // through the row's own `Diagnose` without a cast. Cancellation stays a rail fact and
+                // One catch filter spans the driver base and this seam's own conversion refusal: a SQLSTATE, a
+                // socket drop mid-copy, and a value the wire type cannot spell are one ingest refusal, each
+                // rendering through the row's own `Diagnose` without a cast. Cancellation stays a rail fact and
                 // propagates — a cooperative cancel converted to a fault reads as a failed landing.
                 catch (Exception wire) when (wire is NpgsqlException or InvalidCastException) {
                     return Fin<ResidenceIngestReceipt>.Fail(Residence.Series.IngestRefused(wire));
@@ -2510,9 +2510,9 @@ public static class WarehouseSchema {
     public static string Columns => string.Join(", ", Dataset.Columns.Map(static column => (string)column.Name));
 
     // Ordinals read off the declaration above, so a column insert moves the reader and the DDL together and the
-    // shape binds through the one row surface every reach yields. Every column declares `Nullable: false`, so
-    // the seven reads compose as one applicative product and a residence answering an empty cell refuses
-    // naming it rather than handing the fleet leg a row wearing a fabricated value.
+    // shape binds through the one row surface every reach yields. Every column declares `Nullable: false`, so the
+    // seven reads compose as one applicative product and a residence answering an empty cell refuses naming it
+    // rather than handing the fleet leg a row wearing a fabricated value.
     public static Fin<WarehouseOpRow> Shape(Residence residence, ResidenceRow row) =>
         (row.Text(residence, 0), row.Text(residence, 1), row.Text(residence, 2), row.At(residence, 3),
             row.Text(residence, 4), row.Whole(residence, 5), row.Text(residence, 6))

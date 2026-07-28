@@ -198,7 +198,7 @@ Every graph interface named in a signature is `<TVertex, TEdge>`-parameterized a
 |  [03]   | `ReversedEdgeAugmentorAlgorithm.RemoveReversedEdges()`                                        | instance | retire the auxiliaries    |
 |  [04]   | `ReversedEdgeAugmentorAlgorithm.ReversedEdges -> IDictionary<TEdge, TEdge>`                   | instance | forward-to-reverse map    |
 |  [05]   | `ReversedEdgeAugmentorAlgorithm.Augmented -> bool`                                            | instance | augmentation state        |
-|  [06]   | `EdmondsKarpMaximumFlowAlgorithm(graph, Func<TEdge, double>, EdgeFactory, ReversedEdgeAugmentorAlgorithm)` | ctor | augmenting solver |
+|  [06]   | `EdmondsKarpMaximumFlowAlgorithm(graph, Func<TEdge, double>, …)`                              | ctor     | augmenting solver         |
 |  [07]   | `MaximumFlowAlgorithm.Compute(TVertex, TVertex)`                                              | instance | run source to sink        |
 |  [08]   | `MaximumFlowAlgorithm.MaxFlow -> double`                                                      | instance | the flow value            |
 |  [09]   | `MaximumFlowAlgorithm.ResidualCapacities -> Dictionary<TEdge, double>`                        | instance | residual state per edge   |
@@ -209,7 +209,7 @@ Every graph interface named in a signature is `<TVertex, TEdge>`-parameterized a
 - `EdmondsKarpMaximumFlowAlgorithm` throws `ArgumentException` when the augmentor targets a different graph instance, so both take the SAME container reference.
 - `ResidualCapacities` derives the MINIMUM CUT from published state: a breadth-first walk from the source over out-edges holding positive residual capacity yields the source side, while `VerticesColors` reports only the last traversal's own colouring.
 - `ReversedEdgeAugmentorAlgorithm` mints one reverse per edge, so a graph whose domain already carries both directions constructs with `allowParallelEdges: true`; `false` silently drops half the residual capacity and the solve cuts the wrong edges.
-- `Edge<TVertex>` declares `Source`, `Target`, and `ToString` alone, so its identity is its INSTANCE — a capacity or weight map keyed by it under `ReferenceEqualityComparer` distinguishes an augmentor-minted reverse from the arc it duplicates. `SEdge<TVertex>` and `EquatableEdge<TVertex>` carry value identity, so the same map collapses those two onto one entry and hands the solver twice the residual capacity it should have.
+- `Edge<TVertex>` declares `Source`, `Target`, and `ToString` alone, so its identity is its INSTANCE — a capacity or weight map keyed by it under `ReferenceEqualityComparer` distinguishes an augmentor-minted reverse from the arc it duplicates. `SEdge<TVertex>` and `EquatableEdge<TVertex>` carry value identity, so the same map collapses those two onto one entry and hands the solver twice the residual capacity the arc carries.
 
 [ENTRYPOINT_SCOPE]: `GraphExtensions` container projection — every conversion mints a new container over the source's vertices and edges
 

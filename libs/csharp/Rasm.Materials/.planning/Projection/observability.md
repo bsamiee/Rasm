@@ -20,7 +20,7 @@ Settled composition draws every mechanism from the kernel signal capsule — hoo
 - Auto: elapsed columns derive from one injected clock at the decorator boundary.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
 - Growth: a new evidence shape is one `MaterialsFact` case, one point row at `[03]`, and one projection arm at `[04]`.
-- Boundary: facts carry receipts the owning pages already mint — `CapacityReceipt`, `Provenance`, `WireProvenance`, `ComputedSection`, `PressReceipt`, `StageResult` — and never re-derive their scalars, so a bake's texel census, backend, and elapsed millisecond come off the press's own receipt and an inference's provider, partition count, and golden residual off the executor's own result rather than off a second measurement this tap would have to keep honest. The two facts with NO owning receipt — a container encode and a dome prefilter — carry the four columns their arms actually read and nothing more.
+- Boundary: facts carry receipts the owning pages already mint — `CapacityReceipt`, `Provenance`, `WireProvenance`, `ComputedSection`, `PressReceipt`, `StageResult` — and never re-derive their scalars, so a bake's texel census, backend, and elapsed millisecond come off the press's own receipt and an inference's provider, partition count, and golden residual off the executor's own result rather than off a second measurement this tap keeps honest. `PlaneCodec` and `EnvironmentPrefilter` own no receipt, so each carries the four columns its arm reads and nothing more.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -52,11 +52,11 @@ public abstract partial record MaterialsFact {
     public sealed record WireMint(Op Key, MaterialId Material, WireProvenance Receipt) : MaterialsFact;
     public sealed record ProjectionGate(GraphDelta Delta) : MaterialsFact;
 
-    // The texture-generation half. Each case lifts the receipt its owner already minted rather than re-measuring:
-    // PressReceipt carries backend, texels, elapsed, and the CPU-versus-GPU divergence, and StageResult carries the
-    // provider actually used, the graph partition count, the golden residual, and the tiles inferred — so this
-    // family adds evidence SHAPES and no arithmetic. Encoded is the binary direction axis the [04] arm publishes as
-    // its own two dimension values, the same shape the adequacy verdict already takes.
+    // Texture-generation facts lift the receipt each owner already minted rather than re-measuring: PressReceipt carries
+    // backend, texels, elapsed, and the CPU-versus-GPU divergence, and StageResult carries the provider used, the graph
+    // partition count, the golden residual, and the tiles inferred — so this family adds evidence SHAPES and no
+    // arithmetic. Encoded is the binary direction axis the [04] arm publishes as its own two dimension values, the same
+    // shape the adequacy verdict already takes.
     public sealed record TexturePress(Op Key, Option<MaterialId> Material, PressReceipt Receipt) : MaterialsFact;
     public sealed record PlaneCodec(Op Key, RasterFormat Format, bool Encoded, long Bytes, Duration Elapsed) : MaterialsFact;
     public sealed record StageInfer(Op Key, StageRequest Request, StageResult Result, LicenseClass License) : MaterialsFact;
@@ -67,7 +67,7 @@ public abstract partial record MaterialsFact {
 ## [03]-[HOOK_RAIL]
 
 - Owner: `MaterialsPoint` the `[SmartEnum<string>]` point vocabulary keyed `rasm.materials.<domain>.<point>` with the kernel `HookModality` column; `MaterialsHooks` the per-composition point roster composing the kernel capsule — one `HookPoint<TFact>` field per row, one shared `IsolatedFault` evidence cell, no process-global registry, since Materials holds no plugin-identity grant custody; every declared point carries a projection arm at `[04]`, so a point firing into nothing has no landing.
-- Cases: point roster rows — `rasm.materials.catalogue.admit` veto (`CatalogueAdmit`), `rasm.materials.section.solve` observe (`SectionSolve`), `rasm.materials.capacity.check` observe (`CapacityCheck`), `rasm.materials.graph.compile` observe (`GraphCompile`), `rasm.materials.acquisition.fit` replay (`AcquisitionFit`), `rasm.materials.wire.mint` observe (`WireMint`), `rasm.materials.projection.project` veto (`ProjectionGate`), `rasm.materials.texture.press` observe (`TexturePress`), `rasm.materials.texture.codec` observe (`PlaneCodec`), `rasm.materials.neural.infer` replay (`StageInfer`), `rasm.materials.environment.prefilter` observe (`EnvironmentPrefilter`). The inference point is REPLAY for the reason the capture fit is: both settle a costly external computation whose evidence a later run wants to re-read rather than re-earn.
+- Cases: point roster rows — `rasm.materials.catalogue.admit` veto (`CatalogueAdmit`), `rasm.materials.section.solve` observe (`SectionSolve`), `rasm.materials.capacity.check` observe (`CapacityCheck`), `rasm.materials.graph.compile` observe (`GraphCompile`), `rasm.materials.acquisition.fit` replay (`AcquisitionFit`), `rasm.materials.wire.mint` observe (`WireMint`), `rasm.materials.projection.project` veto (`ProjectionGate`), `rasm.materials.texture.press` observe (`TexturePress`), `rasm.materials.texture.codec` observe (`PlaneCodec`), `rasm.materials.neural.infer` replay (`StageInfer`), `rasm.materials.environment.prefilter` observe (`EnvironmentPrefilter`). `rasm.materials.neural.infer` takes REPLAY for the reason `rasm.materials.acquisition.fit` does: both settle a costly external computation whose evidence a later run re-reads rather than re-earns.
 - Entry: `MaterialsHooks.Live()` mints the roster once at composition by seating one kernel point per `MaterialsPoint` row; a decorator fires its declared point value, so a name-resolved lookup surface never exists; `Points` hands the point set to `HookRegistry.Mount` at the app root; the capsule's `Veto`/`Observe`/`Drain` are the subscriber entries.
 - Packages: Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new point is one `MaterialsPoint` row, one `MaterialsHooks` field with its `Live()` seat and `Points` entry, and one `MaterialsFact` case; delivery semantics are the kernel modality rows.
@@ -247,12 +247,12 @@ public static class MaterialsInstruments {
         InstrumentSpec.Advised(AcquisitionResidual, "1", "acquisition fit RMS residual by capture method", MeasureForm.Real, Buckets.ResidualDecades, TenantContext.TenantSlot, MethodSlot),
         InstrumentSpec.Count(WireMints, "{wire}", "appearance wire mints by capture method", MeasureForm.Whole, TenantContext.TenantSlot, MethodSlot),
         InstrumentSpec.Count(ProjectionAdmits, "{delta}", "graph deltas the projection veto admitted", MeasureForm.Whole, TenantContext.TenantSlot),
-        // The texture plane. Throughput rides MONOTONE COUNTERS in UCUM units — `{texel}` shaded and `By` stored —
-        // rather than histograms, because a bake's magnitude spans four orders between a 256 preview and a 16k
-        // production plane and a bucket ladder over that range grades nothing; the rate a board reads is the
-        // counter's own derivative, and the per-run DURATION beside it carries the distribution that does grade.
-        // Every texture row leads on the tenant slot: a bake, an encode, an inference, and a prefilter are all
-        // per-project work a multi-tenant host runs for one tenant at a time.
+        // Texture-plane throughput rides MONOTONE COUNTERS in UCUM units — `{texel}` shaded and `By` stored — rather than
+        // histograms, because a bake's magnitude spans four orders between a 256 preview and a 16k production plane and a
+        // bucket ladder over that range grades nothing; the rate a board reads is the counter's own derivative, and the
+        // per-run DURATION beside it carries the distribution that does grade. Every texture row leads on the tenant
+        // slot: a bake, an encode, an inference, and a prefilter are all per-project work a multi-tenant host runs for
+        // one tenant at a time.
         InstrumentSpec.Count(PressRuns, "{press}", "texture presses settled by backend", MeasureForm.Whole, TenantContext.TenantSlot, BackendSlot),
         InstrumentSpec.Count(PressTexels, "{texel}", "texels shaded across every channel and mip level, by backend", MeasureForm.Whole, TenantContext.TenantSlot, BackendSlot),
         InstrumentSpec.Advised(PressDuration, "s", "texture press wall duration by backend", MeasureForm.Real, Buckets.CompileSeconds, TenantContext.TenantSlot, BackendSlot),
@@ -398,8 +398,8 @@ public static class MaterialsInstruments {
                     .Bind(_ => set.Write(InferPartitions, (long)fact.Result.PartitionCount, lane))
                     .Bind(_ => set.Write(InferGolden, fact.Result.GoldenDelta, lane));
             }),
-            // An INGESTED dome carries no sky model, so its series keys on the empty string the environment row
-            // itself publishes rather than on a synthesized "none" this arm would have to keep aligned.
+            // INGESTED domes carry no sky model, so the series keys on the empty string the environment row itself
+            // publishes rather than on a synthesized "none" this arm keeps aligned.
             hooks.EnvironmentPrefilter.Observe(fact => {
                 KeyValuePair<string, object?>[] sky = InstrumentSet.Tags(TenantContext.Current, (SkySlot, fact.SkyModel));
                 return set.Write(PrefilterRuns, 1L, sky)
@@ -557,19 +557,19 @@ public static class MaterialsDescriptors {
                 sli: new Sli.Latency(Metric: MaterialsInstruments.GraphDuration, Ceiling: Duration.FromSeconds(2), Quantile: 0.95d),
                 target: 0.99d,
                 window: default),
-            // A press is BUILD work, so its ceiling is generous and its target modest — a bake breaching a minute at
-            // the tail is a capacity signal, not an outage, and an aggressive objective here would burn budget on
-            // the 16k plane the estate deliberately admits.
+            // Presses do BUILD work, so this ceiling stays generous and its target modest — a bake breaching a minute at the
+            // tail is a capacity signal rather than an outage, and an aggressive objective here burns budget on the 16k
+            // plane the estate deliberately admits.
             Objective.Create(
                 name: "materials.texture.press.latency",
                 sli: new Sli.Latency(Metric: MaterialsInstruments.PressDuration, Ceiling: Duration.FromSeconds(60), Quantile: 0.95d),
                 target: 0.95d,
                 window: default),
-            // The inference objective grades PROVIDER FIDELITY, not latency and not the residual: an admitted
-            // result already cleared its card's residual ceiling at the ingestion gate, so a residual objective
-            // would grade a population that cannot fail, while a fleet silently degrading every accelerator
-            // request to the CPU floor passes every latency target and is exactly the regression worth alerting on.
-            // The share partitions the ONE mounted inference population on the verdict dimension its arm stamps.
+            // materials.neural.provider grades PROVIDER FIDELITY, never latency and never the residual: an admitted result
+            // already cleared its card's residual ceiling at the ingestion gate, so a residual objective grades a
+            // population that cannot fail, while a fleet silently degrading every accelerator request to the CPU floor
+            // passes every latency target and is exactly the regression worth alerting on. Sli.Partition splits the ONE
+            // mounted inference population on the verdict dimension its arm stamps.
             Objective.Create(
                 name: "materials.neural.provider",
                 sli: new Sli.Partition(

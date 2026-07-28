@@ -55,7 +55,7 @@ VividOrange grounds the structural section, capacity, and rebar data in-folder, 
 
 ## [02]-[STRATA]
 
-Four strata order the five sub-domains. `Appearance` SPANS two of them: its core is a peer of `Component`, while its frontier — the environment, neural, acquisition, and interchange owners — composes `Raster` products and therefore sits above the plane estate that reads the core. The split is the folder's own dependency truth rather than a folder boundary: `Appearance/neural` already reads `TextureChannel`, `Appearance/environment` reads `TexturePlane`, `Appearance/acquisition` binds an admitted `TextureSet`, and `Appearance/interchange` projects one to a wire — a flat `Appearance` stratum would make each of those an upward edge the strata forbid.
+Four strata order the five sub-domains. `Appearance` SPANS two of them: its core is a peer of `Component`, while its frontier — the environment, neural, acquisition, and interchange owners — composes `Raster` products and therefore sits above the plane estate that reads the core. That split follows the folder's own dependency truth rather than a folder boundary: `Appearance/neural` already reads `TextureChannel`, `Appearance/environment` reads `TexturePlane`, `Appearance/acquisition` binds an admitted `TextureSet`, and `Appearance/interchange` projects one to a wire — a flat `Appearance` stratum makes each of those an upward edge the strata forbid.
 
 - S0 `Component` — `ComponentFamily`, `ComponentClass`, `QuantityRow`, and the `SectionCapacity` rail, consuming no sibling.
 - S0 `Appearance` core — `MaterialGraph`, `MaterialLibrary`, `BsdfLobe`, `OpenPbrSurface`, and `TextureUv`, consuming no sibling.
@@ -206,7 +206,7 @@ flowchart LR
 Boundaries state one positive ownership line each at the folder's own grain — one owner per axis, one entrypoint family per rail, growth by data; per-page boundary cards carry the concrete seams.
 
 - Materials owns substance, appearance, and buildable type: one `Component` over the closed profile algebra, one capacity rail, one `MaterialGraph`, one `TextureSet`.
-- The appearance CORE is pointwise and the plane algebra is neighbourhood: a DAG node has no neighbours to read, so every filter, integration, and tiling kernel is `Raster/filter`'s or `Raster/tile`'s and never a node case.
+- Appearance CORE stays pointwise and the plane algebra neighbourhood: a DAG node has no neighbours to read, so every filter, integration, and tiling kernel is `Raster/filter`'s or `Raster/tile`'s and never a node case.
 - Persisted plane bytes are CPU-minted; the GPU lane is an accelerator whose product carries no set and therefore no content key.
 - `ComponentFamily` closes the family axis and `ComponentClass` the structural-class axis, each family row carrying its class discriminant.
 - `SEED_ROW_LAW` seats standards data as in-fence C# under per-column provenance, and every seed row flows the one catalogue-to-solver rail.

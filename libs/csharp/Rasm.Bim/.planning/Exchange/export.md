@@ -8,10 +8,10 @@ Settled vocabulary arrives from the seam `Graph/element#ELEMENT_GRAPH` `ElementG
 
 - [02]-[EXPORT_RAIL]: artifact emit — the `ExportPayload` `Soup`/`Scene` union through one TOTAL `InterchangeCodec.Switch` (GLB with Draco/meshopt encode, the per-element `GlbScene` author + `EXT_mesh_gpu_instancing`, the `dotbim` instancing wire, AssimpNetter FBX/Collada, `UsdStage`); the `GltfChannel` canonical-channel binding roster, the `MaterialFinish`/`ChannelImage` pooled material identity authoring the seam appearance summary as linear glTF factors and binding every texture map onto one `MaterialBuilder` with its obliged `KhrExtension` rows registered from the payload itself; the IFC STEP/XML/JSON leg DELEGATING to the seam `Projection/egress#IFC_EGRESS` `SemanticProjector.Emit`, this rail owning only the `ExportArtifact` seal + the `InterchangeFormat.Serialization` column read.
 - [03]-[TILE_METADATA]: per-tile `EXT_structural_metadata` schema/class/property-table over the seam `Graph/element#ELEMENT_GRAPH` `Element` semantic (the baked element, not a stored record), bound through `EXT_mesh_features` over the `Staged`-authored per-vertex `_FEATURE_ID_0` row stamps the `GlbScene.Rows` index names.
-- [04]-[BIM_LOD]: the per-element LOD pyramid through `Meshopt.Simplify`/`SimplifySloppy`, the `Meshopt.BuildMeshlets` meshlet residency band, and the per-LOD content key the `Rasm.Compute/Runtime/codecs#TILE_PARTITION` pyramid addresses.
-- [05]-[SCHEDULE_ANIMATION]: the `AnimateSchedule` arm baking the `Planning/schedule#SCHEDULE` `ScheduleNetwork` construction sequence into per-element glTF visibility/scale keyframe tracks through `ModelRoot.CreateAnimation` and the `KHR_node_visibility` channel over the `Author`-minted `GlbScene` `GlobalId`→`Node` index, so a 4D schedule exports as one animated GLB a web viewer scrubs.
-- [06]-[ROUNDTRIP]: the `RoundTrip` lossless-verification matrix folding an `ElementGraph` emit→`BimIo.ImportIfc` schema-sniffed re-decode→`Project`→`Assemble` cycle across the IFC STEP/ifcXML/ifcJSON serializations, witnessing per-element fidelity by the seam content key joined on the 1:1 `ExternalId` and naming the divergent members through the `Generator.Equals` structured diff.
-- [07]-[TILE_AVAILABILITY]: the `TileAvailability` 3D-Tiles 1.1 implicit-tiling `.subtree` availability-bitstream author over the `subtree` `SubtreeCreator`/`SubtreeCreator3D`/`Tile`/`Tile3D`/`MortonIndex` surface — the tileset-side complement the `SharpGLTF.Ext.3DTiles` per-tile content leg cannot reach, retiring the hand-rolled implicit-tiling bitstream.
+- [04]-[BIM_LOD]: `Meshopt.Simplify`/`SimplifySloppy` build the per-element LOD pyramid, `Meshopt.BuildMeshlets` bands meshlet residency, and each LOD carries the content key the `Rasm.Compute/Runtime/codecs#TILE_PARTITION` pyramid addresses.
+- [05]-[SCHEDULE_ANIMATION]: `AnimateSchedule` bakes the `Planning/schedule#SCHEDULE` `ScheduleNetwork` construction sequence into per-element glTF visibility/scale keyframe tracks through `ModelRoot.CreateAnimation` and the `KHR_node_visibility` channel over the `Author`-minted `GlbScene` `GlobalId`→`Node` index, so a 4D schedule exports as one animated GLB a web viewer scrubs.
+- [06]-[ROUNDTRIP]: `RoundTrip` folds an `ElementGraph` emit→`BimIo.ImportIfc` schema-sniffed re-decode→`Project`→`Assemble` cycle across the IFC STEP/ifcXML/ifcJSON serializations into one lossless-verification matrix, witnessing per-element fidelity by the seam content key joined on the 1:1 `ExternalId` and naming the divergent members through the `Generator.Equals` structured diff.
+- [07]-[TILE_AVAILABILITY]: `TileAvailability` authors the 3D-Tiles 1.1 implicit-tiling `.subtree` availability bitstream over the `subtree` `SubtreeCreator`/`SubtreeCreator3D`/`Tile`/`Tile3D`/`MortonIndex` surface, completing the tileset side the `SharpGLTF.Ext.3DTiles` per-tile content leg cannot reach and retiring the hand-rolled implicit-tiling bitstream.
 - [08]-[COBIE_EMIT]: `CobieEmit.Export` the COBie FM-handover XLSX author — a transient `CobieModel` folded `Instances.New<T>` from the seam `ElementGraph` (facility/floor/space, type/component, `CobieAttribute` rows) and sealed through `ExportToTable`, content-keyed off the kernel `ContentHash`; never a held xBIM `IModel` and never the parallel xBIM IFC reader.
 
 ## [02]-[EXPORT_RAIL]
@@ -23,7 +23,7 @@ Settled vocabulary arrives from the seam `Graph/element#ELEMENT_GRAPH` `ElementG
 - Events: a sealed `ExportArtifact` mints the `Exchange/events#EVENTS` `BimEvent.ArtifactMinted` row at the composing rail's edge — the Compute-computed `ContentKey`, the `InterchangeFormat.Key`, and the emitted byte count off the `ModelEmit` receipt — subject the `key:kind` artifact address; envelope seal and transport are the events owner's, never a second emit path here.
 - Packages: SharpGLTF.Core, SharpGLTF.Toolkit, GeometryGymIFC_Core, Openize.Drako, Alimer.Bindings.MeshOptimizer, CommunityToolkit.HighPerformance, AssimpNetter, dotbim, UniversalSceneDescription, Rasm.Element, NodaTime, LanguageExt.Core
 - Growth: a new managed export is one arm on the TOTAL `InterchangeCodec.Switch` — the compiler forces the arm the moment the codec row lands (the `dotBim` instancing arm joined the SharpGltf/SceneExchange/UsdStage arms this way), never a per-format exporter family and never a silent ladder tail; a new emit modality is one `ExportPayload` case every codec arm is compiler-forced to route; a new IFC serialization is the `InterchangeFormat.Serialization` column value on one GeometryGym row; a new glTF KHR/EXT capability the exporter attaches is one `KhrExtension` row registered through `KhrExtension.Register` before write; a new BOUND texture channel is one `GltfChannel` row naming its `KnownChannel` targets and its obliged extension — `ChannelImage.Of` admits it, `MaterialFinish.Author` binds it with zero arm, and the `Obliges` union registers the row — a new appearance FACTOR is one column on the seam `AppearanceSummary` read once in `Shaded`, and a new sampler or transform axis is one column on `ChannelImage`, never a second material builder; a new compression encoder is one `KhrEncoder` arm on the `GlbBytes` fold; a new assimp export target is one scene-exchange row whose KEY is the `ExportToBlob` `exportFormatId` (`IsExportFormatSupported`-guarded).
-- Boundary: dispatch is the generated exhaustive `Switch` — every codec row declares its export route or its route-naming fault (`ExportIfc` for GeometryGym, `Semantics/geospatial#VECTOR_INGEST` `GeoVector.Write` for geospatial, the companion bridge for native/IGES), so no row falls into a stale miss tail. GLB emission is deterministic byte layout — `SceneBuilderSchema2Settings` strided/merged buffers, the `GpuMeshInstancingMinCount` threshold, and `MergeBuffers` before write — so the same geometry always emits the same bytes the Compute content-key addresses. `Author` is the ONE `GlobalId`→`Node` index minter (nodes named by the seam `Object.ExternalId`, read back from `ModelRoot.LogicalNodes`), the ONE feature-row stamp minter (`GlbScene.Rows` ordinals stamped `_FEATURE_ID_0` at `Staged` — the only point the vertex layout is open), AND the ONE material minter (`ElementInstance.Finish` authors its own pooled `MaterialBuilder` — the seam `AppearanceSummary` as linear factors and every bound map through its own `ChannelImage.Bind`, materials pooled per distinct finish KEY so a textured element never inherits its untextured neighbour's material, uniform-finish repeats keeping theirs — the GLB arm erasing the color the dotbim arm round-trips was the deleted asymmetry); a caller-walked scene graph, a second index mint, a post-hoc attribute write, or an image ENCODE on this rail is the deleted form — the texture bytes arrive already sealed by their owner and this rail binds them. The SEAM SUMMARY is the whole glTF factor source and its channels stay in their declared domain: base colour is scene-linear and enters `baseColorFactor` unencoded (routing the display-referred dotbim byte tint into that linear slot is the same unlinearized pass-through `Semantics/appearance#APPEARANCE_PROJECTION` names as deleted on the ingest side), metalness and roughness are written on EVERY material because the glTF factor defaults are both 1.0 and an unwritten material renders as rough metal, opacity below unity selects `AlphaMode.BLEND`, and the `Transmissive` bit writes `KHR_materials_transmission` and NEVER alpha mode — so an opaque-alpha glass round-trips its transmission exactly as the IFC `IfcSurfaceStyleRefraction` egress does. The canonical-channel-to-`KnownChannel` correspondence is `GltfChannel`'s alone: a call site choosing a `KnownChannel` is the unowned projection the roster deletes, a canonical name with no row REFUSES at `ChannelImage.Of` rather than lighting a nearest slot, and the `orm` pack binds ONE `ImageBuilder` onto both the occlusion and metallic-roughness channels because glTF reads one image through two references. A rostered `KhrExtension` a finish can never fill is the deleted phantom — the roster is the caller's declared write capability, the payload's `Obliges` is the truth, and the two union at registration. `EXT_mesh_gpu_instancing` collapse is a POLICY threshold because a gpu-merged node loses its per-node visibility/metadata identity (the 4D/metadata pipeline runs `GpuInstancingMinCount: 0`, the streaming-tile pipeline raises it — a policy value, never a code fork). `KhrExtension` rows register through the per-row `Registrar` closure before any write, so a material/light/texture channel serializes through its SharpGLTF schema type rather than a hand-authored JSON extension block; registration sweeps the UNION of the `InterchangePolicy` roster and the payload's own `ElementScene.Obliges` rows, because a bound KTX2 or transform-bearing map obliges its extension whether or not the caller listed it, and the four `format#FORMAT_AXIS` texture rows realize exactly here — `KHR_texture_transform` through `TextureBuilder.WithTransform`, `KHR_texture_basisu`/`EXT_texture_webp`/`MSFT_texture_dds` through the container the sealed bytes already carry (`TextureBuilder.PrimaryImage` reads PNG, JPG, DDS, WEBP, and KTX2), so no texture row is a capability flag with no realizing arm. `KHR_draco_mesh_compression` and `KHR_meshopt_compression` carry a `KhrEncoder` discriminant rather than a SharpGLTF schema type because SharpGLTF ships no compression encoder — `Openize.Drako` owns the Draco encode and `Alimer.Bindings.MeshOptimizer` the meshopt encode, both quantizing to the `InterchangePolicy` bit budget, a glTF `ModelRoot` passed to either the rejected form because neither package owns a glTF model type. `.bim` and USD arms cross a temp path because their `Save`/`Export` are path-bound (no stream overload) — the temp file is deleted in the same expression and never escapes the capsule. IFC egress is NOT this rail's — `ExportIfc` delegates to `Projection/egress#IFC_EGRESS` `SemanticProjector.Emit`, and a hand-rolled `IfcBuildingElementProxy` re-author (the deleted `IfcBytes` form) is a SECOND IFC-egress owner the seam forbids; the `GlobalId` round-trips 1:1 from `Object.ExternalId` inside `Emit` (never a fresh GUID per export), making export idempotent under the Compute content-key. `ExportIfc` retains only the `CanExport` gate and the `Serialization` column read (a `None` column IS the non-IFC-row fault, the deleted `SerializationOf` ladder now row data). Chunked-field and structural-delta codecs stay at `Rasm.Compute/Runtime/codecs` consumed at the seam.
+- Boundary: dispatch is the generated exhaustive `Switch` — every codec row declares its export route or its route-naming fault (`ExportIfc` for GeometryGym, `Semantics/geospatial#VECTOR_INGEST` `GeoVector.Write` for geospatial, the companion bridge for native/IGES), so no row falls into a stale miss tail. GLB emission is deterministic byte layout — `SceneBuilderSchema2Settings` strided/merged buffers, the `GpuMeshInstancingMinCount` threshold, and `MergeBuffers` before write — so the same geometry always emits the same bytes the Compute content-key addresses. `Author` is the ONE `GlobalId`→`Node` index minter (nodes named by the seam `Object.ExternalId`, read back from `ModelRoot.LogicalNodes`), the ONE feature-row stamp minter (`GlbScene.Rows` ordinals stamped `_FEATURE_ID_0` at `Staged` — the only point the vertex layout is open), AND the ONE material minter (`ElementInstance.Finish` authors its own pooled `MaterialBuilder` — the seam `AppearanceSummary` as linear factors and every bound map through its own `ChannelImage.Bind`, materials pooled per distinct finish KEY so a textured element never inherits its untextured neighbour's material, uniform-finish repeats keeping theirs — the GLB arm erasing the color the dotbim arm round-trips was the deleted asymmetry); a caller-walked scene graph, a second index mint, a post-hoc attribute write, or an image ENCODE on this rail is the deleted form — the texture bytes arrive already sealed by their owner and this rail binds them. `AppearanceSummary` sources every glTF factor and holds each channel in its declared domain: base colour is scene-linear and enters `baseColorFactor` unencoded (routing the display-referred dotbim byte tint into that linear slot is the same unlinearized pass-through `Semantics/appearance#APPEARANCE_PROJECTION` names as deleted on the ingest side), metalness and roughness are written on EVERY material because the glTF factor defaults are both 1.0 and an unwritten material renders as rough metal, opacity below unity selects `AlphaMode.BLEND`, and the `Transmissive` bit writes `KHR_materials_transmission` and NEVER alpha mode — so an opaque-alpha glass round-trips its transmission exactly as the IFC `IfcSurfaceStyleRefraction` egress does. `GltfChannel` alone owns the canonical-channel-to-`KnownChannel` correspondence: a call site choosing a `KnownChannel` is the unowned projection the roster deletes, a canonical name with no row REFUSES at `ChannelImage.Of` rather than lighting a nearest slot, and the `orm` pack binds ONE `ImageBuilder` onto both the occlusion and metallic-roughness channels because glTF reads one image through two references. `KhrExtension` rows roster only extensions a finish fills, deleting the phantom row — the roster is the caller's declared write capability, the payload's `Obliges` is the truth, and the two union at registration. `EXT_mesh_gpu_instancing` collapse is a POLICY threshold because a gpu-merged node loses its per-node visibility/metadata identity (the 4D/metadata pipeline runs `GpuInstancingMinCount: 0`, the streaming-tile pipeline raises it — a policy value, never a code fork). `KhrExtension` rows register through the per-row `Registrar` closure before any write, so a material/light/texture channel serializes through its SharpGLTF schema type rather than a hand-authored JSON extension block; registration sweeps the UNION of the `InterchangePolicy` roster and the payload's own `ElementScene.Obliges` rows, because a bound KTX2 or transform-bearing map obliges its extension whether or not the caller listed it, and the four `format#FORMAT_AXIS` texture rows realize exactly here — `KHR_texture_transform` through `TextureBuilder.WithTransform`, `KHR_texture_basisu`/`EXT_texture_webp`/`MSFT_texture_dds` through the container the sealed bytes already carry (`TextureBuilder.PrimaryImage` reads PNG, JPG, DDS, WEBP, and KTX2), so no texture row is a capability flag with no realizing arm. `KHR_draco_mesh_compression` and `KHR_meshopt_compression` carry a `KhrEncoder` discriminant rather than a SharpGLTF schema type because SharpGLTF ships no compression encoder — `Openize.Drako` owns the Draco encode and `Alimer.Bindings.MeshOptimizer` the meshopt encode, both quantizing to the `InterchangePolicy` bit budget, a glTF `ModelRoot` passed to either the rejected form because neither package owns a glTF model type. `.bim` and USD arms cross a temp path because their `Save`/`Export` are path-bound (no stream overload) — the temp file is deleted in the same expression and never escapes the capsule. IFC egress is NOT this rail's — `ExportIfc` delegates to `Projection/egress#IFC_EGRESS` `SemanticProjector.Emit`, and a hand-rolled `IfcBuildingElementProxy` re-author (the deleted `IfcBytes` form) is a SECOND IFC-egress owner the seam forbids; the `GlobalId` round-trips 1:1 from `Object.ExternalId` inside `Emit` (never a fresh GUID per export), making export idempotent under the Compute content-key. `ExportIfc` retains only the `CanExport` gate and the `Serialization` column read (a `None` column IS the non-IFC-row fault, the deleted `SerializationOf` ladder now row data). Chunked-field and structural-delta codecs stay at `Rasm.Compute/Runtime/codecs` consumed at the seam.
 
 ```csharp signature
 public sealed record InterchangePolicy(
@@ -48,7 +48,7 @@ public sealed record InterchangePolicy(
         Compression = KhrEncoder.Meshopt, QuantizationBits = 12, GpuInstancingMinCount = 16,
         Extensions = Seq(KhrExtension.MaterialsSpecular, KhrExtension.TextureBasisu, KhrExtension.TextureTransform),
     };
-    // A policy roster is a caller's DECLARED write capability and the payload's own Obliges is the truth; they
+    // Each policy roster declares a caller's write capability while the payload's own Obliges carries the truth; they
     // union at registration, so every rostered row must be a row this rail can FILL. Each Pbr row names a
     // GltfChannel the finish binds a map through or a factor Author writes. KHR_materials_volume, _dispersion,
     // _ior, _emissive_strength and KHR_lights_punctual carry no row: the seam summary drops the refraction
@@ -69,7 +69,7 @@ public sealed record ExportArtifact(
     long ByteCount,
     Instant At);
 
-// The CANONICAL-channel to glTF binding roster. The corpus texture vocabulary is closed snake_case
+// GltfChannel rosters the CANONICAL-channel to glTF binding. The corpus texture vocabulary is closed snake_case
 // (Rasm.Materials/Raster/set#TEXTURE_SET declares it, Semantics/appearance#APPEARANCE_PROJECTION TextureMode
 // resolves an IFC mode token onto it) and glTF covers a SUBSET of that space, so this roster is the ONE
 // projection between them: a KnownChannel chosen at a call site is the unowned correspondence it deletes,
@@ -81,7 +81,7 @@ public sealed record ExportArtifact(
 // KhrExtension the channel obliges beyond core glTF, so binding a coat or sheen map registers its own
 // extension and a material row can never be a capability flag with no realizing arm.
 //
-// A canonical channel glTF cannot express carries NO row and ChannelImage.Of returns None at admission —
+// Canonical channels glTF cannot express carry NO row, so ChannelImage.Of returns None at admission —
 // `geometry_opacity` rides base colour's alpha rather than a channel of its own, `height`/`curvature` are
 // authoring fields no glTF sampler reads, and the tangent frames are vertex attributes — so the composing
 // edge sees the refusal and records the unbound map instead of lighting a guessed slot.
@@ -115,21 +115,21 @@ public sealed partial class GltfChannel {
     private GltfChannel(string key, Seq<KnownChannel> targets, KhrExtension? extension = null) : this(key) =>
         (Targets, Extension) = (targets, Optional(extension));
 
-    // The generated keyed lookup under the row comparer's own ordinal key: an unmatched canonical name is None,
-    // never a nearest-channel guess, because a map bound to the wrong slot still renders and no consumer can
-    // tell it from a correct one.
+    // From reads the generated keyed lookup under the row comparer's own ordinal key: an unmatched canonical
+    // name is None, never a nearest-channel guess, because a map bound to the wrong slot still renders and no
+    // consumer can tell it from a correct one.
     public static Option<GltfChannel> From(string channel) =>
         TryGet(channel, out GltfChannel? row) && row is not null ? Some(row) : Option<GltfChannel>.None;
 }
 
 // One BOUND texture map on a glTF material: the ALREADY-ENCODED image bytes (SharpGLTF's TextureBuilder reads
-// PNG/JPG/DDS/WEBP/KTX2 containers), the resolved GltfChannel row, the UV set the primitive samples it through,
-// the wrap pair, and the optional KHR_texture_transform frame the Semantics/appearance#APPEARANCE_PROJECTION
-// UvTransform owns. This rail ENCODES nothing: a texture-set owner seals the bytes and the composing edge hands
-// them here, so the GLB author stays a binder and no image codec enters Rasm.Bim. Container names the
-// KhrExtension row the chosen container obliges (KTX2 -> TextureBasisu, WebP -> TextureWebp, DDS -> TextureDds),
-// None for a PNG/JPG core container, and a transform-bearing row obliges TextureTransform — the union of those
-// rows with the channel's own registers before the write, so no format#FORMAT_AXIS row serializes unregistered.
+// PNG/JPG/DDS/WEBP/KTX2 containers), the resolved GltfChannel row, the UV set the primitive samples it through, the
+// wrap pair, and the optional KHR_texture_transform frame the Semantics/appearance#APPEARANCE_PROJECTION UvTransform
+// owns. This rail ENCODES nothing: a texture-set owner seals the bytes and the composing edge hands them here, so the
+// GLB author stays a binder and no image codec enters Rasm.Bim. Container names the KhrExtension row the chosen
+// container obliges (KTX2 -> TextureBasisu, WebP -> TextureWebp, DDS -> TextureDds), None for a PNG/JPG core
+// container, and a transform-bearing row obliges TextureTransform — the union of those rows with the channel's own
+// registers before the write, so no format#FORMAT_AXIS row serializes unregistered.
 public sealed record ChannelImage {
     private ChannelImage(
         GltfChannel channel, ReadOnlyMemory<byte> bytes, string name, int coordinateSet,
@@ -154,12 +154,12 @@ public sealed record ChannelImage {
         Option<UvTransform> transform = default, Option<KhrExtension> container = default) =>
         GltfChannel.From(channel).Map(row => new ChannelImage(row, bytes, name, coordinateSet, wrapS, wrapT, transform, container));
 
-    // The channel bind: UseChannel opens (or creates) each target channel, UseTexture opens its TextureBuilder,
-    // and the fluent sampler/transform members write the glTF sampler and the KHR_texture_transform block. ONE
-    // ImageBuilder threads every target so a two-channel pack references one image rather than two copies of
-    // identical bytes. The WithChannelParam(KnownChannel, Vector4) overload is OBSOLETE on the installed
-    // Toolkit — the typed WithChannelParam(KnownChannel, KnownProperty, object) and the per-channel With*
-    // members are the live spellings — so a channel value never rides the deprecated vector form.
+    // Binding walks the channels: UseChannel opens (or creates) each target channel, UseTexture opens its
+    // TextureBuilder, and the fluent sampler/transform members write the glTF sampler and the
+    // KHR_texture_transform block. ONE ImageBuilder threads every target so a two-channel pack references one
+    // image rather than two copies of identical bytes. The WithChannelParam(KnownChannel, Vector4) overload is
+    // OBSOLETE on the installed Toolkit — the typed WithChannelParam(KnownChannel, KnownProperty, object) and the
+    // per-channel With* members are the live spellings — so a channel value never rides the deprecated vector form.
     public MaterialBuilder Bind(MaterialBuilder material) {
         ImageBuilder image = ImageBuilder.From(Wrapped(Bytes), Name);
         return Channel.Targets.Fold(material, (held, target) => {
@@ -174,37 +174,37 @@ public sealed record ChannelImage {
         });
     }
 
-    // The extension rows this binding obliges: its channel's own row, its container row (when the bytes are not
-    // a core PNG/JPG), and the transform row (when a UV frame rides), so RegisterExtensions sweeps the UNION
-    // over every bound image rather than trusting an InterchangePolicy roster a caller may have under-declared.
+    // Obliges names the extension rows this binding carries: its channel's own row, its container row (when the
+    // bytes are not a core PNG/JPG), and the transform row (when a UV frame rides), so RegisterExtensions sweeps the
+    // UNION over every bound image rather than trusting an InterchangePolicy roster a caller may have under-declared.
     public Seq<KhrExtension> Obliges =>
         Channel.Extension.ToSeq()
         + Container.ToSeq()
         + (Transform.IsSome ? Seq(KhrExtension.TextureTransform) : Seq<KhrExtension>());
 
-    // SharpGLTF's MemoryImage wraps an ArraySegment<byte> with no copy and ImageBuilder.From takes it through
-    // the implicit segment conversion, so an array-backed ReadOnlyMemory projects straight through and only a
+    // SharpGLTF's MemoryImage wraps an ArraySegment<byte> with no copy and ImageBuilder.From takes it through the
+    // implicit segment conversion, so an array-backed ReadOnlyMemory projects straight through and only a
     // non-array-backed carrier (a native or pooled-owner buffer) pays the copy.
     static ArraySegment<byte> Wrapped(ReadOnlyMemory<byte> bytes) =>
         MemoryMarshal.TryGetArray(bytes, out ArraySegment<byte> owned) ? owned : new ArraySegment<byte>(bytes.ToArray());
 }
 
-// The pooled MATERIAL identity: the SEAM neutral PBR summary beside the ordered channel bindings. The summary is
-// the whole factor source — base colour, metalness, roughness, opacity, and the refractive bit — because the
+// MaterialFinish pools MATERIAL identity as the SEAM neutral PBR summary beside the ordered channel bindings. That
+// summary sources every factor — base colour, metalness, roughness, opacity, and the refractive bit — because the
 // seam already froze it as the one appearance vector every producer mints (Rasm.Element/Graph/element#NODE_MODEL)
 // and re-packing it into a display-referred byte tint drops four of its six values on the floor. Two instances
 // sharing a summary but differing in one bound map are two materials, so the pool keys on the whole finish; an
-// rgba-only key silently gave a textured element its untextured neighbour's material. A finish carrying NO
-// summary is the untinted default the flat-soup and mixed-repeat paths take.
+// rgba-only key silently gave a textured element its untextured neighbour's material. Finishes carrying NO
+// summary are the untinted default the flat-soup and mixed-repeat paths take.
 public sealed record MaterialFinish(Option<AppearanceSummary> Surface, Seq<ChannelImage> Images) {
     public static readonly MaterialFinish White = new(Option<AppearanceSummary>.None, Seq<ChannelImage>());
 
     public static MaterialFinish Of(AppearanceSummary surface) => new(Some(surface), Seq<ChannelImage>());
 
-    // The dotbim Color column is display-referred 0-255 RGBA, so the scene-linear summary encodes through the
-    // ONE sRGB OETF this package owns (Semantics/appearance#APPEARANCE_PROJECTION Encode) rather than a second
-    // transfer curve that would fork the round-trip the IFC egress proves. ALPHA is linear by definition and
-    // never takes the curve — encoding coverage would darken every partially transparent element.
+    // dotbim's Color column is display-referred 0-255 RGBA, so the scene-linear summary encodes through the ONE
+    // sRGB OETF this package owns (Semantics/appearance#APPEARANCE_PROJECTION Encode) rather than a second
+    // transfer curve forking the round-trip the IFC egress proves. ALPHA is linear by definition and never takes the
+    // curve — encoding coverage darkens every partially transparent element.
     public uint Rgba =>
         Surface.Match(
             Some: static s =>
@@ -214,10 +214,10 @@ public sealed record MaterialFinish(Option<AppearanceSummary> Surface, Seq<Chann
                 | Quantized(s.Opacity),
             None: static () => 0xFFFFFFFFu);
 
-    // The pool key is the WHOLE material identity: the seam AppearanceKey — itself the content hash over the
-    // entire neutral vector, so no local canonicalization of six scalars exists here to fork — beside each
-    // binding's canonical channel key, byte length, and content hash, length-framed under the kernel seed-zero
-    // hasher, so the key is stable across runs and two byte-identical finishes pool once.
+    // Key spans the WHOLE material identity: the seam AppearanceKey — itself the content hash over the entire
+    // neutral vector, so no local canonicalization of six scalars exists here to fork — beside each binding's
+    // canonical channel key, byte length, and content hash, length-framed under the kernel seed-zero hasher, so the
+    // key is stable across runs and two byte-identical finishes pool once.
     public UInt128 Key =>
         ContentHash.Of(Images
             .Fold(
@@ -236,7 +236,7 @@ public sealed record MaterialFinish(Option<AppearanceSummary> Surface, Seq<Chann
          + (Surface.Map(static s => s.Transmissive).IfNone(false) ? Seq(KhrExtension.MaterialsTransmission) : Seq<KhrExtension>()))
         .Distinct();
 
-    // The ONE material mint. The summary's SCENE-LINEAR base colour and its opacity go straight into
+    // Author mints the ONE material. The summary's SCENE-LINEAR base colour and its opacity go straight into
     // baseColorFactor, which glTF defines as linear — feeding it the display-referred byte tint writes an sRGB
     // number into a linear slot and every exported element renders washed out, the same unlinearized
     // pass-through Semantics/appearance#APPEARANCE_PROJECTION names as the deleted form on the ingest side.
@@ -245,8 +245,8 @@ public sealed record MaterialFinish(Option<AppearanceSummary> Surface, Seq<Chann
     // than inheriting the format default. Sub-unit opacity selects BLEND while transmission stays the
     // REFRACTIVE bit and never touches alpha mode — an opaque-alpha glass keeps OPAQUE and transmits, which is
     // exactly the Opacity-vs-Transmissive split the seam summary carries and the IFC refraction egress proves.
-    // The IOR is deliberately unwritten: the thin summary drops the magnitude and SharpGLTF's own
-    // IndexOfRefraction default is the 1.5 crown-glass neutral, so writing it would serialize a
+    // IOR stays deliberately unwritten: the thin summary drops the magnitude and SharpGLTF's own
+    // IndexOfRefraction default is the 1.5 crown-glass neutral, so writing it serializes a
     // KHR_materials_ior block asserting the default.
     public MaterialBuilder Author() => Images.Fold(Shaded(), static (material, image) => image.Bind(material));
 
@@ -297,7 +297,7 @@ public sealed record ElementScene(Map<UInt128, ImportedGeometry> Pool, Seq<Eleme
         return new ElementScene(Map((key, soup)), Seq(new ElementInstance("soup", "soup", "IfcBuildingElementProxy", key, Matrix4x4.Identity, MaterialFinish.White)));
     }
 
-    // The extension rows this scene's own bound maps oblige — the union across every instance finish, deduped.
+    // Obliges unions the extension rows this scene's own bound maps demand across every instance finish, deduped.
     // Registration reads THIS rather than the InterchangePolicy roster alone, so a caller who bound a KTX2 map
     // without listing KHR_texture_basisu still emits a registered extension instead of an unresolved block.
     public Seq<KhrExtension> Obliges => Instances.Bind(static instance => instance.Finish.Obliges).Distinct();
@@ -404,10 +404,10 @@ public static partial class BimExport {
                 g => (Stamp: g.Count() == 1 ? g.First().Row : nullRow,
                       Finish: g.Select(static pair => pair.Finish.Key).Distinct().Count() == 1 ? g.First().Finish : MaterialFinish.White));
         var materials = new Dictionary<UInt128, MaterialBuilder>();
-        // The whole material mint is the finish's own — factors from the seam summary, every bound map through
-        // its GltfChannel row — so this fold owns POOLING alone and a new factor or channel is a row on the
-        // finish, never an arm here. MaterialBuilder equality is REFERENCE by default, so the pool keys on the
-        // finish's own content key rather than trusting Equals.
+        // Each finish owns its whole material mint — factors from the seam summary, every bound map through its
+        // GltfChannel row — so this fold owns POOLING alone and a new factor or channel is a row on the finish,
+        // never an arm here. MaterialBuilder equality is REFERENCE by default, so the pool keys on the finish's
+        // own content key rather than trusting Equals.
         MaterialBuilder Finished(MaterialFinish finish) =>
             materials.TryGetValue(finish.Key, out MaterialBuilder? held) ? held : materials[finish.Key] = finish.Author();
         var pool = scene.Pool.Map((key, mesh) => {
@@ -561,9 +561,9 @@ public static partial class BimExport {
 
     static ModelRoot SceneOf(ImportedGeometry geometry, InterchangePolicy policy) {
         var scene = new SceneBuilder();
-        // The untinted default is MaterialFinish.White's own mint, never a bare MaterialBuilder: a builder
-        // constructed here inherits glTF's unity metallic and roughness defaults and every flat-soup export
-        // renders as rough metal, which is exactly the hole the finish's explicit dielectric write closes.
+        // MaterialFinish.White mints the untinted default, never a bare MaterialBuilder: a builder constructed
+        // here inherits glTF's unity metallic and roughness defaults and every flat-soup export renders as rough
+        // metal, which is exactly the hole the finish's explicit dielectric write closes.
         scene.AddRigidMesh(MeshOf(geometry, MaterialFinish.White.Author(), Option<int>.None), AffineTransform.Identity);
         return scene.ToGltf2(new SceneBuilderSchema2Settings { UseStridedBuffers = policy.StridedBuffers });
     }
@@ -854,7 +854,7 @@ public static class BimLod {
 ## [05]-[SCHEDULE_ANIMATION]
 
 - Owner: `ScheduleAnimation` the 4D-emit leg ADDITIVE to the export rail — one glTF `Animation` baking the `Planning/schedule#SCHEDULE` `ScheduleNetwork` construction sequence into per-element keyframe tracks: each `ConstructionTask`'s scheduled `Interval` drives a per-element visibility track (the element is invisible before its task starts and visible from its task start) with an optional scale track (the element grows from a zero-scale point to its full scale across its task window) so a viewer scrubs the construction sequence on the GLB timeline; `AnimationTrack` the per-element keyframe record carrying the element `GlobalId`, the appear-time and full-time seconds, and the glTF `Node` the element's mesh binds to.
-- Entry: `BimExport.AnimateSchedule(GlbScene scene, ScheduleNetwork network, ScheduleAnimationPolicy policy, Op key)` bakes the schedule into the scene model's animation set — projecting each `ConstructionTask` `Interval` bound onto its glTF time-in-seconds through `policy.SecondsOf(Instant moment, Instant projectStart)` (the bound mapped to the timeline via the NodaTime `Duration` from the project start, scaled by `policy.SecondsPerDay`), resolving each assigned element's glTF `Node` through the `Author`-minted `GlbScene` `GlobalId→Node` index (the element `GlobalId` is the seam `Graph/element#ELEMENT_GRAPH` `Object.ExternalId`; `Author` names each node by it, so the 4D leg binds the scene actually emitted — the retired caller-supplied index parameter is GONE), and authoring one `KHR_node_visibility` visibility channel (and the `policy.Grow` scale channel when set) per element through the SharpGLTF `Animation.CreateVisibilityChannel`/`CreateScaleChannel` keyframe surface — `Fin<T>` aborts on a SharpGLTF authoring fault captured at the boundary (`Model/faults#FAULT_BAND` `BimFault.ModelRejected`) lifting BARE onto the `Fin<T>` rail (band 2600, `Expected`-derived), no `.ToError()` hop; the animation and the `Planning/schedule#SCHEDULE` `ConstructionState.At` snapshot share one `Interval`-to-`Instant` time axis so a scrub at glTF time `t` shows exactly the element set `ConstructionState.At` resolves at the inverse instant (the schedule owner is the `BimModel`→`ElementGraph` cross-file alignment point its rebuild settles).
+- Entry: `BimExport.AnimateSchedule(GlbScene scene, ScheduleNetwork network, ScheduleAnimationPolicy policy, Op key)` bakes the schedule into the scene model's animation set — projecting each `ConstructionTask` `Interval` bound onto its glTF time-in-seconds through `policy.SecondsOf(Instant moment, Instant projectStart)` (the bound mapped to the timeline via the NodaTime `Duration` from the project start, scaled by `policy.SecondsPerDay`), resolving each assigned element's glTF `Node` through the `Author`-minted `GlbScene` `GlobalId→Node` index (the element `GlobalId` is the seam `Graph/element#ELEMENT_GRAPH` `Object.ExternalId`; `Author` names each node by it, so the 4D leg binds the scene emitted — the retired caller-supplied index parameter is GONE), and authoring one `KHR_node_visibility` visibility channel (and the `policy.Grow` scale channel when set) per element through the SharpGLTF `Animation.CreateVisibilityChannel`/`CreateScaleChannel` keyframe surface — `Fin<T>` aborts on a SharpGLTF authoring fault captured at the boundary (`Model/faults#FAULT_BAND` `BimFault.ModelRejected`) lifting BARE onto the `Fin<T>` rail (band 2600, `Expected`-derived), no `.ToError()` hop; the animation and the `Planning/schedule#SCHEDULE` `ConstructionState.At` snapshot share one `Interval`-to-`Instant` time axis so a scrub at glTF time `t` shows exactly the element set `ConstructionState.At` resolves at the inverse instant (the schedule owner is the `BimModel`→`ElementGraph` cross-file alignment point its rebuild settles).
 - Auto: `AnimateSchedule` registers `KHR_node_visibility`, creates one `Animation`, and folds each element's assigned task windows into an `AnimationTrack` (appear = earliest `Interval.Start`, full = latest `Interval.End`, so a multi-task element appears at its earliest task). Each element gets a visibility track popping in at its appear time under the `STEP` interpolation the `bool` channel forces, and the optional scale track grows it from zero across its window under `LINEAR`. `policy.SecondsOf` projects an `Interval` bound onto the float-seconds axis the `ConstructionState.At` snapshot reads, so the keyframe author and the snapshot never carry two clocks; the scene returns with `LogicalAnimations` populated so `Emit` seals the animated GLB and the `TileMetadata` semantic rides each frame unchanged.
 - Receipt: the `Seq<AnimationTrack>` is the 4D-emit evidence — each row carries the element `GlobalId`, the appear/full seconds, and the bound `Node` logical index so the Cesium/three.js timeline scrub resolves the construction state at any timeline instant; the animated GLB the `WriteGlb` emits is the streamed 4D timeline a web viewer plays, the `Planning/schedule#SCHEDULE` `ScheduleNetwork.Identity` `(GeometryKey, ScheduleKey)` re-keying the animation only on a re-sequenced plan.
 - Packages: SharpGLTF.Core, SharpGLTF.Runtime, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm
@@ -1004,7 +1004,7 @@ public static class RoundTrip {
 
 - Owner: `TileAvailability` the 3D-Tiles 1.1 implicit-tiling `.subtree` availability-bitstream author over the `subtree` package — the tileset AVAILABILITY structure (the Morton-ordered tile/content/child-subtree bitstreams telling a 3D-Tiles client which implicit nodes exist) the `SharpGLTF.Ext.3DTiles` `[3]-[TILE_METADATA]` per-tile CONTENT author cannot reach, the two meeting at the shared Morton tile index; `TileNode` the scheme-neutral per-tile authoring coordinate — `Lod` the subdivision level (mapped onto the quadtree `subtree.Tile.Z` level field or the octree `subtree.Tile3D.Level`), `X`/`Y` the in-level position, `Z` the octree vertical axis (unused under the `Quadtree` scheme, where `subtree.Tile` carries no spatial third axis), with the `Available`/`ContentUri`/`GeometricError` columns the `subtree.Tile` node carries — retiring the hand-rolled implicit-tiling bitstream.
 - Entry: `TileAvailability.Author(Seq<TileNode> tiles, ImplicitSubdivisionScheme scheme, Op key)` folds the tile list into the `.subtree` binary, the `scheme` discriminant selecting the authoring root — `SubtreeCreator.GenerateSubtreefile(List<Tile>)` for `Quadtree` (each `TileNode` projected through `TileOf` onto `subtree.Tile(z: node.Lod, x, y, available)` so the LOD lands in the `Tile.Z` level field the Morton author folds on, carrying its `ContentUri`/`GeometricError`) and `SubtreeCreator3D.GenerateSubtreefile(List<Tile3D>)` for `Octree` (each projected through `TileOf3D` onto `subtree.Tile3D(level: node.Lod, x, y, z: node.Z)` so the octree gains its third spatial axis) — `Fin<T>` aborts on a degenerate tile list captured at the boundary (`Model/faults#FAULT_BAND` `BimFault.ModelRejected`) lifting BARE onto the `Fin<T>` rail (band 2600, `Expected`-derived), no `.ToError()` hop; `TileAvailability.AuthorMany(Seq<TileNode> tiles, ImplicitSubdivisionScheme scheme, Op key)` lifts to the matching `GenerateSubtreefiles` (the `Dictionary<Tile, byte[]>`/`Dictionary<Tile3D, byte[]>` multi-subtree overflow form) when the tileset exceeds one subtree's level budget, keying each binary by its root tile's `(Level, X, Y, Z)` coordinate (the library builds each root through `new Tile(level, x, y)`/`new Tile3D(level, x, y, z)`, so the root key reads the level-and-position identity, never the auxiliary `Tile.Lod` the author leaves zero).
-- Auto: `Author` maps each `TileNode` onto the `subtree.Tile` node (or `subtree.Tile3D` under the `Octree` scheme) and authors the binary availability bitstream, returning the raw `.subtree` the caller seals through the `EXPORT_RAIL` `Sealed` content-key. `MortonIndex` buckets each tile's availability by its level and sets the bit cell at its `X`/`Y`(`/Z`) position, so tile and content availability order identically — a tile is "available with content" exactly when both bitstreams set the same Morton position, the same index the `[3]-[TILE_METADATA]` tile content keys off. A multi-subtree tileset re-bases child coordinates so the child-subtree availability pointers resolve.
+- Auto: `Author` maps each `TileNode` onto the `subtree.Tile` node (or `subtree.Tile3D` under the `Octree` scheme) and authors the binary availability bitstream, returning the raw `.subtree` the caller seals through the `EXPORT_RAIL` `Sealed` content-key. `MortonIndex` buckets each tile's availability by its level and sets the bit cell at its `X`/`Y`(`/Z`) position, so tile and content availability order identically — a tile is "available with content" exactly when both bitstreams set the same Morton position, the same index the `[3]-[TILE_METADATA]` tile content keys off. Multi-subtree tilesets re-base child coordinates so the child-subtree availability pointers resolve.
 - Receipt: the `.subtree` binary is the tileset availability evidence the 3D-Tiles client reads to stream only the existing implicit nodes; the subdivision scheme, level count, and available-tile count are the receipt facts the export records, and each binary content-addresses through the same `InterchangeIdentity` the GLB tile content seals so the tileset and its content share one content space.
 - Packages: subtree, SharpGLTF.Ext.3DTiles, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm
 - Growth: a new subdivision scheme is the `ImplicitSubdivisionScheme.Quadtree`/`Octree` discriminant the `SubtreeCreator`/`SubtreeCreator3D` pair already carries; a new availability column is one field on `TileNode` the `subtree.Tile` node exposes; a multi-subtree overflow is the existing `GenerateSubtreefiles` form; never a hand-rolled Morton/bitstream codec and never a second availability authoring path beside `subtree`.

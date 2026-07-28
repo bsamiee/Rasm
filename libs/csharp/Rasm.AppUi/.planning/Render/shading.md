@@ -1,27 +1,27 @@
 # [APPUI_RENDER_SHADING]
 
-One GPU shader-asset owner with a per-backend, byte-budgeted residency cache feeds the path tracer's Materials closure: `ShaderAssetCache` retains a compiled shader keyed per `GpuBackend` (`SKRuntimeEffect` for the Skia Ganesh family, `Silk.NET.WebGPU` pipeline state for the Wgpu family) beside every native plane a bound roster row addresses, and `ShaderShade` is the GPU shading pass consuming the `LayeredBsdf` the path-trace integrator also shades from. The page owns shader compilation, plane residency and its eviction, retained program and native-texture lifetime, cache identity, and the GPU shading pass while sharing the viewport's one `Wgpu` device, consuming the Materials appearance model, and confining `SKSurface` ownership to `Offscreen`.
+One GPU shader-asset owner with a per-backend, byte-budgeted residency cache feeds the path tracer's Materials closure: `ShaderAssetCache` retains a compiled shader keyed per `GpuBackend` (`SKRuntimeEffect` for the Skia Ganesh family, `Silk.NET.WebGPU` pipeline state for the Wgpu family) beside every native plane a bound roster row addresses, and `ShaderShade` is the GPU shading pass consuming the `LayeredBsdf` the path-trace integrator also shades from. `ShaderAssetCache` owns shader compilation, plane residency and its eviction, retained program and native-texture lifetime, and cache identity, while `ShaderShade` owns the GPU shading pass; both share the viewport's one `Wgpu` device, consume the Materials appearance model, and confine `SKSurface` ownership to `Offscreen`.
 
 `ShaderSource` declares its bindings as DATA — one admitted `ShaderBinding` row per shader slot naming its `ShadeSource`, so a uniform write is a roster fold and a shader-local uniform name never appears as a literal in a bind arm. Every source resolves through ONE `ShadeSupply` answer, so a scalar run, a sampled plane, and a packed lane are three rows of one resolution rather than three bind arms. Texture slots key on the Materials `Rasm.Materials.Raster.TextureChannel` roster, never an AppUi-local channel vocabulary; `TextureSet` supplies the channel and packed pyramids and `EnvironmentLight` supplies the prefiltered dome the raster pass reads instead of marching, so this page uploads and binds and never mints a plane, a transfer, a sampler law, a channel name, or a lighting integral. `SKRuntimeEffect`, `Silk.NET.WebGPU`, Thinktecture, and LanguageExt supply the substrate; the CPU `LayeredBsdf` evaluation is the reference path.
 
 ## [01]-[INDEX]
 
 - [02]-[SHADER_ASSET]: Per-`GpuBackend` shader and budgeted plane residency; `SKRuntimeEffect` and wgpu pipeline-state compile; the admitted `ShaderBinding` roster and its one `ShadeSupply` resolution.
-- [03]-[SURFACE_SHADE]: The GPU shading pass consuming the Materials `LayeredBsdf`, channel-value closure, bound `TextureSet`, and resolved `EnvironmentLight`.
+- [03]-[SURFACE_SHADE]: `ShaderShade` shades on the GPU from the Materials `LayeredBsdf`, channel-value closure, bound `TextureSet`, and resolved `EnvironmentLight`.
 
 ## [02]-[SHADER_ASSET]
 
 - Owner: `ShaderAsset` the per-backend compiled-shader cell; `ShaderProgram` the closed Ganesh-or-Wgpu retained native program; `ShadeTexture` the closed Ganesh-or-Wgpu retained native texture; `ResidentPlane` the native plane beside its byte cost and eviction touch; `ShaderBinding` the shader-slot roster row; `ShadeSource` the value each row pulls; `EnvironmentRead` the image-based-lighting row family; `ShadeSupply` the ONE answer a source resolves to; `ShaderSource` the admitted backend-neutral shader source; `PlaneUpload` the backend-neutral upload request; `WgpuShaderCompiler` the composition-bound wgpu compile-and-upload capsule with its owned `WgpuPipelineState`; `ShaderAssetCache` the one residency owner over both retained kinds; `ShaderReceipt` the compile evidence; `ShaderFault` the fault family on `AppUiFaultBand.Shader`.
 - Cases: `ShaderFault` = Text | CompileFailed | BackendUnsupported | UniformAbsent | PlaneUnbindable — codes derive through the `AppUiFaultBand.Shader` registry row (6110); the hex band is dead. `ShadeSource` = Channel | Lobes | Ambient — a binding pulls one `TextureChannel` column, the `LayeredBsdf` weight vector, or one `EnvironmentRead` row, and a fourth source is a case, never a second uniform struct. `ShadeSupply` = Lanes | Plane | Absent — a scalar run, a native-bound level chain with its lane offset, or the typed nothing a set that does not carry the row resolves to.
-- Law: the binding roster is the ONLY place a shader slot name exists. A bind arm folds `ShaderSource.Bindings` and asks each row for its `ShadeSupply`, so adding a channel to the shader is one roster row and a hardcoded `"baseColor"` write in a bind arm is the deleted form. The row's `Group`/`Slot` are the wgpu binding coordinates the compiler capsule reads; the Ganesh arm addresses by `Name` alone, so one roster serves both layouts without a per-backend roster.
+- Law: the binding roster is the ONLY place a shader slot name exists. Bind arms fold `ShaderSource.Bindings` and ask each row for its `ShadeSupply`, so adding a channel to the shader is one roster row and a hardcoded `"baseColor"` write in a bind arm is the deleted form. `Group`/`Slot` on the row carry the wgpu binding coordinates the compiler capsule reads, while the Ganesh arm addresses by `Name` alone, so one roster serves both layouts without a per-backend roster.
 - Law: the roster ADMITS at `ShaderSource.Of` and never at draw time. Duplicate slot names, a colliding `(Group, Slot)` pair, a second `Lobes` row, a fixed-lane `ShaderUniformKind` disagreeing with its source's own arity, and a sampled channel row carrying no `Swizzle` companion each refuse ONCE at construction; the Ganesh compile gates every row name against `SKRuntimeEffect.Uniforms`/`Children`, the effect's own declared slot lists, so `ShaderFault.UniformAbsent` is a compile verdict rather than a per-frame surprise. Draw-time re-validation of an admitted roster is the deleted form.
 - Law: a PACKED channel binds its sheet AND its lane. `ChannelPack.Lane` is the one slot correspondence, so the sheet a roughness rides inside resolves to `(plane, lane)` and the bind fold writes the lane through the row's own `Swizzle` uniform — a WGSL or SkSL swizzle literal chosen by the shader author is the fork this forecloses, because the pack order is set data the shader cannot see.
-- Law: the sampler follows the SET, never a literal. Address mode reads the set's own periodicity evidence — a `TileProof`-carrying set repeats, an ingested or UDIM set clamps, because repeating a plane `TileGate` never graded shows the seam the proof exists to certify and repeating a UDIM tile bleeds its neighbour — and filter follows the level count. An environment plane takes its address axes from the FROZEN equirect correspondence on its own `EnvironmentRead` row.
+- Law: the sampler follows the SET, never a literal. Address mode reads the set's own periodicity evidence — a `TileProof`-carrying set repeats, an ingested or UDIM set clamps, because repeating a plane `TileGate` never graded shows the seam the proof exists to certify and repeating a UDIM tile bleeds its neighbour — and filter follows the level count. Every environment plane takes its address axes from the FROZEN equirect correspondence on its own `EnvironmentRead` row.
 - Law: plane residency keys on the plane CONTENT key — a channel pyramid's own `Key`, an environment product's `ContentAddress.Value` — never the channel, the set, or the light. One plane shared by many sets or many lights uploads once, an edited plane re-keys and re-uploads, and a rebind at identical bytes reuses every resident handle. Residency is BUDGETED: the cache carries a byte ceiling, charges each plane its extent times its storage width, and evicts least-recently-touched cells until the total fits, so texture VRAM is governed exactly as the `Render/meshlets` `ResidencyBudget` governs geometry VRAM rather than growing until the device refuses.
 - Law: ONLY the roster's own planes upload. Residency folds the bindings, not the set, so a shader naming three slots makes three planes resident out of a twenty-six-channel set and a whole-set upload is the deleted form — a set-wide residency is a roster that names every channel, never a second entry.
 - Exemption: `UploadGanesh` is the page's one statement-bodied kernel — a row sweep through the plane's own decode rail into a caller-owned `SpanOwner<float>` staging rental, the ref-struct rental and the row-major write making an expression fold unrepresentable.
 - Entry: `public Fin<ShaderAsset> Compile(ShaderSource source, GpuBackend backend)` probes the `(Key, Revision, Backend)` cell before compiling the admitted source; `public Fin<ShadeTexture> Resident(PlaneUpload request, GpuBackend backend, long generation)` makes one plane native under the budget; `public long Generation()` opens a resolution and is what the eviction pass protects; `public Option<ShaderAsset> Cached(string key, string revision, GpuBackend backend)` and `public Option<ShadeTexture> Held(UInt128 plane, GpuBackend backend)` expose the exact probes. Ganesh compiles through `SKRuntimeEffect.CreateShader` and uploads through `SKImage.FromPixelCopy`/`SKShader.CreateImage`; Wgpu compiles WGSL into a module and render pipeline whose `Bind(ShadeUniforms)` creates an owned per-draw bind group and whose `Mount(RenderTarget, nint)` records it on the active encoder before release, and uploads through the same capsule's `Upload`.
-- Auto: a shader source compiles once per `(Key, Revision, GpuBackend)` cell and a plane chain uploads once per `(Key, GpuBackend)` cell. Each entry probes before native construction, a miss constructs, and a concurrent-race loser disposes its minted handle, so a revision change cannot reuse stale code and a re-shade of the same revision reuses one retained pipeline state and one retained texture per plane. `PlaneUpload` carries `TexturePlane` LEVELS rather than a materialized sampler image, so one upload shape serves a channel pyramid, a packed sheet, the stored equirect, the GGX prefilter ladder, and the split-sum LUT — the `AsImage` lift stays the CPU sampler's bridge and never allocates a whole `ShadeVec4` chain to hand the GPU one level. The Ganesh upload stages level 0 alone and lets `SKMipmapMode.Linear` build Skia's own box chain, so the authored `MipPolicy` — Kaiser, renormalize, or the variance coupling — survives on the Wgpu arm ONLY; that divergence is the declared Ganesh quality floor the receipt records, never a silent equivalence.
+- Auto: a shader source compiles once per `(Key, Revision, GpuBackend)` cell and a plane chain uploads once per `(Key, GpuBackend)` cell. Each entry probes before native construction, a miss constructs, and a concurrent-race loser disposes its minted handle, so a revision change cannot reuse stale code and a re-shade of the same revision reuses one retained pipeline state and one retained texture per plane. `PlaneUpload` carries `TexturePlane` LEVELS rather than a materialized sampler image, so one upload shape serves a channel pyramid, a packed sheet, the stored equirect, the GGX prefilter ladder, and the split-sum LUT — the `AsImage` lift stays the CPU sampler's bridge and never allocates a whole `ShadeVec4` chain to hand the GPU one level. `UploadGanesh` stages level 0 alone and lets `SKMipmapMode.Linear` build Skia's own box chain, so the authored `MipPolicy` — Kaiser, renormalize, or the variance coupling — survives on the Wgpu arm ONLY; that divergence is the declared Ganesh quality floor the receipt records, never a silent equivalence.
 - Receipt: `ShaderReceipt` — shader key, backend, compile outcome, binding count, resident-plane count, resident bytes, mip fidelity, `Instant`; `TelemetryRow` contributes the shader-compiled, shader-failed, plane-resident, plane-byte, and plane-evicted instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: SkiaSharp, Silk.NET.WebGPU, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Materials (project)
 - Growth: a new shader is one `ShaderSource` keyed into the cache; a new shader slot is one `ShaderBinding` row; a new lighting product is one `EnvironmentRead` row carrying its own `ShadeSupply` column; a new backend is one compile arm and one upload arm over the existing `GpuBackend` family; one shader instrument is one `InstrumentSpec` row on `ShaderAssets.TelemetryRow`; zero new surface.
@@ -69,10 +69,10 @@ public sealed partial class ShaderUniformKind {
     public bool Fixed => Lanes > 0;
 }
 
-// The ONE answer a source resolves to. Run is the float lane run a scalar slot writes; Sampled is a level chain the
-// residency arm makes native beside the lane offset a packed sheet's slot occupies; Absent is the typed nothing a set
-// that does not carry the row resolves to, so a partially-baked material draws on its scalar fallbacks rather than
-// railing. A fourth answer is a case, never a nullable column on Sampled.
+// ShadeSupply answers every source with ONE value. Run is the float lane run a scalar slot writes; Sampled is a level
+// chain the residency arm makes native beside the lane offset a packed sheet's slot occupies; Absent is the typed
+// nothing a set that does not carry the row resolves to, so a partially-baked material draws on its scalar fallbacks
+// rather than railing. A fourth answer is a case, never a nullable column on Sampled.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ShadeSupply {
     private ShadeSupply() { }
@@ -98,11 +98,12 @@ public abstract partial record ShadeSupply {
         levels.IsEmpty ? Nothing : new Sampled(key, levels, sampler, mip, lane);
 }
 
-// The image-based-lighting products a RASTER pass reads off the ONE EnvironmentLight the light rig resolved. A raster
-// shade cannot march the dome the way Render/pathtrace integrates it, so it consumes the prefilter's own reduction:
-// the SH9 irradiance run, the GGX roughness ladder AS DATA (never the level formula re-derived here), the stored
-// orientation the shader un-rotates by, and three sampled planes. Each row carries ONE Supply column, so the bind fold
-// asks a row for its answer exactly as it asks a channel — an ambient-specific bind arm does not exist.
+// EnvironmentRead rows carry the image-based-lighting products a RASTER pass reads off the ONE EnvironmentLight the
+// light rig resolved. A raster shade cannot march the dome the way Render/pathtrace integrates it, so it consumes the
+// prefilter's own reduction: the SH9 irradiance run, the GGX roughness ladder AS DATA (never the level formula
+// re-derived here), the stored orientation the shader un-rotates by, and three sampled planes. Each row carries ONE
+// Supply column, so the bind fold asks a row for its answer exactly as it asks a channel — an ambient-specific bind
+// arm does not exist.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EnvironmentRead {
@@ -119,9 +120,10 @@ public sealed partial class EnvironmentRead {
     public static readonly EnvironmentRead Equirect = new("equirect", ShaderUniformKind.Texture,
         static light => ShadeSupply.Of(light.Blobs.Equirect.Value, Seq1(light.Map.Plane), DomeSampler, MipPolicy.None));
 
-    // The FROZEN equirect correspondence's own address law — longitude wraps, latitude clamps at the poles — and the
-    // LUT's two clamped axes. Both are the mapping the prefilter integrated under, carried as row data so the sampler
-    // a level set binds under can never diverge from the one the products were built for.
+    // DomeSampler carries the FROZEN equirect correspondence's own address law — longitude wraps, latitude clamps
+    // at the poles — and LutSampler the LUT's two clamped axes. Both are the mapping the prefilter integrated under,
+    // carried as row data so the sampler a level set binds under can never diverge from the one the products were
+    // built for.
     static readonly SamplerState DomeSampler = new(AddressMode.Repeat, AddressMode.Clamp, FilterMode.Trilinear);
     static readonly SamplerState LutSampler = new(AddressMode.Clamp, AddressMode.Clamp, FilterMode.Bilinear);
 
@@ -132,9 +134,10 @@ public sealed partial class EnvironmentRead {
 }
 
 // What a shader slot pulls. Channel names a Materials roster row — the SAME closed vocabulary the frozen texture-set
-// wire carries — so an AppUi channel spelling cannot fork from the producer's. Lobes is the LayeredBsdf weight vector,
-// the one value no channel row describes. Ambient is one EnvironmentRead row. Lanes is the source's own declared
-// arity, which the roster admission checks its ShaderUniformKind against; zero declares a variable run or a plane.
+// wire carries — so an AppUi channel spelling cannot fork from the producer's. Lobes is the LayeredBsdf weight
+// vector, the one value no channel row describes. Ambient is one EnvironmentRead row. Lanes is the source's own
+// declared arity, which the roster admission checks its ShaderUniformKind against; zero declares a variable run or a
+// plane.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ShadeSource {
     private ShadeSource() { }
@@ -159,9 +162,9 @@ public abstract partial record ShadeSource {
 public readonly record struct ShaderBinding(
     string Name, ShaderUniformKind Kind, ShadeSource Source, int Group, int Slot, Option<string> Swizzle);
 
-// The admitted backend-neutral source. Of is the ONE construction: a roster that reaches a draw has already proven its
-// names unique, its wgpu coordinates disjoint, its lane widths agreed, and its packed rows swizzle-bearing, so the
-// draw fold reads data it can no longer disbelieve.
+// ShaderSource admits the backend-neutral source. Of is the ONE construction: a roster that reaches a draw has
+// already proven its names unique, its wgpu coordinates disjoint, its lane widths agreed, and its packed rows
+// swizzle-bearing, so the draw fold reads data it can no longer disbelieve.
 public sealed record ShaderSource(string Key, string Revision, string Sksl, string Wgsl, Seq<ShaderBinding> Bindings) {
     public static Fin<ShaderSource> Of(string key, string revision, string sksl, string wgsl, Seq<ShaderBinding> bindings) =>
         from _ in guard(!bindings.IsEmpty, (Error)new ShaderFault.UniformAbsent($"{key}: roster carries no binding"))
@@ -192,9 +195,9 @@ public sealed record ShaderSource(string Key, string Revision, string Sksl, stri
         };
 }
 
-// The backend-neutral upload request over the plane's OWN levels — never a materialized sampler image. The chain is
-// whatever the source published: a channel pyramid's fold, a GGX prefilter's independent roughness ladder, or one
-// standalone LUT. Every remaining column reads off the base plane, so no column is a caller knob.
+// PlaneUpload requests upload over the plane's OWN levels — never a materialized sampler image. The chain is whatever
+// its source published: a channel pyramid's fold, a GGX prefilter's independent roughness ladder, or one standalone
+// LUT. Every remaining column reads off the base plane, so no column is a caller knob.
 public readonly record struct PlaneUpload(
     UInt128 Key, Seq<TexturePlane> Levels, SamplerState Sampler, MipPolicy Mip) {
     public TexturePlane Base => Levels.Head;
@@ -211,8 +214,8 @@ public sealed record ResidentPlane(ShadeTexture Texture, long Bytes, long Touch)
     public void Dispose() => Texture.Dispose();
 }
 
-// The retained native texture. The Ganesh arm keeps the image AND the shader built over it, because SKRuntimeEffect
-// children bind an SKShader and rebuilding one per draw would re-wrap the same pixels every frame.
+// ShadeTexture retains the native texture. Ganesh keeps the image AND the shader built over it, because
+// SKRuntimeEffect children bind an SKShader and rebuilding one per draw re-wraps the same pixels every frame.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ShadeTexture : IDisposable {
     private ShadeTexture() { }
@@ -224,8 +227,8 @@ public abstract partial record ShadeTexture : IDisposable {
         wgpuTexture: static texture => texture.Release.Dispose());
 }
 
-// The wgpu pipeline state owns the retained module and render pipeline. Bind returns the current owned
-// bind group, Mount records and releases it, and Release drops retained handles.
+// WgpuPipelineState owns the retained module and render pipeline. Bind returns the current owned bind group, Mount
+// records and releases it, and Release drops retained handles.
 public sealed record WgpuPipelineState(
     nint Module,
     nint Pipeline,
@@ -235,9 +238,9 @@ public sealed record WgpuPipelineState(
     public void Dispose() => Release.Dispose();
 }
 
-// The composition-bound wgpu capsule over the ONE_WGPU_DEVICE lease: the render-graph device seam builds it once, so
-// the cache compiles pipeline state AND uploads texture planes with zero device reach of its own. Upload owns the
-// whole authored level chain, which is why the mip policy survives on this arm alone.
+// WgpuShaderCompiler binds at composition over the ONE_WGPU_DEVICE lease: the render-graph device seam builds it
+// once, so the cache compiles pipeline state AND uploads texture planes with zero device reach of its own. Upload
+// owns the whole authored level chain, which is why the mip policy survives on this arm alone.
 public sealed record WgpuShaderCompiler(
     Func<ShaderSource, Fin<WgpuPipelineState>> Build,
     Func<PlaneUpload, Fin<ShadeTexture>> Upload);
@@ -271,9 +274,9 @@ public sealed record ShaderAssetCache(
     System.Collections.Concurrent.ConcurrentDictionary<(UInt128 Plane, string Backend), ResidentPlane> Planes,
     Option<WgpuShaderCompiler> Compiler,
     long PlaneBudgetBytes) {
-    // The residency clock and the charged total are the cache's two measured cells — the page's ONLY mutable state,
-    // seated beside the concurrent maps that already own theirs, because an eviction order needs a monotonic touch and
-    // a budget needs a running sum no dictionary derives in constant time.
+    // _clock and _charged are the cache's two measured cells — the page's ONLY mutable state, seated beside the
+    // concurrent maps that already own theirs, because an eviction order needs a monotonic touch and a budget needs a
+    // running sum no dictionary derives in constant time.
     private long _clock;
     private long _charged;
 
@@ -282,10 +285,10 @@ public sealed record ShaderAssetCache(
 
     public long ChargedBytes => Interlocked.Read(ref _charged);
 
-    // A resolution GENERATION: every plane a single ShadeUniforms.Of makes resident touches at or above this value,
-    // and eviction never releases a cell at or above the generation it was handed. That one comparison is what makes a
-    // handle a bound draw holds unreleasable — a budgeted cache without it disposes the texture the current frame is
-    // reading the moment the next material overruns the ceiling.
+    // Generation opens a resolution: every plane a single ShadeUniforms.Of makes resident touches at or above this
+    // value, and eviction never releases a cell at or above the generation it was handed. That one comparison is what
+    // makes a handle a bound draw holds unreleasable — a budgeted cache without it disposes the texture the current
+    // frame is reading the moment the next material overruns the ceiling.
     public long Generation() => Interlocked.Increment(ref _clock);
 
     // Probe-first, compile-on-miss: a cache hit never constructs a native handle, and the loser of a
@@ -328,8 +331,8 @@ public sealed record ShaderAssetCache(
         return held;
     }
 
-    // A lost TryUpdate race leaves the older touch, which only makes the cell a slightly better eviction candidate —
-    // never a correctness fork, so the re-touch stays lock-free.
+    // Touched tolerates a lost TryUpdate race: the older touch survives and only makes the cell a slightly better
+    // eviction candidate — never a correctness fork, so the re-touch stays lock-free.
     ShadeTexture Touched((UInt128 Plane, string Backend) at, ResidentPlane held, long generation) {
         Planes.TryUpdate(at, held with { Touch = generation }, held);
         return held.Texture;
@@ -373,10 +376,10 @@ public sealed record ShaderAssetCache(
                 source.Key, backend, new ShaderProgram.Ganesh(effect), source.Bindings)))
             : Fin.Fail<ShaderAsset>(new ShaderFault.CompileFailed($"{source.Key}: {error}"));
 
-    // The compiled effect publishes its OWN declared slot names on Uniforms and Children, so a roster row — or the
+    // SKRuntimeEffect publishes its OWN declared slot names on Uniforms and Children, so a roster row — or the
     // swizzle companion a packed row rides — naming a slot the SkSL does not declare refuses HERE, at the one place
-    // the two vocabularies meet, instead of writing into a builder that silently drops it. A refused effect disposes,
-    // so a rejected compile leaks no native handle.
+    // where both vocabularies meet, instead of writing into a builder that silently drops it. Declared disposes a
+    // refused effect, so a rejected compile leaks no native handle.
     static Fin<Unit> Declared(ShaderSource source, SKRuntimeEffect effect) =>
         source.Bindings
             .Bind(row => Seq<(string Name, bool Sampled)>((row.Name, row.Kind.Sampled))
@@ -389,9 +392,8 @@ public sealed record ShaderAssetCache(
                 },
                 None: () => Fin.Succ(unit));
 
-    // The Wgpu arm compiles through the bound capsule: an unbound compiler is the typed no-device state
-    // and a compile error carries its WGSL diagnostic — a no-op asset or a Ganesh fallback mislabelled as
-    // Wgpu cannot type.
+    // CompileWgpu compiles through the bound capsule: an unbound compiler is the typed no-device state and a compile
+    // error carries its WGSL diagnostic — a no-op asset or a Ganesh fallback mislabelled as Wgpu cannot type.
     Fin<ShaderAsset> CompileWgpu(ShaderSource source, GpuBackend backend) =>
         Compiler
             .ToFin(new ShaderFault.BackendUnsupported($"{backend.Key}: no wgpu compiler bound"))
@@ -465,12 +467,12 @@ public sealed record ShaderAssetCache(
 
 - Owner: `ShaderShade` the GPU shading pass consuming the Materials `LayeredBsdf`; `ShadeUniforms` the per-material slot map every binding row resolves into; `BoundSlot` the resolved per-slot value; `BoundShade` the mounted per-frame shading artifact.
 - Entry: `public Fin<RenderPass> Pass(ShadeUniforms uniforms)` on `ShaderAsset` projects the compiled shader and resolved slot map into one `Render/pipeline` `RenderPass` the render graph schedules; `public static Fin<ShadeUniforms> Of(ShaderSource source, LayeredBsdf bsdf, Func<TextureChannel, ShadeVec4> fallback, Option<TextureSet> set, Option<EnvironmentLight> dome, ShaderAssetCache cache, GpuBackend backend)` is the ONE resolution — it folds the admitted roster, resolves each source to its `ShadeSupply`, and makes exactly the sampled answers resident under one generation.
-- Law: ONE resolution answers every source. A scalar channel reads the Materials closure, a sampled channel reads the set, the lobe row reads the layered weights, and an ambient row reads its own `EnvironmentRead` column — four inputs, one `ShadeSupply` answer, so a fifth source is a row rather than a second uniform struct and a second bind arm. An `Absent` answer binds nothing and the shader's declared scalar fallback stands, so a partially-baked material draws.
-- Law: image-based lighting is READ, never integrated. `EnvironmentLight` already holds the SH9 irradiance run, the GGX roughness ladder, the split-sum LUT, the stored equirect, and the dome's own intensity and rotation on the owner that prefiltered them, so this pass binds those products and the shader reconstructs a shade the `Render/pathtrace` integrator reaches by transport instead. A Render-side SH reconstruction, prefilter integral, or roughness-to-level formula is the deleted form — the ladder crosses AS DATA, so the level a raster shade picks and the level the prefilter wrote agree by construction.
-- Auto: the shading pass consumes the `Rasm.Materials/Appearance` `LayeredBsdf` and channel-value closure the Materials lowering produces, the `TextureSet` the `Raster/press` bake or `Raster/set` ingest produced, and the `EnvironmentLight` the `Appearance/environment` prefilter resolved. `ShadeUniforms.Of` resolves them once per material and `RenderPass.Geometry` mounts the resulting `BoundShade`, so the GPU shader evaluates the same `LayeredBsdf`, the same planes, and the same dome the CPU `Render/pathtrace` integrator shades from — the two integrators are comparable because they read one appearance model and one light rig, not because they were written to match. The per-backend split remains in compile and upload, so shading rides the one render graph.
+- Law: ONE resolution answers every source. Each scalar channel reads the Materials closure, a sampled channel reads the set, the lobe row reads the layered weights, and an ambient row reads its own `EnvironmentRead` column — four inputs, one `ShadeSupply` answer, so a fifth source is a row rather than a second uniform struct and a second bind arm. `Absent` answers bind nothing and the shader's declared scalar fallback stands, so a partially-baked material draws.
+- Law: image-based lighting is READ, never integrated. `EnvironmentLight` already holds the SH9 irradiance run, the GGX roughness ladder, the split-sum LUT, the stored equirect, and the dome's own intensity and rotation on the owner that prefiltered them, so this pass binds those products and the shader reconstructs a shade the `Render/pathtrace` integrator reaches by transport instead. Render-side SH reconstruction, prefilter integral, and roughness-to-level formula are the deleted form — the ladder crosses AS DATA, so the level a raster shade picks and the level the prefilter wrote agree by construction.
+- Auto: the shading pass consumes the `Rasm.Materials/Appearance` `LayeredBsdf` and channel-value closure the Materials lowering produces, the `TextureSet` the `Raster/press` bake or `Raster/set` ingest produced, and the `EnvironmentLight` the `Appearance/environment` prefilter resolved. `ShadeUniforms.Of` resolves them once per material and `RenderPass.Geometry` mounts the resulting `BoundShade`, so the GPU shader evaluates the same `LayeredBsdf`, the same planes, and the same dome the CPU `Render/pathtrace` integrator shades from — the two integrators are comparable because they read one appearance model and one light rig, not because they were written to match. Compile and upload keep the per-backend split, so shading rides the one render graph.
 - Packages: SkiaSharp, Silk.NET.WebGPU, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Materials (project)
 - Growth: a new shading parameter is one `TextureChannel` row at the Materials owner and one `ShaderBinding` row here; a new lighting product is one `EnvironmentRead` row; zero new surface — the shader consumes the roster, never re-derives it, and the roster's cardinality tracks the OpenPBR vector by construction.
-- Boundary: the shading pass consumes the Materials `LayeredBsdf`, channel-value closure, `TextureSet`, and `EnvironmentLight`; the `csharp:Rasm.Materials/Appearance` seam supplies the closure and the resolved dome and the `csharp:Rasm.Materials/Raster` seam supplies planes (`Render <- csharp:Rasm.Materials/Appearance # [BOUNDARY]: LayeredBsdf / channel-value closure / EnvironmentLight at the shading pass`, `Render <- csharp:Rasm.Materials/Raster # [BOUNDARY]: TextureSet / TexturePlane levels at the sampler bind`). The GPU shader and CPU integrator evaluate the same `LayeredBsdf` over the same planes and the same dome. The pass mounts through the one `Render/pipeline` graph. A material resolves to one slot map and bind group at shade time. `Render/pathtrace#LIGHT_RIG` supplies the shared `LightSource` family and resolves the same `EnvironmentLight` row this pass binds. The viewport leases the shared `Wgpu` device. A LAYERED set or a cube-face dome reaches the Wgpu arm alone, the Ganesh upload declaring the single-layer refusal rather than binding face zero as the whole map.
+- Boundary: the shading pass consumes the Materials `LayeredBsdf`, channel-value closure, `TextureSet`, and `EnvironmentLight`; the `csharp:Rasm.Materials/Appearance` seam supplies the closure and the resolved dome and the `csharp:Rasm.Materials/Raster` seam supplies planes (`Render <- csharp:Rasm.Materials/Appearance # [BOUNDARY]: LayeredBsdf / channel-value closure / EnvironmentLight at the shading pass`, `Render <- csharp:Rasm.Materials/Raster # [BOUNDARY]: TextureSet / TexturePlane levels at the sampler bind`). GPU shader and CPU integrator evaluate the same `LayeredBsdf` over the same planes and the same dome. `ShaderShade` mounts the pass through the one `Render/pipeline` graph. Every material resolves to one slot map and bind group at shade time. `Render/pathtrace#LIGHT_RIG` supplies the shared `LightSource` family and resolves the same `EnvironmentLight` row this pass binds. Viewport leases the shared `Wgpu` device. LAYERED sets and cube-face domes reach the Wgpu arm alone, the Ganesh upload declaring the single-layer refusal rather than binding face zero as the whole map.
 
 ```csharp signature
 // One resolved slot: the lane run a scalar write takes, or the native plane a sampled write takes beside the packed
@@ -482,8 +484,9 @@ public abstract partial record BoundSlot {
     public sealed record Sampled(ShadeTexture Texture, int Lane) : BoundSlot;
 }
 
-// The per-material slot map, keyed by the admitted roster's own slot names. The draw fold is a lookup, because every
-// resolution — the closure read, the set probe, the pack lane, the dome product, the device upload — already ran here.
+// ShadeUniforms maps every slot per material, keyed by the admitted roster's own slot names. Draw folds to a lookup,
+// because every resolution — the closure read, the set probe, the pack lane, the dome product, the device upload —
+// already ran here.
 public readonly record struct ShadeUniforms(HashMap<string, BoundSlot> Slots) {
     public const int LobeCount = 7;
 
@@ -519,9 +522,10 @@ public readonly record struct ShadeUniforms(HashMap<string, BoundSlot> Slots) {
             _ => Fin.Succ(Option<BoundSlot>.None),
         };
 
-    // The source-to-supply fold. A Channel row consults the SET when its slot samples and the Materials closure when it
-    // does not — the same row, two modalities, discriminated by the binding's own Kind rather than by two rosters.
-    // Lobes projects the layered weight vector; Ambient asks its own EnvironmentRead row for the prefiltered product.
+    // Supply folds every source to its answer. Channel rows consult the SET when the slot samples and the Materials
+    // closure when it does not — one row, two modalities, discriminated by the binding's own Kind rather than by two
+    // rosters. Lobes projects the layered weight vector; Ambient asks its own EnvironmentRead row for the prefiltered
+    // product.
     static ShadeSupply Supply(
         ShaderBinding row, LayeredBsdf bsdf, Func<TextureChannel, ShadeVec4> fallback,
         Option<TextureSet> set, Option<EnvironmentLight> dome) =>
@@ -545,23 +549,23 @@ public readonly record struct ShadeUniforms(HashMap<string, BoundSlot> Slots) {
                     pack.Plane.Key, pack.Plane.Levels, Sampler(set, pack.Plane.Levels.Count), pack.Plane.Policy, lane)))
                 .IfNone(ShadeSupply.Nothing));
 
-    // The address axes are SET DATA. A TileProof-carrying set repeats because the gate graded its periodicity, while an
-    // ingested or UDIM set clamps — repeating an ungraded plane shows the seam the proof exists to certify, and
-    // repeating a UDIM tile bleeds its neighbour across the tile boundary.
+    // Sampler reads its address axes off SET DATA. A TileProof-carrying set repeats because the gate graded its
+    // periodicity, while an ingested or UDIM set clamps — repeating an ungraded plane shows the seam the proof exists
+    // to certify, and repeating a UDIM tile bleeds its neighbour across the tile boundary.
     static SamplerState Sampler(TextureSet set, int levels) =>
         new(Address(set), Address(set), levels > 1 ? FilterMode.Trilinear : FilterMode.Bilinear);
 
     static AddressMode Address(TextureSet set) =>
         set.Tiled.IsSome && set.Udim.IsEmpty ? AddressMode.Repeat : AddressMode.Clamp;
 
-    // The roster's Components column is the semantic count and the texel is always four lanes, so the prefix IS the
-    // channel's value — a per-arity switch would re-describe a number the row already carries.
+    // Components on the roster row carries the semantic count while the texel is always four lanes, so the prefix IS
+    // that channel's value — a per-arity switch re-describes a number the row already carries.
     static Seq<double> Take(ShadeVec4 texel, int components) => Seq(texel.X, texel.Y, texel.Z, texel.W).Take(components);
 }
 
-// The bound per-frame shading artifact the geometry pass MOUNTS — never a discarded builder: the Ganesh
-// SKShader lands on the pass paint's Shader slot, the Wgpu bind group lands on the RenderPassEncoder at the
-// encoder seam. One shade, two mount points; uniform values change per frame, the compiled handle never.
+// BoundShade carries the per-frame shading artifact the geometry pass MOUNTS — never a discarded builder: the Ganesh
+// SKShader lands on the pass paint's Shader slot, the Wgpu bind group lands on the RenderPassEncoder at the encoder
+// seam. One shade, two mount points; uniform values change per frame, the compiled handle never.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BoundShade {
     private BoundShade() { }
@@ -576,7 +580,7 @@ public abstract partial record BoundShade {
         }
     }
 
-    // The floor mounts the shader on the composited paint, while the Wgpu arm executes the compiler-bound
+    // GaneshShader mounts the shader on the composited paint, while the Wgpu arm executes the compiler-bound
     // encoder-side SetBindGroup delegate against the active target.
     public Fin<Unit> Mount(RenderTarget target) => Switch(
         state: target,
@@ -661,9 +665,9 @@ flowchart LR
 
 - [SHADER_COMPILE]: `ShaderProgram` closes native program ownership over exactly one `SKRuntimeEffect` or `WgpuPipelineState`, and `ShadeTexture` closes native texture ownership over exactly one `SKImage`+`SKShader` pair or one wgpu view/sampler pair. `ShaderAssetCache` probes before native construction on both kinds, disposes a concurrent insertion loser, retains one program per `(Key, Revision, GpuBackend)` cell and one plane per `(plane content key, GpuBackend)` cell, and releases a plane only through the budgeted eviction pass that protects the live resolution's own generation. `SKRuntimeEffect.Uniforms` and `.Children` publish the compiled slot names the roster gates against; a refused compile disposes the effect.
 - [BSDF_SHADE_SEAM]: `ShadeUniforms.Of` projects `LayeredBsdf.Lobes` into the weight run, reads each scalar `TextureChannel` through the Materials closure, and reads each `EnvironmentRead` off `EnvironmentLight.Products`/`.Map`/`.Blobs` — `Sh9.Bands` the irradiance run, `IblProducts.RoughnessPerMip` the roughness ladder, `EnvironmentMap.Intensity`/`.Rotation` the stored orientation. `ShaderProgram` binds those values through `SKRuntimeShaderBuilder.Uniforms`/`Children` or the composition-bound wgpu bind-group column, and both arms mount through `BoundShade` on the active `RenderTarget`.
-- [PLANE_UPLOAD_SEAM]: `TexturePlane.Read(int, int, Span<double>)` yields decoded scene-linear lanes off the plane's own ladder, so the upload path consumes plane LEVELS — `TexturePyramid.Levels`, `IblProducts.Specular`, `IblProducts.BrdfLut`, `EnvironmentMap.Plane` — and leaves `AsImage` to the CPU sampler. The Ganesh arm stages level 0 as RGBA32F through `SKImage.FromPixelCopy(SKImageInfo, ReadOnlySpan<byte>)` and wraps it with `SKShader.CreateImage`; the Wgpu arm hands the whole `PlaneUpload` to the composition-bound capsule, which owns `DeviceCreateTexture`, `TextureCreateView`, `DeviceCreateSampler`, and `QueueWriteTexture` behind the one device lease.
+- [PLANE_UPLOAD_SEAM]: `TexturePlane.Read(int, int, Span<double>)` yields decoded scene-linear lanes off the plane's own ladder, so the upload path consumes plane LEVELS — `TexturePyramid.Levels`, `IblProducts.Specular`, `IblProducts.BrdfLut`, `EnvironmentMap.Plane` — and leaves `AsImage` to the CPU sampler. `UploadGanesh` stages level 0 as RGBA32F through `SKImage.FromPixelCopy(SKImageInfo, ReadOnlySpan<byte>)` and wraps it with `SKShader.CreateImage`, while the Wgpu arm hands the whole `PlaneUpload` to the composition-bound capsule, which owns `DeviceCreateTexture`, `TextureCreateView`, `DeviceCreateSampler`, and `QueueWriteTexture` behind the one device lease.
 
 ## [05]-[RESEARCH]
 
 - [GANESH_MIP_CHAIN]-[OPEN]: does an `SKImage` built from `FromPixelCopy` accept a caller-supplied mip chain on any SkiaSharp surface, or is `SKMipmapMode.Linear` the only Ganesh path and therefore the declared authored-policy loss?; verify against the landed SkiaSharp catalogue and, if a chain admits, upload every authored level on both arms and delete the fidelity column from `ShaderReceipt`.
-- [GANESH_LADDER_LEVELS]-[OPEN]: the GGX prefilter ladder is a set of INDEPENDENT roughness integrals rather than a downsample chain, so binding it through `SKMipmapMode.Linear` would blend levels Skia generated instead of the levels the prefilter wrote; does any SkiaSharp surface bind an explicit level set, or does the Ganesh arm bind the roughness-nearest level alone and declare the interpolation loss the Wgpu arm keeps?; verify against the landed SkiaSharp catalogue and record the answer as an `EnvironmentRead` row column rather than a bind-arm branch.
+- [GANESH_LADDER_LEVELS]-[OPEN]: GGX prefilter levels are INDEPENDENT roughness integrals rather than a downsample chain, so binding them through `SKMipmapMode.Linear` blends levels Skia generated instead of the levels the prefilter wrote; does any SkiaSharp surface bind an explicit level set, or does the Ganesh arm bind the roughness-nearest level alone and declare the interpolation loss the Wgpu arm keeps?; verify against the landed SkiaSharp catalogue and record the answer as an `EnvironmentRead` row column rather than a bind-arm branch.

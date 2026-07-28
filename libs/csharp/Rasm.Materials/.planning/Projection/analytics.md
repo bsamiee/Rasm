@@ -43,9 +43,9 @@ public readonly record struct DatasetColumn(string Name, ColumnToken Token, bool
 // custodian's own gate turns this token into its `TimeSpine` row and REFUSES a dataset whose category and columns
 // disagree — a producer stamping an observation column under the landing category defeats a category whose whole
 // meaning is custodian admission, and an event-time dataset silently re-dated to admission strands every board
-// joining two datasets on one axis. Materials declares `event` on every row and carries no landing dataset, but
-// the token is the roster's own column rather than a constant, because the category is the custodian's axis and a
-// hardcoded literal here would be this page asserting a vocabulary it does not own.
+// joining two datasets on one axis. Materials declares `event` on every row and carries no landing dataset, yet
+// SpineToken stays the roster's own column rather than a constant, because the category is the custodian's axis and a
+// hardcoded literal here asserts a vocabulary this page does not own.
 [SmartEnum<string>]
 public sealed partial class SpineToken {
     public static readonly SpineToken Event = new("event");
@@ -54,9 +54,9 @@ public sealed partial class SpineToken {
 
 public sealed record DatasetWire(
     string Dataset, Seq<string> Key, Seq<DatasetColumn> Columns, SpineToken Spine, string Time, Option<string> Measure) {
-    // The SIX-slot handoff the custodian's `AnalyticsSchema.Admit(dataset, columns, key, spine, time, measure)`
-    // consumes in field order. The spine slot is not optional there and never was — a five-slot projection could
-    // not compose the gate at all, so the column and the slot land together.
+    // Admission projects the SIX-slot handoff the custodian's `AnalyticsSchema.Admit(dataset, columns, key, spine,
+    // time, measure)` consumes in field order. Its spine slot is mandatory there, so a five-slot projection composes no
+    // gate at all and the column and the slot land together.
     public (string Dataset, Seq<(string Name, string Type, bool Nullable)> Columns,
         Seq<string> Key, string Spine, Option<string> Time, Option<string> Measure) Admission =>
         (Dataset, Columns.Map(static column => column.Wire), Key, Spine.Key, Some(Time), Measure);
@@ -70,7 +70,7 @@ public sealed record DatasetWire(
 - Auto: identity and provenance ride as columns — classification system and code with evidence source and calendar expiry on the property and sustainability rows, the content-derived appearance key on library rows — so audit queries filter and expiry-screen without joining back into object graphs; `observed` trails every column list, so every declaration reads identity, then payload, then spine; the residence derives its own sort key from `Key` and `Time`, never from declaration order.
 - Packages: LanguageExt.Core.
 - Growth: a new dataset is one declaration, one row record, and one fold; a new column is one `DatasetColumn` with its field on the owning row record.
-- Boundary: declaration truth and row truth stay co-located, so each dataset edit carries its matching row field and projection expression. `gwp`, `elapsed_s`, and `byte_length` are the three measures the family declares, because summing a mixed-unit long-form property column or a colour channel states a magnitude neither carries, while stored plane bytes sum to exactly the estate-wide texture footprint a storage question asks for. A set's OWN press duration is deliberately not the texture measure: it repeats on every channel row of one press, so summing it would multiply one bake by its channel count.
+- Boundary: declaration truth and row truth stay co-located, so each dataset edit carries its matching row field and projection expression. `gwp`, `elapsed_s`, and `byte_length` are the three measures the family declares, because summing a mixed-unit long-form property column or a colour channel states a magnitude neither carries, while stored plane bytes sum to exactly the estate-wide texture footprint a storage question asks for. `materials.texture` deliberately excludes a set's OWN press duration from its measure: that duration repeats on every channel row of one press, so summing it multiplies one bake by its channel count.
 
 ```csharp signature
 public static class MaterialsDatasets {
@@ -129,11 +129,11 @@ public static class MaterialsDatasets {
         new DatasetColumn("observed", ColumnToken.Timestamp, Nullable: false)), Spine: SpineToken.Event, Time: "observed", Measure: "elapsed_s");
 
     // ONE ROW PER CHANNEL, keyed by the set and the channel it carries — the grain the estate's own storage takes
-    // (the persistence landing partitions on `channel`), and the grain a real question asks: which materials carry
-    // a normal plane, how many bytes each container costs across the estate, which sets never earned a tile proof.
-    // A set-grained row would answer none of those without unpacking a nested column every dialect renders
-    // differently. The press columns are NULLABLE because an ingested set was never pressed, which is a typed
-    // absence rather than a zero a rollup would then sum into a fabricated bake cost.
+    // (the persistence landing partitions on `channel`), and the grain a real question asks: which materials carry a
+    // normal plane, how many bytes each container costs across the estate, which sets never earned a tile proof. A
+    // set-grained row answers none of those without unpacking a nested column every dialect renders differently. Press
+    // columns stay NULLABLE because an ingested set was never pressed, a typed absence rather than a zero a rollup
+    // sums into a fabricated bake cost.
     public static readonly DatasetWire TextureChannels = new("materials.texture", Key: Seq("set", "channel"), Seq(
         new DatasetColumn("set", ColumnToken.KeyHex, Nullable: false),
         new DatasetColumn("appearance", ColumnToken.KeyHex, Nullable: false),
@@ -248,19 +248,19 @@ public static class AnalyticsProjection {
                 summary.BaseColorB, summary.Metallic, summary.Roughness, summary.Opacity,
                 summary.Transmissive, frame.At))).As();
 
-    // The fold reads the already-projected TextureSetWire rather than the TextureSet: every column it needs is a
-    // wire column the interchange projection rendered once — the egress leaf, the payload class, the lowered
-    // digests — so the analytics row re-derives NOTHING and a set's storage footprint in a warehouse matches the
-    // document its consumers decoded byte for byte. Packed sheets fold beside standalone channels under their own
-    // pack name in the `channel` slot, because a query asking which sets carry roughness must see an `orm` sheet
-    // as the row that carries it rather than as a set with no roughness at all.
+    // Textures reads the already-projected TextureSetWire rather than the TextureSet: every column it needs is a wire
+    // column the interchange projection rendered once — the egress leaf, the payload class, the lowered digests — so the
+    // analytics row re-derives NOTHING and a set's storage footprint in a warehouse matches the document its consumers
+    // decoded byte for byte. Packed sheets fold beside standalone channels under their own pack name in the `channel`
+    // slot, because a query asking which sets carry roughness must see an `orm` sheet as the row that carries it rather
+    // than as a set with no roughness at all.
     public static Seq<TextureChannelAnalyticsRow> Textures(Seq<TextureSetWire> sets, ProjectionContext frame) =>
         sets.Bind(set => toSeq(set.Channels)
             .Map(row => Row(set, row.Role, row.Transfer, row.Format, Some(row.KtxPayload), Some(row.BlockFormat),
                 (int)row.Mips, row.Blob, row.ByteLength, frame))
-            // A packed sheet declares NO single payload class or block format: its lanes carry three different
-            // channels' policies, so the two columns are absent rather than filled with one lane's value promoted
-            // to speak for the sheet — a query grouping by payload then counts real declarations alone.
+            // Packs declare NO single payload class or block format: a sheet's lanes carry three different channels'
+            // policies, so the two columns stay absent rather than filled with one lane's value promoted to speak for the
+            // sheet — a query grouping by payload then counts real declarations alone.
             .Append(toSeq(set.Packs).Map(pack => Row(set, pack.Pack, PlaneTransfer.Raw.Key, pack.Format,
                 None, None, (int)pack.Mips, pack.Blob, pack.ByteLength, frame))));
 
