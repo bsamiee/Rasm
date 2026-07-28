@@ -107,8 +107,8 @@ Every surface is an `unsafe Result` instance method on the `XR.GetApi()` functio
 - Extension command sets load through `TryGetInstanceExtension<T>` once their `ExtensionName` is named in `InstanceCreateInfo.EnabledExtensionNames`; depth compositing chains as the `CompositionLayerDepthInfoKHR` struct, not a wrapped class.
 
 [STACKING]:
-- `api-silk-webgpu`(`.api/api-silk-webgpu.md`): the core `Device`/`Queue` is the physical device and queue family the Vulkan `GraphicsBindingVulkanKHR` binds into `SessionCreateInfo.next`, so the swapchain images present from the one wgpu device — a second immersive-path device is the cross-adapter copy penalty this seam avoids.
-- `api-silk-webgpu-wgpu`(`.api/api-silk-webgpu-wgpu.md`): `Wgpu.InstanceEnumerateAdapters` supplies the adapter identity the OpenXR runtime LUID-matches, pinning session and compositor to one physical adapter.
+- `api-silk-webgpu`(`libs/csharp/.api/api-silk-webgpu.md`): the core `Device`/`Queue` is the physical device and queue family the Vulkan `GraphicsBindingVulkanKHR` binds into `SessionCreateInfo.next`, so the swapchain images present from the one wgpu device — a second immersive-path device is the cross-adapter copy penalty this seam avoids.
+- `api-silk-webgpu-wgpu`(`libs/csharp/.api/api-silk-webgpu-wgpu.md`): `Wgpu.InstanceEnumerateAdapters` supplies the adapter identity the OpenXR runtime LUID-matches, pinning session and compositor to one physical adapter.
 - `api-silk-openxr-fb`(`.api/api-silk-openxr-fb.md`): the `FB*` passthrough and anchor roots load against this catalog's `XR.GetApi()` instance and composite their layer on the same `Session`/`Swapchain` the scene renders to.
 - viewport boundary capsule: each native handle pairs its `Create`/`Destroy` in a scoped fold, and the session-create probe folds to the flat desktop viewport when the loader is absent.
 

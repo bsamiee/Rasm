@@ -44,6 +44,11 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 - `System.Numerics.Tensors` — SIMD-lowered tensor folds.
 - `UnitsNet` — typed quantity boundary.
 
+[GPU_DEVICE]:
+- `Silk.NET.WebGPU` — the WebGPU binding three folders compose: AppUi mints the presented device, Compute dispatches GPGPU over it, Materials acquires a surfaceless bake device of its own.
+- `Silk.NET.WebGPU.Extensions.WGPU` — `wgpu_native` extension table: `DevicePoll` map advance, `QueueSubmitForIndex` completion, native log routing, and adapter enumeration.
+- `Silk.NET.WebGPU.Native.WGPU` — the `wgpu_native` runtime binaries the binding P/Invokes; a display or bake device carries it, a dispatch-only lane binds the peer's.
+
 [GRAPH_ALGORITHM]:
 - `QuikGraph` — pure-managed graph containers and `AlgorithmExtensions` for the graph-algorithm walks.
 

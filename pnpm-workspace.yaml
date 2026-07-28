@@ -44,7 +44,7 @@ catalog:
   '@oslojs/crypto': 1.0.1
   '@oslojs/encoding': 1.1.0
   '@dopplerhq/node-sdk': 1.3.0
-  # data — journal, lanes, object store, analytics, fanout
+  # data — journal, lanes, object store, analytics, fanout, asset pipeline
   '@effect/sql': 0.52.0
   '@effect/sql-pg': 0.53.0
   '@effect/sql-sqlite-node': 0.53.0
@@ -61,12 +61,17 @@ catalog:
   '@duckdb/duckdb-wasm': 1.33.1-dev61.0
   '@qualithm/arrow-flight-client': 0.1.14
   parquet-wasm: 0.7.2
-  '@aws-sdk/client-s3': 3.1093.0
-  '@aws-sdk/s3-request-presigner': 3.1093.0
-  '@aws-sdk/lib-storage': 3.1093.0
+  '@aws-sdk/client-s3': 3.1096.0
+  '@aws-sdk/s3-request-presigner': 3.1096.0
+  '@aws-sdk/lib-storage': 3.1096.0
   '@tus/server': 2.4.2
   '@tus/s3-store': 2.0.5
   sharp: 0.35.3
+  '@gltf-transform/core': 4.4.2
+  '@gltf-transform/extensions': 4.4.2
+  '@gltf-transform/functions': 4.4.2
+  ktx-parse: 1.1.0
+  meshoptimizer: 1.2.0
   ssh2: 1.17.0
   webdav: 5.10.0
   basic-ftp: 6.0.1
@@ -312,6 +317,9 @@ overrides:
   jiti: 2.7.0
   minimatch: 10.2.5
   rollup: 4.62.2
+  # ndarray-pixels declares sharp ^0.34; @gltf-transform/functions imports it eagerly on node, so the
+  # unpinned resolution loads a SECOND libvips native beside the catalog sharp. One lineage, one binary.
+  sharp: 0.35.3
   svgo: 4.0.2
   tar: 7.5.21
 

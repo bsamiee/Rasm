@@ -824,6 +824,7 @@
           "OpenTelemetry.Instrumentation.AspNetCore": "[1.17.0, )",
           "OpenTelemetry.Instrumentation.GrpcNetClient": "[1.17.0-beta.1, )",
           "OpenTelemetry.Instrumentation.Http": "[1.17.0, )",
+          "OpenTelemetry.Instrumentation.Process": "[1.17.0-rc.1, )",
           "OpenTelemetry.Instrumentation.Runtime": "[1.17.0, )",
           "OpenTelemetry.PersistentStorage.FileSystem": "[1.1.1, )",
           "OpenTelemetry.Resources.Container": "[1.17.0-beta.1, )",
@@ -1855,6 +1856,15 @@
           "Microsoft.Extensions.Configuration": "10.0.0",
           "Microsoft.Extensions.Options": "10.0.0",
           "OpenTelemetry.Api.ProviderBuilderExtensions": "[1.17.0, 2.0.0)"
+        }
+      },
+      "OpenTelemetry.Instrumentation.Process": {
+        "type": "CentralTransitive",
+        "requested": "[1.17.0-rc.1, )",
+        "resolved": "1.17.0-rc.1",
+        "contentHash": "oN56aaWQ6p+1JRTDXf7QXEOZi8sX7OGVRvBYDlPstPDQ9MAtn695+E68HeJFJeD7F2KhD4CBPiMWieVW2UQK2w==",
+        "dependencies": {
+          "OpenTelemetry.Api": "[1.17.0, 2.0.0)"
         }
       },
       "OpenTelemetry.Instrumentation.Runtime": {

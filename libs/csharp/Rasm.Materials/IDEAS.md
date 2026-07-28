@@ -72,6 +72,14 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: `glazing#GLAZING_FAMILY` `GlazingGwp`/`GenericEpd`, the Properties sustainability rows, the `ARCHITECTURE` `[WIRE]: Assessment` edge.
 - Tension: Wire record schema and transport are the `python:data` peer's to co-sign via its counterpart card, and EPD records are external provenance-bound data — no Materials-local table can seed them.
 
+[MAGICK_BREADTH]-[BLOCKED]: Raster codec coverage widens to the container families no admitted managed codec reaches — AVIF, HEIF, JPEG XL, and the legacy DPX and Cineon plates.
+- Capability: one ingest breadth tier behind the same format-keyed codec dispatch, so an asset arriving in a container the managed estate cannot decode admits without a caller-side conversion step or a silent refusal.
+- Shape: one breadth engine row beside the existing managed engines, reached only where the sniffed container matches no managed row; lands in `libs/csharp/Rasm.Materials/.planning/Raster/codec.md`.
+- Unlocks: asset-library ingestion over vendor and archive containers; the delivery-format half of the raster estate rather than the authoring half alone.
+- Anchors: `Magick.NET-Q16-HDRI-AnyCPU` ships an osx-arm64 native and an HDRI-configured Q16 build; the folder's codec dispatch already sniffs magic bytes and carries an engine column, so a breadth engine is a row rather than a second entrypoint.
+- Arms: the runtime-verified delegate roster of the shipped native proves AVIF, HEIF, and JXL decode present on osx-arm64 — a `Magick.NET` build advertises formats its bundled delegates may omit, so the format list is measured, never read off the package description.
+- Tension: a native-bearing breadth tier buys containers at the cost of a P/Invoke surface and a per-RID asset the whole managed estate currently avoids, so the tier admits only where the container set it alone reaches is genuinely demanded, and every authored product still egresses through a managed engine.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed idea card template:

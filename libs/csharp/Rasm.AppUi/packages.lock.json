@@ -2883,6 +2883,7 @@
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MIConvexHull": "[1.1.19.1019, )",
           "MathNet.Numerics": "[6.0.0-beta2, )",
+          "NodaTime": "[3.3.3, )",
           "PeterO.Numbers": "[1.8.2, )",
           "QuikGraph": "[2.5.0, )",
           "Supercluster.KDTree.Net": "[1.0.22, )",
@@ -2970,6 +2971,7 @@
           "OpenTelemetry.Instrumentation.AspNetCore": "[1.17.0, )",
           "OpenTelemetry.Instrumentation.GrpcNetClient": "[1.17.0-beta.1, )",
           "OpenTelemetry.Instrumentation.Http": "[1.17.0, )",
+          "OpenTelemetry.Instrumentation.Process": "[1.17.0-rc.1, )",
           "OpenTelemetry.Instrumentation.Runtime": "[1.17.0, )",
           "OpenTelemetry.PersistentStorage.FileSystem": "[1.1.1, )",
           "OpenTelemetry.Resources.Container": "[1.17.0-beta.1, )",
@@ -3021,6 +3023,7 @@
           "HyperJet": "[0.2.0, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
+          "MQTTnet": "[5.2.0.1603, )",
           "MathNet.Numerics": "[6.0.0-beta2, )",
           "MathNet.Numerics.Providers.MKL": "[6.0.0-beta2, )",
           "MathNet.Numerics.Providers.OpenBLAS": "[6.0.0-beta2, )",
@@ -5111,6 +5114,15 @@
           "Microsoft.Extensions.Configuration": "10.0.0",
           "Microsoft.Extensions.Options": "10.0.0",
           "OpenTelemetry.Api.ProviderBuilderExtensions": "[1.17.0, 2.0.0)"
+        }
+      },
+      "OpenTelemetry.Instrumentation.Process": {
+        "type": "CentralTransitive",
+        "requested": "[1.17.0-rc.1, )",
+        "resolved": "1.17.0-rc.1",
+        "contentHash": "oN56aaWQ6p+1JRTDXf7QXEOZi8sX7OGVRvBYDlPstPDQ9MAtn695+E68HeJFJeD7F2KhD4CBPiMWieVW2UQK2w==",
+        "dependencies": {
+          "OpenTelemetry.Api": "[1.17.0, 2.0.0)"
         }
       },
       "OpenTelemetry.Instrumentation.Runtime": {

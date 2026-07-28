@@ -1,4 +1,4 @@
-# [RASM_APPUI_API_SILK_WEBGPU_WGPU]
+# [RASM_API_SILK_WEBGPU_WGPU]
 
 `Wgpu : NativeExtension<WebGPU>` mints the wgpu-native (`wgpu.h`) function table layered over the portable `Silk.NET.WebGPU` core (`webgpu.h`) — the native-only entrypoints a desktop render loop demands past the WebGPU standard. One call site holds one `WebGPU` core and one `Wgpu` view over the one loaded `wgpu_native` runtime, never a second binding.
 
@@ -9,7 +9,7 @@
 - assembly: `Silk.NET.WebGPU.Extensions.WGPU`
 - namespace: `Silk.NET.WebGPU.Extensions.WGPU`
 - asset: managed binding only — P/Invokes the `wgpu_native` binaries `Silk.NET.WebGPU.Native.WGPU` restores
-- rail: viewport
+- rail: gpu device
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -129,7 +129,7 @@ Every `*Extras` opens with a `Chain:ChainedStruct` header.
 
 [TOPOLOGY]:
 - `Wgpu` loads through the `NativeExtension<WebGPU>` convention against the live core — `webgpu.TryGetDeviceExtension<Wgpu>(device, out var wgpu)` gates on the `wgpu.h` probe and constructs, and `new Wgpu(webgpu.Context)` binds the same context directly; either yields a second function-table view over the one loaded `wgpu_native` runtime.
-- `DevicePoll(device, wait:false, submissionIndex)` advances submission completion once per frame, retires command buffers, and runs mapped-buffer callbacks off the UI thread; `wait:true` drains at teardown.
+- `DevicePoll(device, wait:false, submissionIndex)` advances submission completion once per frame, retires command buffers, and runs mapped-buffer callbacks off the UI thread; `wait:true` drains at teardown. Surfaceless devices have no present to pump the event loop, so `DevicePoll` is the only advance a headless readback gets — a bake fold polling `BufferGetMapState` without it spins forever.
 - `SetLogCallback` binds a `PfnLogCallback` over the native diagnostic stream — adapter selection, validation errors, device-lost — so a wgpu validation error is a counted evidence row, not a swallowed native print.
 - `MultiDrawIndirect`/`MultiDrawIndexedIndirect` issue one indirect multi-draw over the visible meshlet set; the `*Count` variants read the live draw count a GPU compute-culling pass wrote, so the surviving-cluster count drives the draw with zero CPU round-trip.
 - `BindGroupEntryExtras`/`BindGroupLayoutEntryExtras` bind the bindless descriptor arrays (`Buffer**`/`Sampler**`/`TextureView**` with `Count`) once, indexed in-shader; `SetPushConstants` feeds per-draw view/cluster offsets declared by `PipelineLayoutExtras.PushConstantRanges` without a per-draw uniform rebind.
@@ -137,8 +137,8 @@ Every `*Extras` opens with a `Chain:ChainedStruct` header.
 
 [STACKING]:
 - `api-silk-webgpu`(`.api/api-silk-webgpu.md`): the core this extends over one loaded `wgpu_native` runtime — the core owns instance/adapter/device lifecycle, surface, pipeline, and timestamp query create/write/resolve/map, and this extension's `DevicePoll` retires the core's `BufferMapAsync` callback that `InstanceProcessEvents` otherwise pumps blocking.
-- `api-avalonia-gpu-interop`(`.api/api-avalonia-gpu-interop.md`): `InstanceEnumerateAdapters` returns every physical adapter for the compositor-adapter `DeviceLuid`/`DeviceUuid` match, so the wgpu device renders on the exact adapter the Avalonia compositor composites; the power-preference single adapter is the cross-adapter copy penalty.
-- Within-lib viewport owner: `SetLogCallback` routes the native diagnostic stream into the AppUi receipt sink as counted `ViewportFault` rows; `GenerateReport` feeds the residency-budget rail as device-side `RegistryReport` truth; the multi-draw, bindless-array, and push-constant ops drive the `GEOMETRY_VIRTUAL` meshlet cluster pass.
+- `api-avalonia-gpu-interop`(`Rasm.AppUi/.api/api-avalonia-gpu-interop.md`): `InstanceEnumerateAdapters` returns every physical adapter for the compositor-adapter `DeviceLuid`/`DeviceUuid` match, so the wgpu device renders on the exact adapter the Avalonia compositor composites; the power-preference single adapter is the cross-adapter copy penalty.
+- within-lib: each composing folder binds the table to its own plane — the AppUi viewport owner routes `SetLogCallback` into the receipt sink as counted `ViewportFault` rows, feeds the residency-budget rail from `GenerateReport` `RegistryReport` truth, and drives the meshlet cluster pass through multi-draw, bindless arrays, and push constants; the Compute lane takes `QueueSubmitForIndex` + `DevicePoll(wait: true)` for deterministic dispatch completion and pipeline-statistics invocation counts beside wall time; the Materials bake lane takes `DevicePoll(wait: false)` as its sole map advance on a device with no surface.
 
 [LOCAL_ADMISSION]:
 - `Wgpu` carries no native runtime of its own, P/Invoking the `wgpu_native` binaries `Silk.NET.WebGPU.Native.WGPU` already restores, so admission adds the vendor function table at zero native-asset cost.

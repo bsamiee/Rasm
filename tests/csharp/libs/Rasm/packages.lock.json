@@ -69,6 +69,7 @@
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MIConvexHull": "[1.1.19.1019, )",
           "MathNet.Numerics": "[6.0.0-beta2, )",
+          "NodaTime": "[3.3.3, )",
           "PeterO.Numbers": "[1.8.2, )",
           "QuikGraph": "[2.5.0, )",
           "Supercluster.KDTree.Net": "[1.0.22, )",
@@ -108,6 +109,12 @@
         "requested": "[1.1.19.1019, )",
         "resolved": "1.1.19.1019",
         "contentHash": "Qz0BIRVyflj9jMkIKG1tpON5Xz1lFEA9XyRH0Pw5qIsCE75heHF4cHrBr8RqvQJRaaNXH+5jdWAfFP3m3OfTOA=="
+      },
+      "NodaTime": {
+        "type": "CentralTransitive",
+        "requested": "[3.3.3, )",
+        "resolved": "3.3.3",
+        "contentHash": "EwouHZv99j5hraq34yQqvCQGDR59dynxPHlxFm2vY/sw2N2aR8cFel29ZxPqohjBWp9Qsnld7QCY+7uZ2PESGg=="
       },
       "PeterO.Numbers": {
         "type": "CentralTransitive",

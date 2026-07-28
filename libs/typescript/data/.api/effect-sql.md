@@ -59,7 +59,7 @@
 |  [05]   | `Model.VariantsDatabase` / `Model.VariantsJson` | variant axis    | DB-variant trio vs JSON-variant trio (members in lead)          |
 
 [PUBLIC_TYPE_SCOPE]: the `Model` variant-schema field families
-- `Model.Class` derives one struct into six wire variants, a field's per-variant presence its type; `Field`/`FieldOnly`/`FieldExcept`/`fieldEvolve`/`fieldFromKey` build, narrow, and rename a variant field set, and `Override` forces a value into a generated variant. A journal event, snapshot header, projection row, or ledger row composes from the field families below, never a hand-written per-entity trio.
+- `Model.Class` derives one struct into six wire variants, a field's per-variant presence its type; `Field`/`FieldOnly`/`FieldExcept`/`fieldEvolve`/`fieldFromKey` build, narrow, and rename a variant field set, and `Override` forces a value into a generated variant. Journal events, snapshot headers, projection rows, and ledger rows compose from the field families below, never a hand-written per-entity trio.
 
 | [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                              |
 | :-----: | :------------------------------------------------ | :--------------- | :--------------------------------------------------------------- |
@@ -141,7 +141,7 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SQL_TOPOLOGY]:
-- one Tag, driver-supplied Layer: `SqlClient` is an abstract `Context.Tag` every `store` row yields (`const sql = yield* SqlClient`), and the app root binds exactly one driver `Layer`, so runtime portability is a `Layer` selection and the journal code never names a dialect. A new lane adds one driver `Layer` and one `sql.onDialect` arm where SQL differs — never a parallel journal, projection, or client family.
+- one Tag, driver-supplied Layer: `SqlClient` is an abstract `Context.Tag` every `store` row yields (`const sql = yield* SqlClient`), and the app root binds exactly one driver `Layer`, so runtime portability is a `Layer` selection and the journal code never names a dialect. Adding a lane adds one driver `Layer` and one `sql.onDialect` arm where SQL differs — never a parallel journal, projection, or client family.
 - polymorphic statement surface: one `sql` value serves every read and write — `.stream` for a backpressured cursor, `.values` for raw tuples, `.raw` for driver-native output, `.unprepared` to skip the prepared-statement cache, `.compile()` to reflect `[sql, params]` — so no `query`/`queryOne`/`queryMany` proliferation exists; arity lives in the `SqlSchema` combinator (`findAll`/`findOne`/`single`) and dialect in `onDialect`.
 - transactions nest as savepoints: `sql.withTransaction(effect)` leases one connection for every inner statement, and a nested call reads `TransactionConnection` depth to emit `SAVEPOINT`/`RELEASE`/`ROLLBACK TO`, so the OCC append, transactional outbox, and idempotency claim commit atomically while a composed sub-operation rolls back to its savepoint alone.
 - parse-not-validate at both edges: `SqlSchema`/`SqlResolver`/`Model` decode every untyped `Connection.Row` through a `Schema`, a request schema validating input and a decode miss riding `ParseError` on the `Effect` error channel; no untyped row reaches domain code and `SqlError` (a tagged `YieldableError`) carries every query fault.
@@ -159,7 +159,7 @@
 - Type all I/O through `SqlSchema`/`SqlResolver`/`Model`, one `SqlSchema` combinator discriminating arity, so no raw `Connection.Row` read and no `query`/`getById`/`getMany` family survive.
 - Wrap the OCC-append + outbox + ledger commit in `sql.withTransaction`; nested composition folds to savepoints, never a manual `BEGIN`/`COMMIT` pair.
 - `Model.makeRepository`/`makeDataLoaders` serve projection, snapshot, and ledger tables only; the append-only journal issues no UPDATE/DELETE on its events (crypto-shredding is key destruction in `retain`, never a row rewrite).
-- A schema change is an `iac` declarative-ensure edit with a `store` startup verify; `Migrator` is banned branch-wide.
+- Schema changes are `iac` declarative-ensure edits with a `store` startup verify; `Migrator` is banned branch-wide.
 
 [RAIL_LAW]:
 - Package: `@effect/sql`

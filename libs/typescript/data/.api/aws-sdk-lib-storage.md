@@ -54,7 +54,7 @@
 
 [LOCAL_ADMISSION]:
 - `Upload` admits a streaming or unknown-length body only; bounded bytes ride the client's plain conditional put.
-- a content-band write states `IfNoneMatch: "*"` and `ChecksumAlgorithm` on `params`.
+- content-band writes state `IfNoneMatch: "*"` and `ChecksumAlgorithm` on `params`.
 - interruption bridges to `abort()`, so no fiber dies with parts in flight.
 - `partSize`/`queueSize` source from `Config`, never call-site literals.
 

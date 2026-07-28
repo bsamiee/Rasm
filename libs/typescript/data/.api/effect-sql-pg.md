@@ -84,7 +84,7 @@ Driver owns the pool, wire protocol, LISTEN/NOTIFY, and the OTel span; every pg 
 - Stack with `iac`/`security`: extensions and pool budgets are CNPG deployment-image facts `iac` provisions and `store` verifies at startup; `PgClientConfig.url`/`password` are `Redacted` from `host/config`, and `journal/retain` composes the `security/sign` `Shredder` for crypto-shredding.
 
 [LOCAL_ADMISSION]:
-- compose the neutral `SqlClient` Tag in domain rows; reach for the `PgClient` Tag only for `listen`/`notify`/`json`. A `PgClient`-hardcoded row that rides `SqlClient` blocks the sqlite lanes.
+- compose the neutral `SqlClient` Tag in domain rows; reach for the `PgClient` Tag only for `listen`/`notify`/`json`. Hardcoding `PgClient` in a row that rides `SqlClient` blocks the sqlite lanes.
 - express advisory locks, COPY, idempotency claims, SKIP LOCKED, and the RLS GUC as `sql` fragments over `reserve`/`withTransaction`; the statement is the parameterized owner and the driver ships no wrapper.
 - `PgMigrator` (`run`/`layer`, re-exporting `@effect/sql/Migrator`) is banned branch-wide: DDL is idempotent declarative ensure — `iac` applies, `store` verifies, runtime never mutates schema — with read-time upcasting instead of migrations.
 - secrets (`url`, `password`) are `Redacted`; pool sizing (`maxConnections`, `connectionTTL`) is a `Config`/`iac` fact, never a row literal.

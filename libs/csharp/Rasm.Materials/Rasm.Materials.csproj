@@ -33,6 +33,20 @@
         <PackageReference Include="Wacton.Unicolour.Datasets" />
     </ItemGroup>
 
+    <ItemGroup Label="Raster Imaging">
+        <PackageReference Include="SixLabors.ImageSharp" />
+        <PackageReference Include="TextureCompressor" />
+        <PackageReference Include="TextureCompressor.FileFormats.Hdr" />
+        <PackageReference Include="TextureCompressor.FileFormats.Ktx" />
+        <PackageReference Include="TinyEXR.NET" />
+    </ItemGroup>
+
+    <ItemGroup Label="GPU Bake">
+        <PackageReference Include="Silk.NET.WebGPU" />
+        <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" />
+        <PackageReference Include="Silk.NET.WebGPU.Native.WGPU" />
+    </ItemGroup>
+
     <ItemGroup Label="Functional Core">
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.MessagePack" />

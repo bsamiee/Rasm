@@ -94,6 +94,62 @@
         "resolved": "4.3.1",
         "contentHash": "oSE+OVLHyiojrws0QVbQaAT2YKsYbyHqJXPdV7EhGseR/dYgeWS2x1T5qY5I4E+RJkJqMSG+FyZOq4SljWgJWQ=="
       },
+      "Silk.NET.WebGPU": {
+        "type": "Direct",
+        "requested": "[2.23.0, )",
+        "resolved": "2.23.0",
+        "contentHash": "AAuHOS9RKezzSCg6DKA+CLtuvE+TnZgrvcBrvy706OMuwsK0hMLv1KMGb3MBw8nvFQgSyXczo/3kX0l+01sTYg==",
+        "dependencies": {
+          "Silk.NET.Core": "2.23.0"
+        }
+      },
+      "Silk.NET.WebGPU.Extensions.WGPU": {
+        "type": "Direct",
+        "requested": "[2.23.0, )",
+        "resolved": "2.23.0",
+        "contentHash": "UjfYGcRB57R8CDIOm8i2Pv8X8LYoA9MkqDHddcPJiC+SwW8IRQDmlX8IWVrDh2w6E4v4Ue4tX3yiBdUVTQHfeQ==",
+        "dependencies": {
+          "Silk.NET.Core": "2.23.0",
+          "Silk.NET.WebGPU": "2.23.0"
+        }
+      },
+      "Silk.NET.WebGPU.Native.WGPU": {
+        "type": "Direct",
+        "requested": "[2.23.0, )",
+        "resolved": "2.23.0",
+        "contentHash": "4ykgWVboF23XndBKR92E7313BcbReOqaC80Vo201KrFReKV3CAdkskiX5m7EqYaidwN+Dnvl4ZKiGSdLzI1Ldw=="
+      },
+      "SixLabors.ImageSharp": {
+        "type": "Direct",
+        "requested": "[3.1.12, )",
+        "resolved": "3.1.12",
+        "contentHash": "iAg6zifihXEFS/t7fiHhZBGAdCp3FavsF4i2ZIDp0JfeYeDVzvmlbY1CNhhIKimaIzrzSi5M/NBFcWvZT2rB/A=="
+      },
+      "TextureCompressor": {
+        "type": "Direct",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "gLxq1s5HjuMideWpWn6XIfeByD6LDa/a8+v0x8ovuazgLlR+5drYJNIeTmQ86H7OSiyAb/NzqRS7xx3a8NsiPA=="
+      },
+      "TextureCompressor.FileFormats.Hdr": {
+        "type": "Direct",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "ct4obMwrCcYyCDOp8/7xWkjCaLB/VBFwQowhzBtLIq2XxxaY+DgnqXzUZEdnay06YucY0G5Wa+w576xDbBWWVg==",
+        "dependencies": {
+          "TextureCompressor": "0.1.0"
+        }
+      },
+      "TextureCompressor.FileFormats.Ktx": {
+        "type": "Direct",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "/awk5oiADFkQPhbUzWzQdDRpdt3q326oX22kkk5pF859BDj5yGRxjBQzzTBeTItz2zSjAYZWA0Uc9wQDLNGLVA==",
+        "dependencies": {
+          "TextureCompressor": "0.1.0",
+          "ZstdSharp.Port": "0.8.8"
+        }
+      },
       "Thinktecture.Runtime.Extensions": {
         "type": "Direct",
         "requested": "[10.4.0, )",
@@ -123,6 +179,12 @@
           "MessagePack": "2.5.302",
           "Thinktecture.Runtime.Extensions": "10.4.0"
         }
+      },
+      "TinyEXR.NET": {
+        "type": "Direct",
+        "requested": "[1.1.0, )",
+        "resolved": "1.1.0",
+        "contentHash": "Fh5LkkZS21DV2apJXDPgtDdJ8BMl4608ERoBr2zx82Nk2QHhSp+sGg+j0+ZEu/TVkYIfojzQDn280Vx8a4Iy4Q=="
       },
       "UnitsNet": {
         "type": "Direct",
@@ -363,6 +425,11 @@
         "type": "Transitive",
         "resolved": "10.0.10",
         "contentHash": "Hffu4DLXbrtVBFdoH0vF2slGzHfzLNjP/DyxaKDPNsKOBtW95lcxiM+hlgRpf32yp/mY266OhTDw4axGLBtwuw=="
+      },
+      "Microsoft.DotNet.PlatformAbstractions": {
+        "type": "Transitive",
+        "resolved": "3.1.6",
+        "contentHash": "jek4XYaQ/PGUwDKKhwR8K47Uh1189PFzMeLqO83mXrXQVIpARZCcfuDedH50YDTepBkfijCZN5U/vZi++erxtg=="
       },
       "Microsoft.Extensions.AmbientMetadata.Application": {
         "type": "Transitive",
@@ -889,6 +956,15 @@
           "PacketDotNet": "0.16.0"
         }
       },
+      "Silk.NET.Core": {
+        "type": "Transitive",
+        "resolved": "2.23.0",
+        "contentHash": "D7AT/nnwlB+4RZ84XY8QNGBZMJI5z9l4CSSETIJ1wCfRJzRt/341y3MRZ4HbnFz4r/IGaWOEZr86iE+0/65yyQ==",
+        "dependencies": {
+          "Microsoft.DotNet.PlatformAbstractions": "3.1.6",
+          "Microsoft.Extensions.DependencyModel": "9.0.9"
+        }
+      },
       "System.ClientModel": {
         "type": "Transitive",
         "resolved": "1.10.0",
@@ -998,6 +1074,7 @@
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MIConvexHull": "[1.1.19.1019, )",
           "MathNet.Numerics": "[6.0.0-beta2, )",
+          "NodaTime": "[3.3.3, )",
           "PeterO.Numbers": "[1.8.2, )",
           "QuikGraph": "[2.5.0, )",
           "Supercluster.KDTree.Net": "[1.0.22, )",
@@ -1085,6 +1162,7 @@
           "OpenTelemetry.Instrumentation.AspNetCore": "[1.17.0, )",
           "OpenTelemetry.Instrumentation.GrpcNetClient": "[1.17.0-beta.1, )",
           "OpenTelemetry.Instrumentation.Http": "[1.17.0, )",
+          "OpenTelemetry.Instrumentation.Process": "[1.17.0-rc.1, )",
           "OpenTelemetry.Instrumentation.Runtime": "[1.17.0, )",
           "OpenTelemetry.PersistentStorage.FileSystem": "[1.1.1, )",
           "OpenTelemetry.Resources.Container": "[1.17.0-beta.1, )",
@@ -2123,6 +2201,15 @@
           "OpenTelemetry.Api.ProviderBuilderExtensions": "[1.17.0, 2.0.0)"
         }
       },
+      "OpenTelemetry.Instrumentation.Process": {
+        "type": "CentralTransitive",
+        "requested": "[1.17.0-rc.1, )",
+        "resolved": "1.17.0-rc.1",
+        "contentHash": "oN56aaWQ6p+1JRTDXf7QXEOZi8sX7OGVRvBYDlPstPDQ9MAtn695+E68HeJFJeD7F2KhD4CBPiMWieVW2UQK2w==",
+        "dependencies": {
+          "OpenTelemetry.Api": "[1.17.0, 2.0.0)"
+        }
+      },
       "OpenTelemetry.Instrumentation.Runtime": {
         "type": "CentralTransitive",
         "requested": "[1.17.0, )",
@@ -2531,6 +2618,12 @@
         "requested": "[18.1.0, )",
         "resolved": "18.1.0",
         "contentHash": "5K+9KFg2TdTl7VXv88Qzi/0lqK6JFoNP3lRuImPYGRV7K/QYklDyTrj4+A+KAki1JsQi6qKY+hDyY7d6WRqjrw=="
+      },
+      "ZstdSharp.Port": {
+        "type": "CentralTransitive",
+        "requested": "[0.8.8, )",
+        "resolved": "0.8.8",
+        "contentHash": "UIDFkA5DC3en3tOJ3Mof11yBx9kUQLsaeo/oFdvN6Bbkr9E9+VCqfIadHci8cu+I51K2Sl7XYWVl2R/mA75NBQ=="
       }
     }
   }

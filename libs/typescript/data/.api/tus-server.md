@@ -55,7 +55,7 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- a mismatched `Upload-Offset` is a protocol refusal: PATCH appends only at the verified offset and no byte re-trusts, so any failure resumes with one HEAD and one PATCH from that offset.
+- mismatched `Upload-Offset` refuses at the protocol: PATCH appends only at the verified offset and no byte re-trusts, so any failure resumes with one HEAD and one PATCH from that offset.
 - `DataStore` is the abstract port and `@tus/s3-store` the composed implementation: the server owns protocol conformance, the store owns bytes, and the rail subclasses neither.
 - `onUploadCreate` validates and enriches metadata before creation; `onUploadFinish` runs after the final byte and before the reply, where the content-address finalize fold (chunk, digest, conditional re-put) attaches and its refusal aborts the reply typed.
 - `draft-ietf-httpbis-resumable-upload` carries the same offset/complete semantics; on RFC the protocol row swaps under unchanged store and hooks.

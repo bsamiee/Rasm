@@ -64,6 +64,13 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `MessagePack` — binary appearance-interchange wire with source-generated resolver and untrusted-data hardening.
 - `MessagePackAnalyzer` — build-only proof of `[Key]` coverage on every wire record.
 
+[RASTER_IMAGING]:
+- `SixLabors.ImageSharp` — managed PNG, TIFF, WebP, QOI, and JPEG containers across the `L8`-to-`RgbaVector` depth ladder, carrying ICC.
+- `TinyEXR.NET` — owns OpenEXR whole: flat, tiled, mip-levelled, deep, multi-part, and the full compression roster.
+- `TextureCompressor` — pure-managed GPU texture payloads over a format-keyed coder registry spanning BCn, ASTC, ETC, and Basis.
+- `TextureCompressor.FileFormats.Ktx` — KTX1 and KTX2 containers with Zstandard, Zlib, and BasisLZ supercompression.
+- `TextureCompressor.FileFormats.Hdr` — Radiance RGBE ingest decoding straight to a float plane.
+
 ## [03]-[SUBSTRATE_PACKAGES]
 
 Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
@@ -82,6 +89,11 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `UnitsNet`
 - `MathNet.Numerics` — overdetermined least-squares rail for the measured-BRDF GGX fit.
 - `CommunityToolkit.HighPerformance` — dense appearance planes read as spans, never offsets.
+
+[GPU_DEVICE]:
+- `Silk.NET.WebGPU` — surfaceless bake device, WGSL compute dispatch, and texture-to-buffer readback.
+- `Silk.NET.WebGPU.Extensions.WGPU` — `DevicePoll`, the only map advance a device with no surface has.
+- `Silk.NET.WebGPU.Native.WGPU` — `wgpu_native` binaries the binding P/Invokes.
 
 [GRAPH_ALGORITHM]:
 - `QuikGraph` — appearance-DAG topological sort.

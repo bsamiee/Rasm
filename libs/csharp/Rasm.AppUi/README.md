@@ -124,9 +124,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `HarfBuzzSharp.NativeAssets.Linux` — transitive distribution-closure floor, central pin only.
 - `Svg.Controls.Skia.Avalonia`
 - `Svg.Skia`
-- `Silk.NET.WebGPU`
-- `Silk.NET.WebGPU.Native.WGPU`
-- `Silk.NET.WebGPU.Extensions.WGPU`
 - `Silk.NET.OpenXR`
 - `Silk.NET.OpenXR.Extensions.KHR`
 - `Silk.NET.OpenXR.Extensions.EXT`
@@ -174,6 +171,11 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 
 [NUMERIC_SUBSTRATE]:
 - `UnitsNet`
+
+[GPU_DEVICE]:
+- `Silk.NET.WebGPU` — presented-viewport device this folder mints and every peer plane binds.
+- `Silk.NET.WebGPU.Extensions.WGPU` — per-frame `DevicePoll`, native log routing, multi-draw, and LUID adapter match.
+- `Silk.NET.WebGPU.Native.WGPU` — `wgpu_native` binaries the binding P/Invokes.
 
 [GRAPH_ALGORITHM]:
 - `QuikGraph` — walks the parametric graph-canvas topology.

@@ -167,7 +167,9 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `resvg-py` — SVG-to-raster render.
 - `tifffile` — TIFF container IO and layered-TIFF writer.
 - `psdtags` — Photoshop TIFF image resources.
-- `imagecodecs` — PackBits/ZIP channel codecs.
+- `imagecodecs` — deep-pixel and channel codec substrate: EXR, rgbe, 16-bit PNG, float TIFF, JXL, AVIF, WebP, lcms2, BCn/DDS decode, meshopt.
+- `openexr` — named-channel, multi-part, and tiled EXR documents.
+- `pyktx` — in-process KTX2 container with Basis/ASTC encode and block transcode.
 
 [VECTOR_CAD]:
 - `svgelements` — pure-Python SVG geometry and parse.
@@ -184,6 +186,7 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `colour-science`
 - `coloraide` — CSS-space parse/interpolate/gamut-map.
 - `colour-cxf` — CxF3 spot/spectral color exchange.
+- `opencolorio` — config-driven transform graph, CPU/GPU processors, and the scene-linear working-space role.
 
 [TYPOGRAPHY]:
 - `fonttools`

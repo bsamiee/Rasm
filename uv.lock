@@ -17,6 +17,13 @@ requires-dist = ["typing-extensions>=4,<5", "xsdata>25.4"]
 requires-python = ">=3.10"
 
 [[manifest.dependency-metadata]]
+name = "colour-science"
+version = "0.4.7"
+requires-dist = ["numpy>=2.0.0,<3", "biblib-simple ; extra == 'docs'", "pydata-sphinx-theme ; extra == 'docs'", "restructuredtext-lint ; extra == 'docs'", "sphinx ; extra == 'docs'", "sphinxcontrib-bibtex ; extra == 'docs'", "trimesh>=4,<5 ; extra == 'meshing'", "imageio>=2,<3 ; extra == 'optional'", "matplotlib>=3.9 ; extra == 'optional'", "networkx>=3.3,<4 ; extra == 'optional'", "opencolorio>=2,<3 ; python_full_version < '3.14' and extra == 'optional'", "openimageio>=3,<4 ; extra == 'optional'", "pandas>=2.2,<3 ; extra == 'optional'", "pydot>=3,<4 ; extra == 'optional'", "scipy>=1.13.0,<2 ; extra == 'optional'", "tqdm>=4,<5 ; extra == 'optional'", "xxhash>=3,<4 ; extra == 'optional'"]
+requires-python = ">=3.11"
+provides-extras = ["docs", "meshing", "optional"]
+
+[[manifest.dependency-metadata]]
 name = "substrait"
 version = "0.29.0"
 requires-dist = ["protobuf>=5,<7", "substrait-protobuf==0.85.0", "substrait-extensions==0.85.0", "antlr4-python3-runtime ; extra == 'extensions'", "substrait-antlr==0.85.0 ; extra == 'extensions'", "pyyaml ; extra == 'extensions'"]
@@ -4408,6 +4415,12 @@ wheels = [
 ]
 
 [[package]]
+name = "opencolorio"
+version = "2.5.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6a/ea/9d930df6740f9b09b0b342f40a5ef165da5050141e496081ef80b302e566/opencolorio-2.5.2.tar.gz", hash = "sha256:fecebd0914089b0c8238c55648f8eb2ccd2702ab4b2eea53856a0e368ded8262", size = 13946157, upload-time = "2026-05-13T18:49:47.351Z" }
+
+[[package]]
 name = "openepd"
 version = "7.31.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4422,6 +4435,15 @@ sdist = { url = "https://files.pythonhosted.org/packages/a4/01/99b12a3d30a7dd78c
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3d/0b/3b6b3911e5cdd9ff93c3549f8f1e0c1f56b8cdad9a8e297f5d3b55e7a112/openepd-7.31.0-py3-none-any.whl", hash = "sha256:ea6313b7a6d3b323430e6114100e0882c6d4013cad419f11bd7be1abf029c86b", size = 393369, upload-time = "2026-07-21T11:36:55.123Z" },
 ]
+
+[[package]]
+name = "openexr"
+version = "3.4.13"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ac/c4/11e2377b53c195136e76186c98ea1756a92d4fba01f241bc8741868d6833/openexr-3.4.13.tar.gz", hash = "sha256:ae5135e39ff0b9086a56e02f3d8b5cf52c5ca7cfcde5e57080b1c12c82e3ec8a", size = 25618192, upload-time = "2026-06-19T19:13:46.099Z" }
 
 [[package]]
 name = "openlocationcode"
@@ -5700,6 +5722,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b7/d5/354eb1bf84dcf4ab0bfa46f0620ecf68fe313bb082c26872ceb7a5021f94/pyicu-2.16.2.tar.gz", hash = "sha256:006d51e24b5ec76df6ec2130f3dde269c51db8b8cfebb7d45a427dde0d10aa52", size = 268223, upload-time = "2026-03-20T21:58:30.794Z" }
 
 [[package]]
+name = "pyktx"
+version = "4.4.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cffi" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/cd/8c/01c9f5118b8b7bc750823c1c363bfbe56cba0dcb063d22021597726f4ea4/pyktx-4.4.2.tar.gz", hash = "sha256:62cccee290578949ed220e60ee83d45b80b4282e846328d00c403d889ba25dcd", size = 25481, upload-time = "2025-10-04T10:52:38.096Z" }
+
+[[package]]
 name = "pylance"
 version = "8.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -6470,6 +6501,32 @@ dependencies = [
     { name = "cffi" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/2d/6a/282936de9faac6addf6bc8792c18e006489d0023ffd8856b8643f54d0558/pyvips-3.1.1.tar.gz", hash = "sha256:84fe744d023b1084ac2516bb17064cacd41c7f8aabf8e524dd383534941b9301", size = 56951, upload-time = "2025-12-09T18:38:06.355Z" }
+
+[package.optional-dependencies]
+binary = [
+    { name = "pyvips-binary" },
+]
+
+[[package]]
+name = "pyvips-binary"
+version = "8.18.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cffi" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0b/a2/78646a4c58dde4e51c883c1b2fb3c157b385782092173baf3f91b48666a8/pyvips_binary-8.18.4.tar.gz", hash = "sha256:fc4c10970da40b8c16e556f2022a9e4600f74d7ac6ea578a2c16efe03aa3fba1", size = 3792, upload-time = "2026-07-06T10:36:22.797Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c7/2a/137d2bde18772a35f01989f47502b3b514c3d86fcc1f6053107e9644af86/pyvips_binary-8.18.4-cp37-abi3-macosx_10_15_x86_64.whl", hash = "sha256:0a353d804db997ab6e2f709af5885e5b5fbd36bfae3b83bce6419fdc0ec67a0b", size = 8804591, upload-time = "2026-07-06T10:35:59.489Z" },
+    { url = "https://files.pythonhosted.org/packages/ad/53/c1d9e0e0aca60c1de920d07af8266b8b87224eb9f19a89629b9920485ce9/pyvips_binary-8.18.4-cp37-abi3-macosx_11_0_arm64.whl", hash = "sha256:06c1bca5c4e1d41f4305cfd02d53574bde102585b8135f90da8ea6fb54d8ef54", size = 7932856, upload-time = "2026-07-06T10:36:02.151Z" },
+    { url = "https://files.pythonhosted.org/packages/2c/47/d5af1d78a0f995755d2d1ebb3a9e1f3d5252a1e1cec4518d6c76b07d510a/pyvips_binary-8.18.4-cp37-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:81ed9b4d281a7132c498f62564429a39b1953398597867cd576263aef9bef272", size = 8120180, upload-time = "2026-07-06T10:36:04.382Z" },
+    { url = "https://files.pythonhosted.org/packages/aa/70/d0fdcc6b4be49f96f5a378510a3e251a591b84fc99d00779b74f3d1d4062/pyvips_binary-8.18.4-cp37-abi3-manylinux_2_28_armv7l.manylinux_2_31_armv7l.whl", hash = "sha256:b5fe5014555e38ff796eac3513a49b3d832999ba65c25999038c1fa861f7b88c", size = 7821453, upload-time = "2026-07-06T10:36:06.823Z" },
+    { url = "https://files.pythonhosted.org/packages/9d/ff/08ad76bd3974791b6116026bc9e9347795d2d23f283c6fa53c208dbd04d6/pyvips_binary-8.18.4-cp37-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:68a24313cd76c9213e1208887aa1dabaa502e2be3f180222628191478977e2d0", size = 8004640, upload-time = "2026-07-06T10:36:09.489Z" },
+    { url = "https://files.pythonhosted.org/packages/57/f7/6189051dd688a45d922fd54cb380a3b4e18e1ae3cad1103966b38c74a5c5/pyvips_binary-8.18.4-cp37-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:d2808f3395e52b5a289111d57f1dba0fcd2c81573eda4cef768e7633ce446037", size = 8134850, upload-time = "2026-07-06T10:36:12.101Z" },
+    { url = "https://files.pythonhosted.org/packages/06/ba/1e565f43d0d734901ec3fdb6c2df5985be820e2702942c37fdfb94e17db4/pyvips_binary-8.18.4-cp37-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:b30028e10d3feaf14067c8658b827d0471464ba838c0795d3bf201f151800a1a", size = 8039192, upload-time = "2026-07-06T10:36:14.292Z" },
+    { url = "https://files.pythonhosted.org/packages/bd/5e/01fe55141a2e77639429f004e678c19e468bd2cfdd7c66f62e487d0dee5b/pyvips_binary-8.18.4-cp37-abi3-win32.whl", hash = "sha256:5e49ab5164efca9cc6230f12237130f902bc2639b765342ee3c16eb1ed15b265", size = 7968523, upload-time = "2026-07-06T10:36:17.152Z" },
+    { url = "https://files.pythonhosted.org/packages/c2/6e/5248336741c0a416d16e0f56efecaa9c1514005e58665148cd6d841ea7ef/pyvips_binary-8.18.4-cp37-abi3-win_amd64.whl", hash = "sha256:8f89588e55c2824fb8cbdda94baffb81da6b87fce08b517ccfdd233aae0ee418", size = 7930802, upload-time = "2026-07-06T10:36:19.346Z" },
+    { url = "https://files.pythonhosted.org/packages/16/80/c3f35ef439fcdbc7fba055fd31f71ef4f6f516e3a75c4d39fc80803329be/pyvips_binary-8.18.4-cp37-abi3-win_arm64.whl", hash = "sha256:c98a26842cd08c238405d3f83b04d3de11c35ca24d0e1a9d0f04f3f1fdf20d8c", size = 7215735, upload-time = "2026-07-06T10:36:21.396Z" },
+]
 
 [[package]]
 name = "pyvista"
@@ -8415,7 +8472,9 @@ dependencies = [
     { name = "odfpy" },
     { name = "olca-ipc" },
     { name = "onnx" },
+    { name = "opencolorio" },
     { name = "openepd" },
+    { name = "openexr" },
     { name = "openpyxl" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp-proto-grpc" },
@@ -8466,6 +8525,7 @@ dependencies = [
     { name = "pyhanko" },
     { name = "pyiceberg" },
     { name = "pyicu" },
+    { name = "pyktx" },
     { name = "pylance" },
     { name = "pymc" },
     { name = "pymupdf" },
@@ -8486,7 +8546,7 @@ dependencies = [
     { name = "python-flint" },
     { name = "python-magic" },
     { name = "python-pptx" },
-    { name = "pyvips" },
+    { name = "pyvips", extra = ["binary"] },
     { name = "pyvista" },
     { name = "pywavelets" },
     { name = "queenbee" },
@@ -8751,7 +8811,9 @@ requires-dist = [
     { name = "onnx" },
     { name = "onnxruntime", marker = "python_full_version < '3.15'" },
     { name = "open3d", marker = "python_full_version < '3.15'" },
+    { name = "opencolorio" },
     { name = "openepd" },
+    { name = "openexr" },
     { name = "openpyxl" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp-proto-grpc" },
@@ -8808,6 +8870,7 @@ requires-dist = [
     { name = "pyhanko" },
     { name = "pyiceberg" },
     { name = "pyicu" },
+    { name = "pyktx" },
     { name = "pylance" },
     { name = "pymc", specifier = "<5.27" },
     { name = "pymupdf" },
@@ -8829,7 +8892,7 @@ requires-dist = [
     { name = "python-flint" },
     { name = "python-magic" },
     { name = "python-pptx" },
-    { name = "pyvips" },
+    { name = "pyvips", extras = ["binary"] },
     { name = "pyvista" },
     { name = "pywavelets" },
     { name = "quadax", marker = "python_full_version < '3.15'" },

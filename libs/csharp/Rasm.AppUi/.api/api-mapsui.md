@@ -171,7 +171,7 @@
 
 [STACKING]:
 - `api-avalonia-skia.md`/`api-skiasharp.md`: `Mapsui.Rendering.Skia` draws the map on the shared `SkiaSharp` `SKCanvas` `Avalonia.Skia` owns; theme colour tokens flow into `Mapsui.Styles.Color`/`Pen`/`Brush`, the same paints `api-svg-skia.md`/`api-livecharts.md` consume, never a hand-built second `SKPaint` path.
-- `api-silk-webgpu-wgpu.md`: `Mapsui` renders the 2D georeferenced overlay on the same Avalonia compositor beside the `Silk.NET.WebGPU` 3D viewport, owning the 2D geo plane only.
+- `api-silk-webgpu-wgpu`(`libs/csharp/.api/api-silk-webgpu-wgpu.md`): `Mapsui` renders the 2D georeferenced overlay on the same Avalonia compositor beside the `Silk.NET.WebGPU` 3D viewport, owning the 2D geo plane only.
 - Bim geodesy seam: features arrive carrying the Bim-owned `GeoReference` from `GeoReferenceProjector` lowering `IfcMapConversion` and `IfcProjectedCRS`; `GeoFeature.Reproject` owns geodesy at that Bim seam, and AppUi reprojects only presentation WGS-84 input through `SphericalMercator.FromLonLat` (or `ProjectionDefaults.Projection` for non-mercator) into the EPSG:3857 `Map.CRS` at the layer-build edge — the internal model carries one CRS, the boundary owns the transform.
 - capture rail: `MapControl.GetSnapshot(layers, RenderFormat.Png, quality)` yields the `byte[]` image the export owner (PDF/OOXML embed) consumes, the geo analogue of the 3D viewport capture.
 - command rail: `MapControl.Info`/`MapTapped` + `GetMapInfo(screenPos, layers)` hit-test a click to the feature the Shell/Editing inspector binds; `Mapsui.Nts.EditManager`/`EditingWidget` author overlay geometry.

@@ -78,8 +78,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `HyperJet` — hyper-dual scalar AD backing exact gradient and Hessian across the `Sensitivity` family.
 - `TorchSharp` — native ATen dense linear algebra and the iterative `EstimatorKind` autograd fits.
 - `libtorch-cpu` — osx-arm64 native backend behind TorchSharp.
-- `Silk.NET.WebGPU` — WebGPU compute-shader device substrate.
-- `Silk.NET.WebGPU.Extensions.WGPU` — wgpu-native extension surface.
 
 [SYMBOLIC_CAS]:
 - `AngouriMath` — managed CAS: `Entity` parse, simplify, solve, integrate, differentiate, and `Compile<>` in one owner.
@@ -137,6 +135,10 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `MathNet.Numerics` — quadrature, distributions, and the MKL/OpenBLAS provider hooks.
 - `System.Numerics.Tensors`
 - `UnitsNet`
+
+[GPU_DEVICE]:
+- `Silk.NET.WebGPU` — GPGPU dispatch over the AppUi-minted device; this lane acquires none of its own.
+- `Silk.NET.WebGPU.Extensions.WGPU` — `QueueSubmitForIndex` and `DevicePoll` deterministic completion beside pipeline statistics.
 
 [GRAPH_ALGORITHM]:
 - `QuikGraph` — `Analysis/circulation` path and topology algebra over the space-adjacency view.

@@ -45,8 +45,15 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `ssh2`
 
 [FILE_MEDIA]:
-- `sharp`
+- `sharp` — this folder's ONE libvips composer; every raster decode, transform, and re-encode folds through it.
 - `chokidar`
+
+[ASSET_PIPELINE]:
+- `@gltf-transform/core` — glTF 2.0 as a property graph behind one `PlatformIO` read/write surface; indices re-derive at write.
+- `@gltf-transform/extensions` — glTF extension vocabulary as typed properties, admitted through an explicit IO roster.
+- `@gltf-transform/functions` — transform rows folded through one `document.transform(...)`; every codec injected, never imported.
+- `ktx-parse` — KTX2 container read and write as plain data; payload class, transfer, and alpha classify without a transcoder.
+- `meshoptimizer` — wasm mesh kernel: vertex and index codec, reordering, simplification, clustering, tangents.
 
 [INTERCHANGE]:
 - `cloudevents` — `journal/append.md` mints strict-validated `CloudEvent` values at the claim seam; core owns the catalog, runtime the carriage.

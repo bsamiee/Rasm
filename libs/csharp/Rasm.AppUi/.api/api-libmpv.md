@@ -187,7 +187,7 @@
 [STACKING]:
 - `api-ffmpeg-autogen.md`(`.api/api-ffmpeg-autogen.md`): the seamed decode-in versus encode-out pair — `libmpv` owns media decode and on-screen OpenGL playback (Editing MediaSurface), `FFmpeg.AutoGen` owns the RGBA→MP4 encode-out (Render capture).
 - `api-avalonia-gpu-interop.md`(`.api/api-avalonia-gpu-interop.md`): `OpenGlView : OpenGlControlBase` shares the compositor GL surface, so playback composites in-tree rather than in a `NativeControlHost` airspace window.
-- `api-silk-webgpu-wgpu.md`(`.api/api-silk-webgpu-wgpu.md`): `LogMessage` and `EndFile` route into the AppUi receipt sink as counted media-fault rows, the decode-side peer of wgpu's `PfnLogCallback` `ViewportFault` stream.
+- `api-silk-webgpu-wgpu`(`libs/csharp/.api/api-silk-webgpu-wgpu.md`): `LogMessage` and `EndFile` route into the AppUi receipt sink as counted media-fault rows, the decode-side peer of wgpu's `PfnLogCallback` `ViewportFault` stream.
 - `api-reactiveui.md`(`.api/api-reactiveui.md`): observed `MpvPropertyRead` members marshalled onto `Dispatcher.UIThread` drive ReactiveUI transport bindings with no cross-thread hop.
 - MediaSurface owner: `MpvView` with `Renderer` set to `VideoRenderer.OpenGl`; playback flows through the bound `IVideoView`'s `MpvContext` — `LoadFile` intake, `Pause` / `Speed` / `Volume` / `Mute` transport, `TimePos` / `PercentPos` seek, observed `MpvPropertyRead` and `PropertyChanged` state, `IVideoView.Dispose` teardown.
 

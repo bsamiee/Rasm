@@ -202,7 +202,7 @@ dependencies = [
     "small-gicp",                              # [GEOMETRY]: local GICP fine registration beside the kiss-matcher global arm
     "topologicpy",                             # [GEOMETRY]: non-manifold topology graph modeling
     "trimesh",
-    "usd-core; python_version<'3.15'",         # [ARTIFACTS]: USD/USDZ scene packaging
+    "usd-core; python_version<'3.15'",         # [ARTIFACTS]: USD/USDZ scene packaging; wheels cap at cp314, the index publishes no sdist, and the wheel metadata caps <3.15
     # --- [BIM_ENERGY]
     "bcf-client",                              # [GEOMETRY]: BCF 3.0 coordination XML
     "dragonfly-core",                          # [GEOMETRY]: Dragonfly district and urban model object graph
@@ -245,7 +245,7 @@ dependencies = [
     "pyvista",                                 # [ARTIFACTS]: 3D scientific visualization
     "vegafusion",                              # [ARTIFACTS]: server-side Vega transform and pre-transform export
     "vl-convert-python",
-    "vtk; python_version<'3.15'",              # [ARTIFACTS]: VTK engine for pyvista
+    "vtk; python_version<'3.15'",              # [ARTIFACTS]: VTK engine for pyvista; wheels cap at cp314 and the index publishes no sdist
     # --- [PDF]
     "ocrmypdf",                                # [ARTIFACTS]: OCR-to-PDF/A with sidecar text
     "pdf-oxide",                               # [ARTIFACTS]: Rust PDF extract/render/create/forms (abi3)
@@ -274,14 +274,16 @@ dependencies = [
     "xlsxwriter",                              # [ARTIFACTS]: streaming write-only xlsx
     # --- [IMAGING_MEDIA]
     "av",                                      # [ARTIFACTS]: PyAV video/audio mux and encode
-    "imagecodecs",                             # [ARTIFACTS]: PackBits/ZIP channel codecs for layered raster egress
+    "imagecodecs",                             # [ARTIFACTS]: native codec substrate — EXR, rgbe, 16-bit PNG, float TIFF, JXL, AVIF, WebP, lcms2 ICC, BCn/DDS decode, meshopt
+    "openexr",                                 # [ARTIFACTS]: named-channel, multi-part, and tiled EXR documents the flat imagecodecs EXR leg cannot address
     "PhotoshopAPI; python_version<'3.15'",     # [ARTIFACTS]: native PSD/PSB layered-document writer (wheels-only, no cp315 wheel/sdist; source-build is a Forge follow-up)
     "pillow",                                  # [ARTIFACTS]: image IO
     "psd-tools",                               # [ARTIFACTS]: PSD read/inspect plus pixel author
     "psdtags",                                 # [ARTIFACTS]: Photoshop TIFF image resources and layer source data
+    "pyktx",                                   # [ARTIFACTS]: in-process KTX2 write, UASTC/ETC1S basis encode, zstd supercompression, and BC7/ASTC transcode over the Forge libktx
     "pysubs2",                                 # [ARTIFACTS]: subtitle parse/convert/retime/restyle model
-    "pyvips",                                  # [ARTIFACTS]: fused decode, downscale, ICC, and smartcrop
-    "scikit-image; python_version<'3.15'",     # [ARTIFACTS]: image processing; Cython codegen fails on 3.15 (no cp315 wheel)
+    "pyvips[binary]",                          # [ARTIFACTS]: fused decode, downscale, ICC, and smartcrop; the binary extra ships the libvips dylib the cffi loader resolves
+    "scikit-image; python_version<'3.15'",     # [ARTIFACTS]: image processing; pythran lowers through gast 0.6.0, which breaks on the 3.15 AST, and meson exposes no pythran toggle
     "simpleidml",                              # [ARTIFACTS]: IDML package mutation and composition
     "tifffile",                                # [ARTIFACTS]: TIFF container IO and extratag authoring
     # --- [TYPOGRAPHY_COLOR]
@@ -290,6 +292,7 @@ dependencies = [
     "colour-cxf",                              # [ARTIFACTS]: CxF3 spot/spectral color exchange
     "colour-science",                          # [ARTIFACTS]: CIE, spectral, and appearance color models
     "fonttools",                               # [ARTIFACTS]: font subsetting, instancing, and shaping metadata
+    "opencolorio",                             # [ARTIFACTS]: OCIO config, colorspace, and CPU/GPU processor transforms over the ACES scene-linear working space
     "opentype-feature-freezer",                # [ARTIFACTS]: freeze OpenType features into the default glyph set
     "PyICU",                                   # [ARTIFACTS]: ICU locale line-break/bidi/collation; sdist-only, icu rides the Forge scientific substrate
     "pyphen",                                  # [ARTIFACTS]: language-aware hyphenation dictionaries
@@ -377,16 +380,33 @@ beartype = { git = "https://github.com/beartype/beartype.git", rev = "b1e2b1392e
 [tool.uv]
 package =        false
 default-groups = ["dev", "mutation"]
-config-settings-package = {
-    python-flint = { setup-args = "-Dflint_version_check=false" },
-    scipy =        { setup-args = "-Duse-pythran=false" },
-}
+
+# TOML 1.0 confines an inline table to one line, so the per-package build knobs ride their own table rather than a multi-line brace `taplo` refuses to parse.
+[tool.uv.config-settings-package]
+python-flint = { setup-args = "-Dflint_version_check=false" }
+scipy =        { setup-args = "-Duse-pythran=false" }
+
+# opencolorio drives cmake from a setuptools shim that reads CMAKE_ARGS off the environment, so the knob is a build variable rather than a config setting.
+# OCIO's oglapphelpers target compiles ObjC++ over Metal/AppKit under its own -Werror,-Wunguarded-availability-new; the macOS 26 SDK declares symbols newer
+# than any deployment target names, so the app helpers never build here and the python binding never needs them. Package scope keeps the flag off every other sdist.
+[tool.uv.extra-build-variables]
+opencolorio = { CMAKE_ARGS = "-DOCIO_BUILD_APPS=OFF" }
+
 # colour-cxf 0.1.1 declares Requires-Python <3.14 (no 3.15 support): corrected static metadata drops the spurious cap so it resolves on the >=3.15 floor with its runtime deps intact.
 [[tool.uv.dependency-metadata]]
 name =            "colour-cxf"
 version =         "0.1.1"
 requires-python = ">=3.10"
 requires-dist =   ["typing-extensions<5,>=4", "xsdata>25.4"]
+
+# colour-science 0.4.7 declares Requires-Python <3.15. PEP 440 sorts 3.15.0b3 below 3.15.0, so the cap is inert on the current Forge interpreter and bites the
+# instant that interpreter reaches a final 3.15.x: corrected static metadata drops the cap ahead of the flake bump and mirrors the real dependency set whole.
+[[tool.uv.dependency-metadata]]
+name =            "colour-science"
+version =         "0.4.7"
+requires-python = ">=3.11"
+requires-dist =   ["numpy<3,>=2.0.0", "biblib-simple; extra == 'docs'", "pydata-sphinx-theme; extra == 'docs'", "restructuredtext-lint; extra == 'docs'", "sphinx; extra == 'docs'", "sphinxcontrib-bibtex; extra == 'docs'", "trimesh<5,>=4; extra == 'meshing'", "imageio<3,>=2; extra == 'optional'", "matplotlib>=3.9; extra == 'optional'", "networkx<4,>=3.3; extra == 'optional'", "opencolorio<3,>=2; python_version < '3.14' and extra == 'optional'", "openimageio<4,>=3; extra == 'optional'", "pandas<3,>=2.2; extra == 'optional'", "pydot<4,>=3; extra == 'optional'", "scipy<2,>=1.13.0; extra == 'optional'", "tqdm<5,>=4; extra == 'optional'", "xxhash<4,>=3; extra == 'optional'"]
+provides-extras = ["docs", "meshing", "optional"]
 
 # substrait 0.29.0 declares Requires-Python <3.15 on a pure-Python py3-none-any wheel (spurious cap): corrected static metadata drops it so the typed Plan IR resolves on the >=3.15 floor with its protobuf runtime deps intact.
 [[tool.uv.dependency-metadata]]
