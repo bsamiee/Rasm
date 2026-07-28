@@ -144,6 +144,9 @@ flowchart LR
     Compute{{Rasm.Compute}}
     Persistence[(Rasm.Persistence)]
     AppHost{{Rasm.AppHost}}
+    Materials([Rasm.Materials])
+    Materials e10@-->|"[WIRE]: MaterialWire"| Transport
+    Materials e29@-->|"[WIRE]: TextureSetWire"| Transport
     Evidence e1@<-->|"[CONTENT_KEY]: XxHash128"| Rasm
     Evidence e2@<-->|"[CONTENT_KEY]: ContentAddress"| Element
     Compute e3@-->|"[WIRE]: XxHash128"| Evidence
@@ -192,6 +195,7 @@ flowchart LR
     Artifacts e10@-->|"[RECEIPT]: ArtifactReceipt"| Observability
     Execution e8@-->|"[CONTENT_KEY]: ContentKey"| Artifacts
     Execution e15@-->|"[PORT]: Kernel"| Artifacts
+    Transport e28@-->|"[SHAPE]: AssetSetManifest"| Artifacts
     Artifacts e20@-->|"[PORT]: HookPoint"| Observability
     Evidence e4@-->|"[CONTENT_KEY]: ParityReceipt"| Compute
     Transport e7@-->|"[BOUNDARY]: ResourceRef"| Compute

@@ -208,6 +208,7 @@ Boards and retention are deploy-plane facts `iac` realizes from the core-encoded
 |  [16]   | query render target   | `core/observe/board` `Query.Target` arms            | one target arm; the algebra never forks                   |
 |  [17]   | columnar query end    | `data/lane/olap` Flight SQL rows                    | one row on the one Flight plane                           |
 |  [18]   | reliability indicator | `core/observe/slo` closed families                  | one indicator, burn, severity, or panel row               |
+|  [19]   | asset transform       | `data/object/asset` `TRANSFORM_ROWS` roster         | one engine-plane row; the fanout spine stays one          |
 
 ## [06]-[BOUNDARIES]
 

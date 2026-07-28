@@ -40,7 +40,7 @@ Direction inside a branch is the branch's own `[02]-[STRATA]` to state per owner
 Geometry, meshing, and semantic exchange each carry exactly one owner per runtime; the runtimes meet only at the contract. No concern is owned twice within a runtime, and no runtime re-implements a peer's kernel.
 
 - Each runtime carries one geometry owner, one meshing owner, and one semantic-exchange implementation; a second owner inside one runtime is the duplication defect.
-- Runtimes meet at content identity and the tessellation rail alone; a decoder at that rail composes the payload rather than re-deriving it.
+- Runtimes meet at content identity, the tessellation rail, and the appearance rail the manifest's appearance entries define; a decoder at either rail composes the payload rather than re-deriving it.
 - Independent peer producers stay independent: a host-free geometry owner produces for its own domain rather than consuming a peer's kernel.
 - Each runtime's owners are its branch `ARCHITECTURE.md` to name.
 

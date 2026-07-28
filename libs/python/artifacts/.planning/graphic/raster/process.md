@@ -2,11 +2,11 @@
 
 Produced-raster behavior and shared raster vocabulary live here. `Transform` names the operation sub-axis; `TransformNeeds` states payload timing; `TransformPolicy` carries closed per-family parameters; `ColorSpace` bounds generic conversion names; `TransformInput` admits image, reference, mask, or source payloads without absent-field ghosts; `TransformArm` binds provider member, policy, disposition, and acceptor; `RasterFact`, `ConvertFormat`, and `Frame` complete the substrate. `io → measure → process` remains the raster import direction. pillow carries the working families, and scikit-image carries denoising, restoration, color, exposure, segmentation, graph, morphology, thresholding, geometry, filtering, and measurement behind its manifest interpreter marker.
 
-Each acceptor is a pure NumPy/PIL transform. `graphic/raster/io#IO` owns its `(ValueError, OSError, KeyError)` rail, `lane.offload` crossing, and uint8 admission. Source cases bypass decode and carry only `Transform` plus `TransformPolicy`; image, reference, and mask cases carry the admitted `Frame` with exactly their required operand.
+Each acceptor is a pure NumPy/PIL transform. `graphic/raster/io#IO` owns its `(ValueError, OSError, KeyError)` rail, `lane.offload` crossing, and uint8 admission. Source cases bypass decode and carry only `Transform` with `TransformPolicy`; image, reference, and mask cases carry the admitted `Frame` with exactly their required operand.
 
 ## [01]-[INDEX]
 
-- [02]-[PROCESS]: Raster vocabulary plus the produced-raster engine; `TRANSFORMS` binds typed `TransformPolicy` seeds to pillow and scikit-image acceptors, and every diagnostic lands on `RasterFact.score`.
+- [02]-[PROCESS]: Raster vocabulary and the produced-raster engine; `TRANSFORMS` binds typed `TransformPolicy` seeds to pillow and scikit-image acceptors, and every diagnostic lands on `RasterFact.score`.
 
 ## [02]-[PROCESS]
 
@@ -14,9 +14,9 @@ Each acceptor is a pure NumPy/PIL transform. `graphic/raster/io#IO` owns its `(V
 - Cases: five pillow acceptors own channel algebra, band math, enhancement, LUT application, generated gradients/noise/mandelbrot, and spread. Ten scikit-image acceptors own denoising, restoration, color, exposure, segmentation, graph, morphology, threshold, geometry, and filtering. `TransformPolicy` cases preserve each provider's parameter arity and value types; `TransformArm.accepts` rejects a policy from another family before dispatch.
 - Auto: each acceptor matches its admitted `TransformInput` case, resolves `TransformArm.options(policy)`, and re-dispatches only where provider signatures differ. `TransformPolicy.provider` is the sole typed-policy-to-kwargs boundary. `_denoise` adds estimated noise, `_restore` builds the PSF, `_morphology` resolves `MorphKind`, `_filter` resolves `FilterChannel`, `_threshold` separates scalar and multilevel cuts, `_segment` and `_graph` resolve their structural results, and `_geometric` constructs fixed-arity coordinate payloads. Every closed match ends in `assert_never`.
 - Receipt: each acceptor folds into the canonical `RasterFact` declared here — the scikit arms through `_save_array`, the robust display-normalizer that passes a uint8/bool/`[0, 1]`-float array straight to `img_as_ubyte` and `rescale_intensity`s every out-of-range float or label array to `[0, 1]` first, so an edge magnitude past `1.0`, a negative Laplacian, or a multi-Otsu label field re-encodes without a per-acceptor min-max; the pillow arms through `_save_pillow`, folding `ImageStat.Stat` luminance `mean`/`stddev` under the acceptor's own stamp. Every numeric stamp is a native `float` because `RasterFact.score` is the exact `frozendict[str, float | str]` band `core/receipt#RECEIPT` `ArtifactReceipt.Preview.scores` carries — io threads `fact.score` with no coerce.
-- Growth: a provider member adds one `Transform` value and one row carrying `member`, acceptor, `TransformPolicy`, dispositions, and `TransformNeeds`; a new parameter shape adds one `TransformPolicy` case plus its total `provider` arm. New payload timing extends `TransformInput` and `TransformNeeds` together with `io`'s constructor arm.
+- Growth: a provider member adds one `Transform` value and one row carrying `member`, acceptor, `TransformPolicy`, dispositions, and `TransformNeeds`; a new parameter shape adds one `TransformPolicy` case with its total `provider` arm. New payload timing extends `TransformInput` and `TransformNeeds` together with `io`'s constructor arm.
 - Packages: `pillow` (`ImageChops`/`ImageMath`/`ImageStat`/`ImageEnhance`/`ImageFilter.Color3DLUT`/`Image.linear_gradient`/`radial_gradient`/`effect_noise`/`effect_mandelbrot`/`effect_spread` — the ungated engine); `scikit-image` (the ten families at the members the rows name, census-gated on the cp315 wheel); `numpy` (operand algebra, `frombuffer`/`digitize`/`ptp`); `msgspec` (`Struct` the `RasterFact` wire shape); stdlib `dataclasses`/`enum`/`io`.
-- Boundary: no IO/convert/thumbnail/montage working surface and no policy above the vocabulary — the codec-POLICY rows binding `ConvertFormat` → engine/save-args stay `graphic/raster/io#IO`'s, and the `needs` gate EXECUTES there while each row DECLARES its own requirement here, so a reference-consuming transform never depends on a roster a foreign page hand-maintains. No measurement half: the `_measure`/`_register`/`_metrics` acceptors that PRODUCE scores rather than a transformed raster are `graphic/raster/measure#MEASURE`'s, importing this substrate and contributing `MEASURE_TRANSFORMS`. A per-provider-call sibling, a parallel acceptor per member, a mutable module dispatch dict, a `.get(key, magic)` body default, a second requirement roster beside the row's `needs`, and a re-declaration of any vocabulary owner here are the rejected forms — `RasterFact` is the plane's ONE fact shape (`marks/encode`'s minimal twin resolves to this canonical). `_save_array`, `_luminance`, and `_channels` are the plane's shared worker-side substrate: `graphic/raster/measure#MEASURE` composes all three by import, and `media/analysis#ANALYSIS` composes `_save_array` as its rendered-frame PNG egress.
+- Boundary: no IO/convert/thumbnail/montage working surface and no policy above the vocabulary — the codec-POLICY rows binding `ConvertFormat` → per-engine writer/save-args stay `graphic/raster/io#IO`'s `_CODEC`, and the `needs` gate EXECUTES there while each row DECLARES its own requirement here, so a reference-consuming transform never depends on a roster a foreign page hand-maintains. `Frame` is `uint8` whole: `ConvertFormat` names DISPLAY containers at display depth, and the 16-bit, half, and float lanes of the same codec families — EXR, 16-bit PNG, float TIFF, half JXL, 12-bit AVIF — are the deep-pixel texture plane's, never a widened member here, because an 8-bit intermediate on a texture path quantizes silently. No measurement half: the `_measure`/`_register`/`_metrics` acceptors that PRODUCE scores rather than a transformed raster are `graphic/raster/measure#MEASURE`'s, importing this substrate and contributing `MEASURE_TRANSFORMS`. Rejected forms: a per-provider-call sibling, a parallel acceptor per member, a mutable module dispatch dict, a `.get(key, magic)` body default, a second requirement roster beside the row's `needs`, and a re-declaration of any vocabulary owner here are the rejected forms — `RasterFact` is the plane's ONE fact shape (`marks/encode`'s minimal twin resolves to this canonical). `_save_array`, `_luminance`, and `_channels` are the plane's shared worker-side substrate: `graphic/raster/measure#MEASURE` composes all three by import, and `media/analysis#ANALYSIS` composes `_save_array` as its rendered-frame PNG egress.
 
 ```python signature
 from builtins import frozendict
@@ -205,7 +205,7 @@ class Transform(StrEnum):  # the raster sub-axis vocabulary declared HERE; measu
     CONTINGENCY = "contingency"  # metrics.contingency_table label-overlap (reference-consuming)
 
 
-class ConvertFormat(StrEnum):
+class ConvertFormat(StrEnum):  # the canonical container key; each provider spelling rides its own `graphic/raster/io#IO` `_CODEC` writer column
     PNG = "PNG"
     JPEG = "JPEG"
     WEBP = "WEBP"
@@ -213,6 +213,8 @@ class ConvertFormat(StrEnum):
     GIF = "GIF"
     TIFF = "TIFF"
     BMP = "BMP"
+    JXL = "JXL"  # JPEG XL at 8-bit display depth; the deep-pixel JXL lanes are the texture plane's, never this uint8 funnel's
+    QOI = "QOI"  # the lossless byte-stream container: 8-bit RGB/RGBA by specification, so it admits no deeper lane at all
 
 
 class TransformNeeds(StrEnum):  # the operand-requirement axis a row states on itself; io's one gate arm reads it before dispatch
@@ -1046,7 +1048,16 @@ TRANSFORMS: Final[frozendict[Transform, TransformArm]] = frozendict({
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
+    accTitle: Raster transform flow
+    accDescr: The io transform arm crossing the worker seam, row acceptance under policy and the needs gate, TransformInput dispatch across the pillow and scikit-image acceptors, and the canonical RasterFact egress.
     Tx["graphic/raster/io: transform arm (worker seam via lane.offload, HOSTILE trait)"] --> Table["row accepts policy + needs gate"]
     Table --> Input["TransformInput: image | reference | mask | source"]
     Input --> Pil["5 pillow acceptors: _chops / _math / _enhance / _grade / _source (+ ImageStat facts via _save_pillow)"]

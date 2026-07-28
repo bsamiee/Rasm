@@ -32,6 +32,28 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Unlocks: an issue that cannot ship a failing sheet; one graded quality surface over the folder's scattered verdict producers.
 - Anchors: `graphic/raster/measure.md` perceptual scores; `document/tagged.md` `UaCheck` and preflight; `exchange/conformance.md` `ConformanceVerdict`; `pdfplumber` `Page.debug_tablefinder`; the data `QualityProfile` seam.
 
+[MANAGED_CONFIG_SPACE]-[QUEUED]: color management resolves through a versioned config graph, never a synthesized profile.
+- Capability: managed egress answers working space, display, view, and look by NAME out of a shareable config, so a scene-linear reference is a role a project declares rather than a matrix or profile any producer hardcodes, and deep planes, display rasters, and separations all resolve their ends through one graph.
+- Shape: `libs/python/artifacts/.planning/graphic/color/managed.md` widens its transform axis to carry the config-resolved leg beside the ICC leg, and the two boundary sentences at `graphic/texture/plane.md` and `graphic/texture/ibl.md` that already name this owner stop pointing at a capability the folder admits and composes nowhere.
+- Unlocks: texture pipelines whose scene-linear end is declared instead of assumed, with LUT egress and shader-side transforms reachable from the same resolution the CPU path takes.
+- Anchors: `opencolorio` with its `.api/` catalog — shipped ACES CG and Studio configs reachable with no file on disk, the role graph `scene_linear` leads, `Processor` compiling to a CPU applier over float buffers or a shader emitter, `Baker` as the LUT egress; the `IccTransform` bundle and `ManagedCodec` egress the new leg seats beside; the package-scoped build variable making the distribution resolve at the floor.
+- Tension: two color authorities then stand on one page — the ICC profile edge and the config graph — and the discriminant has to be which one OWNS a given end rather than which one can express it, or every arm grows a second knob answering the same question.
+
+[DEEP_MEASUREMENT]-[QUEUED]: the deep-pixel estate grades its own products.
+- Capability: float planes carry measured fidelity and periodicity evidence the way a display raster carries perceptual scores, so encode loss, resample error, derivation error, and tile-seam energy are numbers a caller reads off the receipt rather than properties a producer asserts.
+- Shape: measurement homes with the deep substrate under `libs/python/artifacts/.planning/graphic/texture/`, its scalars riding the `Texture` receipt band `libs/python/artifacts/.planning/core/receipt.md` already declares as the map preimage.
+- Unlocks: lossy codec rows provable against their lossless siblings, `tiled` claims backed by a measurement, derivation chains whose error is visible before a set ships.
+- Anchors: `graphic/raster/measure.md` as the measured-score precedent, 8-bit and gated on a distribution the floor refuses; numpy spectral kernels `graphic/texture/derive.md` already owns; the C# tile gate as the cross-branch counterpart shape.
+- Tension: `graphic/raster/measure.md` is the obvious host and the wrong one — it terminates in the 8-bit funnel this folder's own substrate ruling splits away from, so measurement either duplicates a page's charter or splits the score vocabulary across two substrates.
+
+[FLOOR_UNGATING]-[BLOCKED]: every admitted distribution builds at the interpreter floor.
+- Capability: the folder's package registry carries no interpreter marker a probe has not reproduced, so a source-built distribution admits on the estate build lane instead of waiting for an upstream wheel, and a marker that survives names the break it reproduces and the release that retires it.
+- Shape: the three marked rows in the root `pyproject.toml` — `scikit-image` beside the `[IMAGING]` card and `vtk`/`usd-core` beside the `[SCENE]` card at `libs/python/artifacts/README.md` — each drop their marker under their own route.
+- Unlocks: the acceptance bar is zero unexplained interpreter markers on artifacts rows; the measured-score half and the USD stage half stop carrying a build-lane caveat their own design pages never state.
+- Anchors: the ungated `openexr` and `opencolorio` admissions this folder already carries as the source-lane precedent, the package-scoped build-variable mechanism that repaired the second, and the `colour-cxf` static-metadata block as the pure-wheel cap precedent.
+- Arms: pythran shipping a release that pins `gast>=0.7`, and a wrapper mechanism seating a nixpkgs-built python module in the uv-managed venv.
+- Tension: the two routes are structurally different bets — one waits on an upstream toolchain fix this estate cannot force, the other buys a second admission lane whose ownership sits in the machine estate rather than here.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed idea card template:

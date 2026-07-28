@@ -11,12 +11,13 @@ Python's mint of the suite wire vocabulary: every canonical `msgspec.Struct` the
 
 ## [02]-[VOCABULARY]
 
-- Owner: field names are the producer's snake_case proto names verbatim — `MessageToDict(preserving_proto_field_name=True)` keys the mapping by them — so no `rename=` layer exists and the struct declaration IS the wire contract.
-- Cases: every scalar slot carries its proto3 zero default because `MessageToDict` omits a field at its default value — a default-less slot rejects the producer's legitimate zero, so presence is the proto3 no-presence contract, never a required-field re-mint. Nested message slots spell `T | None = None` — proto message absence is a real wire value, the one place `None` crosses inward, collapsed by the consuming owner at its seam. `SolveRequest` deliberately carries bare column-major `float64` bytes, never a tensor envelope, per the producer's no-geometry-envelope law.
+- Owner: field names are the producer's snake_case proto names verbatim — `MessageToDict(preserving_proto_field_name=True)` keys the mapping by them — so no `rename=` layer exists and the struct declaration IS the wire contract. Producers whose own serializers spell a second casing change nothing here — the C# appearance leg emits Web camelCase off its PascalCase members, and that casing and this one are both mechanical projections of the ONE snake_case proto name, so a camelCase slot on these structs decodes nothing.
+- Cases: every scalar slot carries its proto3 zero default because `MessageToDict` omits a field at its default value — a default-less slot rejects the producer's legitimate zero, so presence is the proto3 no-presence contract, never a required-field re-mint. Nested message slots spell `T | None = None` — proto message absence is a real wire value, the one place `None` crosses inward, collapsed by the consuming owner at its seam. Explicit presence rides every scalar the producer declares `optional`, spelling `T | None = None` for that reason alone: the field distinguishes unmeasured from measured-zero, so folding it onto the zero default reads a measurement no producer took — `TextureSetWire`'s press divergence is the standing instance, and a scalar without the producer's `optional` keyword never takes this shape. `SolveRequest` deliberately carries bare column-major `float64` bytes, never a tensor envelope, per the producer's no-geometry-envelope law.
 - Auto: no shape lifts the causal halves to `Hlc` — the `clock/clock#CLOCK` owner reconstructs causal cells at full 100-ns tick fidelity from the carrier slots, and a `datetime`-mediated lift here truncates to microseconds. `Packed` types the two producer-open envelopes, open within the additive-only contract by the producer's own design and never widened past the declared slots. `TessellationRequest`/`TessellationReceipt` are contract rows this registry mints and streams over the existing `artifact_frame` leg — geometry `mesh/serve` binds the field floor by symbol, minting no wire shape.
+- Law: PRODUCER DIRECTION is a per-family fact this page records and never averages. `MaterialWire`, `OpenPbrGroupsWire`, `AppearanceSummaryWire`, and the `WireColor`/`WireProvenance` leaves form the appearance family, DECODE-ONLY: `csharp:Rasm.Materials/Appearance/interchange#MATERIAL_WIRE` is the sole producer of the OpenPBR parameter algebra, the conductor key, the capture receipt, and the appearance content hash, so these structs mirror that projection field-for-field and a python-side lowering, conductor table, or key derivation is the named cross-language drift defect. `TextureSetWire` with its `ChannelWire`/`PackWire`/`PressReceiptWire` leaves forms the baked-set family, DECODE-ONLY on the same authority, `csharp:Rasm.Materials/Raster/set#TEXTURE_SET` pressing the plane bytes and keying the set, and it REUSES `WireProvenance` rather than minting a second capture receipt. `AssetSetManifest` and its `MapEntry`/`PackEntry`/`IblEntry` leaves run the other way — `artifacts/graphic/texture/set#TEXTURE_SET` FILLS them behind its merkle set key and the peers decode. Both set documents stand DISTINCT and neither name covers the other: the C# one hangs behind an `AppearanceKey` and carries a press receipt, the python one carries a `kind` discriminant and an IBL entry, and one channel roster, transfer vocabulary, normal convention, and pack order serve both — two producers under two names sharing one frozen vocabulary. Their hex spellings also diverge and neither derives from the other: the C# document carries its content addresses UPPERCASE and the python one lowercase, so a consumer joining a key across the pair lowers, never uppercases. Every family spells repeated slots `list[...]` because the frozen cross-branch fragment declares them so and the producer constructs them so; `convert` coerces either container inward, so the declaration follows the fragment rather than re-spelling it, and the interior owners that consume these documents hold their own immutable collections.
 - Receipt: `FaultDetail` is the typed conflict the whole suite converges on, riding the `TransactionReceipt.conflict` slot in band and the `grpc-status-details-bin` trailer out of band; `transport/serve#SERVE` owns the Python trailer egress and ingress — this page owns only the shape.
 - Packages: `msgspec`, `protobuf`, and the faults rail per the fence imports; `transport/wire#PROTO_TRANSCODE` runs the `convert(strict=False)` decimal-string coercion leg.
-- Growth: a new producer message is one `Struct` with one `PROTO_VOCABULARY` row the gate proves on the next boot; a new field on an existing message is one slot with its proto3 zero default; a new sibling-consumer field floor is one registry row pair, never a sibling vocabulary.
+- Growth: a new producer message is one `Struct` with one `PROTO_VOCABULARY` row the gate proves on the next boot; a new field on an existing message is one slot with its proto3 zero default; a new sibling-consumer field floor is one registry row pair, never a sibling vocabulary. Every peer-produced DOCUMENT lands as its whole struct family — each nested envelope carries its own row, because the gate walks a registered row's top-level fields alone and an unregistered leaf drifts field-silently while its parent still passes.
 - Boundary: shapes and the registry only — no codec, span, retry, or transcode body (`transport/wire#PROTO_TRANSCODE`), no causal lift (`clock/clock#CLOCK`), no trailer pack/unpack (`transport/serve#SERVE`).
 
 ```python signature
@@ -213,6 +214,207 @@ class SupportBundleReply(Struct, frozen=True):
     archive: bytes = b""
     collected: tuple[str, ...] = ()
     skipped: tuple[str, ...] = ()
+
+
+class WireColor(Struct, frozen=True, gc=False):
+    # scene-linear triple beside the clipped hex a web swatch reads; the producer derives both, this branch neither
+    r: float = 0.0
+    g: float = 0.0
+    b: float = 0.0
+    hex: str = ""
+
+
+class WireProvenance(Struct, frozen=True, gc=False):
+    # Mirrors the producer's capture receipt. `fit_condition_number` carries a native non-finite double on this leg —
+    # its named "Infinity" literal is the producer's JSON spelling, so a decode branch for it here reads a value proto
+    # never writes.
+    device: str = ""
+    wavelength_count: int = 0
+    fit_residual: float = 0.0
+    measured: bool = False
+    method: str = ""
+    angular_samples: int = 0
+    fit_condition_number: float = 0.0
+    fit_rank: int = 0
+    dominant_wavelength_nm: float = 0.0
+    excitation_purity: float = 0.0
+    cct_kelvin: float = 0.0
+    cct_duv: float = 0.0
+    # Neural-acquisition tail the producer stamps on an inferred row: `model_card` names the registry row and
+    # `license` its grant class, so a redistribution check reads the receipt. Dropping this pair decodes an
+    # unlicensed product as an unmarked one, which is the one provenance loss no downstream surface recovers.
+    model_card: str = ""
+    license: str = ""
+
+
+class AppearanceSummaryWire(Struct, frozen=True, gc=False):
+    # Carries the NEUTRAL seam shape behind the appearance content key: consumers read these seven scalars flat and
+    # never the lobe graph. `transmissive` is the refractive flag, DISTINCT from `opacity`.
+    appearance_key: str = ""
+    base_color_r: float = 0.0
+    base_color_g: float = 0.0
+    base_color_b: float = 0.0
+    metallic: float = 0.0
+    roughness: float = 0.0
+    opacity: float = 0.0
+    transmissive: bool = False
+
+
+class OpenPbrGroupsWire(Struct, frozen=True):
+    base_weight: float = 0.0
+    base_color: WireColor | None = None
+    base_metalness: float = 0.0
+    base_diffuse_roughness: float = 0.0
+    base_specular_tint: float = 0.0
+    specular_weight: float = 0.0
+    specular_color: WireColor | None = None
+    specular_roughness: float = 0.0
+    specular_ior: float = 0.0
+    specular_anisotropy: float = 0.0
+    transmission_weight: float = 0.0
+    transmission_roughness: float = 0.0
+    subsurface_weight: float = 0.0
+    subsurface_radius_r: float = 0.0  # the producer's three-band carrier FLATTENS per channel; a triple here re-mints its shape
+    subsurface_radius_g: float = 0.0
+    subsurface_radius_b: float = 0.0
+    coat_weight: float = 0.0
+    coat_color: WireColor | None = None
+    coat_roughness: float = 0.0
+    coat_ior: float = 0.0
+    fuzz_weight: float = 0.0
+    fuzz_color: WireColor | None = None
+    fuzz_roughness: float = 0.0
+    thin_film_weight: float = 0.0
+    thin_film_thickness: float = 0.0
+    thin_film_ior: float = 0.0
+    emission_color: WireColor | None = None
+    emission_luminance: float = 0.0
+    geometry_opacity: float = 0.0
+
+
+class MaterialWire(Struct, frozen=True):
+    # Carries the FULL parameter payload behind the appearance key; `conductor` is empty for a dielectric
+    id: str = ""
+    open_pbr: OpenPbrGroupsWire | None = None
+    conductor: str = ""
+    provenance: WireProvenance | None = None
+    preview: WireColor | None = None
+
+
+class ChannelWire(Struct, frozen=True, gc=False):
+    role: str = ""  # a canonical channel name; an unknown key is the producer's own decode refusal, never a widened slot
+    transfer: str = ""  # a display transfer on a channel plane refuses: a bake target is scene-referred
+    format: str = ""  # the storage-texel key verbatim, where the python document records the same row as a (depth, channels) pair
+    channels: int = 0  # the SEMANTIC component count; storage width rounds it up through {1, 2, 4}
+    alpha_mode: str = ""
+    mips: int = 0
+    mip_policy: str = ""
+    block_format: str = ""
+    ktx_payload: str = ""  # a raw block payload no basis transcoder reads refuses here: the viewer this set feeds cannot open it
+    blob: str = ""  # the plane's content address in the write-once object store, UPPERCASE hex
+    file: str = ""
+    byte_length: WireU64 = 0
+
+
+class PackWire(Struct, frozen=True):
+    pack: str = ""  # the packing order names the slot order; a wire list of slots would be a second truth
+    present: list[bool] = msgspec.field(default_factory=list)
+    format: str = ""
+    mips: int = 0
+    blob: str = ""
+    file: str = ""
+    byte_length: WireU64 = 0
+
+
+class PressReceiptWire(Struct, frozen=True, gc=False):
+    backend: str = ""  # persisted bytes are always CPU-minted, so an accelerator value here is the producer's decode refusal
+    plan_key: str = ""
+    graph_key: str = ""
+    seed: WireU64 = 0  # replays the per-texel jitter; the plan and graph keys alone do not reproduce the bytes
+    texels: WireU64 = 0
+    elapsed_ms: float = 0.0
+    # Producer declares this `optional` because a single-lane press MEASURES no divergence and a zero there reads
+    # to a parity gate as a perfect match. Telemetry alone — the content key never folds it.
+    gpu_delta_max: float | None = None
+
+
+class TextureSetWire(Struct, frozen=True):
+    # Hangs the appearance-coupled BAKED set BEHIND the seven-value appearance preimage as a payload field: a set
+    # column on the summary forks the peer dedup key and re-ids every node carrying an appearance. Carries no
+    # kind slot because its one kind IS the baked set — an environment product rides the python document instead.
+    appearance_key: str = ""
+    set_key: str = ""
+    material_id: str = ""
+    conductor: str = ""  # empty for a dielectric; the set-level metal fact no per-texel plane carries
+    width: int = 0
+    height: int = 0
+    layers: int = 0
+    layer_law: str = ""  # cube faces, arrays, volumes, and flipbooks are rows here, never a second document shape
+    normal_convention: str = ""  # the INGEST-source record; the plane bytes always carry the canonical convention
+    alpha_mode: str = ""
+    height_scale: float = 0.0  # the millimetre span the normalized height plane resolves against; never baked into the plane
+    tiled: bool = False
+    udim_tiles: list[int] = msgspec.field(default_factory=list)
+    channels: list[ChannelWire] = msgspec.field(default_factory=list)  # roster-ordered, and that order IS the set-key preimage
+    packs: list[PackWire] = msgspec.field(default_factory=list)  # a channel inside a pack carries no standalone row
+    provenance: WireProvenance | None = None  # the appearance family's own capture receipt, never a second shape
+    press: PressReceiptWire | None = None  # absent for an ingested set
+
+
+class MapEntry(Struct, frozen=True, gc=False):
+    role: str = ""
+    file: str = ""
+    digest: str = ""
+    color_space: str = ""
+    depth: str = ""
+    format: str = ""  # the container the file holds, never a storage-texel key
+    channels: int = 0  # the SEMANTIC component count; storage width rounds it up through {1, 2, 4}
+    mips: int = 0
+    ktx_payload: str = ""
+    byte_length: WireU64 = 0
+
+
+class PackEntry(Struct, frozen=True):
+    pack: str = ""  # the packing order names the slot order; a wire list of slots would be a second truth
+    present: list[bool] = msgspec.field(default_factory=list)
+    format: str = ""
+    mips: int = 0
+    digest: str = ""
+    file: str = ""
+    byte_length: WireU64 = 0
+
+
+class IblEntry(Struct, frozen=True):
+    sh9: list[float] = msgspec.field(default_factory=list)  # EXACTLY 27, band-major with RGB interleaved at i*3+c
+    equirect_file: str = ""
+    equirect_digest: str = ""
+    specular_files: list[str] = msgspec.field(default_factory=list)
+    roughness_per_mip: list[float] = msgspec.field(default_factory=list)
+    brdf_lut_file: str = ""
+    brdf_lut_digest: str = ""
+    luminance_cdf_file: str = ""
+    intensity: float = 0.0  # applied ON READ; a producer baking it into the planes forks every consumer sharing the digest
+    up_axis: str = ""  # FROZEN to the one shading frame; a Y-up runtime remaps its direction basis at the read and never the bands
+
+
+class AssetSetManifest(Struct, frozen=True):
+    manifest_key: str = ""  # lowercase hex, where the C# set document spells its own keys uppercase
+    kind: str = ""  # the baked-set / environment discriminant the C# document has no room for, which is why two documents exist
+    source: str = ""  # the ingest root or generator id; an absolute host path here leaks the producing machine onto the wire
+    width: int = 0
+    height: int = 0
+    normal_convention: str = ""  # the INGEST-source record; the plane bytes always carry the canonical convention
+    alpha_mode: str = ""
+    udim: str = ""
+    udim_tiles: list[int] = msgspec.field(default_factory=list)
+    tiled: bool = False
+    maps: list[MapEntry] = msgspec.field(default_factory=list)
+    packs: list[PackEntry] = msgspec.field(default_factory=list)
+    ibl: IblEntry | None = None
+    unresolved: list[str] = msgspec.field(default_factory=list)
+    tool: str = ""
+    tool_version: str = ""
+    license_class: str = ""
 ```
 
 ## [03]-[REGISTRY_AND_DRIFT]
@@ -277,6 +479,19 @@ PROTO_VOCABULARY: Final[tuple[tuple[str, type[Struct], type[Message]], ...]] = (
     ("tessellation_receipt", TessellationReceipt, channels_pb2.TessellationReceipt),
     ("support_bundle", SupportBundleRequest, channels_pb2.SupportBundleRequest),
     ("support_bundle_reply", SupportBundleReply, channels_pb2.SupportBundleReply),
+    ("material_wire", MaterialWire, channels_pb2.MaterialWire),
+    ("open_pbr_groups_wire", OpenPbrGroupsWire, channels_pb2.OpenPbrGroupsWire),
+    ("appearance_summary_wire", AppearanceSummaryWire, channels_pb2.AppearanceSummaryWire),
+    ("wire_color", WireColor, channels_pb2.WireColor),
+    ("wire_provenance", WireProvenance, channels_pb2.WireProvenance),
+    ("texture_set_wire", TextureSetWire, channels_pb2.TextureSetWire),
+    ("channel_wire", ChannelWire, channels_pb2.ChannelWire),
+    ("pack_wire", PackWire, channels_pb2.PackWire),
+    ("press_receipt_wire", PressReceiptWire, channels_pb2.PressReceiptWire),
+    ("asset_set_manifest", AssetSetManifest, channels_pb2.AssetSetManifest),
+    ("map_entry", MapEntry, channels_pb2.MapEntry),
+    ("pack_entry", PackEntry, channels_pb2.PackEntry),
+    ("ibl_entry", IblEntry, channels_pb2.IblEntry),
 )
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

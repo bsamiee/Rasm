@@ -10,20 +10,25 @@
 
 ## [02]-[STAGE]
 
-- Cases: `RenderExport` writes a `.usdc` or `.usda` layer through `SetRenderWindow`, `SetFileName`, and `Write`. `MeshAuthor` folds every admitted `PrimKind` into its schema, then `MeshScene.author` binds metadata, appearance, labels, model kind, and `AssetArc` composition. `PackageOp.Package`, `Extract`, `Verify`, and `Relocate` fold through `packaged`; success carries `PackageFacts`, and every provider false return, unavailable layer, or compliance issue carries a closed `PackageFault` case.
+- Cases: `RenderExport` writes a `.usdc` or `.usda` layer through `SetRenderWindow`, `SetFileName`, and `Write`. `MeshAuthor` folds every admitted `PrimKind` into its schema, then `MeshScene.author` binds metadata, appearance, labels, model kind, and `AssetArc` composition. `InputSource` splits three ways over EVERY connectable `SurfaceInput` — `constant` sets the value, `texture` connects one `UsdUVTexture` output port, `primvar` connects an arity-selected `UsdPrimvarReader_*` — so a primvar-driven occlusion and a packed-sheet roughness are the same case set a diffuse colour takes, and no input carries a modality another lacks. `PackageOp.Package`, `Extract`, `Verify`, and `Relocate` fold through `packaged`; success carries `PackageFacts`, and every provider false return, unavailable layer, or compliance issue carries a closed `PackageFault` case.
 - Auto: `MeshAuthor` folds numpy buffers through `Vt.<Type>Array.FromNumpy`, never per-element append or `.tolist()` copies; orientation buffers carry the page-wide `(w, x, y, z)` convention and roll into Gf quaternion memory order once at `_instancer`. `PrimKind` admits point, face, normal, curve, instancing, camera, and light invariants — sibling and subset names unique, so no two prims silently merge onto one path — before authoring. `CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)` preserves an exported triangulation. Each boundable schema authors its extent, while `UsdGeom.BBoxCache` derives the composed world diagonal. `instancer` authors a prototype roster with range-checked indices beside its placement arrays; `FaceSubset` binds material regions; `camera` selects perspective or orthographic projection through `Lens.projection`; and `sun` aims a `UsdLux.DistantLight` from solar azimuth and elevation. `ComputeUsdStageStats` rejects an empty stage, and `UsdSemantics.LabelsQuery.ComputeUniqueInheritedLabels` adds resolved taxonomies to the facts band.
+- Auto: `Material` carries the whole preview-surface vector as one `SurfaceInput`-keyed map and `_SURFACE` is the ONE law row a lowering reads — value type, arity, primvar-reader id, and unit window — so `bind` folds the map with no per-input arm and an unauthored input resolves to the schema's own fallback rather than a re-asserted copy. Admission runs over every entry BEFORE the material prim is defined, so a refused value leaves no half-authored shader graph; port legality DERIVES from arity (the `rgb` port carries float3, every single port float) rather than a per-input legal-port list.
+- Auto: prim identity is VALUE-derived at every seam, so the graph a material authors is a function of what it declares and never of how a caller spelled it. Every `st` reader keys by primvar NAME, so a twelve-map set authors one reader and a second uv set is one more name; the sampler and its placement key by the `Texture` value's own digest, so a packed sheet feeding three inputs authors ONE `UsdUVTexture` the three read on three ports — the reason the port is a required column rather than a defaulted one — where a slot-derived path authors that file once per input and pays a decode for each. `bind` folds SLOT-SORTED and `_dress` taxonomy-sorted because authoring order is serialization order: an insertion-ordered fold exports two byte streams for one appearance and forks its content key. `Texture` carries the sampler's whole surface — per-axis wrap, source colour space, the `value * scale + bias` decode an 8-bit tangent-space normal needs, the unresolved-file fallback, and an optional `UsdTransform2d` placement whose absence leaves the reader as the st stream rather than an identity node.
 - Receipt: each USD/USDZ export contributes `core/receipt#RECEIPT` `ArtifactReceipt.Scene(key, target, bytes, facts)` at `scene/render#SCENE`. `ComputeUsdStageStats` counts, up-axis, scale, `BBoxCache` diagonal, and `labels:*` sets return through `apply`; each new fact remains one band key.
-- Growth: a new USD schema is one `PrimKind` case plus one `define` arm; placement is one `XformOp` case; appearance and semantics enrich `PrimNode`; composition is one `AssetArc` case; layer format is one `LayerFormat` row; packaging is one `PackageOp` and `PackageFault` case pair; and receipt evidence is one facts-band key. Source, graph, and package axes retain one owner each.
+- Growth: a new USD schema is one `PrimKind` case with one `define` arm; placement is one `XformOp` case; a new surface input is one `SurfaceInput` member with its `_SURFACE` row, which `admitted` and `wire` both pick up unedited; a new binding modality is one `InputSource` case with one `wire` arm; a new sampler knob is one `Texture` field, which joins the identity digest with no `_sampler` edit and correctly splits two bindings that now differ on it; semantics enrich `PrimNode`; composition is one `AssetArc` case; layer format is one `LayerFormat` row; packaging is one `PackageOp` and `PackageFault` case pair; and receipt evidence is one facts-band key. Source, graph, and package axes retain one owner each.
+- Boundary: USD token vocabularies stay foreign spellings held at this seam — `Wrap`, `ColorSpace`, `TextureChannel`, and `SurfaceInput` carry the schema's own strings verbatim so the shader graph needs no translation column, and the cross-branch channel roster the texture sub-domain transcribes never reaches these members. Texture BYTES, their egress leaf names, and the lowering that binds a canonical channel role onto a preview-surface slot are `graphic/texture/set#TEXTURE_SET`'s; this page consumes a resolved asset path with the slot and port a caller already chose, and authors the graph that reads it.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 from collections.abc import Callable
 from enum import StrEnum
+from hashlib import blake2b
 from importlib import import_module
 from importlib.util import find_spec
 from pathlib import Path
-from typing import Literal, assert_never
+from typing import Final, Literal, assert_never
 
+import msgspec
 import numpy as np
 from builtins import frozendict
 from expression import Error, Ok, Result, case, tag, tagged_union
@@ -33,7 +38,9 @@ from pxr import Gf, Kind, Sdf, Usd, UsdGeom, UsdLux, UsdSemantics, UsdShade, Usd
 
 # --- [TYPES] ---------------------------------------------------------------------------
 
+type Vec2 = tuple[float, float]
 type Vec3 = tuple[float, float, float]
+type Vec4 = tuple[float, float, float, float]
 type Quat = tuple[float, float, float, float]  # (w, x, y, z) — the page-wide quaternion convention every buffer and factory carries
 type Matrix4 = tuple[float, ...]
 type PrimKindTag = Literal["mesh", "points", "curves", "xform", "instancer", "camera", "sun"]
@@ -42,7 +49,7 @@ type XformOpTag = Literal["translate", "rotate", "scale", "orient", "transform"]
 type PackageOpTag = Literal["package", "extract", "verify", "relocate"]
 type PackageFaultTag = PackageOpTag
 type AssetArcTag = Literal["reference", "payload"]
-type ColorSourceTag = Literal["flat", "texture", "primvar"]
+type InputSourceTag = Literal["constant", "texture", "primvar"]
 
 
 class LayerFormat(StrEnum):
@@ -91,6 +98,49 @@ class UsdzProfile(StrEnum):
     @property
     def arkit(self) -> bool:
         return self is UsdzProfile.ARKIT
+
+
+class Wrap(StrEnum):
+    # UsdUVTexture wrap modes; `useMetadata` defers to the file's own wrap metadata rather than fixing a mode
+    BLACK = "black"
+    CLAMP = "clamp"
+    REPEAT = "repeat"
+    MIRROR = "mirror"
+    METADATA = "useMetadata"
+
+
+class ColorSpace(StrEnum):
+    # UsdUVTexture sourceColorSpace: how the FILE encodes its values, never a working-space declaration
+    RAW = "raw"
+    SRGB = "sRGB"
+    AUTO = "auto"
+
+
+class TextureChannel(StrEnum):
+    # UsdUVTexture output ports; `rgb` carries float3 and the four singles carry float
+    R = "r"
+    G = "g"
+    B = "b"
+    A = "a"
+    RGB = "rgb"
+
+
+class SurfaceInput(StrEnum):
+    # every CONNECTABLE UsdPreviewSurface input; `useSpecularWorkflow` is interfaceOnly, so it admits no
+    # connection and rides `Material.specular_workflow` as a scalar rather than an unreachable roster member
+    DIFFUSE_COLOR = "diffuseColor"
+    EMISSIVE_COLOR = "emissiveColor"
+    SPECULAR_COLOR = "specularColor"
+    METALLIC = "metallic"
+    ROUGHNESS = "roughness"
+    CLEARCOAT = "clearcoat"
+    CLEARCOAT_ROUGHNESS = "clearcoatRoughness"
+    OPACITY = "opacity"
+    OPACITY_THRESHOLD = "opacityThreshold"
+    IOR = "ior"
+    NORMAL = "normal"
+    DISPLACEMENT = "displacement"
+    OCCLUSION = "occlusion"
 
 
 class ModelKind(StrEnum):
@@ -192,80 +242,147 @@ class XformOp:
                 assert_never(self)
 
 
-class Texture(Struct, frozen=True, gc=False, kw_only=True):
+class SurfaceLaw(Struct, frozen=True):
+    # ONE row per SurfaceInput — the `CreateInput` value type, the primvar-reader id the input's arity selects,
+    # Rows carry the semantic component count and whether the value admits the unit window. Schema fallbacks stay
+    # OFF the columns: an unauthored input already resolves to one, and a copy here drifts the first time it moves.
+    value_type: object
+    reader: str
+    channels: int
+    bounded: bool = True
+
+
+_SURFACE: Final[frozendict[SurfaceInput, SurfaceLaw]] = frozendict({
+    SurfaceInput.DIFFUSE_COLOR: SurfaceLaw(Sdf.ValueTypeNames.Color3f, "UsdPrimvarReader_float3", 3),
+    SurfaceInput.EMISSIVE_COLOR: SurfaceLaw(Sdf.ValueTypeNames.Color3f, "UsdPrimvarReader_float3", 3),
+    SurfaceInput.SPECULAR_COLOR: SurfaceLaw(Sdf.ValueTypeNames.Color3f, "UsdPrimvarReader_float3", 3),
+    SurfaceInput.METALLIC: SurfaceLaw(Sdf.ValueTypeNames.Float, "UsdPrimvarReader_float", 1),
+    SurfaceInput.ROUGHNESS: SurfaceLaw(Sdf.ValueTypeNames.Float, "UsdPrimvarReader_float", 1),
+    SurfaceInput.CLEARCOAT: SurfaceLaw(Sdf.ValueTypeNames.Float, "UsdPrimvarReader_float", 1),
+    SurfaceInput.CLEARCOAT_ROUGHNESS: SurfaceLaw(Sdf.ValueTypeNames.Float, "UsdPrimvarReader_float", 1),
+    SurfaceInput.OPACITY: SurfaceLaw(Sdf.ValueTypeNames.Float, "UsdPrimvarReader_float", 1),
+    SurfaceInput.OPACITY_THRESHOLD: SurfaceLaw(Sdf.ValueTypeNames.Float, "UsdPrimvarReader_float", 1),
+    SurfaceInput.OCCLUSION: SurfaceLaw(Sdf.ValueTypeNames.Float, "UsdPrimvarReader_float", 1),
+    # Three rows run unbounded: an index of refraction lives near 1.5, a displacement is a signed offset along
+    # its normal, and a tangent-space normal spans [-1, 1] after the sampler's own scale-and-bias decode
+    SurfaceInput.IOR: SurfaceLaw(Sdf.ValueTypeNames.Float, "UsdPrimvarReader_float", 1, bounded=False),
+    SurfaceInput.DISPLACEMENT: SurfaceLaw(Sdf.ValueTypeNames.Float, "UsdPrimvarReader_float", 1, bounded=False),
+    SurfaceInput.NORMAL: SurfaceLaw(Sdf.ValueTypeNames.Normal3f, "UsdPrimvarReader_float3", 3, bounded=False),
+})
+
+
+class UvTransform(Struct, frozen=True, gc=False, kw_only=True):
+    # UsdTransform2d evaluates `in * scale * rotate + translation` over the st stream before the sampler reads it
+    rotation: float = 0.0  # counter-clockwise degrees about the origin
+    scale: Vec2 = (1.0, 1.0)
+    translation: Vec2 = (0.0, 0.0)
+
+
+class Texture(Struct, frozen=True, kw_only=True):
     file: str
-    wrap: Literal["repeat", "clamp", "mirror", "black"] = "repeat"
+    st: str = "st"  # the primvar name; samplers sharing one name share one reader prim
+    wrap_s: Wrap = Wrap.REPEAT
+    wrap_t: Wrap = Wrap.REPEAT
+    color_space: ColorSpace = ColorSpace.AUTO
+    scale: Vec4 = (1.0, 1.0, 1.0, 1.0)  # the sampler's own `value * scale + bias` decode — an 8-bit normal map reads (2, 2, 2, 2) / (-1, -1, -1, -1)
+    bias: Vec4 = (0.0, 0.0, 0.0, 0.0)
+    fallback: Vec4 = (0.0, 0.0, 0.0, 1.0)  # what a renderer reads when the file does not resolve
+    transform: UvTransform | None = None
+
+
+class PbrMap(Struct, frozen=True, kw_only=True):
+    # one texture bound to one surface input through one output port; the port is REQUIRED because a packed
+    # sheet feeds three inputs off one file and a defaulted port would silently hand all three the same channel
+    texture: Texture
+    channel: TextureChannel
 
 
 @tagged_union(frozen=True)
-class ColorSource:
-    tag: ColorSourceTag = tag()
-    flat: Vec3 = case()
-    texture: Texture = case()
+class InputSource:
+    tag: InputSourceTag = tag()
+    constant: float | Vec3 = case()
+    texture: PbrMap = case()
     primvar: str = case()
 
     @staticmethod
-    def Flat(color: Vec3 = (0.18, 0.18, 0.18)) -> "ColorSource":
-        return ColorSource(flat=color)
+    def Constant(value: float | Vec3) -> "InputSource":
+        return InputSource(constant=value)
 
     @staticmethod
-    def Texture(texture: Texture) -> "ColorSource":
-        return ColorSource(texture=texture)
+    def Texture(texture: Texture, channel: TextureChannel) -> "InputSource":
+        return InputSource(texture=PbrMap(texture=texture, channel=channel))
 
     @staticmethod
-    def Primvar(name: str) -> "ColorSource":
-        return ColorSource(primvar=name)
+    def Primvar(name: str) -> "InputSource":
+        return InputSource(primvar=name)
+
+    def admitted(self, slot: SurfaceInput, /) -> None:
+        law = _SURFACE[slot]
+        match self:
+            case InputSource(tag="constant", constant=value):
+                cells = value if isinstance(value, tuple) else (value,)
+                if len(cells) != law.channels or not np.isfinite(cells).all():
+                    raise ValueError(f"{slot.value} takes {law.channels} finite component(s)")
+                if law.bounded and any(not 0.0 <= cell <= 1.0 for cell in cells):
+                    raise ValueError(f"{slot.value} constant leaves the unit window")
+            case InputSource(tag="texture", texture=bound):
+                # Port `rgb` carries float3 and every single port carries float, so the port matches the input
+                # exactly when the component counts agree — one derived rule rather than a per-input legal-port list
+                if (bound.channel is TextureChannel.RGB) is not (law.channels == 3):
+                    raise ValueError(f"{slot.value} takes {law.channels} component(s) and cannot read the {bound.channel.value} port")
+                if not bound.texture.file or not bound.texture.st:
+                    raise ValueError(f"{slot.value} texture needs a file and an st primvar name")
+                place = bound.texture.transform or UvTransform()
+                if not np.isfinite(
+                    (*bound.texture.scale, *bound.texture.bias, *bound.texture.fallback, place.rotation, *place.scale, *place.translation)
+                ).all():
+                    raise ValueError(f"{slot.value} sampler decode and placement must be finite")
+            case InputSource(tag="primvar", primvar=name):
+                if not name:
+                    raise ValueError(f"{slot.value} primvar name cannot be empty")
+            case _ as unreachable:
+                assert_never(unreachable)
+
+    def wire(self, stage: object, shader: object, path: object, slot: SurfaceInput, /) -> None:
+        law = _SURFACE[slot]
+        target = shader.CreateInput(slot.value, law.value_type)
+        match self:
+            case InputSource(tag="constant", constant=(r, g, b)):  # the sequence pattern narrows the union; a scalar never matches it
+                target.Set(Gf.Vec3f(r, g, b))
+            case InputSource(tag="constant", constant=scalar):
+                target.Set(float(scalar))
+            case InputSource(tag="texture", texture=bound):
+                target.ConnectToSource(_sampler(stage, path, bound.texture).ConnectableAPI(), bound.channel.value)
+            case InputSource(tag="primvar", primvar=name):
+                reader = UsdShade.Shader.Define(stage, path.AppendChild(f"{slot.value}Primvar"))
+                reader.CreateIdAttr(law.reader)
+                reader.CreateInput("varname", Sdf.ValueTypeNames.String).Set(name)
+                target.ConnectToSource(reader.ConnectableAPI(), "result")
+            case _ as unreachable:
+                assert_never(unreachable)
 
 
 class Material(Struct, frozen=True, kw_only=True):
-    source: ColorSource = ColorSource(flat=(0.18, 0.18, 0.18))
-    metallic: float = 0.0
-    roughness: float = 0.5
-    opacity: float = 1.0
+    # Holds the whole UsdPreviewSurface vector as ONE slot-keyed map: an unauthored input resolves to the schema's own
+    # fallback, so an empty material is the neutral preview surface and every authored input is one entry.
+    inputs: frozendict[SurfaceInput, InputSource] = frozendict()
+    specular_workflow: bool = False
 
     def bind(self, stage: object, prim: object, path: object) -> None:
-        if not np.isfinite((self.metallic, self.roughness, self.opacity)).all() or not all(
-            0.0 <= value <= 1.0 for value in (self.metallic, self.roughness, self.opacity)
-        ):
-            raise ValueError("material factors must be finite values in [0, 1]")
+        # SLOT-SORTED, not caller-insertion: the wiring order is the order prims land in the layer and therefore the
+        # order they serialize, so two callers spelling one material in two orders would export two byte streams and
+        # two content keys off one appearance. Admission takes the same order, so a refusal names the same input twice.
+        ordered = sorted(self.inputs.items(), key=lambda entry: entry[0].value)
+        for slot, source in ordered:  # every input admits BEFORE any prim is defined, so a refused material authors nothing
+            source.admitted(slot)
         material = UsdShade.Material.Define(stage, path)
         shader = UsdShade.Shader.Define(stage, path.AppendChild("PreviewSurface"))
         shader.CreateIdAttr("UsdPreviewSurface")
-        shader.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(self.metallic)
-        shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(self.roughness)
-        shader.CreateInput("opacity", Sdf.ValueTypeNames.Float).Set(self.opacity)
-        match self.source:
-            case ColorSource(tag="texture", texture=texture):
-                self._textured(stage, shader, path, texture)
-            case ColorSource(tag="primvar", primvar=primvar):
-                if not primvar:
-                    raise ValueError("material primvar name cannot be empty")
-                reader = UsdShade.Shader.Define(stage, path.AppendChild("colorReader"))
-                reader.CreateIdAttr("UsdPrimvarReader_float3")
-                reader.CreateInput("varname", Sdf.ValueTypeNames.Token).Set(primvar)
-                shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(reader.ConnectableAPI(), "result")
-            case ColorSource(tag="flat", flat=diffuse):
-                if not np.isfinite(diffuse).all() or any(not 0.0 <= value <= 1.0 for value in diffuse):
-                    raise ValueError("material diffuse color must contain finite values in [0, 1]")
-                shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*diffuse))
-            case _ as unreachable:
-                assert_never(unreachable)
+        shader.CreateInput("useSpecularWorkflow", Sdf.ValueTypeNames.Int).Set(int(self.specular_workflow))
+        for slot, source in ordered:
+            source.wire(stage, shader, path, slot)
         material.CreateSurfaceOutput().ConnectToSource(shader.ConnectableAPI(), "surface")
         UsdShade.MaterialBindingAPI.Apply(prim).Bind(material)
-
-    def _textured(self, stage: object, shader: object, path: object, texture: Texture, /) -> None:
-        if not texture.file:
-            raise ValueError("material texture path cannot be empty")
-        reader = UsdShade.Shader.Define(stage, path.AppendChild("stReader"))
-        reader.CreateIdAttr("UsdPrimvarReader_float2")
-        reader.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st")
-        sampler = UsdShade.Shader.Define(stage, path.AppendChild("diffuseTexture"))
-        sampler.CreateIdAttr("UsdUVTexture")
-        sampler.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(Sdf.AssetPath(texture.file))
-        sampler.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(reader.ConnectableAPI(), "result")
-        sampler.CreateInput("wrapS", Sdf.ValueTypeNames.Token).Set(texture.wrap)
-        sampler.CreateInput("wrapT", Sdf.ValueTypeNames.Token).Set(texture.wrap)
-        shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(sampler.ConnectableAPI(), "rgb")
 
 
 class FaceSubset(Struct, frozen=True, kw_only=True):
@@ -585,6 +702,51 @@ def _extent(points: NDArray[np.float32]) -> object:
     return Vt.Vec3fArray.FromNumpy(np.stack([points.min(axis=0), points.max(axis=0)]))
 
 
+def _identity(texture: Texture, /) -> str:
+    # Each sampler's OWN value is its identity — file, st stream, wrap pair, source colour space, decode, fallback,
+    # and placement are every input a `UsdUVTexture` carries, so two bindings agreeing on all of them are one node.
+    # `msgspec.json.encode` walks declaration order, giving a digest stable across processes where `hash` is
+    # seed-randomized on `str` and would fork the exported layer bytes run to run.
+    return blake2b(msgspec.json.encode(texture), digest_size=8).hexdigest()
+
+
+def _placed(stage: object, path: object, token: str, reader: object, transform: UvTransform | None, /) -> object:
+    # absent placement leaves the reader AS the st stream — an identity UsdTransform2d is a node every consumer
+    # then evaluates for nothing. Both nodes publish `result`, so the sampler binds one port name either way.
+    if transform is None:
+        return reader
+    placed = UsdShade.Shader.Define(stage, path.AppendChild(f"Sampler{token}Place"))
+    placed.CreateIdAttr("UsdTransform2d")
+    placed.CreateInput("in", Sdf.ValueTypeNames.Float2).ConnectToSource(reader.ConnectableAPI(), "result")
+    placed.CreateInput("rotation", Sdf.ValueTypeNames.Float).Set(transform.rotation)
+    placed.CreateInput("scale", Sdf.ValueTypeNames.Float2).Set(Gf.Vec2f(*transform.scale))
+    placed.CreateInput("translation", Sdf.ValueTypeNames.Float2).Set(Gf.Vec2f(*transform.translation))
+    return placed
+
+
+def _sampler(stage: object, path: object, texture: Texture, /) -> object:
+    # BOTH nodes are get-or-create over a VALUE-derived path, never a slot-derived one. The st reader keys by primvar
+    # NAME, so a set whose twelve maps read `st` authors one reader and a second uv set is one more name; the sampler
+    # keys by the texture's own identity, so an ORM sheet feeding occlusion, roughness, and metalness authors ONE
+    # UsdUVTexture that three inputs read on three ports — which is the whole reason the port is a required column.
+    # Keying the sampler by slot instead authors that one file three times and pays three decodes for one plane.
+    token = _identity(texture)
+    reader = UsdShade.Shader.Define(stage, path.AppendChild(f"{texture.st}Reader"))
+    reader.CreateIdAttr("UsdPrimvarReader_float2")
+    reader.CreateInput("varname", Sdf.ValueTypeNames.String).Set(texture.st)
+    sampler = UsdShade.Shader.Define(stage, path.AppendChild(f"Sampler{token}"))
+    sampler.CreateIdAttr("UsdUVTexture")
+    sampler.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(Sdf.AssetPath(texture.file))
+    sampler.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(_placed(stage, path, token, reader, texture.transform).ConnectableAPI(), "result")
+    sampler.CreateInput("wrapS", Sdf.ValueTypeNames.Token).Set(texture.wrap_s.value)
+    sampler.CreateInput("wrapT", Sdf.ValueTypeNames.Token).Set(texture.wrap_t.value)
+    sampler.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set(texture.color_space.value)
+    sampler.CreateInput("scale", Sdf.ValueTypeNames.Float4).Set(Gf.Vec4f(*texture.scale))
+    sampler.CreateInput("bias", Sdf.ValueTypeNames.Float4).Set(Gf.Vec4f(*texture.bias))
+    sampler.CreateInput("fallback", Sdf.ValueTypeNames.Float4).Set(Gf.Vec4f(*texture.fallback))
+    return sampler
+
+
 def _dress(
     stage: object,
     prim: object,
@@ -602,7 +764,7 @@ def _dress(
         UsdGeom.PrimvarsAPI(prim).CreatePrimvar("displayColor", Sdf.ValueTypeNames.Color3fArray, interp).Set(Vt.Vec3fArray.FromNumpy(colors))
     if material is not None:
         material.bind(stage, prim, path.AppendChild("Material"))
-    for taxonomy, tags in labels.items():
+    for taxonomy, tags in sorted(labels.items()):  # taxonomy order reaches the layer bytes exactly as input order does
         UsdSemantics.LabelsAPI.Apply(prim, taxonomy).CreateLabelsAttr(Vt.TokenArray(list(tags)))
 
 
@@ -710,4 +872,4 @@ def packaged(op: PackageOp) -> Result[PackageFacts, PackageFault]:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-(none)
+- [DISPLACEMENT_TERMINAL]-[BLOCKED]: name the exact `UsdShade.Material` member connecting the material's `outputs:displacement` terminal to the surface shader's displacement output — `CreateDisplacementOutput()` versus the inherited `NodeGraph.CreateOutput("displacement", Sdf.ValueTypeNames.Token)` — so a bound `SurfaceInput.DISPLACEMENT` map reaches a renderer's displacement pass rather than stopping at the shader input; blocked on live reflection against an installed `pxr.UsdShade`, which the `usd-core` interpreter gate forecloses on the canonical venv, and on the `.api/usd-core.md` `UsdShade.Material` row carrying only `Define`/`CreateSurfaceOutput`/`CreateInput`.

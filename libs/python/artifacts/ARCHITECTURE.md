@@ -45,6 +45,12 @@ artifacts/
 │   │   ├── io.py        # pillow/pyvips IO, convert, thumbnail, montage working surface
 │   │   ├── process.py   # raster vocabulary owner and produced-raster engine
 │   │   └── measure.py   # perceptual-quality metrics and region/feature/registration measurement
+│   ├── texture/         # deep-pixel texture plane: the float32 substrate standing BESIDE the 8-bit raster half
+│   │   ├── plane.py     # float32 (H,W,C) carrier, storage/transfer/alpha/mip vocabulary, and the DEEP_CODEC rows
+│   │   ├── derive.py    # channel derivation: normal/height/occlusion/curvature, packing, mip fold, one resampler
+│   │   ├── ingest.py    # the TextureRole/IblProduct slot vocabulary, its law table, and the accumulating classify
+│   │   ├── set.py       # the TextureSet producer, egress grammar, KTX2 tool seam; contributes the Texture receipt
+│   │   └── ibl.py       # equirect/cube projection, frozen SH9 irradiance, GGX prefilter, BRDF LUT, luminance CDF
 │   ├── vector/
 │   │   ├── path.py      # svgelements metric substrate: parse, point-at-distance, decimation, tolerance
 │   │   ├── region.py    # skia-pathops boolean/offset/stroke-to-outline with metric text-on-path
@@ -189,6 +195,7 @@ flowchart TB
 - S2 `graphic` + `drawing` + `visualization` + `export` — one visual stratum, module-acyclic.
 - S2 `drawing/regime` composes `graphic/color/derive` and `vector/pattern`; `graphic/layer` and `style` compose the regime back.
 - S2 `drawing/schedule` lowers into `visualization/table`; `visualization/chart/export` composes `export/layered`, the DXF owner hopping back.
+- S2 `graphic/texture` imports the floor, the runtime `transport/shapes`, and its own siblings alone, and `graphic/raster` imports none of it back.
 - S3 `document`, `media`, `composition`, `specification` — composer planes over the visual stratum.
 - S3 `specification/section` composes the document `BlockKind` tree in-stratum; `media` rides the scene `framed` parse floor and raster save hop.
 - S4 `delivery` then S5 `core/issue` — `issue` alone imports upward-named producers, so the spine is floor and conductor, never one stratum.
@@ -208,12 +215,13 @@ config:
 ---
 flowchart LR
     accTitle: Artifacts package seam registry
-    accDescr: Artifacts sub-domain owners exchanging content keys, receipts, wires, and shapes with Python and C# peers.
+    accDescr: Artifacts sub-domain owners exchanging content keys, receipts, wires, and shapes with Python, C#, and typescript peers.
     subgraph artifacts[PY:ARTIFACTS]
         Core[Core spine]
         Document[Document]
         Visualization[Visualization]
         Drawing[Drawing]
+        Graphic[Graphic]
         Media[Media]
         Scene[Scene]
         Export[Export]
@@ -226,6 +234,8 @@ flowchart LR
     Compute([python:compute])
     Persistence[(csharp:Rasm.Persistence)]
     Fabrication([csharp:Rasm.Fabrication])
+    Materials([csharp:Rasm.Materials])
+    Interchange([typescript:core])
     Runtime e1@-->|"[CONTENT_KEY]: ContentKey"| Core
     Core e2@-->|"[RECEIPT]: ArtifactReceipt"| Runtime
     Runtime e3@-->|"[CONTENT_KEY]: ContentIdentity"| Exchange
@@ -240,9 +250,14 @@ flowchart LR
     Exchange e13@-->|"[CONTENT_KEY]: SignedArtifact"| Persistence
     Runtime e14@-->|"[PORT]: Kernel"| Scene
     Core e15@-->|"[PORT]: HookPoint"| Runtime
+    Runtime e16@-->|"[SHAPE]: AssetSetManifest"| Graphic
+    Graphic e17@-->|"[WIRE]: AssetSetManifest"| Materials
+    Graphic e18@-->|"[WIRE]: AssetSetManifest"| Interchange
 ```
 
 Frozen names spell from the owner's endpoint page: `SignedArtifact` from Rasm.Persistence with the runtime `ContentKey` minting beneath it, `IToleranceEncoder` bytes from Rasm.Fabrication admitted into `GdtFrame` at dimensioning, and the graduation hub as `HandoffAxis`, C#-spelled `GraduationEvidence`.
+
+`AssetSetManifest` is the python-minted set document: runtime `transport/shapes` declares the struct and its `PROTO_VOCABULARY` row, `graphic/texture/set` fills and emits it behind the merkle set key, and two peers read it — Rasm.Materials as classification input, typescript core as a census-and-landing pair. C#-minted `TextureSetWire` is a different document under its own producer and corpus entry, and python IBL and HDRI products ride this one, so no HDRI kind crosses on the C# document.
 
 Production-fact points register onto the runtime `Hooks` registry under the `rasm.artifacts.<domain>.<point>` grammar, and the bench corpus consumes the runtime `Bench` tier, minting no timing. `TransmittalNotice` seals the settled close as a CloudEvents envelope whose transport stays the composing app's, so no broker edge joins this registry.
 
@@ -275,9 +290,9 @@ High-order producer planes sit on a shared primitive substrate. `graphic` and `t
 
 - `core/receipt` is the one shared receipt owner every producer contributes one case to.
 - Composite owners drive sibling producers only through the uniform `emit()`/`work()` contract; a sibling convenience entry is a phantom.
-- A receipt's `slot` threads the producer's pre-run input key; a produced-output content address lands only as a facts-band scalar.
+- `slot` threads the producer's pre-run input key; a produced-output content address lands only as a facts-band scalar.
 - Producer sync projections read the landed evidence successor; re-invoking the fold or a frame author is a split-execution defect.
-- An un-folded owner projects nothing, so absence stays distinct from evidence.
+- Un-folded owners project nothing, so absence stays distinct from evidence.
 - Dual-license provider pairs split by import reachability: no copyleft module is reachable from the permissive footing.
 - Derivable constants land as policy tables on the owner, and each footing's closure audits from its imports alone.
 - `contribute` records numeric facts through the runtime metrics arm; render duration stays a runtime fact, never a receipt's.
@@ -294,13 +309,14 @@ High-order producer planes sit on a shared primitive substrate. `graphic` and `t
 - Sources re-mint no canonical concept, so the runtime structural-drift query stays clean.
 - `graphic/color/derive` is the one upstream color source every visual plane pulls palettes from.
 - `graphic/color/managed` is the downstream ICC/LUT/CCTF egress the raster and document outputs route through.
+- `graphic/texture` owns texture sets, environment products, and every deep codec lane; `graphic/raster` stops at the display-referred 8-bit surface.
 - Host-free rendering cuts every sub-domain: chart export dispatches onto host-free engines only, ranked by the owner's policy row.
 - One gated host-render path exists behind explicit opt-in, never the default.
 - Engine selection is the second structural axis: heavy render, raster, compression, text-layout, and 3D arms cross as runtime `Kernel` values.
-- A `KernelTrait` row derives each kernel's thread, subinterpreter, or process arm.
+- `KernelTrait` rows derive each kernel's thread, subinterpreter, or process arm.
 - Provider-heavy modules never import into the core runtime path.
 
 ## [05]-[BOUNDARIES]
 
-- `artifacts` owns durable output alone — page composition, visual authoring, and file emission, every artifact keyed by the runtime content key and receipted as one `ArtifactReceipt` case.
-- UI surfaces, durable stores, IFC/GLB geometry, and columnar or mesh interchange stay peer-owned, crossing at the content-keyed wire and never by reference.
+- `artifacts` owns durable output alone — authoring, composing, and emitting every produced file the estate ships.
+- UI surfaces, durable stores, IFC/GLB geometry, and columnar or mesh interchange stay peer-owned.

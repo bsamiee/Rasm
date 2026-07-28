@@ -142,6 +142,45 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `pdfplumber` `Page.debug_tablefinder`; `document/lens.md` examination ops.
 - Atomic: one projection row on one existing page.
 
+[OCIO_WORKING_SPACE]-[QUEUED]: the managed egress resolves its ends through a config graph.
+- Capability: colour-managed arms name their source and destination as config roles or colorspaces and take back a compiled processor, so the working space a project declares is what every applied transform reads, and one resolution serves the in-place buffer apply, the shader emission, and the LUT bake.
+- Shape: `libs/python/artifacts/.planning/graphic/color/managed.md` gains the config-resolved transform leg on its existing `ManageOp` dispatch — one policy bundle beside `IccTransform` carrying the config reference, the two named ends, and the look — with the `Lut` terminal baking through the same processor it applies through; `graphic/texture/plane.md` and `graphic/texture/ibl.md` keep their boundary sentences unedited, now naming a landed leg.
+- Unlocks: `IDEAS.md` [MANAGED_CONFIG_SPACE] — the resolution half, leaving the ICC profile edge exactly where it is.
+- Anchors: `opencolorio` at `libs/python/artifacts/.api/opencolorio.md` — `Config.CreateFromBuiltinConfig` over the shipped `ocio://` configs, `ROLE_SCENE_LINEAR` as the declared reference, `Config.getProcessor` into `CPUProcessor` applying over float buffers through `PackedImageDesc`, `GpuShaderDesc` for shader text, and `Baker` for LUT egress; the `_grade` fold and `GradeStep` chain the new leg composes rather than replaces; the process-lane `Kernel` crossing every managed arm already rides.
+- Tension: config resolution wants scene-linear float where the ICC leg is written for `uint8`/`uint16` rasters, so the depth admission on that arm decides whether one dispatch serves both ends or the config leg carries its own admission axis.
+
+[TILE_PERIODICITY_SCORE]-[QUEUED]: a set's tiling claim is measured, not repeated.
+- Capability: deep planes score their own seam periodicity deterministically, and the set producer fills its tiling field from that score when the caller supplies no provenance, so the shared wire field states a property this folder proved.
+- Shape: one measurement arm under `libs/python/artifacts/.planning/graphic/texture/` scoring wrap-seam energy against the plane's own spectrum, and the `tiled` fill in the assembly fold at `graphic/texture/set.md` reading it instead of copying the spec field straight through.
+- Unlocks: `IDEAS.md` [DEEP_MEASUREMENT] — the periodicity half, which is the ruling on proved tiling flags realized at the one producer that fills the field.
+- Anchors: `libs/python/artifacts/RULINGS.md` carrying the tiling ruling; `fft.fft2`/`ifft2`/`fftfreq` and `roll` kernels `graphic/texture/derive.md` already owns; `Edge.WRAP` differentiation the derived channels already run, whose correctness the same seam property governs; the C# tile gate as the cross-branch counterpart the score agrees with by construction.
+- Tension: scoring is a threshold decision and the threshold is a policy value, so the row either publishes the scalar and lets the caller decide or fixes one cutoff every consumer inherits.
+
+[PLANE_FIDELITY_SCORES]-[QUEUED]: deep encode and derivation carry measured error.
+- Capability: lossy codec rows, resamples, and derived channels each report their error against the reference they were produced from, so a set ships with the evidence that the depth ruling's guarantee held through its own pipeline.
+- Shape: fidelity scalars land on the `Texture` receipt band at `libs/python/artifacts/.planning/graphic/texture/set.md`, measured inside the existing worker crossing rather than on the loop, under the band-leaf grammar `libs/python/artifacts/.planning/core/receipt.md` fixes.
+- Unlocks: `IDEAS.md` [DEEP_MEASUREMENT] — the fidelity half; the lossy rows in the codec table become provable against their lossless siblings instead of trusted.
+- Anchors: `graphic/texture/set.md`'s derived deterministic floor, whose lossless rows are the reference every lossy row measures against; numpy reductions `graphic/texture/derive.md` owns; the band-leaf grammar and the `map` namespace on the texture receipt.
+- Tension: measuring costs a second full-plane pass per map, so the row is either always-on evidence or a policy value on the spec, and a policy value entering the content key is what the folder's route-flag ruling forbids.
+
+[SKIMAGE_GATE_DROP]-[BLOCKED]: `scikit-image` admits at the interpreter floor.
+- Capability: the measured-score and transform arms build from source on the estate lane, so no interpreter marker guards the row that two design pages compose.
+- Shape: the `scikit-image` row in the root `pyproject.toml` drops its `python_version` marker; the `[IMAGING]` card at `libs/python/artifacts/README.md` needs no edit.
+- Unlocks: `IDEAS.md` [FLOOR_UNGATING] — the imaging half of the completeness bar.
+- Anchors: the reproduced break — pythran lowers through gast, whose AST shim raises on the required node fields CPython 3.15 introduced, meson carries no pythran toggle, and a build-constraint pin of `gast>=0.7` leaves the resolution unsatisfiable; the meson and cython legs generate the full target graph and only the two pythran targets fail, so the sdist lane is otherwise healthy.
+- Arms: a pythran release pinning `gast>=0.7`, or a scikit-image release dropping the pythran leg.
+- Route: re-run the source build on the Forge scientific lane into a scratch venv at the floor and read the pythran targets alone before the marker moves.
+- Atomic: one manifest row.
+
+[SCENE_STACK_UNGATE]-[BLOCKED]: `vtk` and `usd-core` admit at the interpreter floor.
+- Capability: the offscreen render and USD stage halves resolve their natives on an estate lane rather than an interpreter cap pinning them to a retired runtime.
+- Shape: the `vtk` and `usd-core` rows in the root `pyproject.toml` drop their `python_version` markers under whichever route arms first — an upstream sdist or floor wheel, or a nixpkgs python-overlay admission lane.
+- Unlocks: `IDEAS.md` [FLOOR_UNGATING] — the scene half of the completeness bar.
+- Anchors: neither distribution publishes an sdist, `usd-core` caps its wheel metadata below the floor on top of that, and no source lane exists today; the nixpkgs attrs for both build on aarch64-darwin, which is what makes the overlay route plausible at all.
+- Arms: four blockers clear together — the nixpkgs attrs lag the admitted versions, its `python3Packages` build against an interpreter older than the estate floor, the floor's closure is uncached and forces a full local VTK and USD source build, and the wrapper exposes no mechanism seating a nixpkgs-built module in the uv-managed venv.
+- Route: read the upstream index for a floor wheel or a new sdist first, then `nix eval` both attrs against the locked nixpkgs; wrapper work starts only after both reads refuse.
+- Tension: the overlay lane is a SECOND admission mechanism beside uv, owned in the machine estate — buying it for two distributions widens what this folder's package registry can no longer explain alone.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:

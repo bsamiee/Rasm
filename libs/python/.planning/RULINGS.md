@@ -5,7 +5,7 @@
 ## [01]-[PACKAGES]
 
 - `icechunk`, `protobuf`, `arviz`, `jaxtyping`, `zxing-cpp`, and `kiwisolver` stay ungated — each is proven to resolve on the interpreter floor, so a gate-every-native sweep re-adding markers to them reverses a tested decision, not an oversight; re-opens only on a resolver failure at the manifest's interpreter floor.
-- `geopandas`, `shapely`, `rasterio`, `netcdf4`, `h3ronpy`, and `polars-st` stay ungated as Forge source builds — the scientific-source-build lane resolves each at the interpreter floor exactly as a wheel install does, so the manifest row stays unmarked and the provider binds in-process, never a subprocess seam; a gate-every-native sweep adding markers to them mistakes a source-built native for the wheel-absent `jax` class; re-opens on a `forge-scientific-env` build failure for that package at the interpreter floor.
+- `geopandas`, `shapely`, `rasterio`, `netcdf4`, `h3ronpy`, `polars-st`, `openexr`, `opencolorio`, and `pyktx` stay ungated as Forge source builds — the scientific-source-build lane resolves each at the interpreter floor exactly as a wheel install does (`opencolorio` behind the manifest's own `[tool.uv.extra-build-variables]` `CMAKE_ARGS` row, `pyktx` over the Forge `libktx` native rows), so the manifest row stays unmarked and the provider binds in-process, never a subprocess seam; a gate-every-native sweep adding markers to them mistakes a source-built native for the wheel-absent `jax` class; re-opens on a `forge-scientific-env` build failure for that package at the interpreter floor.
 
 ## [02]-[SHAPE]
 
