@@ -29,6 +29,7 @@ When a concern matches several rows, the most specific wins; the carrier axis is
 - Law: full-coverage generated `Switch` is the totality proof; a new case breaks every dispatch site at compile time, never a runtime-silent `_` arm.
 - Law: state-threaded arm arity splits by owner — a `[Union]` arm is the two-parameter `(state, case)` lambda while a `[SmartEnum]` arm takes the state alone — and the leading parameter is named `state` unless `SwitchMapStateParameterName` renames it; a wrong-arity arm re-binds overload resolution away from the threaded form or fails late, so every arm spells its full arity even when a slot is discarded.
 - Law: arms returning sibling case types leave best-common-type inference empty (CS0411); the first arm casts to the union base — or the call spells explicit `Switch` type arguments — and the anchor is load-bearing, never a redundant cast.
+- Law: a per-case rewrite homes on the union owner rather than as a case ladder at each translating caller, with the transform itself threaded through the state slot, so every arm stays `static` and closure-free and each caller reads one call; a rewrite captured by the lambda instead closes over caller state and forfeits the generated dispatch's allocation-free form.
 - Law: N sibling surfaces riding one shared rail and re-spelling the same lifecycle machinery — mint, custody hand-off, multi-product harvest, failure release, entry guard — collapse onto the rail owner's generic members, each sibling a one-line composition; hand-maintained congruence invariants become structural inside the one generic builder, and a guard present on some family entries but absent on siblings is the latent defect the absorption fixes.
 - Law: an arm that is unconditionally failing — unreachable by the family's own contract — is never defensive coverage; it proves the case cannot inhabit the dispatch's shared context and splits out as a sibling method on the structural discriminant that justifies it — an extra receiver or an out-of-family result type — with a pre-dispatch `is`-guard extracting the case before the total `Switch` as the tell.
 - Law: a concern whose domain admits an inverse carries both directions on the one owner — admit and project, encode and decode, to-wire and from-wire are paired operations of one surface, and a sibling owner split by direction is the rejected form.
@@ -70,6 +71,13 @@ public static class RequestSurface {
             open:  static (l, o) => l.Open(o.Code),
             amend: static (l, a) => l.Amend(a.Code, a.Delta),
             close: static (l, c) => l.Close(c.Code));
+
+        // The rewrite rides the state slot, so each arm stays static and no translating caller re-spells the ladder.
+        public Request Stamped(Func<CodeValue, CodeValue> rewrite) => request.Switch(
+            state: rewrite,
+            open:  static (r, o) => (Request)new Request.Open(r(o.Code)),
+            amend: static (r, a) => new Request.Amend(r(a.Code), a.Delta),
+            close: static (r, c) => new Request.Close(r(c.Code)));
     }
 }
 ```

@@ -33,6 +33,16 @@
             "scope": ["libs/**", "docs/**", "tests/**", "tools/**", ".claude/**", ".coderabbit.yaml", ".greptile/**", ".macroscope/**"]
         },
         {
+            "path": "docs/laws/scars.md",
+            "description": "Regression-proven law with no other owner: each scar states the standing law and the falsifiable failure mode its trigger forecloses",
+            "scope": ["libs/**", "docs/**", "tests/**", "tools/**", ".claude/**"]
+        },
+        {
+            "path": "docs/laws/patterns.md",
+            "description": "Cross-branch pattern law: content identity, admission, and rail shapes binding two or more language branches at once",
+            "scope": ["libs/**", "docs/**", "tests/**", "tools/**"]
+        },
+        {
             "path": "docs/glossary/README.md",
             "description": "Glossary corpus router: the entry schema, the [NOT] earn rule, the polysemy refusal law, and the band-admission ladder",
             "scope": ["**/*.md"]
