@@ -43,7 +43,7 @@ It mints one owner per runtime axis across the Runtime, Agent, Wire, Sandbox, an
 - [28]-[PROVISIONING](.planning/Sandbox/provisioning.md): Post-fetch self-update state machine over the staged fleet-roll axis.
 
 [OBSERVABILITY]:
-- [29]-[TELEMETRY](.planning/Observability/telemetry.md): Unified four-signal telemetry through minted identities and egress redaction.
+- [29]-[TELEMETRY](.planning/Observability/telemetry.md): Four-signal telemetry, per-signal egress, and durable OTLP buffering.
 - [30]-[HEALTH](.planning/Observability/health.md): Resource-pressure health fold and degradation/alert rails over one atomic reading cell.
 - [31]-[BUNDLES](.planning/Observability/bundles.md): Bounded redacted support capture.
 - [32]-[INSTRUMENTS](.planning/Observability/instruments.md): Domain-instrument catalog projecting the receipt fan into metrics.
@@ -71,14 +71,13 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Scrutor`
 - `System.CommandLine` — projects the app-root verb table onto `CommandDispatch.Run`.
 - `Cronos`
-- `Microsoft.Extensions.Caching.Hybrid`
 - `Microsoft.Extensions.ObjectPool`
 - `System.Threading.Tasks.Dataflow` — drainable-queue dataflow blocks; framework-provided, no manifest row.
 
 [OBSERVABILITY]:
 - `Microsoft.Extensions.Diagnostics` — `AddMetrics` mints the per-ALC `IMeterFactory` behind the plugin capsule provider.
 - `Microsoft.Extensions.Diagnostics.HealthChecks`
-- `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
+- `Microsoft.Extensions.Diagnostics.ResourceMonitoring` — Windows and Linux process and container utilization instruments behind the pressure grade.
 - `Microsoft.Diagnostics.NETCore.Client` — process-dump and EventPipe capture feeding the support-bundle fan.
 - `Microsoft.Diagnostics.Runtime` — ClrMD `DataTarget.LoadDump` post-capture triage feeding support-bundle receipts.
 - `Microsoft.Diagnostics.Tracing.TraceEvent` — decodes the EventPipe event stream off the diagnostics session.
@@ -88,17 +87,15 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `AspNetCore.HealthChecks.Uris`
 - `AspNetCore.HealthChecks.Kafka`
 - `AspNetCore.HealthChecks.Nats` — probes the NATS broker anchor over the pooled connection.
-- `Microsoft.Extensions.Compliance.Redaction`
 - `Microsoft.Extensions.Http.Diagnostics` — outbound-request latency breakdown and redaction-aware extended client logging.
-- `Microsoft.Extensions.Logging.Abstractions`
-- `Microsoft.Extensions.Telemetry`
-- `Microsoft.Extensions.Telemetry.Abstractions`
+- `Microsoft.Extensions.Telemetry` — composition-root log sampling, buffering, enrichment, redaction activation, and the latency ledger.
 - `OpenTelemetry`
 - `OpenTelemetry.Extensions` — `BaggageActivityProcessor` cost-attribution baggage promotion; `RateLimitingSampler` per-second head cap.
 - `OpenTelemetry.Extensions.Hosting`
 - `OpenTelemetry.Instrumentation.AspNetCore` — service-root inbound request spans and the built-in hosting meters.
 - `OpenTelemetry.Instrumentation.GrpcNetClient` — client-span semconv over the `Grpc.Net.Client` hops.
 - `OpenTelemetry.Instrumentation.Http`
+- `OpenTelemetry.Instrumentation.Process` — absolute process memory, `cpu.mode`-split CPU seconds, thread count, and uptime series.
 - `OpenTelemetry.Instrumentation.Runtime`
 - `OpenTelemetry.Exporter.OpenTelemetryProtocol` — projects the OTLP exporter at the composition root.
 - `OpenTelemetry.PersistentStorage.FileSystem` — `FileBlobProvider` offline queue replaying failed OTLP batches on reconnect.
@@ -124,7 +121,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Grpc.HealthCheck` — transitive `grpc.health.v1` serving-status surface under `Grpc.AspNetCore.HealthChecks`, never a direct reference.
 - `Grpc.AspNetCore.Web` — binds the `UseGrpcWeb` middleware at the composition root.
 - `Grpc.Core.Api`
-- `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
 
 [CAPABILITY_AGENT]:
 - `ModelContextProtocol`
@@ -150,10 +146,8 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Wasmtime`
 - `OPCFoundation.NetStandard.Opc.Ua`
 - `OPCFoundation.NetStandard.Opc.Ua.PubSub`
-- `MQTTnet`
 - `FluentModbus`
 - `BACnet` — backs the building-automation `bacnet` `ExternalTransport` row feeding twin calibration.
-- `MTConnect.NET-Common` — backs the machine-tool `mtconnect` `ExternalTransport` row feeding Fabrication tool-life and probing.
 - `System.IO.Ports`
 
 ## [03]-[SUBSTRATE_PACKAGES]
@@ -174,6 +168,20 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 [NUMERIC_SUBSTRATE]:
 - `System.Numerics.Tensors`
 
+[RECENCY_CACHE]:
+- `Microsoft.Extensions.Caching.Hybrid`
+
+[MACHINE_CONNECTIVITY]:
+- `MTConnect.NET-Common` — connectivity partition behind the machine-tool `mtconnect` `ExternalTransport` row feeding Fabrication tool-life and probing.
+- `MQTTnet` — subscribe-shaped `mqtt` `ExternalTransport` row, its held client, and the consumer-kinded receive bracket.
+
+[DATA_CLASSIFICATION]:
+- `Microsoft.Extensions.Compliance.Redaction`
+
+[OBSERVABILITY]:
+- `Microsoft.Extensions.Logging.Abstractions`
+- `Microsoft.Extensions.Telemetry.Abstractions`
+
 [AI_CONTRACTS]:
 - `Microsoft.Extensions.AI.Abstractions`
 - `Microsoft.Extensions.AI` — concrete builder and middleware owner behind the injected contracts.
@@ -181,3 +189,8 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 [WIRE_CODEGEN]:
 - `Grpc.Net.Client`
 - `Grpc.AspNetCore`
+- `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
+
+[RUNTIME_INBOX]:
+- `System.Net.Http` — handler chain behind every outbound hop, resilience pipeline, and durable OTLP transport.
+- `System.Text.Json` — suite wire: merged source-generated contexts freeze into one options identity, with schema export off it.

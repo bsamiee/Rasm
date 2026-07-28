@@ -43,7 +43,7 @@ class GlbViewport extends Context.Tag("ui/viewer/GlbViewport")<GlbViewport, {
 ## [03]-[FAULT_FAMILY]
 
 [FAULT_FAMILY]:
-- Owner: `GlbFault` — one `Data.TaggedError` sized by routing with a closed `reason` vocabulary: `manifest-skew` (an arrival references a mesh the ledger never named), `key-mismatch` (verification refused the octets at the port boundary), `decode-refused` (loader or codec rejected the payload), `codec-absent` (the asset demands a codec the viewport did not wire — the meshopt gate's refusal spelling), `backend-lost` (GPU device loss). Its policy table carries `rank`/`retry`/`evict` per reason and the class getter projects it, so recovery reads policy rows, never re-derives them per arm. Code-keyed free-string fault construction is the named discard — reasons are a closed vocabulary.
+- Owner: `GlbFault` — one `Data.TaggedError` sized by routing with a closed `reason` vocabulary: `manifest-skew` (an arrival references a mesh the ledger never named), `key-mismatch` (verification refused the octets at the port boundary), `decode-refused` (loader or codec rejected the payload), `codec-absent` (the asset demands a codec the viewport did not wire — the meshopt gate's refusal spelling), `backend-lost` (GPU device loss). Its policy table carries `rank`/`retry`/`evict` per reason and the class getter projects it, so recovery reads policy rows, never re-derives them per arm, while `GlbFault.roster` publishes the same vocabulary as the ordered non-empty tuple the refusal instrument's word census pre-registers — the guard pair closes the two anchors against each other, so a reason landing in one alone refuses at the declaration. Code-keyed free-string fault construction is the named discard — reasons are a closed vocabulary.
 - Packages: `effect` (`Data`).
 - Law: `backend-lost` is the re-init row — `GPUDevice.lost` resolves into a fault whose recovery re-runs backend selection under the same `Scope`; residency state survives because the graft ledger is renderer-independent.
 - Law: a fault no consumer arm can act on escalates — a torn invariant inside the graft fold dies through `Effect.die`, keeping the channel total over actionable faults.
@@ -61,9 +61,15 @@ const _reasons = {
   "backend-lost": { rank: 4, retry: true, evict: false },
 } as const
 
+// Ordered non-empty roster beside the policy table: the word census the refusal instrument pre-registers takes a
+// proven-non-empty tuple, and a key walk over the table returns a plain array no such tuple admits. The guard pair
+// closes membership both directions, so a reason landing in one anchor alone refuses here.
+const _ROSTER = ["manifest-skew", "key-mismatch", "decode-refused", "codec-absent", "backend-lost"] as const
+
 declare namespace GlbFault {
   type Reason = keyof typeof _reasons
   type Row = (typeof _reasons)[Reason]
+  type _Roster<Missing extends never = Exclude<Reason, (typeof _ROSTER)[number]>, Excess extends never = Exclude<(typeof _ROSTER)[number], Reason>> = [Missing, Excess]
 }
 
 class GlbFault extends Data.TaggedError("GlbFault")<{
@@ -72,6 +78,7 @@ class GlbFault extends Data.TaggedError("GlbFault")<{
   readonly detail: string
 }> {
   static readonly reasons: typeof _reasons = _reasons
+  static readonly roster: typeof _ROSTER = _ROSTER
   get policy(): GlbFault.Row {
     return _reasons[this.reason]
   }
@@ -182,7 +189,7 @@ const _renderer = (canvas: HTMLCanvasElement) =>
 - Growth: a new residency policy (priority lanes, partial LOD) is a fold arm over new ledger rows minted at `core/interchange/frame` — the graft signature never changes; a new animation policy (clip selection, cross-fade) is one action-policy row applied at mint; a new arrival consumer is one hook tap over the adopted fact stream, never a second port subscription; a new codec or wasm is one `Glb.AssetRoster` row consumed through `Glb.asset`, never a parallel identity or path surface.
 
 ```typescript
-import type { ContentKey } from "@rasm/ts/core"
+import { Convention, type ContentKey } from "@rasm/ts/core"
 import { Context, Effect, HashMap, Metric, Option, Queue, Ref, Schema, Scope, Stream } from "effect"
 import { AnimationMixer, Clock, LoadingManager, LoopRepeat, Mesh, Scene, Texture } from "three"
 import type { Object3D, PerspectiveCamera } from "three"
@@ -233,9 +240,10 @@ declare module "../../src/system/hook.ts" {
   }
 }
 
-const _GRAFTED = Metric.counter("rasm.ui.scene.grafts", { description: "committed graft arrivals", incremental: true })
+const _GRAFTED = Convention.mount(Convention.metric.sceneGrafts)
 
-const _REFUSED = Metric.frequency("rasm.ui.scene.refusals") // value set = the closed GlbFault.Reason vocabulary
+// the closed GlbFault reason vocabulary preregisters, so a refusal nothing has raised yet reads zero rather than absent
+const _REFUSED = Convention.mount(Convention.metric.sceneRefusals, GlbFault.roster) // the ordered roster, not a key walk: the word census demands a proven-non-empty tuple
 
 const _dispose = (node: Object3D): void => {
   // BOUNDARY ADAPTER

@@ -55,6 +55,7 @@ using Rasm.Domain;
 using Rasm.Fabrication.Additive;
 using Rasm.Fabrication.Documentation;
 using Rasm.Fabrication.Forming;
+using Rasm.Fabrication.Ingress;
 using Rasm.Fabrication.Kinematics;
 using Rasm.Fabrication.Nesting;
 using Rasm.Fabrication.Posting;
@@ -1020,7 +1021,7 @@ public sealed partial class AdmittedComponent {
          Gate(quantities.ForAll(static row => !string.IsNullOrWhiteSpace(row.Key) && double.IsFinite(row.Value)), "component:quantities"),
          Gate(properties.ForAll(static row => !string.IsNullOrWhiteSpace(row.Key)
                 && !string.IsNullOrWhiteSpace(row.Value)), "component:properties"))
-            .Apply(static (_, _, _, _, _, _) => unit)
+            .Apply(static (_, _, _, _, _, _, _) => unit)
             .As()
             .ToFin()
             .Bind(_ =>
@@ -1415,6 +1416,11 @@ public sealed partial class FabricationInput {
     public ProjectionDir View { get; }
     public Arr<Loop> Profiles { get; }
     public Arr<Loop> Keepouts { get; }
+    // Markings ride the run BESIDE the loops rather than being dropped at admission: the ingress lowers part marks,
+    // heat numbers, and shop tags off the drawing, and a traveler or a posted program that cannot see them re-parses
+    // an entity sweep it has no access to. Tags is the ingress owner's own keyed fold, so both consumers key by name
+    // through one grouping and a marking-free run reads an empty map rather than an absent capability.
+    public Arr<ProfileMarking> Markings { get; }
     public Option<RobotCell> Cell { get; }
     public Seq<Stock> Inventory { get; }
     public Option<NestPlan> Plan { get; }
@@ -1428,12 +1434,15 @@ public sealed partial class FabricationInput {
     public Option<ContentKey> MaterialCertificate { get; }
     public EgressRequest Egress { get; }
 
+    public Map<string, Arr<ProfileMarking>> Tags => ProfileImport.TagsOf(Markings);
+
     public static Fin<FabricationInput> Admit(
         FabricationPolicy policy,
         Option<MeshSpace> model,
         ProjectionDir view,
         Arr<Loop> profiles,
         Arr<Loop> keepouts,
+        Arr<ProfileMarking> markings,
         Option<RobotCell> cell,
         Seq<Stock> inventory,
         Option<NestPlan> plan,
@@ -1449,6 +1458,7 @@ public sealed partial class FabricationInput {
         (Gate(model.IsSome || !profiles.IsEmpty, "fabrication-input:geometry"),
          Gate(profiles.ForAll(static loop => loop is not null && loop.Closed), "fabrication-input:profiles"),
          Gate(keepouts.ForAll(static loop => loop is not null && loop.Closed), "fabrication-input:keepouts"),
+         Gate(markings.ForAll(static marking => marking is not null), "fabrication-input:markings"),
          Gate(machine is not null && process is not null && machine.Admits(process), "fabrication-input:process-machine"),
          Gate(policy is not null && process is not null && PolicyFits(policy, process), "fabrication-input:policy"),
          Gate(policy is not null && egress is not null && EgressFits(policy, egress), "fabrication-input:egress"))
@@ -1461,6 +1471,7 @@ public sealed partial class FabricationInput {
                 view,
                 profiles,
                 keepouts,
+                markings,
                 cell,
                 inventory,
                 plan,
@@ -1688,17 +1699,21 @@ public sealed partial class FabricationRuntime {
     public FabricationTap Telemetry { get; }
     public FabricationHooks Hooks { get; }
 
-    // The memo tier is app-neutral runtime capability, never process-global state: two runtimes composing the
+    // Memo stays app-neutral runtime capability, never process-global state: two runtimes composing the
     // library hold two caches, and a headless kernel run holds none with zero branching.
     public Option<HybridCache> Memo { get; }
 
+    // The tap and the hook rail default to real values — Silent and Live — so their parameters take the nullable
+    // that collapses onto them, while the memo has no such value: absence IS its second state, so it enters on the
+    // same carrier the property publishes and the nest arm at Nesting/nfp already spells. A nullable there would
+    // put a sentinel on the one column whose absence is domain truth and lift it back one line later.
     public static Fin<FabricationRuntime> Admit(
         IClock clock,
         CancellationToken cancel,
         FabricationTap? telemetry = null,
         FabricationHooks? hooks = null,
-        HybridCache? memo = null) =>
-        Validate(clock, cancel, telemetry ?? FabricationTap.Silent, hooks ?? FabricationHooks.Live(), Optional(memo), out FabricationRuntime runtime) is { } error
+        Option<HybridCache> memo = default) =>
+        Validate(clock, cancel, telemetry ?? FabricationTap.Silent, hooks ?? FabricationHooks.Live(), memo, out FabricationRuntime runtime) is { } error
             ? Fin.Fail<FabricationRuntime>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
             : Fin.Succ(runtime);
 }

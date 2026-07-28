@@ -155,6 +155,7 @@ flowchart LR
     Fabrication[Rasm.Fabrication]
     Bim[Rasm.Bim]
     Rasm e1@-->|"[CONTENT_KEY]: ContentHash"| Model
+    Rasm e22@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + SpanBand + Slo"| Runtime
     Rasm e2@-->|"[SHAPE]: Predicate"| Solver
     Tensor e3@<-->|"[SHAPE]: DiscreteCalculus"| Rasm
     Rasm e4@-->|"[WIRE]: SliceStack"| Analysis
@@ -169,6 +170,8 @@ flowchart LR
     Analysis e13@-->|"[CONTENT_KEY]: AssessmentPayload"| Persistence
     Runtime e17@<-->|"[CONTENT_KEY]: InterchangeIdentity"| Persistence
     Runtime e28@<-->|"[CONTENT_KEY]: GeometryHash"| Persistence
+    Runtime e29@-->|"[WIRE]: LakeGeneration"| Persistence
+    Rasm e30@-->|"[WIRE]: EncodedGeometry"| Runtime
     Solver e8@<-->|"[SHAPE]: MaterialPropertySet"| Element
     Symbolic e7@<-->|"[SHAPE]: DimensionMonomial"| Element
     Element e5@-->|"[SHAPE]: ElementGraph"| Analysis
@@ -269,21 +272,21 @@ Spine admits once, selects substrate over row data, enqueues on bounded lanes, d
 
 ## [05]-[ROUTING]
 
-| [INDEX] | [CHANGE]                            | [OWNER_SURFACE]        | [SHAPE_OF_THE_EDIT]                                             |
-| :-----: | :---------------------------------- | :--------------------- | :-------------------------------------------------------------- |
-|  [01]   | a new execution device or backend   | `Tensor/residency.md`  | one `Substrate` row                                             |
-|  [02]   | a new sparse tensor operation       | `Tensor/factor.md`     | one `SparseTensorOpFamily` row                                  |
-|  [03]   | a new differentiable primitive      | `Tensor/autodiff.md`   | one `DifferentiableOp` case beside its `Forward` arm            |
-|  [04]   | a new estimator, optimizer, or UQ   | `Solver/optimizer.md`  | one `EstimatorKind`/`OptimizerKind`/`UncertaintyMethod` row     |
-|  [05]   | a new material stress-update law    | `Solver/constitutive.md` | one `ConstitutiveModel` case                                  |
-|  [06]   | a new discipline assessment         | `Analysis/assessment.md` | one `AssessmentResult` runner over the shared fact stream     |
-|  [07]   | a new fault arm                     | `Runtime/admission.md` | one arm at the 2200-band free frontier on its custody lane      |
+| [INDEX] | [CHANGE]                          | [OWNER_SURFACE]          | [SHAPE_OF_THE_EDIT]                                         |
+| :-----: | :-------------------------------- | :----------------------- | :---------------------------------------------------------- |
+|  [01]   | a new execution device or backend | `Tensor/residency.md`    | one `Substrate` row                                         |
+|  [02]   | a new sparse tensor operation     | `Tensor/factor.md`       | one `SparseTensorOpFamily` row                              |
+|  [03]   | a new differentiable primitive    | `Tensor/autodiff.md`     | one `DifferentiableOp` case beside its `Forward` arm        |
+|  [04]   | a new estimator, optimizer, or UQ | `Solver/optimizer.md`    | one `EstimatorKind`/`OptimizerKind`/`UncertaintyMethod` row |
+|  [05]   | a new material stress-update law  | `Solver/constitutive.md` | one `ConstitutiveModel` case                                |
+|  [06]   | a new discipline assessment       | `Analysis/assessment.md` | one `AssessmentResult` runner over the shared fact stream   |
+|  [07]   | a new fault arm                   | `Runtime/admission.md`   | one arm at the 2200-band free frontier on its custody lane  |
 
 ## [06]-[BOUNDARIES]
 
 Seam graph carries which owner exchanges which shape; the load-bearing cross-boundary invariants each Compute owner holds are:
 - `Substrate.DeviceWgpu` binds the AppUi-owned wgpu device and holds compute-only resources; no second device or residency lattice.
-- `Tensor/residency` consumes only the host-neutral `EncodedGeometry` payload wrapped as `EncodedTensor`.
+- `Tensor/residency` consumes the host-neutral `EncodedGeometry` whole as `EncodedTensor` for the model lane, and `Runtime/codecs` reads the same carrier for the lake landing; both compose the kernel's dtype-dispatched channel readers rather than re-slicing its arena.
 - Host geometry folds at the kernel and AppHost capsules; no host type reaches an interior `Tensor`/`Solve`/`Estimator` signature.
 - Compute owns the channel and companion-rpc orchestration; `Rasm.Bim` owns every semantic read, and neither crosses the seam.
 - Strata run one direction: the AEC peers admit `UnitsNet` in-folder rather than reference the app-platform unit and solve owners downward.
@@ -296,10 +299,12 @@ Seam graph carries which owner exchanges which shape; the load-bearing cross-bou
 - `Analysis/daylight` consumes the kernel `Spatial.Apply(SpatialOp.Wire)` decoded scene as the app-staged `ObstructionScene` payload.
 - Daylight content key folds the assessment content key, so a re-shaded site re-keys; site evidence is the EPW header or the explicit `SolarSite`.
 - `Runtime/receipts` descriptor and chargeback rows stay Compute-owned data a composition owner encodes onward; Compute owns no IaC surface.
-- Every ledger fold reads the AppHost `TenantContext` stamped on the envelope as its tenant partition, never a Compute-minted tenancy.
-- `Runtime/transport` decodes typed MQTT and NATS CloudEvents, preserving the W3C pair — MQTT from composition, NATS inline from `NatsMsg.Headers`.
-- NATS Core pump drains `SubscribeAsync<byte[]>` onto `WorkLane.CaptureIngest`; the MQTT pump and activity restoration stay catalog-blocked.
-- `Runtime/codecs` builds the `DoeDataset`/`ChargebackDataset` columnar `RecordBatch` Compute produces.
+- Every ledger fold reads the kernel `TenantContext` stamped on the envelope as its tenant partition, never a Compute-minted tenancy.
+- `Runtime/transport` decodes typed MQTT and NATS CloudEvents onto the kernel `TraceCarrier` — MQTT from composition, NATS inline from `NatsMsg.Headers`.
+- NATS Core pump drains `SubscribeAsync<byte[]>` and `BrokerChannels.Capture` admits each sample as `ComputeIntent.SensorAdmit` on `WorkLane.CaptureIngest`.
+- MQTT's event-delivered receive loop bridges through one bounded channel onto that same stream, its ack riding a successful enqueue alone.
+- Parent adoption off that carrier is the kernel causal-frame band's; neither pump opens a span nor re-mints the pair.
+- `Runtime/codecs` builds every columnar `RecordBatch` Compute produces — the `DoeDataset` and `ChargebackDataset` row-major folds beside the `GeometryDataset` arena wrap over the kernel encode.
 - Persistence `api-arrow` overlay carries IPC, LZ4/Zstd, ADBC, and Flight-SQL; its `Query/columnar` `Land` port redeems the batch.
 - Compute holds one core `Apache.Arrow` reference and opens no Flight listener.
 

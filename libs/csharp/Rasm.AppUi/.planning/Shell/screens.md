@@ -4,12 +4,12 @@ Rasm.AppUi screens are catalog rows over one activatable base: a frozen `ScreenC
 
 ## [01]-[INDEX]
 
-- [01]-[SCREEN_CATALOG]: One frozen row table; every screen derivation folds over it.
-- [02]-[ACTIVATION_SCOPES]: One activatable base; scoped disposal, suspend/resume, drain row.
-- [03]-[DERIVED_STATE]: OAPH derivations, paced streams, one screen fault fold.
-- [04]-[VALIDATION_UX]: One typed-rail lift into ReactiveUI.Validation rule rows.
-- [05]-[SCREEN_STATE]: Per-surface snapshots; restore-on-activate merge; checkpoint law.
-- [06]-[CONTROL_STREAM]: A screen body is a control-intent stream materialized through `ControlFactory`, not a XAML literal.
+- [02]-[SCREEN_CATALOG]: One frozen row table; every screen derivation folds over it.
+- [03]-[ACTIVATION_SCOPES]: One activatable base; scoped disposal, suspend/resume, drain row.
+- [04]-[DERIVED_STATE]: OAPH derivations, paced streams, one screen fault fold.
+- [05]-[VALIDATION_UX]: One typed-rail lift into ReactiveUI.Validation rule rows.
+- [06]-[SCREEN_STATE]: Per-surface snapshots; restore-on-activate merge; checkpoint law.
+- [07]-[CONTROL_STREAM]: A screen body is a control-intent stream materialized through `ControlFactory`, not a XAML literal.
 
 ## [02]-[SCREEN_CATALOG]
 
@@ -79,7 +79,7 @@ public sealed record ScreenCatalog(FrozenDictionary<string, ScreenCatalogRow> Ro
 - Auto: `WhenActivated` composes rehydration, the per-screen `Wire` pipelines, and a closing disposal that checkpoints state and emits the disposal evidence; `DrainRow` registers the screens teardown as one `DrainParticipantPort` row; the draining phase receipt suspends every bound screen through the same `Suspend` path; `ScreenInteraction<TInput,TOutput>` counts its registrations so a deep-link or modal route gates on `Reachable` — a counted-value presence check — before navigating, never on a caught unhandled-interaction throw.
 - Receipt: disposal evidence — row id, active `Duration`, disposable count — through `ScreenRuntime.Disposed` into the evidence stream bound at composition; `TelemetryRow` contributes the activation and suspend counts plus the per-screen disposables levels inward through the AppHost `TelemetryContributorPort`, the keyed family swapped by the evidence fan's disposal arm.
 - Packages: ReactiveUI, System.Reactive, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
-- Growth: one screen is one `ScreenBase` subclass expression body plus one catalog row, and one screen instrument is one `InstrumentRow` on `ScreenBase.TelemetryRow`; zero new surface.
+- Growth: one screen is one `ScreenBase` subclass expression body with one catalog row, and one screen instrument is one `InstrumentSpec` row on `ScreenBase.TelemetryRow`; zero new surface.
 - Boundary: `ScreenBase` is the named boundary capsule for the statement carve-out — activation wiring, visibility subscription, and disposal registration carry language-owned statement forms while every other member stays expression-shaped; `ViewModelActivator` ref-counts through `Interlocked` increments — activation fires only on the zero-to-one edge and `Deactivate` decrements symmetrically — so concurrent visibility-driven suspension and view-driven activation compose without a second guard; AutoSuspendHelper and RxApp.SuspensionHost are the deleted patterns, suspension rides the state checkpoint plus the visibility fold; view-model questions ride `ScreenInteraction<TInput,TOutput>` — `Register` is the one registration verb, wrapping the base `RegisterHandler` with an `Interlocked` count whose disposal decrements, so `Reachable` is a value check and never an exception probe, and a handler registered through the base `RegisterHandler` bypasses the count and is the rejected form; the drain row registers rank 10 — the one rank literal here — ordering screen teardown first inside `DrainBand.Interaction`; `Throttle` arrives on `ScreenRuntime` from the motion timing rows, so the fences carry zero duration literals.
 
 ```csharp signature
@@ -130,12 +130,12 @@ public abstract class ScreenBase : ReactiveObject, IActivatableViewModel, IValid
     public const string SuspendedInstrument = "rasm.appui.screen.suspended";
     public const string DisposablesInstrument = "rasm.appui.screen.disposables";
 
-    public static TelemetryContributorPort TelemetryRow(LevelCells cells, string version, string schemaUrl) =>
-        AppUiTelemetry.Contribute(version, schemaUrl,
-            new(ActivatedInstrument, InstrumentKind.Count, "{activation}", "screen activations by screen id"),
-            new(SuspendedInstrument, InstrumentKind.Count, "{suspension}", "screen suspensions by trigger"),
-            new(DisposablesInstrument, InstrumentKind.Levels, "{disposable}", "live disposables by screen id",
-                Levels: cells.Reader(DisposablesInstrument, "screen")));
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            InstrumentSpec.Count(ActivatedInstrument, "{activation}", "screen activations by screen id", MeasureForm.Whole, AppUiTelemetry.ScreenSlot),
+            InstrumentSpec.Count(SuspendedInstrument, "{suspension}", "screen suspensions by trigger", MeasureForm.Whole),
+            InstrumentSpec.Levels(DisposablesInstrument, "{disposable}", "live disposables by screen id",
+                MeasureForm.Whole, AppUiTelemetry.ScreenSlot));
 
     public static DrainParticipantPort DrainRow(Func<Seq<ScreenBase>> active) =>
         new("screens", DrainBand.Interaction, 10, token => active().TraverseM(static screen => screen.Suspend()).As().Map(static _ => unit));

@@ -105,7 +105,12 @@ const Provider: Data.TaggedEnum.Constructor<Provider.Stage> & {
 - Owner: `Setting` — the runtime environment contract: one `Effect.Service` class, `effect: Config.unwrap(record)`, the record nested under the `RUNTIME` namespace with one group per consuming sub-domain (`CLUSTER`, `FANOUT`, `FLAG`, `LIFE`, `MAIL`, `OTEL`, `SERVE`); `Config` is a subtype of `Effect`, so the record is the constructor, `Setting.Default` resolves the whole environment at Layer construction, its `ConfigError` rides the Default layer's error channel, and the root annotation `Layer.Layer<Out>` is where an unset or malformed variable fails — one line, before any run seam.
 - Law: consumers depend on `Setting`, never on `Config` — the built service is a plain resolved struct, so the `flag`, `life`, and `pubsub` owners read fields with no `ConfigError` in their own channels and no second resolve anywhere in the process.
 - Law: the form is the family — an app or sibling-folder contract is declared exactly as `Setting` is (service class, `Config.unwrap` record, described rows, nested groups) under its own namespace; a second config-reading pattern beside this form is the fork this page exists to prevent, and two services never read one variable.
-- Law: a group is the growth site — a new runtime row lands inside its owning group, a new consuming sub-domain lands as one `Config.nested` group; neither adds an export, a service, or a resolve site; substitution is provider material — a proof overrides rows by swapping the chain, never by a second `Setting`; the `OTEL` group homes the export transport rows (`otel/emit`'s `Export.Policy` reads its collector origin, sealed headers, cadence, sampling ratio, and baggage promotion prefixes from `Setting.otel`, keeping structural tuning — temporality, span limits, redaction rules, placement, engine vitals — as its own policy defaults) and the profiling backend rows (`otel/profile`'s `Profile.Policy` reads the optional Pyroscope origin and sealed credential from `Setting.otel.profile`, an absent origin leaving the lane unarmed).
+- Law: a group is the growth site — a new runtime row lands inside its owning group, a new consuming sub-domain lands as one `Config.nested` group; neither adds an export, a service, or a resolve site; substitution is provider material — a proof overrides rows by swapping the chain, never by a second `Setting`; the `OTEL` group homes the export transport rows and the profiling backend rows.
+- Law: `otel/emit`'s `Export.Policy` reads collector origin, sealed headers, cadence, transport deadline and concurrency, sampling ratio, diagnostic floor, and baggage promotion prefixes from `Setting.otel` — every axis a fleet retunes without a rebuild.
+- Law: structural tuning stays policy default — temporality, histogram sizing, cardinality budgets, span and log limits, redaction rules, placement, engine health, and instrumentation postures never enter the environment.
+- Law: the diagnostic row crosses as a name, so `otel/emit` owns the one total map onto `DiagLogLevel` and no numeric level reaches an environment.
+- Law: `otel/profile`'s `Profile.Policy` reads the optional Pyroscope origin, the credential tag, and its sealed material from `Setting.otel`; an absent origin leaves the lane unarmed.
+- Law: the credential tag selects the `Basic` or `Token` arm at the root, so a bearer field never stands in for a closed family.
 - Law: `Setting.tiers` rides the class as the tier-table static — `otel/meter` projects its `verbose` column into `Logger.minimumLogLevel`, so the tier row governs the process log floor through one consumer and no page carries a level literal.
 - Entry: `Setting.Default` at the composition root; `yield* Setting` everywhere else.
 - Packages: `effect` (`Config`, `Duration`, `Effect`, `Schema`, `Struct`).
@@ -229,6 +234,22 @@ const _otel = Config.nested(
             Config.withDefault(Duration.seconds(10)),
             Config.withDescription('per-signal export interval the batch processors ride'),
         ),
+        timeout: Config.duration('TIMEOUT').pipe(
+            Config.withDefault(Duration.seconds(10)),
+            Config.withDescription('per-request export deadline every signal exporter and the metric reader ride'),
+        ),
+        concurrency: Config.integer('CONCURRENCY').pipe(
+            Config.withDefault(4),
+            Config.validate({
+                message: 'RUNTIME.OTEL.CONCURRENCY must exceed zero',
+                validation: (value) => value > 0,
+            }),
+            Config.withDescription('in-flight export requests each signal exporter admits'),
+        ),
+        diagnostic: Config.literal('none', 'error', 'warn', 'info', 'debug', 'verbose', 'all')('DIAGNOSTIC').pipe(
+            Config.withDefault('error'),
+            Config.withDescription('SDK diagnostic floor; otel/emit maps this roster onto DiagLogLevel at its lane bracket'),
+        ),
         sample: Config.number('SAMPLE').pipe(
             Config.withDefault(1),
             Config.validate({
@@ -244,9 +265,17 @@ const _otel = Config.nested(
         profile: Config.option(Config.url('PROFILE')).pipe(
             Config.withDescription('Pyroscope backend origin the profiling lane pushes to; absence leaves the lane unarmed'),
         ),
-        profileToken: Config.redacted('PROFILE_TOKEN').pipe(
+        profileAuth: Config.literal('basic', 'token')('PROFILE_AUTH').pipe(
+            Config.withDefault('token'),
+            Config.withDescription('Pyroscope credential shape selecting the Basic or Token arm of Profile.Credential'),
+        ),
+        profileSecret: Config.redacted('PROFILE_SECRET').pipe(
             Config.withDefault(Redacted.make('')),
-            Config.withDescription('Pyroscope credential; sealed Redacted to the profiler init'),
+            Config.withDescription('Pyroscope credential secret; sealed Redacted to the profiler init'),
+        ),
+        profileUser: Config.string('PROFILE_USER').pipe(
+            Config.withDefault(''),
+            Config.withDescription('Pyroscope basic-auth user; the token arm reads it never'),
         ),
     }),
     'OTEL',

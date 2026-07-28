@@ -8,14 +8,14 @@ Caller-owned context and settings admission: one immutable `RuntimeContext` carr
 
 - [02]-[CONTEXT]: six-axis `ConsumptionProfile` row with its refusal, adopted W3C correlation, clock-consumed causal frame.
 - [03]-[BACKEND_CONTRACT]: local contract composition, the deterministic branch merge, generation proof, and realized-evidence admission.
-- [04]-[SETTINGS]: the `pydantic-settings` admission, the `SECRET_LADDER` tier table, and the output-parameterized `SecretBoundary.resolve`.
+- [04]-[SETTINGS]: `SettingsAdmission` source order, the `SECRET_LADDER` tier table, and the output-parameterized `SecretBoundary.resolve`.
 
 ## [02]-[CONTEXT]
 
 - Owner: `RuntimeContext` is the one caller-supplied context discriminating deployment shape, correlation, deadline, and classification, carrying the inbound `causal` frame as `Option[CausalFrame]` — `Nothing` locally minted, `Some(frame)` the host stamp — and the inbound header map as `carrier`. `ConsumptionProfile` carries the six-axis row `tenancy`, `topology`, `host`, `lifecycle`, `isolation`, `providers`; `RuntimeProfile` names the presets this branch supplies over that roster and `PROFILE_ROW` expands each to its axis tuple, so a preset is a name for a row and never a discriminant a fold switches on.
 - Cases: `tenancy` = none | single | multi; `topology` = in-host | sidecar | companion | service | edge | cli; `lifecycle` = caller-owned | package-owned; `isolation` = in-proc | thread | process | wasm | remote; `host` and `providers` carry `HostRow` and `ProviderRow` descriptors this branch supplies through `HOST_ROWS` and `PROVIDER_ROWS`; `AxisRefused` carries the refusal evidence.
+- Law: adoption is the conformance — an inbound `traceparent` continues its trace id and parents its span id, and a fresh 16-byte root mints only where extraction yields no valid parent, so the Python leg never fractures a distributed trace. `Hlc` and the W3C context ride one carrier as two disjoint reads: the packed cell projects as the `rasm.hlc` span attribute, and the identity slots take propagator output alone.
 - Entry: `ConsumptionProfile.admit` is the one axis gate — it returns `Result[ConsumptionProfile, AxisRefused]`, every `PROFILE_ROW` preset proves through it at declaration, and a composition root folds a hand-supplied row through it before `RuntimeContext.admit` ever sees one. `Deadline.seconds` is the one `float` the `execution/lanes#LANE` `LanePolicy.deadline` reads — never a re-derived `total_seconds()` at the lane seam. `Correlation.seed` is the one inbound-context owner: it adopts the extracted W3C parent whole under the widths `TraceId` and `SpanId` fix, and `attribute` folds the carried frame through `CausalFrame.attributes("packed")` rather than re-spelling the `(rasm.tenant, rasm.hlc)` columns, so the result is admissible to `Span.set_attributes` directly.
-- Correlation: adoption is the conformance — an inbound `traceparent` continues its trace id and parents its span id, and a fresh 16-byte root mints only where extraction yields no valid parent, so the Python leg never fractures a distributed trace. `Hlc` and the W3C context ride one carrier as two disjoint reads: the packed cell projects as the `rasm.hlc` span attribute, and the identity slots take propagator output alone.
 - Auto: `ProfilePolicy.of` folds every behavior column out of axis values — `lifecycle` decides eager import, `lifecycle` beside the host descriptor's `scratch` column decides scratch writability, a bound telemetry provider decides OTel emission, and the host descriptor's `lanes` column overrides `TOPOLOGY_LANES` for capacity — so no column keys on a preset name and a caller never re-derives a flag.
 - Growth: a new context field is one `RuntimeContext` column; a new host integration is one `HOST_ROWS` descriptor and a new bound port one `PROVIDER_ROWS` descriptor; a new feature is one `Feature` case supplied by a provider row; a new killswitch is one `Killswitch` case with one `KILLSWITCH_FEATURE` disabling edge — never a parallel boolean knob; a new attribute dimension is one entry in the `attribute` projection; a new propagated wire format is one row at the telemetry install's composite, reaching `seed` with no edit here.
 - Boundary: no environment probing, host discovery, service-root construction, or global mutable context lives here — deployment shape arrives as one supplied row and this package infers none of it; axis values stay data, so a compile-time assumption, an ambient global, an environment flag, and a fold branching on which product hosts the package are the four deleted forms; `ConsumptionProfile.admit` refuses an unservable axis value with `AxisRefused` naming the axis, so silent degradation and a narrowed public surface never happen; in-host topology carrying no host descriptor refuses on the `host` axis because a consuming application supplies its own row; killswitches ride `RuntimeContext.killswitches` as caller-supplied operational state, never a profile column, so revoking a feature never re-cuts deployment shape; `CausalFrame`/`Hlc`/`Tenant` stay the `clock/clock#CLOCK` owner's records; propagator registration stays the `observability/telemetry#TELEMETRY` install's, this owner reading the global it publishes; each branch spells the roster in its own types, so a peer branch's descriptor rows are never mirrored here row-for-row.
@@ -320,13 +320,20 @@ class Correlation(Struct, frozen=True):
     def seed(cls, carrier: Option[Mapping[str, str]]) -> Self:
         # inbound context is ADOPTED whole: the `observability/telemetry#TELEMETRY` composite reads the carrier through the
         # globally registered propagator, the extracted trace id continues unchanged, and the extracted span id becomes this
-        # context's parent. An absent or grammar-invalid `traceparent` decodes to the all-zero trace id, the one case minting a root.
+        # context's parent. `is_valid` carries the whole admission — the API computes it at construction over BOTH id bands, so
+        # a zero span id beside a live trace id and an above-band id each refuse, where a bare `trace_id != 0` admits both and
+        # stamps an all-zero parent. `propagate.extract` refuses a malformed or absent `traceparent` and hands back
+        # `INVALID_SPAN_CONTEXT`, the one case minting a root.
         match carrier.map(lambda inbound: trace.get_current_span(propagate.extract(inbound)).get_span_context()):
-            case Option(tag="some", some=parent) if parent.trace_id != 0:
+            case Option(tag="some", some=parent) if parent.is_valid:
                 return cls(
                     trace_id=parent.trace_id.to_bytes(_TRACE_BYTES),
                     parent_span=Some(parent.span_id.to_bytes(_SPAN_BYTES)),
-                    remote=True,
+                    # `extract` seeds a FRESH context when the caller passes none, so a carrier missing or malforming
+                    # `traceparent` hands that empty context straight back — an invalid extraction falling through to
+                    # `mint()`, never a local span adopted as this hop's parent. The flag rides off the extraction
+                    # rather than a literal, so the evidence stays whatever the propagator decoded.
+                    remote=parent.is_remote,
                 )
             case _:
                 return cls.mint()
@@ -417,17 +424,17 @@ class RuntimeContext(Struct, frozen=True):
 ## [03]-[BACKEND_CONTRACT]
 
 - Owner: `BackendGeneration` is the one polymorphic entry over both directions — `compose` mints this branch's contribution from its own store artifacts, `admit` proves a contract set (its own or a merged one) against provider observations, and `merge` folds branch contributions into the deployment unit. All three land on the `_funnelled` projection, so no mint path reaches the canonical framing unproved.
-- Sources: each local store artifact — migration script, journal DDL, embedded-store ensure, object-plane bucket — lands as one `ArtifactSource` row carrying key, role, bytes, providers, and dependencies; Python composes from its own artifacts alone.
-- Shape: `msgspec.Struct` mirrors the contract wire once; `forbid_unknown_fields` rejects drift at decode, `order="deterministic"` frames the compose-side stream this branch then digests, while admit digests the octets it received, and `FailureRank`/`RestartClass` carry the capability vocabularies as closed wire values a peer's spelling decodes against.
-- Absence: `FailureRank.absorbs` decides what a missing capability costs — refusal, a folded lane surfacing here rather than at first query, or recorded evidence — and `admit` carries the whole absence set as `absorbed`, keyed by rank. `RestartClass` ranks its disruption in declaration order, so `disruption` reports the worst bounce across a gap set instead of the cheapest.
-- Identity: `xxh3_128_intdigest` at seed zero mints the generation over the compose-side framed bytes and re-derives it over the octets admit received, never over a local re-encode of a decoded document — the `CANONICAL_BYTE_IDENTITY` law, which no peer's JSON encoder reproduces; `Digest128` fixes the 32-hex width every identity cell carries.
-- Order: artifact key ordinal IS the whole wire order, so `_claimed` sorts by key alone and dependency depth never re-ranks the stream into a second generation over one artifact set.
-- Dependencies: `_closed` proves the `depends_on` graph closed and acyclic at the funnel every path reaches — dangling keys report before cycles, each refusal naming the exact edges — so a sort a path can skip never carries the proof.
-- Merge: contributions union by key under that same order and refuse any key two claimants spell differently, artifact and capability rows alike, on the WHOLE row rather than the content cell — first-wins and last-wins each mint a generation no claimant composed.
-- Evidence: `_FACTS` rows prove corpus, generation, key-set, and realization invariants under `Disposition.ACCUMULATE`, so a refusal reports every failed invariant with its reason and the exact subjects that failed it.
-- Boundary: a Python-only application composes, deploys, and admits its stores with no peer branch present; provider migration execution and journal identity stay outside this owner.
-- Growth: a contract field changes the one wire shape; a local provider adds one observation adapter; a new invariant is one `_FACTS` row; a new failure rank is one `FailureRank` member with one `absorbs` arm; a new disruption class is one `RestartClass` member seated at its rank.
+- Cases: each local store artifact — migration script, journal DDL, embedded-store ensure, object-plane bucket — lands as one `ArtifactSource` row carrying key, role, bytes, providers, and dependencies; Python composes from its own artifacts alone.
+- Law: `msgspec.Struct` mirrors the contract wire once; `forbid_unknown_fields` rejects drift at decode, `order="deterministic"` frames the compose-side stream this branch then digests, while admit digests the octets it received, and `FailureRank`/`RestartClass` carry the capability vocabularies as closed wire values a peer's spelling decodes against.
+- Law: `FailureRank.absorbs` decides what a missing capability costs — refusal, a folded lane surfacing here rather than at first query, or recorded evidence — and `admit` carries the whole absence set as `absorbed`, keyed by rank. `RestartClass` ranks its disruption in declaration order, so `disruption` reports the worst bounce across a gap set instead of the cheapest.
+- Law: `xxh3_128_intdigest` at seed zero mints the generation over the compose-side framed bytes and re-derives it over the octets admit received, never over a local re-encode of a decoded document — the `CANONICAL_BYTE_IDENTITY` law, which no peer's JSON encoder reproduces; `Digest128` fixes the 32-hex width every identity cell carries.
+- Law: artifact key ordinal IS the whole wire order, so `_claimed` sorts by key alone and dependency depth never re-ranks the stream into a second generation over one artifact set.
+- Law: `_closed` proves the `depends_on` graph closed and acyclic at the funnel every path reaches — dangling keys report before cycles, each refusal naming the exact edges — so a sort a path can skip never carries the proof.
+- Law: contributions union by key under that same order and refuse any key two claimants spell differently, artifact and capability rows alike, on the WHOLE row rather than the content cell — first-wins and last-wins each mint a generation no claimant composed.
+- Law: `_FACTS` rows prove corpus, generation, key-set, and realization invariants under `Disposition.ACCUMULATE`, so a refusal reports every failed invariant with its reason and the exact subjects that failed it.
 - Packages: `msgspec`, `xxhash`, `expression`, and the shared runtime fault rail.
+- Growth: a contract field changes the one wire shape; a local provider adds one observation adapter; a new invariant is one `_FACTS` row; a new failure rank is one `FailureRank` member with one `absorbs` arm; a new disruption class is one `RestartClass` member seated at its rank.
+- Boundary: a Python-only application composes, deploys, and admits its stores with no peer branch present; provider migration execution and journal identity stay outside this owner.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -1056,4 +1063,4 @@ SECRET_LADDER: Final[Block[TierRow]] = Block.of_seq([
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [SPAN_CONTEXT_VALIDITY]-[OPEN]: which `SpanContext` members spell the validity and remoteness reads, so `Correlation.seed` matches on them instead of comparing the extracted trace id against the all-zero W3C invalid value; verify against `libs/python/.api/opentelemetry-api.md` `[02]` trace family, package `opentelemetry-api`.
+(none)

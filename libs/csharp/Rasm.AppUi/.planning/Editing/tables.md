@@ -4,15 +4,23 @@ Tabular and hierarchical projection for the Rasm.AppUi grid rail: one `TableColu
 
 ## [01]-[INDEX]
 
-- [01]-[GRID_SUBSTRATE]: One column metadata family drives columns, filter, masking, export.
-- [02]-[VIEW_STATE]: Serializable collection-view snapshot applied in one `DeferRefresh`.
-- [03]-[TREE_FLATTEN]: Five projection cases fold to one flat virtualized `TreeRow` stream.
-- [04]-[GRID_COMMIT]: Edit commits ride `CommandIntent` rails; exports ride one spec record.
+- [02]-[GRID_SUBSTRATE]: One column metadata family drives columns, filter, masking, export.
+- [03]-[VIEW_STATE]: Serializable collection-view snapshot applied in one `DeferRefresh`.
+- [04]-[TREE_FLATTEN]: Five projection cases fold to one flat virtualized `TreeRow` stream.
+- [05]-[GRID_COMMIT]: Edit commits ride `CommandIntent` rails; exports ride one spec record.
 
 ## [02]-[GRID_SUBSTRATE]
 
 - Owner: `TableColumnRow<TRow>` — the one row-model metadata record; `TableColumnAccess<TRow>` closes the plain-versus-classified materialization boundary; `TableSurface` attaches the column and filter folds as one extension block; `TableCellKind` `[SmartEnum<string>]` closes the cell vocabulary with its construction as a delegate column.
 - Cases: `Text`, `CheckBox`, `Numeric`, `Temporal`, `Progress`, `Template` — numeric and temporal rows carry cell semantics (tabular-figure role, invariant instant format) the theme classes read off the kind key, progress rows are template-backed meters, and a seventh kind is one row with its construction delegate.
+- Law: the free `DataGrid` virtualizes rows over the one flat bound collection; a fixed density-token row height keeps the scroll math exact.
+- Law: `LoadingRow` stamps row state from theme tokens onto the `DataGridRow` pseudo-classes `:selected`, `:current`, `:editing`, `:edited`, `:invalid`, `:pressed`, `:focus`, `:expanded`, `:sortascending`, `:sortdescending`, `:empty-rows`, `:empty-columns`; `LoadingRowDetails` materializes the single per-screen details template on demand.
+- Law: selection mode is a per-screen policy value; `SelectedItems` and the current row project into the screen-state snapshot.
+- Law: `CustomSortComparer` carries the row's `Sort` comparer so a value-object or unit-bearing cell orders by domain law, `SortMemberPath` stays the display fallback, and the `Sorting` event never substitutes a comparer the row already declares — `Comparer<TRow>` instances satisfy the column's non-generic `IComparer` slot.
+- Law: the grid `Ctrl+C` copy rides `ClipboardCopyMode` with `ClipboardContentBinding` mirroring each row's `Cell` binding; classified columns render redacted, so the copy path leaks nothing the cell does not already show.
+- Law: `Matches` is an ordinal case-insensitive scan over visible unclassified column projections; classified columns never match.
+- Law: aggregate footer values arrive from the live-data aggregation rows (`Count`, `Sum`, `Avg`); the grid renders totals, never computes them.
+- Law: user reorder, resize, and sort-toggle flags are per-screen policy values on `CanUserReorderColumns`, `CanUserResizeColumns`, and `CanUserSortColumns`, with `FrozenColumnCount`, `RowHeight`, and `RowDetailsTemplate` as the remaining posture members.
 - Entry: `Option<DataGridColumn> Column(Func<DataClassification, DataTemplate> redacted)` — invisible rows materialize no column.
 - Auto: one row family derives columns, sort comparers, group descriptors, quick-filter admission, edit admission, clipboard projection, and export admission — seven concerns, one owner; `AutoGenerateColumns` stays false and `Columns` is populated by the `Column()` fold; the `Sort` comparer column lands as `CustomSortComparer` beside `SortMemberPath` so value-object cells order by domain comparer rather than display text, and the `Cell` binding doubles as `ClipboardContentBinding` on bound columns so the grid's own `Ctrl+C` copy under `DataGridClipboardCopyMode.IncludeHeader` and the export fold project one column vocabulary.
 - Packages: Avalonia.Controls.DataGrid; Avalonia; Thinktecture.Runtime.Extensions; LanguageExt.Core.
@@ -98,19 +106,14 @@ public static class TableSurface {
 }
 ```
 
-[SUBSTRATE_LAW]:
-- Virtualization: the free `DataGrid` virtualizes rows over the one flat bound collection; a fixed density-token row height keeps the scroll math exact.
-- Materialization: `LoadingRow` stamps row state from theme tokens onto the `DataGridRow` pseudo-classes `:selected`, `:current`, `:editing`, `:edited`, `:invalid`, `:pressed`, `:focus`, `:expanded`, `:sortascending`, `:sortdescending`, `:empty-rows`, `:empty-columns`; `LoadingRowDetails` materializes the single per-screen details template on demand.
-- Selection: selection mode is a per-screen policy value; `SelectedItems` and the current row project into the screen-state snapshot.
-- Sort: `CustomSortComparer` carries the row's `Sort` comparer so a value-object or unit-bearing cell orders by domain law, `SortMemberPath` stays the display fallback, and the `Sorting` event never substitutes a comparer the row already declares — `Comparer<TRow>` instances satisfy the column's non-generic `IComparer` slot.
-- Clipboard: the grid `Ctrl+C` copy rides `ClipboardCopyMode` with `ClipboardContentBinding` mirroring each row's `Cell` binding; classified columns render redacted, so the copy path leaks nothing the cell does not already show.
-- Quick filter: `Matches` is an ordinal case-insensitive scan over visible unclassified column projections; classified columns never match.
-- Footers: aggregate footer values arrive from the live-data aggregation rows (`Count`, `Sum`, `Avg`); the grid renders totals, never computes them.
-- Column posture: user reorder, resize, and sort-toggle flags are per-screen policy values on `CanUserReorderColumns`, `CanUserResizeColumns`, and `CanUserSortColumns`, with `FrozenColumnCount`, `RowHeight`, and `RowDetailsTemplate` as the remaining posture members.
-
 ## [03]-[VIEW_STATE]
 
 - Owner: `TableViewState` — the serializable collection-view snapshot; `ViewStateSurface` applies it against `DataGridCollectionView`, the only collection-view state holder.
+- Law: every multi-descriptor write lands inside one `DeferRefresh` scope; per-descriptor refresh churn is the deleted form.
+- Law: paging is live only while `PageSize` exceeds zero, so value `0` reads as unpaged; a paged projection writes its window through the snapshot field, never a second paging surface, and restore replays that window's page index so a snapshot re-opens where it closed.
+- Law: `AddNew` and `EditItem` fire only as CommandIntent executions; page and current transitions surface through `PageChangingEventArgs` and `DataGridCurrentChangingEventArgs` into screen state.
+- Law: `LoadingRowGroup` stamps group-header state from theme tokens onto each materialized group header, the one materialization edge for grouped projections, so a per-group-header style fork is the deleted form; the group key threads from the snapshot's `Groups` field through the collection view's `GroupDescriptions`, so header expansion state survives restore on the same field.
+- Law: `CurrentKey` resolves against the keyed live-data cache on the screen; `Apply` receives the resolved item as the `current` value.
 - Entry: `Fin<Unit> Apply<TRow>(TableViewState state, Seq<TableColumnRow<TRow>> columns, Option<object> current = default)` admits sort, group, page, expansion, and realized-window state against the column vocabulary before one batched mutation.
 - Auto: `DeferRefresh` collapses every multi-descriptor write into one refresh; apply-on-activate and capture-on-deactivate ride the screen-state snapshot rows; the live-data `Page` and `Virtualise` operators emit `IPagedChangeSet<TRow, TKey>` and `IVirtualChangeSet<TRow, TKey>`, whose `Response` bounds — `IPageResponse.Page`/`PageSize`/`Pages`/`TotalSize` and `IVirtualResponse.StartIndex`/`Size`/`TotalSize` — construct the `WindowState` window field so restore re-requests the same window with zero re-query.
 - Packages: Avalonia.Controls.DataGrid; DynamicData; LanguageExt.Core; BCL inbox.
@@ -172,6 +175,15 @@ public static class ViewStateSurface {
                 view.GroupDescriptions.Clear();
                 admitted.Groups.Iter(group => view.GroupDescriptions.Add(new DataGridPathGroupDescription(group)));
                 view.PageSize = admitted.PageSize.IfNone(0);
+                // The paged window's INDEX is collection-view state: `PageSize` alone restores the page SHAPE
+                // and lands on page zero, so a snapshot taken on page N re-opens at the top with its own
+                // admitted index discarded. The virtualized window holds no view position — its restore is
+                // the projection's viewport re-request through `VirtualWindow.Realize` — and the move rides
+                // inside the batch, so the deferred page change and the current-row move settle as one refresh.
+                admitted.Window.Iter(window => ignore(window.Switch(
+                    state: view,
+                    paged: static (target, page) => target.MoveToPage(page.Index),
+                    virtualized: static (_, _) => false)));
                 current.Iter(item => view.MoveCurrentTo(item));
                 return unit;
             })());
@@ -179,17 +191,17 @@ public static class ViewStateSurface {
 }
 ```
 
-[VIEW_STATE_LAW]:
-- Batching: every multi-descriptor write lands inside one `DeferRefresh` scope; per-descriptor refresh churn is the deleted form.
-- Paging: paging is live only while `PageSize` exceeds zero, so value `0` reads as unpaged; a paged projection writes its window through the snapshot field, never a second paging surface.
-- Transactions: `AddNew` and `EditItem` fire only as CommandIntent executions; page and current transitions surface through `PageChangingEventArgs` and `DataGridCurrentChangingEventArgs` into screen state.
-- Group headers: `LoadingRowGroup` stamps group-header state from theme tokens onto each materialized group header, the one materialization edge for grouped projections, so a per-group-header style fork is the deleted form; the group key threads from the snapshot's `Groups` field through the collection view's `GroupDescriptions`, so header expansion state survives restore on the same field.
-- Restore: `CurrentKey` resolves against the keyed live-data cache on the screen; `Apply` receives the resolved item as the `current` value.
-
 ## [04]-[TREE_FLATTEN]
 
 - Owner: `TableProjection<TRow, TKey>` `[Union]` with `TreeRow<TRow>` as the flat indent row and `ExpansionState<TKey>` as the expansion cell; `ProjectionFold` dispatches the union to one flat row stream.
 - Cases: `Flat`, `TreeFlattened(Func<TRow, TKey> ParentKey, Option<IComparer<TRow>> Order, Option<Func<TKey, IObservable<IChangeSet<TRow, TKey>>>> LoadChildren)`, `Grouped(string GroupColumnKey)`, `Paged(IObservable<PageRequest> Pages)`, `Virtualized(VirtualWindow Owner, IObservable<ViewportRange> Viewport, Func<Seq<TKey>> Order)`.
+- Law: every case lands as `IChangeSet<TreeRow<TRow>, TKey>`; the grid binds one flat collection, so the one `VirtualWindow` fabric windows every projection.
+- Law: the `TreeFlattened` recursion is the `Shell/virtualization` `HierarchyFlatten` bridge, not a tables-local fold — the column-metadata family stays tables-owned, the sibling-order comparer threads as the bridge's optional order argument, and windowing delegates to the one fabric.
+- Law: the cross-tab is a snapshot projection over the materialized item set — quantity-takeoff and status matrices are `PivotSpec` values whose cell fold reuses the aggregation vocabulary, exported through the same `Delimited` shaping and `ExportDelivery.Deliver` fold.
+- Law: view sort descriptors stay empty on a tree projection; sibling order is the case's `Order` comparer threaded into `HierarchyFlatten.Flatten` — sorting flat indent rows is the deleted form.
+- Law: `LoadChildren` materializes a child stream on first expansion through the `FirstExpansion` fold — each key entering the expansion set subscribes its stream exactly once, and loaded children merge into the upstream keyed spine the shared flatten reads, never a side collection.
+- Law: `DiffTableFold.Classify` projects the SAME `(ElementId, DiffClass)` classification `Render/pipeline.md` `VersionGhost.Project` renders in the viewport into a per-class summary and classified element rows, exported through the same `Delimited` shaping and `ExportDelivery.Deliver` fold — a grid-local diff classification is the deleted form.
+- Law: a grouped projection folds identity at the change-set altitude; its `GroupColumnKey` lands on the snapshot's group field so the collection view owns group materialization.
 - Entry: `IObservable<IChangeSet<TreeRow<TRow>, TKey>> Project(TableProjection<TRow, TKey> projection, ExpansionState<TKey> expansion, Func<TRow, TKey> key)`.
 - Auto: an expansion toggle re-emits the flattened stream through the change-set diff; the `TreeFlattened` arm delegates the flatten to the one `Shell/virtualization` `HierarchyFlatten.Flatten` bridge, and the `Virtualized` arm consumes the caller-owned `VirtualWindow`, current `ViewportRange` stream, and row-order projection to build `OrderedChangeSet<TRow,TKey>` for `VirtualWindow.Realize`; expansion keys persist on the `Expanded` snapshot field through the row key's string projection, and restore mints the expansion cell before the first projection subscription.
 - Packages: DynamicData; System.Reactive; Thinktecture.Runtime.Extensions; LanguageExt.Core; Rasm.AppUi/Shell/virtualization.
@@ -291,9 +303,6 @@ public static class PivotFold {
     }
 }
 
-// The version-diff summary grid: the SAME (ElementId, DiffClass) classification VersionGhost renders in
-// the viewport, projected as a table — per-class counts plus the classified element rows — through the
-// one delivery fold; a grid-local diff classification is the deleted form.
 public static class DiffTableFold {
     public static (Seq<(string ClassKey, int Count)> Summary, Seq<(string ElementId, string ClassKey)> Rows) Classify(
         Seq<(string ElementId, DiffClass Class)> classified) =>
@@ -303,23 +312,20 @@ public static class DiffTableFold {
 }
 ```
 
-[FLATTEN_LAW]:
-- One stream: every case lands as `IChangeSet<TreeRow<TRow>, TKey>`; the grid binds one flat collection, so the one `VirtualWindow` fabric windows every projection.
-- One flatten owner: the `TreeFlattened` recursion is the `Shell/virtualization` `HierarchyFlatten` bridge, not a tables-local fold — the column-metadata family stays tables-owned, the sibling-order comparer threads as the bridge's optional order argument, and windowing delegates to the one fabric.
-- Pivot: the cross-tab is a snapshot projection over the materialized item set — quantity-takeoff and status matrices are `PivotSpec` values whose cell fold reuses the aggregation vocabulary, exported through the same `Delimited` shaping and `ExportDelivery.Deliver` fold.
-- Tree order: view sort descriptors stay empty on a tree projection; sibling order is the case's `Order` comparer threaded into `HierarchyFlatten.Flatten` — sorting flat indent rows is the deleted form.
-- Lazy children: `LoadChildren` materializes a child stream on first expansion through the `FirstExpansion` fold — each key entering the expansion set subscribes its stream exactly once, and loaded children merge into the upstream keyed spine the shared flatten reads, never a side collection.
-- Version diff: `DiffTableFold.Classify` projects the SAME `(ElementId, DiffClass)` classification `Render/pipeline.md` `VersionGhost.Project` renders in the viewport into a per-class summary plus classified element rows, exported through the same `Delimited` shaping and `ExportDelivery.Deliver` fold — a grid-local diff classification is the deleted form.
-- Grouped: a grouped projection folds identity at the change-set altitude; its `GroupColumnKey` lands on the snapshot's group field so the collection view owns group materialization.
-
 ## [05]-[GRID_COMMIT]
 
 - Owner: `TableCommit<TRow>` — the one edit-commit row; `TableExportSpec` — the pure text-shaping policy row whose delivery is the `Document/export.md` `VisualDestination` union; `CommitSurface` bridges grid edit events to the intent rail, folds rows to delimited text, and delivers through the one `ExportDelivery.Deliver` fold.
+- Law: `BeginEdit`, `CommitEdit`, and `CancelEdit` drive the programmatic edit lifecycle; only a committing row passes the `EditAction` filter into the gate, and a failing gate vetoes the commit at the cancellable `RowEditEnding` hook via `e.Cancel`.
+- Law: `Gate` receives the screen validation seam's folded `Fin` rail; a failing gate aborts before `Persist` and surfaces on the screen fault state.
+- Law: the `Persist` column is the host-agnostic parameter: store rows, host-object rows, and fake-deterministic rows differ only in the bound delegate.
+- Law: `TableExportSpec.Tsv` fixes `Delimiter` at tab with `HeaderRow` true and the folded text rides the input rail's typed clipboard row — a transport policy over the one shaping fold, never a destination case.
+- Law: `Export` folds `Delimited` bytes through `ExportDelivery.Deliver`, so file, blob-lane, and bundle delivery share the export.md exhaustiveness obligation and its `RenderReceipt` seal.
+- Law: `Admitted` traverses a non-empty `ColumnKeys` sequence in requested order, rejects quote or line-break delimiters and duplicate, unknown, invisible, or classified keys, and the delimited projection is the single text-shaping fold for clipboard and delivered destinations alike.
 - Entry: `IDisposable Attach(DataGrid grid, Action<string, TRow> invoke, Action<Error> fault)`; `IO<Fin<string>> Export(VisualRuntime runtime, TableExportSpec spec, Seq<TRow> items, VisualDestination destination)`.
 - Auto: every commit and export executes as a CommandIntent, so availability gating, re-entrancy suppression, and `CommandReceipt` emission arrive with zero local receipt code; a delivery-case change breaks the one `VisualDestination` dispatch at compile time, never a table-local sibling family.
 - Receipt: the CommandReceipt rail carries intent key, surface, elapsed, outcome, and `CorrelationId`; host-routed commits project the `DocumentTransaction` receipt into the same rail; `TelemetryRow` contributes the commit-outcome and export-volume instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: Avalonia.Controls.DataGrid; System.Reactive; Thinktecture.Runtime.Extensions; LanguageExt.Core.
-- Growth: one export policy value on the spec; a new delivery case is one `VisualDestination` case landed at the export.md owner; a new commit target is one `Persist` delegate binding; one grid instrument is one `InstrumentRow` on `CommitSurface.TelemetryRow`; zero new surface.
+- Growth: one export policy value on the spec; a new delivery case is one `VisualDestination` case landed at the export.md owner; a new commit target is one `Persist` delegate binding; one grid instrument is one `InstrumentSpec` row on `CommitSurface.TelemetryRow`; zero new surface.
 - Boundary: store rows bind `Persist` to `StoreOp.Upsert` through the Persistence port; host-object rows bind the same column to the abstract `DocumentTransaction` commit surface-host port the app root binds to the host; delivery is the `Document/export.md` `VisualDestination` union through `ExportDelivery.Deliver` — the `FilePath` value arrives from the storage-pick DialogIntent row and the `BlobLane` arm rides the Persistence Sep lane — so a table-local delivery union is the `SHAPE_BUDGET` deleted form; the clipboard path is a transport, never a destination: `TableExportSpec.Tsv` fixes tab-plus-header shaping and the folded text hands to the input rail's typed clipboard row — a bespoke CSV writer is the deleted form.
 
 ```csharp signature
@@ -336,10 +342,10 @@ public static class CommitSurface {
     public const string CommitInstrument = "rasm.appui.table.commit";
     public const string ExportInstrument = "rasm.appui.table.export";
 
-    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
-        AppUiTelemetry.Contribute(version, schemaUrl,
-            new(CommitInstrument, InstrumentKind.Count, "{commit}", "grid commits by outcome"),
-            new(ExportInstrument, InstrumentKind.Count, "{export}", "tabular exports by destination"));
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            InstrumentSpec.Count(CommitInstrument, "{commit}", "grid commits by outcome", MeasureForm.Whole),
+            InstrumentSpec.Count(ExportInstrument, "{export}", "tabular exports by destination", MeasureForm.Whole));
 
     extension<TRow>(TableCommit<TRow> commit) {
         public Func<TRow, CancellationToken, ValueTask<Fin<Unit>>> Execution =>
@@ -411,14 +417,6 @@ flowchart LR
     Gate --> Persist
     Persist --> Fin
 ```
-
-[COMMIT_LAW]:
-- Commit rail: `BeginEdit`, `CommitEdit`, and `CancelEdit` drive the programmatic edit lifecycle; only a committing row passes the `EditAction` filter into the gate, and a failing gate vetoes the commit at the cancellable `RowEditEnding` hook via `e.Cancel`.
-- Gate altitude: `Gate` receives the screen validation seam's folded `Fin` rail; a failing gate aborts before `Persist` and surfaces on the screen fault state.
-- Persistence split: the `Persist` column is the host-agnostic parameter: store rows, host-object rows, and fake-deterministic rows differ only in the bound delegate.
-- Clipboard: `TableExportSpec.Tsv` fixes `Delimiter` at tab with `HeaderRow` true and the folded text rides the input rail's typed clipboard row — a transport policy over the one shaping fold, never a destination case.
-- Delivery: `Export` folds `Delimited` bytes through `ExportDelivery.Deliver`, so file, blob-lane, and bundle delivery share the export.md exhaustiveness obligation and its `RenderReceipt` seal.
-- Export admission: `Admitted` traverses a non-empty `ColumnKeys` sequence in requested order, rejects quote or line-break delimiters and duplicate, unknown, invisible, or classified keys, and the delimited projection is the single text-shaping fold for clipboard and delivered destinations alike.
 
 ## [06]-[RESEARCH]
 

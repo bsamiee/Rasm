@@ -26,14 +26,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: `AccessClaims.cnf`, `Material.thumbprintUri`, `IssuerRef` remote verify, `arctic` ceremony rows, `openid-client` (admission-lane candidate for the certified grant/DPoP client).
 - Tension: `openid-client` admission must survive the supersession review against `arctic` — split custody rules arctic the browser code ceremony and openid-client the machine grants and DPoP.
 
-[SECURITY_BOARD_PACK]-[BLOCKED]: complete the core security board pack while preserving security's receipt-truth alert rail.
-- Capability: core's `DashboardModel` security pack projects deny, rotation, reuse, JWKS, and KDF series beside authenticity rejects; tenant filtering rides the pack-owned `Convention.rasm.tenant` variable, while `Audit.alerts` remains the `Alert.of` latency fold and breached facts remain zero-tolerance receipt paging.
-- Shape: extend `libs/typescript/core/.planning/observe/board.md` `_PACKS.security`; `access/audit.md` keeps one `DashboardModel.pack("security", identity, {})` call and mints no panel family.
-- Unlocks: one complete security operations board reaches the existing iac `Boards` compiler without local query or alert-rule forks.
-- Anchors: `access/audit.md` `[05]-[BOARD]`, core `board.md` `_securityRejects`/`_securityFacets` and `_PACKS.security`, iac `operate/observe.md` `Boards`.
-- Arms: `libs/typescript/core/.planning/observe/board.md` `_PACKS.security` contains the five missing signal panels and a `Convention.rasm.tenant` pack variable; current disk contains only authenticity rejects and reject facets with no variables.
-- Ripple: `core/observe/board#PACKS`.
-
 [ADMITTED_SURFACE_COMPLETION]-[QUEUED]: admitted-surface completion — every verified-unexploited folder and branch catalog member lands as a row on its owning page, closing the census gap between catalogs and pages.
 - Capability: `getTimeStepUsed` replaces the hand-rolled TOTP window math; `encodeBase64urlNoPadding` gives opaque tokens a base64url wire row; `preferredAuthenticatorType` and `verifyBrowserAutofillInput` complete the webauthn policy and autofill surfaces; `secrets.list` backs the partial-refresh planner with the full-object census.
 - Shape: one row per member on its owner — `libs/typescript/security/.planning/authn/credential.md`, `libs/typescript/security/.planning/crypt/sign.md`, `libs/typescript/security/.planning/authn/webauthn.md`, `libs/typescript/security/.planning/crypt/secret.md`.
@@ -65,22 +57,16 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Unlocks: `claim.md`'s own growth line — an API-key principal resolving into the same `ClaimSet` — lands; machine-keyed endpoints stop bypassing the entitlement fold.
 - Anchors: `claim.md` `Claim.resolve`/`Claim.principal`/`Claim.bind`; `credential.md` `ApiKeyGuard` providing `CurrentApiKey: ApiKeyRecord`; the one-polymorphic-resolve law `credential.md` already states for `ApiKey.resolve`.
 
-[LEASE_SPEC_CONTRACT]-[QUEUED]: LeaseSpec deploy-realization contract — the encoded lease shape publishes as the boundary value the deploy plane decodes into custody cells.
-- Capability: `LeaseSpec` — scope, keys, TTL, renewal posture — gains its one encoded owner on the crypt plane, so lease semantics have a single spelling and the iac workload estate decodes each lease into a config-scoped Doppler `ServiceToken` and namespace-`Secret` custody cell as pure data; renewal posture and epoch-keyed rotation read from the spec, never from deploy-side convention.
-- Shape: encoded `LeaseSpec` schema and boundary row on `libs/typescript/security/.planning/crypt/secret.md` beside the `_ACCESS` custody law; the `ARCHITECTURE.md` `[BOUNDARY]: LeaseSpec` seam keeps its spelling with the schema now real.
-- Unlocks: a leased credential's blast radius is the lease by construction; per-app lease custody composes without collision; the deploy plane consumes lease semantics with zero security knowledge.
-- Anchors: `crypt/secret.md` custody and rotation rows; `ARCHITECTURE.md` Crypt-to-Iac `[BOUNDARY]: LeaseSpec` edge; iac `kube/workload.md` lease realization (carded).
-- Tension: iac realizes custody cells — this folder owns only the encoded shape and its semantics; a deploy concern leaking into the spec is a boundary breach.
-- Ripple: `iac` `[LEASE_REALIZATION]`.
-
 ## [02]-[CLOSED]
 
 <!-- source-only: closed idea card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[LEASE_SPEC_CONTRACT]-[COMPLETE]: the encoded `LeaseSpec` owns scope, keys, TTL, and renewal posture on `crypt/secret.md`, so the deploy plane decodes custody cells from the spec rather than from deploy-side convention.
 [WEBAUTHN_TRUST_ISOLATION]-[COMPLETE]: resolved on the refute arm — the catalog rules `SettingsService`/`MetadataService` module-singletons with no instance-scoped construction, and `authn/webauthn.md` states the single-policy-per-process law with the deployment-split remedy.
 [REJECT_FACT_STREAM]-[COMPLETE]: one authenticity-reject fact stream — realized as the `Reject` owner on the crypt verify page; dialect/surface/reason are bounded facets, never divergent metric names.
 [CONVENTION_INSTRUMENT_PLANE]-[COMPLETE]: Convention-owned instrument plane — every folder instrument (kdf timer, jwks quarantine/resolve/miss, shred reject, secret rotation, policy deny) mints from a core `Convention.instrument` row, and the tenant/reason tag keys read `Convention.rasm.*`.
 [SECURITY_FACT_RAIL]-[COMPLETE]: security fact rail — `.planning/access/audit.md` owns `SecurityFact`, `Witness`, `AuditJournal`, class-routed lanes, and app-scoped `Audit.live`; every enumerated loud arm publishes, and keyed `Crypto.sign` behind `Pseudonym` supersedes the rejected unkeyed subject fingerprint.
 [KDF_COST_CALIBRATION]-[COMPLETE]: KDF cost calibration — `Calibration` on `.planning/crypt/sign.md` `[07]-[CALIBRATION]` emits complete core `Claim.Band` receipts, passes every claim through `Claim.admit`, grades p99 against each `CryptoCost.targetMs`, and feeds those row-owned targets into `_argonMs` boundaries.
+[SECURITY_BOARD_PACK]-[COMPLETE]: the core pack projects deny, rotation, reuse, JWKS, and KDF beside authenticity rejects, its payload took the quantile roster, and `Audit.alerts` stayed the `Alert.of` latency fold with breached facts on receipt paging; `access/audit.md` keeps one `DashboardModel.pack` call whose roster derives from its own objectives and mints no panel family.

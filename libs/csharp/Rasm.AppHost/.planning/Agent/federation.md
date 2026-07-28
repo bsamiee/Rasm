@@ -1,14 +1,19 @@
 # [APPHOST_TOOL_FEDERATION]
 
-The MCP-client federation surface for the runtime spine: the official `ModelContextProtocol` SDK owns the client session — JSON-RPC framing, the `IClientTransport` connection, the initialize handshake, and `McpClientTool : AIFunction` adoption — and this page inverts `Agent/mcp#METHOD_AXIS`, folding each attached external server's tools, resources, and prompts inward as brokered `CapabilityDescriptor` rows under a `federated.{server}.{tool}` surface key. Where the server projection flows descriptor outward to one `Microsoft.Extensions.AI` `AIFunction`, federation flows a peer `McpClientTool` inward to one descriptor, wrapping the same `CommandAIFunction` the projection mints (one tool-adoption seam, never a second `AIFunction` subclass) so a federated call routes through `Agent/capability#COMMAND_ALGEBRA` `CommandAlgebra.Run`, the `Agent/capability#GRANT_BROKER` admission, the dry-run cost preview, and the `Runtime/determinism#EVENT_LOG` chain exactly as a native op — the broker gates it, the algebra wraps it in commit-or-rollback, and the event log chains its content hash. The external server is reached over `Wire/outbound#HOP_AXIS` `OutboundHop` so its bytes ride the existing retry, breaker, and deadline; the peer-tool JSON Schema becomes the descriptor's argument schema content-keyed for the `Agent/capability#SDK_CODEGEN` identity gate. The page owns the transport-kind axis, the server admission row and trust scope, the tool/resource/prompt projection inversion, the federated dispatch through the command algebra, and the peer resource-update subscription; it consumes `CapabilityDescriptor`/`DescriptorSurface.Describe`, `CapabilityRegistry`, `CommandAlgebra`/`CommandRuntime`/`GrantBroker`, `ComputeIntent`/`AdmittedIntent.Admit`, `ToolResult` (reused from `Agent/mcp#TOOL_DISPATCH`), `CommandAIFunction` (reused from `Agent/mcp#METHOD_AXIS`), `SubscriptionLane`/`ExternalValue` (reused from `Wire/livewire#TRANSPORT_BINDING`), `OutboundHop`/`OutboundSurface`, `TenantContext`, `ReceiptSinkPort`, and `CancelScope` as settled vocabulary and mints no eighth port.
+Rasm.AppHost inverts `Agent/mcp#METHOD_AXIS` into an MCP-CLIENT federation surface: the official `ModelContextProtocol` SDK owns the peer session — JSON-RPC framing, the `IClientTransport` connection, the initialize handshake, and `McpClientTool : AIFunction` adoption — and this surface folds each attached external server's tools, resources, and prompts inward as brokered `CapabilityDescriptor` rows under a `federated.{server}.{tool}` key, wrapping the same `CommandAIFunction` the server projection mints so one tool-adoption seam serves both directions.
+
+Every federated call therefore routes through `Agent/capability#COMMAND_ALGEBRA` `CommandAlgebra.Run`, the `Agent/capability#GRANT_BROKER` admission, the dry-run cost preview, and the `Runtime/determinism#EVENT_LOG` chain exactly as a native op; `Wire/outbound#HOP_AXIS` `OutboundHop` carries the peer bytes under the existing retry, breaker, and deadline; and the peer-tool JSON Schema becomes the descriptor's content-keyed argument schema for the `Agent/capability#SDK_CODEGEN` identity gate.
+
+`CapabilityDescriptor`/`DescriptorSurface.Describe`, `CapabilityRegistry`, `CommandAlgebra`/`CommandRuntime`/`GrantBroker`, `ComputeIntent`/`AdmittedIntent.Admit`, `ToolResult`, `CommandAIFunction`, `SubscriptionLane`/`ExternalValue`, `OutboundHop`/`OutboundSurface`, `TenantContext`, `ReceiptSinkPort`, and `CancelScope` arrive settled, and no eighth port is minted.
 
 ## [01]-[INDEX]
 
-- [01]-[FEDERATION_AXIS]: Transport-kind taxonomy with external-server admission rows, trust scope, and fault bands.
-- [02]-[FEDERATION_PROJECTION]: Peer tool-to-descriptor inversion fold; the reused `CommandAIFunction` wrap.
-- [03]-[FEDERATED_DISPATCH]: Brokered dispatch over `McpClient.CallToolAsync` riding the command algebra.
-- [04]-[RESOURCE_PROMPT_FOLD]: Peer resource, prompt, and template projection with resource-update subscription drain.
-- [05]-[TS_PROJECTION]: Federated-descriptor wire shapes additive to the one capability catalog.
+- [02]-[FEDERATION_AXIS]: Transport-kind taxonomy with external-server admission rows, trust scope, and fault bands.
+- [03]-[FEDERATION_PROJECTION]: Peer tool-to-descriptor inversion fold; the reused `CommandAIFunction` wrap.
+- [04]-[FEDERATED_DISPATCH]: Brokered dispatch over `McpClient.CallToolAsync` riding the command algebra.
+- [05]-[RESOURCE_PROMPT_FOLD]: Peer resource, prompt, and template projection with resource-update subscription drain.
+- [06]-[TS_PROJECTION]: Federated-descriptor wire shapes additive to the one capability catalog.
+- [07]-[APP_ROOT_COMPOSITION]: Catalog admission ahead of the registry freeze, refusal logging, and the census mount.
 
 ## [02]-[FEDERATION_AXIS]
 
@@ -58,12 +63,16 @@ public sealed record TrustScope(
 }
 
 [ValueObject<string>]
+[ValidationError<FederationFault>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FederatedServer {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+    // The generator's error type is this page's OWN fault family, so a malformed id lands as the fault naming it
+    // rather than a trust violation the scope never refused — the admission below then carries the error out with
+    // no re-wrap, and one fault vocabulary answers both the id gate and every later peer failure.
+    static partial void ValidateFactoryArguments(ref FederationFault? validationError, ref string value) {
         value = value.Trim().ToLowerInvariant();
         validationError = string.IsNullOrWhiteSpace(value) || value.Contains('.', StringComparison.Ordinal)
-            ? new ValidationError("federated server id must be non-empty and dot-free")
+            ? new FederationFault.Text($"federated server id must be non-empty and dot-free: {value}")
             : null;
     }
 
@@ -72,15 +81,17 @@ public sealed partial class FederatedServer {
     public TrustScope Trust { get; private init; } = TrustScope.ReadOnly;
     public string Endpoint { get; private init; } = string.Empty;
 
+    // `Validate` is the error-RETURNING factory the generator publishes — `TryCreate` answers a bool and hands
+    // back no error — so one member decides the arm and the typed refusal crosses whole.
     public static Validation<FederationFault, FederatedServer> Admit(string server, TransportKind kind, string endpoint, TrustScope trust, StdioClientTransportOptions? stdio = null) =>
-        TryCreate(server, out var value, out var error) == ValidationError.None
-            ? Prelude.Success<FederationFault, FederatedServer>(value with {
+        Validate(server, provider: null, out FederatedServer? admitted) is { } rejected
+            ? Prelude.Fail<FederationFault, FederatedServer>(rejected)
+            : Prelude.Success<FederationFault, FederatedServer>(admitted! with {
                 Kind = kind,
                 Transport = kind.Transport(endpoint, stdio),
                 Trust = trust,
                 Endpoint = endpoint,
-            })
-            : Prelude.Fail<FederationFault, FederatedServer>(new FederationFault.UntrustedScope($"{server}:{error?.ToString()}"));
+            });
 }
 
 public sealed record FederationCatalog(FrozenDictionary<string, FederatedServer> Servers) {
@@ -112,8 +123,8 @@ public abstract partial record FederationFault : Expected, IValidationError<Fede
 
 - Owner: `FederationProjection` the static peer-to-descriptor inversion fold; `PeerSession` the held `McpClient` session owner per admitted server; `FederationRuntime` the held composition state the fold reads — the `FederationCatalog`, the session accessor, the live `PeerSchemas` id→schema map, and the `McpRuntime` the reused `CommandAIFunction` closes over.
 - Cases: the projection folds each `McpClientTool` the peer's `McpClient.ListToolsAsync` enumerates into one `CapabilityDescriptor` under `federated.{server}.{tool}`, reusing the one `CommandAIFunction : AIFunction` subclass the server projection mints — never a second `AIFunction` subclass and never an `AIFunctionFactory` delegate whose reflected-parameter schema is blind to the peer-tool contract.
-- Entry: `Project(FederationRuntime runtime, FederatedServer server)` returns `IO<Seq<CapabilityDescriptor>>` — opens the peer session through `McpClient.CreateAsync(server.Transport, ...)`, lists the peer's tools, and folds each `McpClientTool` into one brokered descriptor whose `Compile` projects to the federated-call `ComputeIntent`, returning the descriptor set the composition admits through `DescriptorSurface.Describe`; `Federate(FederationRuntime runtime, IServiceCollection services)` returns `IO<IServiceCollection>` — folds the projection over every admitted server and registers the federated descriptors into the one registry fan-in.
-- Auto: the peer session is constructed once per server through `McpClient.CreateAsync(IClientTransport, McpClientOptions?, ILoggerFactory?, CancellationToken)` so the SDK owns the initialize handshake and the session lifecycle, the federation holding one `McpClient` per server in the `PeerSession` cell and never re-initializing per call; each `McpClientTool : AIFunction` the peer exposes carries its `JsonSchema` (the `JsonElement` parameter schema on `AIFunctionDeclaration`) which the projection folds into the live `PeerSchemas` id→schema map under the descriptor id — the composition's `McpRuntime.SchemaOf` resolver consults that map so a federated row's argument schema is the peer's published contract verbatim while a native row falls to the `SuiteContracts.Schema<CommandArguments>` shape — content-keyed for the `Agent/capability#SDK_CODEGEN` identity gate and never a re-derived schema; the descriptor's `EffectClass` derives from the peer-tool `ToolAnnotations` alone — a `DestructiveHint` tool is `External` (the saga/compensation path), a `ReadOnlyHint` tool is `Read`, and an unannotated tool defaults to `External` because the host cannot prove a remote tool side-effect-free — and the SAME derived value feeds both the declared effect and the `TrustScope.Floor` lowering (never a `ReturnJsonSchema` gate that would under-declare a schema-less destructive tool as `Read`), so a peer tool's declared effect class never exceeds the server's trust ceiling; the `Idempotency` reads the `IdempotentHint` (`Idempotent` when the peer asserts it, else `NonIdempotent` for a tool the host cannot prove repeat-safe), and the `CostModel` carries a fixed `CostUnit.Calls` plus a `CostUnit.BytesEgress` variable the broker meters; the descriptor's `Compile` projects the `CommandArguments` payload into the federated-call `ComputeIntent` the command algebra dispatches at `FEDERATED_DISPATCH`, so the federated tool enters the registry as a real descriptor whose body is the brokered peer call, never an unbrokered side channel; the `federated.{server}.{tool}` surface key namespaces every federated descriptor under its server so two peers exposing a same-named tool never collide and the catalog stays one flat registry.
+- Entry: `Project(FederationRuntime runtime, FederatedServer server)` returns `IO<Seq<CapabilityDescriptor>>` — opens the peer session through `McpClient.CreateAsync(server.Transport, ...)`, lists the peer's tools, and folds each `McpClientTool` into one brokered descriptor whose `Compile` projects to the federated-call `ComputeIntent`, returning the descriptor set the composition admits through `DescriptorSurface.Describe`; `Federate(FederationRuntime runtime, IServiceCollection services)` returns `IO<IServiceCollection>` — folds the tool projection beside the `#RESOURCE_PROMPT_FOLD` resource, prompt, and template projection over every admitted server and lands each peer's whole federated census as one `DescriptorSurface.Describe` snapshot across the four surface keys `Surfaces` derives.
+- Auto: the peer session is constructed once per server through `McpClient.CreateAsync(IClientTransport, McpClientOptions?, ILoggerFactory?, CancellationToken)` so the SDK owns the initialize handshake and the session lifecycle, the federation holding one `McpClient` per server in the `PeerSession` cell and never re-initializing per call; each `McpClientTool : AIFunction` the peer exposes carries its `JsonSchema` (the `JsonElement` parameter schema on `AIFunctionDeclaration`) which the projection folds into the live `PeerSchemas` id→schema map under the descriptor id — the composition's `McpRuntime.SchemaOf` resolver consults that map so a federated row's argument schema is the peer's published contract verbatim while a native row falls to the `SuiteContracts.Schema<CommandArguments>` shape — content-keyed for the `Agent/capability#SDK_CODEGEN` identity gate and never a re-derived schema; the descriptor's `EffectClass` derives from the peer-tool `ToolAnnotations` alone — a `DestructiveHint` tool is `External` (the saga/compensation path), a `ReadOnlyHint` tool is `Read`, and an unannotated tool defaults to `External` because the host cannot prove a remote tool side-effect-free — and the SAME derived value feeds both the declared effect and the `TrustScope.Floor` lowering (never a `ReturnJsonSchema` gate under-declaring a schema-less destructive tool as `Read`), so a peer tool's declared effect class never exceeds the server's trust ceiling; the `Idempotency` reads the `IdempotentHint` (`Idempotent` when the peer asserts it, else `NonIdempotent` for a tool the host cannot prove repeat-safe), and the `CostModel` carries a fixed `CostUnit.Calls` beside a `CostUnit.BytesEgress` variable the broker meters; the descriptor's `Compile` projects the `CommandArguments` payload into the federated-call `ComputeIntent` the command algebra dispatches at `FEDERATED_DISPATCH`, so the federated tool enters the registry as a real descriptor whose body is the brokered peer call, never an unbrokered side channel; the `federated.{server}.{tool}` surface key namespaces every federated descriptor under its server so two peers exposing a same-named tool never collide and the catalog stays one flat registry.
 - Receipt: each projected descriptor is one `CapabilityDescriptor` the registry folds through `DescriptorSurface.Describe`; the federation transition mints one `DescriptorReceipt` per admitted row exactly as a native descriptor's, never a parallel federation receipt.
 - Packages: ModelContextProtocol.Core, Microsoft.Extensions.AI.Abstractions, LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, BCL inbox
 - Growth: a new federated server is one `FederationProjection.Project` fold over its session; a new peer tool is one descriptor row the fold absorbs at composition with no per-tool edit; the projection is the one inversion seam, so a second descriptor-from-peer fold is the deleted form; zero new surface.
@@ -131,30 +142,40 @@ public sealed record FederationRuntime(
     Func<FederatedServer, IO<McpClient>> SessionOf,
     Atom<HashMap<string, JsonNode>> PeerSchemas,
     McpRuntime Mcp,
-    LevelCells Cells,
     ClockPolicy Clocks,
     ReceiptSinkPort Sink,
     JsonSerializerOptions Wire,
     CancelScope Spine);
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
-public static class FederationProjection {
+public static partial class FederationProjection {
     public static IO<Seq<CapabilityDescriptor>> Project(FederationRuntime runtime, FederatedServer server) =>
         from client in runtime.SessionOf(server)
         from tools in IO.liftAsync(() => client.ListToolsAsync(null, runtime.Spine.Token).AsTask())
         select toSeq(tools).Map(tool => Descriptor(runtime, server, tool));
 
+    // One snapshot per peer covers every surface key it spans: tool rows and resource/prompt/template rows
+    // land in ONE Describe, so a re-projected peer replaces its whole federated census atomically and a peer
+    // dropping an entire class retires that surface instead of stranding stale rows beside live siblings.
+    // Two separate folds sweep the tool surface twice and leave the other three unswept.
     public static IO<IServiceCollection> Federate(FederationRuntime runtime, IServiceCollection services) =>
         runtime.Catalog.Servers.Values.AsIterable().ToSeq()
-            .FoldM(services, (current, server) => Project(runtime, server)
-                .Map(rows => DescriptorSurface.Describe(current, runtime.Cells, rows.ToArray())))
+            .FoldM(services, (current, server) =>
+                from tools in Project(runtime, server)
+                from bound in ProjectResources(runtime, server)
+                select DescriptorSurface.Describe(current, Surfaces(server), [.. tools + bound]))
             .As();
+
+    // Federated surface grammar spells once: keys the four projection arms mint and keys a re-projection
+    // sweeps derive together, so a fifth arm cannot leave a surface unswept.
+    static Seq<string> Surfaces(FederatedServer server) =>
+        Seq("", ".resource", ".prompt", ".template").Map(suffix => $"federated.{server.Value}{suffix}");
 
     static CapabilityDescriptor Descriptor(FederationRuntime runtime, FederatedServer server, McpClientTool tool) {
         var declared = EffectOf(tool.ProtocolTool.Annotations);
-        // The peer's published JsonSchema lands in the live id->schema map the composition's
-        // McpRuntime.SchemaOf resolver consults by descriptor id — the SDK_CODEGEN identity gate
-        // reads the peer contract verbatim; a native row falls to the SuiteContracts.Schema shape.
+        // Each peer publishes its own JsonSchema into the live id->schema map the composition's
+        // McpRuntime.SchemaOf resolver consults by descriptor id, so the SDK_CODEGEN identity gate
+        // reads that peer contract verbatim while a native row falls to the SuiteContracts.Schema shape.
         ignore(runtime.PeerSchemas.Swap(current =>
             current.AddOrUpdate($"federated.{server.Value}.{tool.Name}", JsonNode.Parse(tool.JsonSchema.GetRawText())!)));
         return CapabilityDescriptor.Of(
@@ -191,7 +212,7 @@ public static class FederationProjection {
 - Auto: the federated descriptor routes through the one `Mediate` fold so the grant brokerage at `Agent/capability#GRANT_BROKER` runs before the peer call — a denied federated call never reaches the peer and never charges the broker's `CostUnit.Calls`/`CostUnit.BytesEgress` ceiling, the dry-run cost preview the `Agent/mcp#TOOL_DISPATCH` `McpDispatch.Preview` exposes pricing the federated call against the same standing grant a native call prices against; the dispatch closure sends `McpClient.CallToolAsync(name, args, progress: null, options, ct)` over the server's `OutboundHop` so the peer call inherits the hop's retry, breaker, and deadline — a flapping peer breaks on the same circuit breaker an HTTP API breaks on, never a per-server retry loop; the peer's `CallToolResult` content blocks and `IsError` flag project onto the reused `ToolResult` (`Tool`/`Content`/`IsError`/`Correlation`) so the federated result rides the existing structured-result wire the agent transport already decodes; a peer-call fault projects to `FederationFault.ToolCallFaulted` (registry-banded) the mediation evidence carries, so a faulted federated call returns a typed transaction disposition, never a thrown exception; the mediation's `BrokeredCall` evidence and the projected `ToolResult` ride the same `ReceiptSinkPort.Send` fan a native command's evidence rides, so a federated tool call is content-addressed and replayable exactly as a native op.
 - Receipt: the federated call mints one `BrokeredCall` through the mediation carrying the caller modality, permitted flag, and charged cost vector; the peer result is the reused `ToolResult`, never a parallel federation receipt; the determinism chain seat is the mediation's `ReceiptSinkPort` fan, so federation owns no direct `EventLog.Append`.
 - Packages: ModelContextProtocol.Core, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
-- Growth: a federated call is one descriptor `Compile` projection plus one `CallToolAsync` over the hop; a new peer-result content kind is one column the reused `ToolResult` already carries; zero new surface.
+- Growth: a federated call is one descriptor `Compile` projection over one `CallToolAsync` on the hop; a new peer-result content kind is one column the reused `ToolResult` already carries; zero new surface.
 - Boundary: the federated dispatch is the only federated-call owner — a direct `McpClient.CallToolAsync` outside the mediation, a per-server call helper, and an unbrokered peer call are the deleted forms, so every federated call routes through the ONE `GrantHandleSurface.Mediate` fold exactly as `ARCHITECTURE.md#[05]-[BOUNDARIES]` mandates (the same fold the operator, agent, and plugin callers share — the federation adds a dispatch closure, never a second admission path); the dispatch never invokes Compute — a federated call is externally executed, so the Compute rail is untouched and the never-compiles sentinel makes the impossibility a compile-time fact; the peer call rides the server's `OutboundHop` so the external server's bytes inherit the existing resilience and the federation owns no transport retry; the `ToolResult` is the reused `Agent/mcp#TOOL_DISPATCH` record ridden as the `ReceiptEnvelopeWire` `TPayload` at `TS_PROJECTION` — a branch-side `ToolResultWire` mint is the named drift defect both this page and the server projection delete; the federated `EffectClass.External` forces the command algebra onto the saga path because no rollback restores a peer's side effect, so a federated write declares a compensation descriptor on the runtime or admits as a single-shot non-compensatable op, never a phantom undo of a remote side effect.
 
 ```csharp signature
@@ -204,16 +225,16 @@ public sealed record FederatedCall(
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
 public static class FederatedDispatch {
-    // The typed never-compiles sentinel (the model-descriptor precedent): a federated call is NOT a
-    // Compute intent — the landed ComputeIntent union carries no Federated case and AppHost cannot add
-    // one — so the compile delegate rejects by construction and the brokered execution routes through
-    // the one GrantHandleSurface.Mediate fold below, zero reversed Compute coupling.
+    // Compile is the typed never-compiles sentinel (the model-descriptor precedent): a federated call is
+    // NOT a Compute intent — the landed ComputeIntent union carries no Federated case and AppHost cannot add
+    // one — so this delegate rejects by construction and brokered execution routes through the one
+    // GrantHandleSurface.Mediate fold below, with zero reversed Compute coupling.
     public static Fin<ComputeIntent> Compile(FederatedServer server, string tool) =>
         Fin.Fail<ComputeIntent>(new CommandFault.CompileRejected($"federated.{server.Value}.{tool}:not-a-compute-intent"));
 
-    // The brokered federated front door: policy gate + scope cover + broker charge ride the ONE
-    // Sandbox/isolation#GRANT_HANDLE Mediate fold with the peer call as the dispatch closure — grant,
-    // cost, and evidence identical to a native op.
+    // Dispatch is the brokered federated front door: policy gate, scope cover, and broker charge ride the
+    // ONE Sandbox/isolation#GRANT_HANDLE Mediate fold with the peer call as the dispatch closure, so grant,
+    // cost, and evidence stay identical to a native op.
     public static IO<(BrokeredCall Call, ToolResult Result)> Dispatch(MediationRuntime mediation, GrantScope scope, FederationRuntime runtime, string descriptorId, FederatedCall call, CommandArguments arguments) =>
         GrantHandleSurface.Mediate(mediation, CallerModality.Agent, scope, descriptorId, arguments,
             (_, _) => Call(runtime, call));
@@ -253,8 +274,8 @@ public static class FederatedDispatch {
 - Owner: the `FederationProjection` fold EXTENSION — `Resources`/`Prompts`/`Templates` projection arms added to the tool fold; `FederationSubscription` the `McpClient.SubscribeToResourceAsync` per-uri handler seam draining a peer resource-update into the one bounded `Wire/livewire#TRANSPORT_BINDING` `SubscriptionLane` as one `ExternalValue` (the reused at-edge carrier, never a federation-local value type).
 - Cases: a peer resource projects to a `read`-effect descriptor under `federated.{server}.resource.{uri}`; a peer prompt projects to a `pure`-effect descriptor under `federated.{server}.prompt.{name}`; a peer resource template projects to a `read`-effect descriptor under `federated.{server}.template.{uri}`, mirroring the server projection's effect-class filter where a `read` descriptor projects as both a tool and a resource and a `pure` template-shaped descriptor projects as a prompt; a peer resource-update notification drains into the same bounded lane the OPC-UA and MQTT subscriptions drain into.
 - Entry: `ProjectResources(FederationRuntime runtime, FederatedServer server)` returns `IO<Seq<CapabilityDescriptor>>` — lists the peer's resources, prompts, and templates and folds each into a brokered descriptor, the same fold the tool projection runs extended with three more list-and-wrap arms; `Subscribe(FederationRuntime runtime, FederatedServer server, string uri, ChannelWriter<ExternalValue> sink)` returns `IO<IAsyncDisposable>` — binds `McpClient.SubscribeToResourceAsync(uri, handler, options, ct)` registering the per-uri update handler at subscribe and returning the SDK unsubscribe handle, so a peer resource-change drains into the bounded lane as one `ExternalValue`.
-- Auto: the resource fold lists the peer through `McpClient.ListResourcesAsync(RequestOptions?, CancellationToken)` and the prompt fold through `McpClient.ListPromptsAsync(RequestOptions?, CancellationToken)`, each `McpClientResource`/`McpClientPrompt` wrapping into one descriptor whose `Compile` projects the read or prompt-get call exactly as the tool fold projects a `CallToolAsync`; the resource-template fold lists through `McpClient.ListResourceTemplatesAsync(RequestOptions?, CT)` (catalogued at `.api/api-mcp.md` row [9]) so a parameterized peer resource projects as a `read`-effect descriptor carrying the `McpClientResourceTemplate.UriTemplate` RFC-6570 template the SDK evaluates; the subscription binds the `McpClient.SubscribeToResourceAsync(string uri, Func<ResourceUpdatedNotificationParams, CancellationToken, ValueTask> handler, RequestOptions?, CT)` per-uri overload — the SDK registers the handler at subscribe and returns one `IAsyncDisposable` unsubscribe handle — and the handler, on a peer resource-update, `TryWrite`s one `ExternalValue` (the `ResourceUpdatedNotificationParams.Uri` as the unit, the good flag, the receive instant) into the same bounded `Channel<ExternalValue>` under `BoundedChannelFullMode.DropOldest` the live-wire subscriptions drain into — the foreign notification thread never runs the interior, the bounded lane's drop policy is the producer back-pressure, and the reactive consumer drains the changed resource as one inbound command, so a peer resource-change re-projects through the federated descriptor exactly as a native binding's inbound value re-projects; the subscription is a read-shape variant on the federation fold, never a parallel notification handler — `SubscribeToResourceAsync` with its per-uri handler is the one subscription seam, never a mutated `McpClientHandlers` bag (the registry exposes no `ResourceUpdatedHandler` slot).
-- Receipt: each projected resource/prompt/template descriptor is one `CapabilityDescriptor` the registry folds; each drained resource-update is one `ExternalValue` the lane carries, re-projected through the federated descriptor as one `CommandReceipt`; no parallel federation-resource receipt.
+- Auto: the resource fold lists the peer through `McpClient.ListResourcesAsync(RequestOptions?, CancellationToken)` and the prompt fold through `McpClient.ListPromptsAsync(RequestOptions?, CancellationToken)`, each `McpClientResource`/`McpClientPrompt` wrapping into one descriptor whose `Compile` projects the read or prompt-get call exactly as the tool fold projects a `CallToolAsync`; the resource-template fold lists through `McpClient.ListResourceTemplatesAsync(RequestOptions?, CT)` (catalogued at `.api/api-mcp.md` row [9]) so a parameterized peer resource projects as a `read`-effect descriptor carrying the `McpClientResourceTemplate.UriTemplate` RFC-6570 template the SDK evaluates; the subscription binds the `McpClient.SubscribeToResourceAsync(string uri, Func<ResourceUpdatedNotificationParams, CancellationToken, ValueTask> handler, RequestOptions?, CT)` per-uri overload — the SDK registers the handler at subscribe and returns one `IAsyncDisposable` unsubscribe handle — and the handler, on a peer resource-update, `TryWrite`s one `ExternalValue` (the `federated.{server}.resource.{uri}` descriptor key the `ResourceUpdatedNotificationParams.Uri` composes as the unit, the good flag, the `ClockPolicy` instant) into the same bounded `Channel<ExternalValue>` under `BoundedChannelFullMode.DropOldest` the live-wire subscriptions drain into — the foreign notification thread never runs the interior, the bounded lane's drop policy is the producer back-pressure, and the reactive consumer resolves that key and drains the changed resource as one brokered inbound command, so a peer resource-change re-projects through the federated descriptor exactly as a native binding's inbound value re-projects; the subscription is a read-shape variant on the federation fold, never a parallel notification handler — `SubscribeToResourceAsync` with its per-uri handler is the one subscription seam, never a mutated `McpClientHandlers` bag (the registry exposes no `ResourceUpdatedHandler` slot).
+- Receipt: each projected resource/prompt/template descriptor is one `CapabilityDescriptor` the `#FEDERATION_PROJECTION` `Federate` fold lands in the same per-peer snapshot the tool rows ride; each drained resource-update is one `ExternalValue` carrying its federated resource-descriptor key as the unit, which the `Wire/livewire#TRANSPORT_BINDING` lane consumer resolves, brokers, and mints one `CommandReceipt` from — this page writes the keyed value and mints no receipt of its own; no parallel federation-resource receipt.
 - Packages: ModelContextProtocol.Core, LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, BCL inbox
 - Growth: a peer resource is one fold arm; a peer prompt is one fold arm; a peer template is one fold arm; the subscription drain reuses the one bounded lane the live-wire subscriptions own; zero new surface.
 - Boundary: the resource/prompt fold is the same `FederationProjection` extended with three list-and-wrap arms, never a second projection — a peer resource/prompt enters only as a brokered descriptor through the one registry, a second resource catalog being the named drift defect; the effect-class filter mirrors the server projection so a federated resource is `read`, a federated prompt is `pure`, and the trust-scope ceiling lowers each exactly as the tool fold lowers a tool's effect class; the subscription drains into the ONE bounded `SubscriptionLane` the OPC-UA, MQTT, and OPC-UA-PubSub subscriptions drain into — a parallel notification handler, a federation-specific subscription buffer, and a second bounded channel are the deleted forms, so a peer resource-update and an industrial sensor value ride one inbound contract; the `McpClient.SubscribeToResourceAsync` per-uri handler overload is the SDK's resource-update seam so the federation never re-implements the JSON-RPC notification dispatch, it passes the handler at subscribe and holds the returned `IAsyncDisposable`; the resource-update re-projects through the federated descriptor so the changed resource lands as a brokered, metered, audited inbound command, the same brokerage a live-wire inbound value rides, never a privileged write path.
@@ -303,6 +324,10 @@ public static partial class FederationProjection {
 }
 
 public static class FederationSubscription {
+    // The lane carries VALUES and the drain that re-projects them is the live-wire consumer's, so identity has to
+    // ride the value: `Unit` spells the resource descriptor's own registry key rather than the bare peer uri, which
+    // is what lets that consumer resolve the brokered descriptor, meter the call, and mint the receipt. An
+    // unkeyed uri strands every update as an anonymous reading no consumer can route back to its peer.
     public static IO<IAsyncDisposable> Subscribe(FederationRuntime runtime, FederatedServer server, string uri, ChannelWriter<ExternalValue> sink) =>
         from client in runtime.SessionOf(server)
         from handle in IO.liftAsync(() => client.SubscribeToResourceAsync(
@@ -310,9 +335,9 @@ public static class FederationSubscription {
             (notification, ct) => {
                 ignore(sink.TryWrite(new ExternalValue(
                     Raw: 0d,
-                    Unit: notification.Uri,
+                    Unit: $"federated.{server.Value}.resource.{notification.Uri}",
                     Good: true,
-                    SourceAt: SystemClock.Instance.GetCurrentInstant())));
+                    SourceAt: runtime.Clocks.Now)));
                 return ValueTask.CompletedTask;
             },
             options: null,
@@ -329,7 +354,7 @@ public static class FederationSubscription {
 - Growth: one wire-member row per new server or federated-descriptor field; a new transport kind crosses as its `TransportKind` smart-enum token; zero new surface.
 - Boundary: the `TransportKind` `[SmartEnum<string>]` serializes by its string `Key` through the `ThinktectureJsonConverterFactory` so the dashboard switches on the transport token, never the ordinal; the federated descriptors cross as `DiscoveryResultWire` rows in the ONE capability catalog the dashboard command palette already reads — a second federated-descriptor catalog beside the one `Agent/capability#TS_PROJECTION` catalog is the deleted form, the `federated.{server}.{tool}` surface key being the only marker distinguishing a federated row from a native row; the federated tool result is the reused `ToolResultWire` ridden as the `ReceiptEnvelopeWire` `TPayload` so the federation transport decodes the same payload shape the server projection emits, never a re-authored federated-result shape; the trust-scope hash crosses as the deterministic permission-scope string so the dashboard groups federated tools by their server's trust without re-deriving the scope.
 
-```ts contract
+```ts signature
 type TransportKindKey = "stdio" | "http" | "streamable";
 
 interface FederatedServerWire {
@@ -339,9 +364,9 @@ interface FederatedServerWire {
   readonly trustHash: string;
 }
 
-// The federated descriptors cross as DiscoveryResultWire rows under federated.{server}.* surface
-// keys in the one capability catalog (Agent/capability#TS_PROJECTION); the federated tool result
-// rides the existing ReceiptEnvelopeWire<ToolResultWire> from Agent/mcp#TS_PROJECTION.
+// Federated descriptors cross as DiscoveryResultWire rows under federated.{server}.* surface keys in the
+// one capability catalog (Agent/capability#TS_PROJECTION), and a federated tool result rides the existing
+// ReceiptEnvelopeWire<ToolResultWire> from Agent/mcp#TS_PROJECTION.
 interface FederatedDescriptorWire {
   readonly descriptor: string;
   readonly server: string;
@@ -351,16 +376,11 @@ interface FederatedDescriptorWire {
 }
 ```
 
-## [07]-[RESEARCH]
+## [07]-[APP_ROOT_COMPOSITION]
 
-Federation fence members verify against the folder `.api/api-mcp.md` (`ModelContextProtocol`/`ModelContextProtocol.Core`) and shared `libs/csharp/.api/api-extensions-ai.md` (`Microsoft.Extensions.AI.Abstractions`) catalogues. Client construction `McpClient.CreateAsync(IClientTransport, McpClientOptions?, ILoggerFactory?, CancellationToken)`, the session calls `McpClient.ListToolsAsync(RequestOptions?, CT)`/`McpClient.CallToolAsync(string toolName, IReadOnlyDictionary<string,object?>? arguments, IProgress<ProgressNotificationValue>? progress, RequestOptions? options, CT)`/`McpClient.ListResourcesAsync(RequestOptions?, CT)`/`McpClient.ListPromptsAsync(RequestOptions?, CT)`/`McpClient.ListResourceTemplatesAsync(RequestOptions?, CT)`/`McpClient.SubscribeToResourceAsync(string uri, Func<ResourceUpdatedNotificationParams, CancellationToken, ValueTask> handler, RequestOptions?, CT)`, the `McpClientTool : AIFunction` tool surface (`Name`, the `JsonSchema`/`ReturnJsonSchema` it inherits from `AIFunctionDeclaration`), the `McpClientResource`/`McpClientPrompt`/`McpClientResourceTemplate` client accessors, the public `IClientTransport` implementors `StdioClientTransport`/`HttpClientTransport`/`StreamClientTransport` with `StdioClientTransportOptions`/`HttpClientTransportOptions` (the `HttpClientTransportOptions.TransportMode` `HttpTransportMode` enum — `AutoDetect`/`StreamableHttp`/`Sse` — selecting the SDK-internal streamable-vs-SSE session transport at connect), the `McpClientOptions`/`McpClientHandlers` configuration-and-notification registry, and the `IClientTransport` factory contract are all catalogued rows the federation composes directly. `libs/csharp/.api/api-extensions-ai.md` catalogues the `AIFunction : AIFunctionDeclaration : AITool` chain the reused `CommandAIFunction` subtypes compose, so the federation needs only the `Microsoft.Extensions.AI.Abstractions` admission the server projection already pulls.
+App-root composition admits the federation catalog before the registry freeze: `FederationCatalog.Admit(rows)` validates the configured servers, `FederationProjection.Federate(runtime, services)` folds each server's tools, resources, prompts, and templates into the descriptor fan-in, the registry freezes the combined native-and-federated set into one `FrozenDictionary`, and `CapabilityRegistry.Mount` projects that frozen set's surface index onto the keyed roster gauge.
 
-- [CLIENT_FEDERATION]: the `McpClient` session surface the projection and dispatch compose is catalogue-settled fence code against the pinned `ModelContextProtocol.Core` 1.4.0 catalogue — `CreateAsync(IClientTransport, McpClientOptions?, ILoggerFactory?, CT)`, `ListToolsAsync(RequestOptions?, CT)` returning `ValueTask<IList<McpClientTool>>`, `CallToolAsync(string toolName, IReadOnlyDictionary<string,object?>? arguments, IProgress<ProgressNotificationValue>? progress, RequestOptions? options, CT)`, `ListResourcesAsync`/`ListPromptsAsync`/`ListResourceTemplatesAsync(RequestOptions?, CT)`, and `SubscribeToResourceAsync(string uri, Func<ResourceUpdatedNotificationParams, CancellationToken, ValueTask> handler, RequestOptions?, CT)` returning `Task<IAsyncDisposable>` all present; `McpClientTool : AIFunction` present, the public transports present. `CallToolAsync` and `SubscribeToResourceAsync` carry an `IProgress`/handler positional ahead of `RequestOptions?` so the dispatch and subscription pass `RequestOptions`/`CancellationToken` by name, never positionally onto the wrong slot. The `McpClientTool.ProtocolTool.Annotations` (`ToolAnnotations? Annotations` carrying `DestructiveHint`/`IdempotentHint`/`ReadOnlyHint`, all `bool?`) the descriptor effect-class read uses and the `CallToolResult.Content` (`IList<ContentBlock>`)/`CallToolResult.IsError` (`bool?`) result shape the dispatch projects onto the reused `ToolResult` ride the protocol model surface.
-- [RESOURCE_UPDATE_HANDLER]: `McpClientHandlers` carries no `ResourceUpdatedHandler` property — its handler slots are `NotificationHandlers`/`RootsHandler`/`ElicitationHandler`/`SamplingHandler`/`TaskStatusHandler`. The per-uri resource-update drain therefore rides the `McpClient.SubscribeToResourceAsync(string uri, Func<ResourceUpdatedNotificationParams, CancellationToken, ValueTask> handler, RequestOptions?, CT)` overload that registers the handler at subscribe and returns one `IAsyncDisposable` unsubscribe handle — the SDK's per-resource notification seam — never a mutated handlers-bag property. A subscription-wide drain across every resource rides the `NotificationHandlers` keyed registry on the `notifications/resources/updated` method.
-- [TEMPLATE_LIST_VERB]: resolved — `McpClient.ListResourceTemplatesAsync(RequestOptions?, CT)` returning `ValueTask<IList<McpClientResourceTemplate>>` is catalogued at `.api/api-mcp.md` client-construction entrypoint row [9] beside `ListResourcesAsync`/`ListPromptsAsync`, the `McpClientResourceTemplate.UriTemplate` accessor on the catalogued type; the template-fold arm composes the verb directly.
-- [FEDERATED_INTENT]: the landed `Rasm.Compute/Runtime/admission#INTENT_FAMILY` `ComputeIntent` union carries exactly six cases (TensorOp | ModelInfer | RemoteCall | UnitProject | Pipeline | Generate) and NO federated case — a `ComputeIntent.Federated` projection was the phantom this page deleted. The federated descriptor's compile delegate is the typed never-compiles sentinel (the `Agent/reasoning` model-descriptor precedent) and the brokered execution rides the one `GrantHandleSurface.Mediate` fold with the peer call as the dispatch closure, so grant, cost, and evidence are native-identical with zero Compute coupling; a federated tool's side effect is non-rollback so an `EffectClass.External` federated descriptor declares its compensation on the `CommandRuntime` or admits single-shot. Open member verification (assay-gated before the fence signature-locks): `McpClientTool.ProtocolTool`/`ToolAnnotations.DestructiveHint`/`.ReadOnlyHint`/`.IdempotentHint` (`bool?`), `CallToolResult.Content` (`IList<ContentBlock>`)/`.IsError` (`bool?`), and `ResourceUpdatedNotificationParams.Uri` ride the protocol model surface but carry no explicit `api-mcp.md` member rows yet.
-
-The app-root composition admits the federation catalog at composition before the registry freeze: `FederationCatalog.Admit(rows)` validates the configured external servers, `FederationProjection.Federate(runtime, services)` folds each server's tools/resources/prompts into the descriptor fan-in, and the registry freezes the combined native-plus-federated descriptor set into one `FrozenDictionary`. The federation set is composition-time so the additive `federated.{server}.*` rows admit through the same `ContractGuard.AdditiveOnly` gate the native descriptors admit through, and the cross-language SDK codegen reads the combined catalog so a federated tool emits a typed command method in C#, TypeScript, and Python off the one descriptor source exactly as a native op does.
+Admitting at composition time puts the additive `federated.{server}.*` rows through the `ContractGuard.AdditiveOnly` gate the native descriptors ride, and the cross-language SDK codegen reads the combined catalog so a federated tool emits a typed command method in all three languages off the one descriptor source.
 
 ```csharp signature
 Validation<FederationFault, FederationCatalog> catalog =
@@ -368,9 +388,32 @@ Validation<FederationFault, FederationCatalog> catalog =
         ("filesystem", TransportKind.Stdio, "rasm-mcp-fs", TrustScope.ReadOnly, default(StdioClientTransportOptions)),
         ("database", TransportKind.Http, "https://peer.local/mcp", new TrustScope(EffectClass.External, DataClassification.Operational, FrozenSet<string>.Empty), null)));
 
+// Refused peers boot the host federation-free and never vanish silently: accumulated admission faults ride
+// one SpineLog event on the stride the [02] card names, so a mistyped endpoint reads as a logged absence
+// rather than an unexplained gap in the command palette.
 IServiceCollection federated = await catalog.Match(
     Succ: admitted => FederationProjection.Federate(federationRuntime with { Catalog = admitted }, services).RunAsync(EnvIO.New()),
-    Fail: faults => IO.pure(services).RunAsync(EnvIO.New()));
+    Fail: faults => (SpineLog.PeersRefused(logger, faults.Count, faults.Head.Message), services).Item2);
 
-services.AddSingleton(sp => new CapabilityRegistry(sp.GetServices<CapabilityDescriptor>()));
+federated.AddSingleton(sp => new CapabilityRegistry(sp.GetServices<CapabilityDescriptor>()));
+
+// Census mount reads the frozen combined catalog against the same instruments every contributor's board
+// pack already proved inside `InstrumentFan.Mount`, so this leg carries the one descriptor-side claim the
+// mount fold cannot make — a registry fan-in the fan never sees — and refuses while the composition is
+// still editable rather than reading empty at first collection. The provider builds from the collection
+// this page just folded, and the fan resolves as the composition's ALREADY-mounted one: re-mounting here
+// mints a second meter per contributor and proves nothing about the streams the first mount bound.
+ServiceProvider provider = federated.BuildServiceProvider();
+ReceiptFan fan = provider.GetRequiredService<ReceiptFan>();
+Fin<Unit> roster = provider.GetRequiredService<CapabilityRegistry>().Mount(fan.Set);
 ```
+
+
+## [08]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

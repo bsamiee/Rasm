@@ -10,7 +10,7 @@
 
 ## [02]-[TRAVELER]
 
-`TravelerReceiptCorpus` composes tooling, setup, feature-frame, capability, manufacturability, procedure, sealed-record, inspection-link, control, and amendment owners. Its digital-product-passport identity derives from sealed records, so no writable twin can diverge. `TravelerText`, `TravelerQuantity`, and ordinal owners admit shared scalar regimes; `TravelerIdentity` composes work order, part, revision, quantity, heat lot, and serial identity.
+`TravelerReceiptCorpus` composes tooling, setup, feature-frame, capability, manufacturability, procedure, sealed-record, inspection-link, control, and amendment owners. Its digital-product-passport identity derives from sealed records, so no writable twin can diverge. `TravelerText`, `TravelerQuantity`, and ordinal owners admit shared scalar regimes; `TravelerIdentity` composes work order, part, revision, quantity, heat lot, and serial identity. `TravelerMarks` reads the run's typed drawing marks — keyed tag rows, unkeyed free-text runs, and every keyed row contradicting the declared identity.
 
 `TravelerControl` is one generated family over `TravelerLocus`. Global, step, operation, setup, and characteristic loci bind instructions; `Material` retains unit identity, and `Package` fixes the global locus with label, method, and destination policy. `Safety` carries residual-risk rank; `Inspect` carries every, first-article, skip-lot, or attribute sampling evidence. New capability grows as a case, and multiplicity grows as corpus rows.
 
@@ -36,6 +36,7 @@ using LanguageExt.Traits;
 using NodaTime;
 using Rasm.Domain;
 using Rasm.Fabrication.Fixturing;
+using Rasm.Fabrication.Ingress;
 using Rasm.Fabrication.Joining;
 using Rasm.Fabrication.Posting;
 using Rasm.Fabrication.Process;
@@ -498,6 +499,48 @@ public abstract partial record TravelerSection {
     public sealed record Procedure(Seq<ProcedureReceipt> Receipts) : TravelerSection;
     public sealed record Outputs(Option<PostDialect> Dialect, Seq<FabricationResult> Results) : TravelerSection;
     public sealed record Quality(Seq<SealedRecord> Records, Seq<TravelerInspectionLink> Inspections) : TravelerSection;
+    // Marks carry the drawing's own typed rows: Keyed holds the tag-name read a shop looks a part mark or heat
+    // number up by, and Free holds the text and paragraph runs a mark carries with no key. Reconciled names every
+    // keyed row whose value contradicts the caller-supplied identity, so a traveler printed against a superseded
+    // drawing states the divergence rather than quietly asserting the caller's part number over the sheet's.
+    public sealed record Marks(
+        Map<string, Arr<ProfileMarking>> Keyed,
+        Seq<ProfileMarking> Free,
+        Seq<(string Row, string Drawing, string Declared)> Reconciled) : TravelerSection;
+}
+
+// Marking reads: the traveler resolves part identity against the drawing rather than re-parsing an entity sweep it
+// never receives. PartMark and HeatNumber are the two rows a shop floor keys on, so they reconcile by name against
+// TravelerIdentity while every other keyed row rides through unreconciled.
+internal static class TravelerMarks {
+    const string PartMarkRow = "PartMark";
+    const string HeatNumberRow = "HeatNumber";
+
+    public static TravelerSection.Marks Of(FabricationInput input, TravelerIdentity identity) {
+        Map<string, Arr<ProfileMarking>> keyed = input.Tags;
+        // Each reconcilable row carries its declared identity as the option the identity already holds, so an
+        // absent half yields no comparison at all: substituting the part number for a missing heat lot compares
+        // the sheet's heat row against a number that never named a heat, and prints that mismatch as a divergence
+        // the drawing never carried.
+        return new TravelerSection.Marks(
+            keyed,
+            input.Markings.ToSeq().Filter(static marking => marking.Tag.IsNone),
+            Seq((PartMarkRow, Some(identity.PartNumber)), (HeatNumberRow, identity.HeatLot))
+                .Choose(static row => row.Item2.Map(declared => (row.Item1, declared)))
+                .Bind(row => Divergence(keyed, row.Item1, row.Item2)));
+    }
+
+    // Rows absent from the drawing raise no divergence — the sheet carries no such mark; a row present with a
+    // different value is the contradiction a traveler prints. EVERY tagged mark under the row is read, so a sheet
+    // carrying two values for one key prints both contradictions: a head-only read hides every later mark behind
+    // whichever one the drawing happened to author first, which is exactly the mark a shop floor mis-keys on.
+    static Seq<(string Row, string Drawing, string Declared)> Divergence(
+        Map<string, Arr<ProfileMarking>> keyed, string row, TravelerText declared) =>
+        keyed.Find(row).ToSeq()
+            .Bind(static marks => marks.ToSeq())
+            .Choose(static mark => mark.Content is MarkingContent.Tag tag ? Some(tag.Type.Text) : None)
+            .Filter(text => !string.Equals(text, declared.ToValue(), StringComparison.Ordinal))
+            .Map(text => (row, text, declared.ToValue()));
 }
 
 public sealed record TravelerDocument(Instant StampedAt, Seq<TravelerSection> Sections, Seq<ContentKey> Composed);
@@ -629,7 +672,8 @@ internal static class Traveler {
                         new TravelerSection.Specification(request.Corpus.Frames, request.Corpus.Capabilities, request.Corpus.Manufacturability),
                         new TravelerSection.Procedure(request.Corpus.Procedures),
                         new TravelerSection.Outputs(request.Dialect, request.Results),
-                        new TravelerSection.Quality(request.Corpus.Records, request.Corpus.Inspections))
+                        new TravelerSection.Quality(request.Corpus.Records, request.Corpus.Inspections),
+                        TravelerMarks.Of(input, request.Corpus.Identity))
                     select new TravelerDocument(stampedAt, sections, composed),
             };
 

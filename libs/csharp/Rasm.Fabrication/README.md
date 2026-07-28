@@ -12,7 +12,7 @@ Every manufacturing process folds through a single `FabricationPolicy` dispatch 
 - [03]-[PHYSICS](.planning/Process/physics.md): State-dependent material laws, coolant-coupled cutting response, and energy budgets.
 - [04]-[FAULTS](.planning/Process/faults.md): `FabricationFault` typed-rejection registry partitioned by owning concern.
 - [05]-[DERIVATION](.planning/Process/derivation.md): Aggregate-admitted plan derivation with lot scheduling and critical-path evidence.
-- [06]-[TELEMETRY](.planning/Process/telemetry.md): `FabricationFact` union with its instrument roster, projection fan, and SLO rows.
+- [06]-[TELEMETRY](.planning/Process/telemetry.md): `FabricationFact` union, instrument roster, projection fan, span scopes, descriptor pack.
 
 [TOOLING]:
 - [07]-[MAGAZINE](.planning/Tooling/magazine.md): ISO-13399 tool-assembly magazine and the minimal-swap tool-life schedule.
@@ -25,7 +25,7 @@ Every manufacturing process folds through a single `FabricationPolicy` dispatch 
 - [12]-[CURVES](.planning/Geometry2D/curves.md): Parametric-curve substrate feeding turning, pockets, posting stations, and 5-axis smoothing.
 
 [INGRESS]:
-- [13]-[PROFILE](.planning/Ingress/profile.md): DXF/DWG census, lane resolution, and OCS-correct arc-preserving contour healing.
+- [13]-[PROFILE](.planning/Ingress/profile.md): DXF/DWG census, lane resolution, arc-preserving contour healing, and the `Ingress.Admit` fold.
 - [14]-[SOLID](.planning/Ingress/solid.md): STEP/IGES/STL/3DM/3MF unit-resolved admission with conditioning and repair evidence.
 - [15]-[STEEL](.planning/Ingress/steel.md): DSTV/NC1 admission into typed steel features and arc-aware contours.
 - [16]-[ELEMENT](.planning/Ingress/element.md): `ElementGraph` admission into component, connection, relationship, and fact receipts.
@@ -102,7 +102,6 @@ Every manufacturing process folds through a single `FabricationPolicy` dispatch 
 Domain-specific libraries admitted by this folder; versions centralize in `Directory.Packages.props` and corroborate against this folder's `.api/`.
 
 [GEOMETRY_ENGINES]:
-- `Clipper2` — line-space offset and boolean-clip substrate.
 - `CavalierContours` — arc-native bulge-polyline offset and boolean owner.
 - `geometry3Sharp` — biarc and 2D curve-fit owner.
 - `SharpVoronoiLib` — 2D Fortune Voronoi with Lloyd relaxation for region decomposition.
@@ -120,9 +119,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 [ADDITIVE]:
 - `PicoGK` — implicit-voxel kernel for lattice infill and layer rasterization; companion-only.
 - `lib3mf` — 3MF reader and writer for core, production, and beam-lattice egress; vendored.
-
-[TOOLING_DATA]:
-- `MTConnect.NET-Common` — ISO-13399 cutting-tool model behind the magazine and tool telemetry.
 
 [NESTING]:
 - `RectangleBinPack.CSharp` — rectangular cutting-stock packer suite and NFP rectangle fast-path.
@@ -149,11 +145,17 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `System.Numerics.Tensors` — SIMD-lowered sampling folds across the hot toolpath and nesting lanes.
 - `CommunityToolkit.HighPerformance` — 2D span grids for grayscale, engagement, and layer-census rasters.
 
+[PLANAR_GEOMETRY]:
+- `Clipper2` — line-space offset and boolean-clip substrate under the toolpath and nesting lanes.
+
 [GRAPH_ALGORITHM]:
 - `QuikGraph` — setup-precedence, assembly, and rapid-link routing graphs.
 
 [RECENCY_CACHE]:
 - `Microsoft.Extensions.Caching.Hybrid` — solver memo tier behind `HybridCache`; durable L2 federates at the Persistence cache seam.
+
+[MACHINE_CONNECTIVITY]:
+- `MTConnect.NET-Common` — ISO-13399 cutting-tool partition behind the magazine and tool telemetry.
 
 [DATA_CLASSIFICATION]:
 - `Microsoft.Extensions.Compliance.Redaction` — classification attributes on classified receipt members; redactor binding stays at the app root.
@@ -165,3 +167,4 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 [RUNTIME_INBOX]:
 - `System.Diagnostics.Metrics` — in-box owner of the instrument surface.
 - `System.Diagnostics.ActivitySource` — in-box owner of the engine spans.
+- `System.Text.Json` — generated wire contexts and `Utf8JsonWriter` codecs behind the traveler, report, and telemetry egress payloads.

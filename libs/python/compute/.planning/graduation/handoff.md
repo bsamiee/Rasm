@@ -17,7 +17,7 @@ Multi-domain graduation HUB of the Python branch — the tier-0 page every evide
 - Producers: one self-wired `graduates()` producer per live case, each importing this hub downward — a case with no producer is dead vocabulary wearing a rail. `solver`: the `solvers/receipt#RECEIPT` `graduate` projection every solve owner feeds with its receipt or prepared ledger, its family ceiling row, and its key; `convex_program`: `optimization/convex#CONVEX`; `symbolic`: `analysis/symbolic#DERIVATION` under its own stability law; `array_layout`: `numerics/array#PAYLOAD` over the cross-backend bit-identity proof; `unit_law`: `numerics/quantity#QUANTITY`; `uncertainty_law`: `experiments/inference#BAYESIAN`; `model_asset`: `experiments/model#ASSET`; `artifact`: artifacts `core/receipt.md` (sibling-owned); `geometry`: decode-only. `numerics/statistics#STATISTICS` stays deliberately graduation-free by its own charter and `solvers/sensitivity#SENSITIVITY` stays disjoint from study DGSM — preserved boundaries, never gaps; composing the evidence weave is an observability import that breaches neither.
 - Auto: every graduating family's DEFAULT ceiling is a governed policy row on that family's own carrier beside its route table, the hub's caller-supplied tighter row the override — an ad-hoc ceiling literal at a `graduates()` call site has no owner. Three failure concerns stay distinct on three fences: a refinement breach is an exception the `_admit` fence converts, a ceiling rejection is a pure domain `Error` and never a raise, and an emit-time raise is the weave's emit fence to convert.
 - Receipt: an admitted handoff is a `planned` wire proposal, never an emitted product receipt. Its fact floor is FENCE-PINNED SELF-DESCRIBING as the C# graduation gate's decode vocabulary — `FACT_FLOOR` and the residual ledger namespaced under `residual.`, so a ledger metric can never shadow a floor name — and the gate attributes and dedupes every crossing without free-form-map guessing; the evidence key renders through the canonical `ContentKey.hex` form the C# `InterchangeIdentity.Key` contract reads.
-- Growth: a new handoff kind is one `HandoffAxis` case, one `_subject` match arm, and its sibling-campaign producer; a new geometry subject is a geometry ripple landing one `GEOMETRY_SUBJECTS` row; a stricter admission bar is one tighter ceiling row the caller supplies; a new evidence owner is one `EvidenceScope` row.
+- Growth: a new handoff kind is one `HandoffAxis` case, one `_subject` match arm, and its sibling-campaign producer; a new geometry subject is a geometry ripple landing one `GEOMETRY_SUBJECTS` row; a stricter admission bar is one tighter ceiling row the caller supplies; a new evidence owner is one `EvidenceScope` row; a new embedded composition is one `ScopeKey` the caller threads, never a sibling registry.
 - Boundary: no handoff record claims production readiness, a Python-only benchmark conclusion, or a C# source-shape claim absent from the C# owner planning. Compute-emitted geometry subjects do not exist — a second graduation direction is geometry's own closed ruling, so a compute re-graduation on the geometry axis requires a named consumer and a compute-owned axis case, never the geometry case.
 
 ```python signature
@@ -37,7 +37,7 @@ from opentelemetry import propagate, trace
 
 from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail, boundary
 from rasm.runtime.identity import ContentKey
-from rasm.runtime.receipts import Receipt, Redaction, measured
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, Redaction, ScopeKey, measured
 
 lazy from rasm.compute.graduation.observability import ADMITTED, REJECTED, GraduationAdmitted, GraduationRejected, fired, ledgered  # lazy breaks the hub<->observability stratum cycle; proxies reify at first dispatch
 
@@ -131,7 +131,10 @@ class _GeometryWire(Struct, frozen=True, gc=False, forbid_unknown_fields=True):
     # field names are wire law, re-shaped only by a geometry ripple, and `forbid_unknown_fields`
     # is the widen tripwire: a geometry band shipped without its compute row rails a typed
     # ValidationError on both decode arms instead of admitting silently. The optional W3C carrier
-    # defaults None and keeps trace context plus baggage under one wire field.
+    # defaults None and keeps trace context plus baggage under one wire field. The three mapping
+    # slots read `dict` because that IS the crossing shape: the owner holds `measured`, `ceilings`,
+    # and `trace` as persistent maps for its own frozen custody and `wire()` projects each to a
+    # plain dict, so a mirror widened to the owner's interior carrier decodes nothing it sends.
     subject: str
     key: str
     measured: dict[str, float]
@@ -152,25 +155,26 @@ class GraduationReceipt(Struct, frozen=True):
     @staticmethod
     def graduates(
         source_package: str, axis: HandoffAxis, evidence_key: ContentKey, measured: dict[str, float], ceiling: dict[str, float],
-        upstream: Mapping[str, str] | None = None,
+        upstream: Mapping[str, str] | None = None, composition: ScopeKey = DEFAULT_SCOPE,
     ) -> RuntimeRail[GraduationReceipt]:
         # two-stage rail: `boundary(_admit)` mints exactly one `RuntimeRail` over the refinement check, `.bind(_clear)`
         # threads the pure ceiling fold — admission, ceiling rejection, and emission stay one rail with no escape path;
-        # both arms fire their `graduation/observability.md` admission fact, taps projecting it without touching the rail.
+        # both arms fire their `graduation/observability.md` admission fact under the caller's composition, taps
+        # projecting it without touching the rail.
         def rail() -> RuntimeRail[GraduationReceipt]:
             _linked(upstream)  # producer-chain join at the rail head — the weave's live graduate span carries the Link on both arms
             return (
                 boundary(f"graduation.{axis.tag}", lambda: GraduationReceipt._admit(measured, ceiling))
                 .bind(lambda validated: GraduationReceipt._clear(source_package, axis, evidence_key, validated))
-                .map(GraduationReceipt._witnessed)
-                .map_error(GraduationReceipt._refused)
+                .map(lambda cleared: GraduationReceipt._witnessed(cleared, composition))
+                .map_error(lambda fault: GraduationReceipt._refused(fault, composition))
             )
 
         floor: SpanFacts = {"axis": axis.tag, "evidence_key": evidence_key.hex, "residual_count": len(measured)}
-        return evidence_run(EvidenceScope.HANDOFF, f"graduate.{axis.tag}", rail, facts=floor)
+        return evidence_run(EvidenceScope.HANDOFF, f"graduate.{axis.tag}", rail, facts=floor, composition=composition)
 
     @staticmethod
-    def geometry(source_package: str, payload: bytes | Mapping[str, object]) -> RuntimeRail[GraduationReceipt]:
+    def geometry(source_package: str, payload: bytes | Mapping[str, object], composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[GraduationReceipt]:
         # ONE carrier-decode ingress, channel-agnostic: bytes ride the cached decoder, in-process builtins ride `convert`. An
         # out-of-union subject rails typed on the `unknown-subject` band — the drift signal a geometry union extension trips until
         # compute's ripple lands — never an unfenced ValidationError, never a silent admit.
@@ -182,7 +186,8 @@ class GraduationReceipt(Struct, frozen=True):
                 return Error(BoundaryFault(boundary=("graduation.geometry", "unknown-subject")))
             return _key(wire.key).bind(
                 lambda key: GraduationReceipt.graduates(
-                    source_package, HandoffAxis(geometry=wire.subject), key, wire.measured, wire.ceilings, upstream=wire.trace
+                    source_package, HandoffAxis(geometry=wire.subject), key, wire.measured, wire.ceilings, upstream=wire.trace,
+                    composition=composition,
                 )
             )
 
@@ -221,17 +226,17 @@ class GraduationReceipt(Struct, frozen=True):
         )
 
     @staticmethod
-    def _witnessed(receipt: "GraduationReceipt") -> "GraduationReceipt":
-        # admission fact: one tee fire off the cleared receipt — the observability taps project it
-        # onto metrics and receipts, and the rail passes untouched.
-        fired(ADMITTED, GraduationAdmitted(axis=receipt.axis.tag, subject=receipt.subject, evidence_key=receipt.evidence_key.hex, residual_count=len(receipt.residuals)))
+    def _witnessed(receipt: "GraduationReceipt", composition: ScopeKey) -> "GraduationReceipt":
+        # admission fact: one tee fire off the cleared receipt under the caller's composition — the observability taps
+        # project it onto metrics and receipts, and the rail passes untouched.
+        fired(ADMITTED, GraduationAdmitted(axis=receipt.axis.tag, subject=receipt.subject, evidence_key=receipt.evidence_key.hex, residual_count=len(receipt.residuals)), composition)
         return receipt
 
     @staticmethod
-    def _refused(fault: BoundaryFault) -> BoundaryFault:
+    def _refused(fault: BoundaryFault, composition: ScopeKey) -> BoundaryFault:
         # rejection fact on the replay ring: a late diagnostic subscriber drains the recent refusals
         # on attach; refinement breach and ceiling rejection both land, discriminated by the boundary pair.
-        fired(REJECTED, GraduationRejected(boundary=fault.boundary[0], reason=fault.boundary[1]))
+        fired(REJECTED, GraduationRejected(boundary=fault.boundary[0], reason=fault.boundary[1]), composition)
         return fault
 
     @staticmethod
@@ -288,13 +293,16 @@ def _key(render: str) -> RuntimeRail[ContentKey]:
 
 
 def evidence_run[T](
-    scope: EvidenceScope, subject: str, dispatch: Callable[[], T] | Callable[[], Awaitable[T]], facts: SpanFacts = Map.empty()
+    scope: EvidenceScope, subject: str, dispatch: Callable[[], T] | Callable[[], Awaitable[T]], facts: SpanFacts = Map.empty(),
+    composition: ScopeKey = DEFAULT_SCOPE,
 ) -> RuntimeRail[T] | Awaitable[RuntimeRail[T]]:
     # hub's one policy binding of the runtime measured weave: compute's scope vocabulary, the hub REDACTION row, and the caller's
     # call-time discriminating facts stamped on the recording span beside {scope, subject} — span and receipt carry parallel evidence.
     # `ledgered` wraps the dispatch, so every producer's kernel fires its domain lifecycle points and the two-block resource band
-    # with zero producer edits.
-    return measured(scope.value, subject, REDACTION, ledgered(scope, subject, dispatch), facts)
+    # with zero producer edits, and the composition key threads through it AND onto the weave itself so an embedded second
+    # composition's lifecycle facts, its harvested weave line, and its recorded series all key to it rather than the root's:
+    # `scope.value` is the instrumentation scope the tracer opens under and never doubles as the custody key.
+    return measured(scope.value, subject, REDACTION, ledgered(scope, subject, dispatch, composition=composition), facts, composition=composition)
 ```
 
 ## [03]-[EVIDENCE_WEAVE]
@@ -302,7 +310,7 @@ def evidence_run[T](
 - Owner: `evidence_run` binds the runtime `measured` weave to compute policy — the `EvidenceScope` seed table names the span scope, `REDACTION` the emit policy — and every producer composes this binding, so a page-local tracer mint, a page-local redaction declaration, or an inline span open beside it has no owner. Span, fence, rail flatten, fenced harvest, and OK close are the `runtime/observability/receipts#RECEIPT` owner's mechanics, composed here, never re-authored.
 - Cases: every `EvidenceScope` member holds at least one composed consumer — a span emitter through this weave, a receipt `source_package` spelling through `.value`, or both; a member with neither is deleted, so the seed table can never carry dead vocabulary.
 - Entry: one entry discriminating modality on the dispatch shape, never an `evidence_run_async` sibling; `facts` threads each producer's call-time discriminants — problem size, route, backend, precision — onto the recording span, so a trace filters on the same evidence the receipt carries; emission binds through its own fence at the runtime owner — the no-escape guarantee the hub's admission rail demands, granted to every producer.
-- Ledger: the binding weaves the `graduation/observability.md` `ledgered` leg around every dispatch — enter fact, two-`oneshot` resource band, exit fact — so the point rail and the resource ledger reach every producer through the one binding; point rows, payload family, measure mapping, and taps are that page's, composed here, never re-authored.
+- Ledger: the binding weaves the `graduation/observability.md` `ledgered` leg around every dispatch — enter fact, resource band off the runtime `Cost` bracket, exit fact on both the settled and raised arms — so the point rail and the resource ledger reach every producer through the one binding; point rows, payload family, measure mapping, and taps are that page's, composed here, never re-authored. `composition` threads from the caller through this binding into `ledgered` and through `graduates` into both admission fires, so an embedded second composition's lifecycle and admission facts reach the points IT registered; the key defaults `DEFAULT_SCOPE`, so the root call shape stays scope-free.
 
 ## [04]-[CROSS_OWNER]
 
@@ -319,7 +327,7 @@ Each axis crosses under the one admission gate, and no `planned` receipt is emit
 
 ## [05]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[STATUS]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

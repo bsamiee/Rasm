@@ -19,26 +19,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-[WIRE_CARRIER_ADAPTERS]-[BLOCKED]: One wire-carrier adapter family spans every transport crossing in both directions.
-- Capability: gRPC, generic, and MQTT publish adapters — all settled — complete with MQTT receive, so every context-carrying crossing shares one carrier law.
-- Shape: the MQTT receive adapter beside the settled publish adapters on the AppHost wire plane.
-- Unlocks: bidirectional MQTT crossings under the one carrier adapter family.
-- Anchors: the settled gRPC, generic, and MQTT publish adapters; `libs/csharp/Rasm.AppHost/.api/api-mqtt.md`; `libs/csharp/.api/`.
-- Arms: `libs/csharp/Rasm.AppHost/.api/api-mqtt.md` or `libs/csharp/.api/` carries the exact `MqttApplicationMessage` user-property collection and entry accessors.
-
-[TELEMETRY_OFFLINE_SPINE]-[BLOCKED]: Telemetry survives disconnection through a per-signal disk-retry spine.
-- Capability: an `OfflineQueue`-backed exporter retry binding holds every signal through an outage, so a field machine ships complete history on reconnect.
-- Shape: the offline-retry binding on the AppHost telemetry exporter owners.
-- Unlocks: lossless telemetry from disconnected sites.
-- Anchors: `libs/csharp/.api/api-opentelemetry-exporter-otlp.md`; `libs/csharp/Rasm.AppHost/.api/api-otel-persistent-storage.md`.
-- Arms: either catalog carries an exact per-signal disk-retry member or environment binding and its `FileBlobProvider` composition law.
-
-[CORPUS_GATE_INGEST]-[BLOCKED]: One corpus gate ingests benchmark claim projections from every producer.
-- Capability: kernel, Bim, Persistence, and Rhino projections — all settled — complete with Materials and Grasshopper, estate-wide claims grading through one gate.
-- Shape: the Materials and Grasshopper projections routed by `Observability/benchmarks.md#[CLAIM_FAMILY_ADMISSION]`.
-- Unlocks: estate-wide benchmark claims grade through one corpus gate.
-- Anchors: the settled kernel, Bim, Persistence, and Rhino projections; `Observability/benchmarks.md#[CLAIM_FAMILY_ADMISSION]`.
-- Arms: both owner routes in `Observability/benchmarks.md#[CLAIM_FAMILY_ADMISSION]` close.
+[CLASSIFICATION_TAXONOMY_OWNER]-[QUEUED]: One owner holds the classification row set the estate redacts on, so three branch-local vocabularies stop sharing one taxonomy name with disjoint rows.
+- Capability: Classification collapses to one owned row set whose every row carries its own redaction verdict, so a marker minted at any branch resolves against one fail-closed redactor map rather than three private vocabularies colliding on one taxonomy string.
+- Shape: `libs/csharp/Rasm.AppHost/.planning/Observability/telemetry.md:1090` declares `DataClassification`, nine rows, a `[SmartEnum<string>]` carrying `RedactorKind` and projecting `Marker`; `libs/csharp/Rasm.Fabrication/.planning/Process/telemetry.md:653` declares `FabricationClassified`, three framework values under a `"DataClassification"` const; `libs/csharp/Rasm.Rhino/.planning/Objects/authoring.md:74` declares `HostSensitivity`, four framework values under `nameof(DataClassification)`.
+- Unlocks: Redaction derives from the row itself at every branch, so a newly classified field annotates and lands its verdict with no app-root map edit, and a row outside the owner's set fails closed instead of crossing unredacted.
+- Anchors: `Microsoft.Extensions.Compliance.Classification.DataClassification`/`DataClassificationAttribute` are the framework carriers all three spell; `RedactorKind` is the sole verdict column among them; `HostSensitivity` already spells `HostPath` and `UserContent` onto one `user-content` value, so row identity drifted inside a single declaration.
+- Tension: `Rasm.Fabrication` rules its rows VALUE FEDERATION — `(taxonomy, value)` string pairs crossing no type reference — so the collapse question is whether federation stands estate-wide and what then owns the ROW SET all three must agree on, since a value the owner never declares redacts nowhere.
 
 ## [02]-[CLOSED]
 
@@ -46,6 +32,9 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[WIRE_CARRIER_ADAPTERS]-[COMPLETE]: `api-mqtt.md` gained the v5 user-property read scope — `MqttApplicationMessage.UserProperties`, `MqttUserProperty.Name`/`ValueBuffer`, and `MqttUserPropertyExtensions.ReadValueAsString`, the buffer pair the package's own `[Obsolete]` notes point at — so `TraceContext` carries an `MqttApplicationMessage` `Continue` overload beside its builder `Inject` and the `MqttRuntime.Properties` composition delegate deleted with the unknown it existed to defer.
+[CORPUS_GATE_INGEST]-[COMPLETE]: `Observability/benchmarks.md` `[05]-[CLAIM_FIELD_MAP]` closes over all nine families — Materials `BenchWorkload` stood already and the two Grasshopper breach rows landed once `CaptureBreach` carried its producing bound — and that page's `[RESEARCH]` section reads `(none)`, so every producer grades through one verdict grammar.
+[TELEMETRY_OFFLINE_SPINE]-[COMPLETE]: the durable spine landed as branch-owned TRANSPORT rather than exporter persistence — `OtlpOfflinePolicy.For` opens one `OtlpOfflineQueue` per exported signal at composition and `PersistentOtlpHandler` swaps a durable signal's transport, replaying the tail through the next proved request under the governance queue, arming, and drain bounds.
 [TENANT_COST_SPAN_PROMOTION]-[COMPLETE]: `AddBaggageActivityProcessor(PromotedBaggage)` allowlist rows landed at both provider owners with the governance-table policy row.
 [FLEET_DEPLOY_ANNOTATIONS]-[COMPLETE]: `RollAnnotationWire` record and per-wave projection fold landed on `Sandbox/provisioning#ROLLOVER_DRAIN`, fanned under `InstrumentFan.RollKind` and joined to the `AppHostWireContext` roster.
 [DIAGNOSTIC_HEAP_ANALYSIS]-[COMPLETE]: `DumpTriage.Walk` ClrMD fold and the `SupportArtifact.DumpAnalysis` factory row landed on `Observability/bundles#CAPTURE_PIPELINE` under `DumpPolicy.CensusCap`/`TriageRows`/`FrameCap` bounds with shallow heap-sample semantics.

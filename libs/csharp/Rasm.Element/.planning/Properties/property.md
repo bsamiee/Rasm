@@ -1,12 +1,12 @@
 # [ELEMENT_PROPERTY]
 
-The typed property vocabulary the `PropertySet`/`QuantitySet` bag nodes carry: one `PropertyValue` `[Union]` closing the IFC-value family (`Text`/`Measure`/`Boolean`/`Logical`/`Integer`/`Number`/`Binary`/`Enumerated`/`Reference`/`Bounded`/`List`/`Table`/`Complex`/`Temporal`) so a property carries its data type rather than a stringly value, one `PropertyName` key, the ONE `ValueBag<V>` generic the `PropertyBag`/`QuantityBag` aliases close over, and the `InheritanceMode` vocabulary owning the type→occurrence precedence fold. The IFC `Pset_*` roster, bSDD template resolution, geometry-true base-quantity derivation, and `IfcRelDefinesByProperties` round-trip stay in the `Rasm.Bim` projector. `DetailSchema` pins the neutral detail-bag seam. `PropertyValue.Of` rails malformed scalar or composite values, and `CanonicalBytes` preserves every scalar discriminant so the same rendering never aliases different typed evidence.
+The typed property vocabulary the `PropertySet`/`QuantitySet` bag nodes carry: one `PropertyValue` `[Union]` closing the IFC-value family (`Text`/`Measure`/`Boolean`/`Logical`/`Integer`/`Number`/`Binary`/`Enumerated`/`Reference`/`Bounded`/`List`/`Table`/`Complex`/`Temporal`) so a property carries its data type rather than a stringly value, one `PropertyName` key, the ONE `ValueBag<V>` generic the `PropertyBag`/`QuantityBag` aliases close over, and the `InheritanceMode` vocabulary owning the type→occurrence precedence fold. The IFC `Pset_*` roster, bSDD template resolution, geometry-true base-quantity derivation, and `IfcRelDefinesByProperties` round-trip stay in the `Rasm.Bim` projector. `DetailSchema` pins the neutral detail-bag and takeoff-quantity seams. `PropertyValue.Of` rails malformed scalar or composite values, and `CanonicalBytes` preserves every scalar discriminant so the same rendering never aliases different typed evidence.
 
 ## [01]-[INDEX]
 
 - [02]-[PROPERTY_VALUE]: the `PropertyValue` `[Union]` typed IFC-value family, the `PropertyName` key, the `Interpolation` table-curve rule, the `TemporalValue` NodaTime-carried temporal leaf family, the fallible `Of` structural admission, the recursive `Remap` node-id rewrite and its `References` reachability dual the `Relations/relation#EDGE_ALGEBRA` `Generic` edge composes (renumber and cascade in lockstep), and the canonical `Render`/`CanonicalBytes` folds.
 - [03]-[PROPERTY_BAG]: the one `ValueBag<V>` named inheritance-stamped value bag (the `PropertyBag`/`QuantityBag` aliases), the `InheritanceMode` `[SmartEnum]` owning the generic `Resolve<V>` precedence algebra, the `PropertySource` rank, and the type→occurrence `Merge` the `Bake` applies.
-- [04]-[DETAIL_SCHEMA]: the one neutral `DetailSchema` over `PropertyBag` — the neutral `SetName`s the `Rasm.Bim` egress maps to IFC Psets, the stamped precedence, the `JointType` allowed-set, the canonical detail `PropertyName` vocabulary, and the conforming `Bag`/`Joint` factories.
+- [04]-[DETAIL_SCHEMA]: the one neutral `DetailSchema` over the bag aliases — the neutral `SetName`s the `Rasm.Bim` egress maps to IFC Psets, the stamped precedence, the `JointType` allowed-set, the canonical detail and takeoff `PropertyName` vocabulary, and the conforming `Bag`/`Quantities`/`Joint` factories.
 
 ## [02]-[PROPERTY_VALUE]
 
@@ -323,16 +323,72 @@ public sealed partial record ValueBag<V>(string SetName, [property: UnorderedEqu
 
 ## [04]-[DETAIL_SCHEMA]
 
-- Owner: `DetailSchema` the ONE neutral detail-schema mechanism over `PropertyBag` — a neutral `SetName`, an `InheritanceMode`, and an optional `JointType` allowed-set — plus the canonical detail `PropertyName` vocabulary. `DetailSchema.Realization` owns realizing fastener/rebar/connector/joint detail plus the masonry size-envelope and cmu profile-subtype rows; `DetailSchema.Product` owns panel board/deck/membrane product geometry plus the IGU build rows.
-- Entry: `DetailSchema.Realization` the canonical realizing schema; `DetailSchema.Product` the canonical product-detail schema; `schema.Bag(source = default)` mints the empty conforming source-stamped `PropertyBag`, the omitted source deriving `PropertySource.Catalogue`; `schema.Joint(selected)` the `JointType` row VALUE as a `PropertyValue.Enumerated` over the schema's closed allowed-set.
-- Auto: `Bag` pins `SetName` and `InheritanceMode` from the schema and stamps the resolved source rank, so neither author nor reader hand-spells the set-name string, re-stamps precedence, or drops source rank; `Joint(selected)` constructs the typed `PropertyValue.Enumerated` over `Text`-wrapped tokens (the selected token against the schema's closed `JointTypes` allowed-set) so the `Properties/property#PROPERTY_VALUE` `Of` admission holds.
-- Receipt: the conforming `PropertyBag` lands on the seam `ElementGraph` as a `Graph/element#NODE_MODEL` `Node.PropertySet` bound by a `Relations/relation#EDGE_ALGEBRA` `Assign.PropertyDefinition` edge onto the realizing element, the `Bake` fold merging it into `element.Properties`; the bag mints through `NodeId.Content` over `Node.ToCanonicalBytes` (id excluded) so two structurally-identical detail bags dedup to one node, never a second `(GeometryKey, DetailKey)` hasher.
+- Owner: `DetailSchema` the ONE neutral schema mechanism over the `ValueBag<V>` aliases — a neutral `SetName`, an `InheritanceMode`, and an optional `JointType` allowed-set — and the canonical `PropertyName` vocabulary both bag families key on; `PropertyCategory` the owner-blessed producer scope every package mints its own row names through; `StructuralRows` the cross-package restraint, load, and topology vocabulary a Bim projector stamps onto a `Generic` edge and a Compute runner reads back. `DetailSchema.Realization` owns realizing fastener/rebar/connector/joint detail with the masonry size-envelope and cmu profile-subtype rows; `DetailSchema.Product` owns panel board/deck/membrane product geometry with the IGU build rows; `DetailSchema.Takeoff` owns the type-level per-running-metre quantity rows.
+- Entry: `PropertyCategory.<scope>.Row(name)` mints a producer-scoped row name, `PropertyCategory.Seam` carrying the empty prefix so the schema's own statics keep the bare names an IFC round-trip froze; `StructuralRows.Translation`/`Rotation`/`Force`/`Moment` project their axis families and `Dofs` reads the six restraint rows; `DetailSchema.Realization` the canonical realizing schema; `DetailSchema.Product` the canonical product-detail schema; `DetailSchema.Takeoff` the canonical type-quantity schema; `schema.Bag(source = default)` mints the empty conforming source-stamped `PropertyBag` and `schema.Quantities(source = default)` its `QuantityBag` counterpart, the omitted source deriving `PropertySource.Catalogue`; `schema.Joint(selected)` the `JointType` row VALUE as a `PropertyValue.Enumerated` over the schema's closed allowed-set.
+- Auto: `Bag` and `Quantities` pin `SetName` and `InheritanceMode` from the schema and stamp the resolved source rank, so neither author nor reader hand-spells the set-name string, re-stamps precedence, or drops source rank; `Joint(selected)` constructs the typed `PropertyValue.Enumerated` over `Text`-wrapped tokens (the selected token against the schema's closed `JointTypes` allowed-set) so the `Properties/property#PROPERTY_VALUE` `Of` admission holds.
+- Receipt: the conforming `PropertyBag` lands on the seam `ElementGraph` as a `Graph/element#NODE_MODEL` `Node.PropertySet` and the conforming `QuantityBag` as a `Node.QuantitySet`, each bound by one `Relations/relation#EDGE_ALGEBRA` `Assign.PropertyDefinition` edge, the `Bake` fold merging them into `element.Properties` and `element.Qty` — a takeoff bound to a Type reaches every occurrence through that same type-bag merge, so no occurrence re-mints it; both bags mint through `NodeId.Content` over `Node.ToCanonicalBytes` (id excluded) so two structurally-identical bags dedup to one node, never a second `(GeometryKey, DetailKey)` hasher.
 - Packages: LanguageExt.Core (`Seq`/`Map` + the `Prelude` constructors), Thinktecture.Runtime.Extensions (the `PropertyName` `Create` factory + the `InheritanceMode` statics), `Properties/quantity#MEASURE_VALUE` (the dimension-only `MeasureValue.OfSi`), and the seam `PropertyBag`/`PropertyValue`/`PropertyName`/`InheritanceMode` owners this cluster composes.
-- Growth: a new realizing-detail or product row is one `static readonly PropertyName` the author writes and the reader reads by name; a new joint modality is one token on `Realization.JointTypes`; a material-property→`Pset` bag is ANOTHER `DetailSchema` instance — ONE schema mechanism over `PropertyBag`, never a parallel schema type, a per-row bag class, or a per-call-site allowed-set literal.
-- Boundary: `DetailSchema` is the ONE seam-declared detail contract and the seam carries NO IFC name — the neutral `SetName` is what both the in-graph bag and the schema carry, while the IFC Pset name (`Rasm_ConnectionRealization`), the `Pset_*` roster, the bSDD resolution, the egress mapping, and the `GlobalId` assignment stay in the `Rasm.Bim` `SemanticProjector`; a cross-peer realizing invariant (a fastener diameter against its member, a weld throat against its leg) is a `Rasm.Bim`-implemented `Projection/projection#GRAPH_CONSTRAINT` `IGraphConstraint`, never an IFC column on this bag; the realizing element's MATERIAL binding (grade, capacity, embodied carbon, classification, appearance) rides the `Rasm.Materials` projector's `Associate` edge, never a `SteelGrade`/`EmbodiedCarbon` row here; the joint TOPOLOGY rides the `Connect` edge's `Connect.Realizing` `Option<NodeId>` field (realizing-ness is the field, never a `ConnectKind.Realizing` row), never a detail row; an authored bag carrying a subset of rows is a faithfully different node, never a forced byte-match; the dimensional rows carry the dimension-only `MeasureValue.OfSi(Dimension, double)` (SI-base, `QuantityType` dimension-anonymous) so a re-imported bag content-keys identically — never a unit-bearing or typed-`QuantityType` measure that forks the key; `InheritanceMode` stays the bag-merge precedence the schema stamps ([03] owns the disjunction from the `Bake` inheritance).
+- Growth: a new producer scope is one `PropertyCategory` row and a new producer-local row family is one static roster in the owning package minted through that row's `Row`; a new structural axis is one `StructuralRows.Axes` entry every family absorbs; a new realizing-detail, product, or takeoff row is one `static readonly PropertyName` the author writes and the reader reads by name; a new joint modality is one token on `Realization.JointTypes`; a material-property→`Pset` bag is ANOTHER `DetailSchema` instance — ONE schema mechanism over the bag aliases, never a parallel schema type, a per-row bag class, or a per-call-site allowed-set literal.
+- Boundary: `DetailSchema` is the ONE seam-declared detail contract and the seam carries NO IFC name — the neutral `SetName` is what both the in-graph bag and the schema carry, while the IFC Pset name (`Rasm_ConnectionRealization`), the `Pset_*` roster, the bSDD resolution, the egress mapping, and the `GlobalId` assignment stay in the `Rasm.Bim` `SemanticProjector`; a cross-peer realizing invariant (a fastener diameter against its member, a weld throat against its leg) is a `Rasm.Bim`-implemented `Projection/projection#GRAPH_CONSTRAINT` `IGraphConstraint`, never an IFC column on this bag; the realizing element's MATERIAL binding (grade, capacity, embodied carbon, classification, appearance) rides the `Rasm.Materials` projector's `Associate` edge, never a `SteelGrade`/`EmbodiedCarbon` row here; the joint TOPOLOGY rides the `Connect` edge's `Connect.Realizing` `Option<NodeId>` field (realizing-ness is the field, never a `ConnectKind.Realizing` row), never a detail row; an authored bag carrying a subset of rows is a faithfully different node, never a forced byte-match; the DETAIL bag's dimensional rows carry the dimension-only `MeasureValue.OfSi(Dimension, double)` (SI-base, `QuantityType` dimension-anonymous) so an authored and a re-imported bag content-key identically — never a unit-bearing or typed-`QuantityType` measure that forks the key — while the TAKEOFF bag inverts that rule because its rows are DERIVED at projection rather than round-tripped from a foreign author: each value carries its full registry `QuantityType` so a costing or carbon consumer reads `LinearDensity` and `VolumePerLength` identities and composes the `Properties/quantity#MEASURE_VALUE` algebra on them, where a dimension-anonymous kg/m strands every downstream product; `InheritanceMode` stays the bag-merge precedence the schema stamps ([03] owns the disjunction from the `Bake` inheritance); the key space closes over OWNER PROVISION — a name two packages key on is a static here, a name one package owns is a static in that package minted through its `PropertyCategory` row, and a call-site `PropertyName.Create` in any writer or reader is the fork between non-referencing peers this pair deletes, so a projector's ingest-only enrichment row is either promoted here the moment a consumer keys on it or carried under its own category.
 
 ```csharp signature
+// --- [TYPES] ------------------------------------------------------------------------------
+// PropertyCategory is the owner-blessed producer scope a package mints its OWN row names under. The statics below
+// carry the CROSS-package vocabulary — every name a second package keys on — while a category-minted name is
+// namespaced by its producer, so a row one package writes and no peer reads can neither collide with a peer's
+// spelling nor drift from it. Seam carries the empty prefix, so the schema's own statics keep the bare names an IFC
+// round-trip already froze. A call-site PropertyName.Create in a writer or a reader is exactly what this pair
+// deletes: a name reaches a bag through an owner static or through its own producer's category, never a literal.
+[SmartEnum<string>]
+public sealed partial class PropertyCategory {
+ public static readonly PropertyCategory Seam = new("seam", prefix: "");
+ public static readonly PropertyCategory Bim = new("bim", prefix: "bim.");
+ public static readonly PropertyCategory Materials = new("materials", prefix: "materials.");
+ public static readonly PropertyCategory Fabrication = new("fabrication", prefix: "fabrication.");
+ public static readonly PropertyCategory Compute = new("compute", prefix: "compute.");
+
+ public string Prefix { get; }
+
+ private PropertyCategory(string key, string prefix) : this(key) => Prefix = prefix;
+
+ // Row is the ONE mint a producer roster composes; the declaring static lives in the producing package, so the
+ // vocabulary stays where its domain is while the key space stays partitioned by this owner.
+ public PropertyName Row(string name) => PropertyName.Create($"{Prefix}{name}");
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
+// StructuralRows carries the restraint, load, and topology rows a Bim projector STAMPS onto a Generic
+// edge's attribute map and a Compute analysis runner READS back. Both packages are non-referencing peers, so a
+// literal at either end forks silently the moment one side renames — these statics are the single spelling both
+// compose, and the six-DOF and six-component families generate rather than enumerate so a new axis is unreachable
+// by typo. They key an EDGE attribute map rather than a DetailSchema bag, which is why they sit beside the schema
+// rather than inside it.
+public static class StructuralRows {
+ public static readonly PropertyName AtStart = PropertyName.Create("AtStart");
+ public static readonly PropertyName Station = PropertyName.Create("Station");
+ public static readonly PropertyName SupportedLength = PropertyName.Create("SupportedLength");
+ public static readonly PropertyName Frame = PropertyName.Create("Frame");
+ public static readonly PropertyName LoadKind = PropertyName.Create("LoadKind");
+ public static readonly PropertyName Case = PropertyName.Create("Case");
+
+ // Axis is the whole discriminant, so each family is one projection over it and a seventh degree of freedom or a
+ // second load component set lands as one axis row rather than six hand-typed statics per family.
+ public static readonly Seq<string> Axes = Seq("X", "Y", "Z");
+
+ public static readonly Map<string, PropertyName> Translation = Family("Translation");
+ public static readonly Map<string, PropertyName> Rotation = Family("Rotation");
+ public static readonly Map<string, PropertyName> Force = Family("Force");
+ public static readonly Map<string, PropertyName> Moment = Family("Moment");
+
+ // Fixity and stiffness ride ONE row per degree of freedom, the value's own PropertyValue case carrying whether the
+ // producer stamped a boolean restraint or a spring MeasureValue — a parallel `<dof>Stiffness` roster is the twin
+ // that strands the spring magnitude on every reader keying only the boolean.
+ public static Seq<PropertyName> Dofs => Translation.Values.ToSeq() + Rotation.Values.ToSeq();
+
+ private static Map<string, PropertyName> Family(string stem) =>
+  Axes.Fold(Map<string, PropertyName>(), (map, axis) => map.Add(axis, PropertyName.Create($"{stem}{axis}")));
+}
+
 // The ONE seam-declared NEUTRAL detail schema over PropertyBag — authored by the Materials Component projection,
 // round-tripped by the Bim Semantics/connection reader; the Bim SemanticProjector maps SetName to the IFC Pset at
 // Emit, never the seam.
@@ -395,6 +451,14 @@ public sealed record DetailSchema(string SetName, InheritanceMode Inheritance, S
  public static readonly PropertyName EdgeSeal = PropertyName.Create("EdgeSeal");
  public static readonly PropertyName MuntinGrid = PropertyName.Create("MuntinGrid");
  public static readonly PropertyName FireResistanceEi = PropertyName.Create("FireResistanceEi");
+ // Takeoff rows carry the per-running-metre quantities a projector mints ONCE off the resolved section and the
+ // substance density: MassPerLength the kg/m linear mass a tonnage and cost join reads, SurfaceAreaPerLength the
+ // m2/m coating/fire-protection envelope, VolumePerLength the m3/m material volume. They key a QUANTITY bag, so
+ // each value carries its own QuantityType and Dimension rather than a dimension-only detail row — a takeoff
+ // consumer multiplies through the measure algebra where a detail reader only renders.
+ public static readonly PropertyName MassPerLength = PropertyName.Create("MassPerLength");
+ public static readonly PropertyName SurfaceAreaPerLength = PropertyName.Create("SurfaceAreaPerLength");
+ public static readonly PropertyName VolumePerLength = PropertyName.Create("VolumePerLength");
 
  // Realization: OccurrenceWins — a re-imported occurrence value wins the type default; the JointType allowed-set
  // closes the realizing modalities. Product: TypeDrivenOverride — product form is type-driven, no joint set.
@@ -404,10 +468,23 @@ public sealed record DetailSchema(string SetName, InheritanceMode Inheritance, S
  public static readonly DetailSchema Product =
   new("Product", InheritanceMode.TypeDrivenOverride, Seq<string>());
 
+ // Takeoff: TypeDrivenOverride — a type-level quantity takeoff drives every occurrence of its type (the IFC
+ // QTO_TYPEDRIVENOVERRIDE rule), so the Bake type-bag merge inherits it without a per-occurrence mint; no joint set.
+ public static readonly DetailSchema Takeoff =
+  new("Takeoff", InheritanceMode.TypeDrivenOverride, Seq<string>());
+
  // SetName/InheritanceMode pinned by the schema, the omitted source deriving PropertySource.Catalogue (ONE Option
  // entry, never a sibling overload pair); dimensional rows ride the dimension-only MeasureValue.OfSi(Dimension, double).
  public PropertyBag Bag(Option<PropertySource> source = default) =>
   new(SetName, Map<PropertyName, PropertyValue>(), Inheritance, source.IfNone(PropertySource.Catalogue));
+
+ // Quantities mints the QUANTITY bag beside Bag, pinning SetName, precedence, and source rank identically so a
+ // takeoff author hand-spells none of them. ADMISSION PATH keeps the two entries distinct, never value shape: a
+ // PropertyBag row crosses the PROPERTY_VALUE Of structural gate at write time while a QuantityBag row arrives
+ // already SI-coerced and finite-gated through MeasureValue, so one mint over a type parameter erases the gate
+ // each family answers to and spells its argument at every existing call site besides.
+ public QuantityBag Quantities(Option<PropertySource> source = default) =>
+  new(SetName, Map<PropertyName, MeasureValue>(), Inheritance, source.IfNone(PropertySource.Catalogue));
 
  // The JointType row VALUE over THIS schema's closed allowed-set — the schema owns Allowed (Text-typed tokens over
  // the typed Enumerated members), so an out-of-set token rails ElementFault.ValueRejected at Of.
@@ -424,6 +501,9 @@ public sealed record DetailSchema(string SetName, InheritanceMode Inheritance, S
 - [IFC_VALUE_FAMILY]: the `PropertyValue` fourteen-case union preserves the full scalar select — string, measure, boolean, logical, arbitrary integer, finite real/number, binary, and temporal — plus typed enumeration/reference/bounded/list/table/complex property forms. `CanonicalBytes` writes distinct ordinals and count-prefixed payloads, so `Text("1")`, `Integer(1)`, and `Number(1.0)` never alias even when a text renderer emits the same glyphs.
 - [INHERITANCE_PRECEDENCE]: the `InheritanceMode` three-row vocabulary is the IFC `QTO_TYPEDRIVENOVERRIDE`/`QTO_TYPEDRIVENONLY`/`QTO_OCCURRENCEDRIVEN` (and `PSET_*` sibling) property-inheritance rule the migration source applied per-call-site in `Rasm.Bim`'s `PropertySet.Resolve` — the precedence DECISION relocated to a stamp the Bim ingress writes on the bag node, the merge ALGEBRA relocated onto the mode as the generic `Resolve<V>` fold the ONE `ValueBag<V>.Merge` delegates to, so the `Bake` fold applies the correct type→occurrence merge once wholly within the seam (the type bag resolved through the `Assign.TypeDefinition` edge, the occurrence bag on the element's own node, merged by the stamped mode). The IFC `PSET_PERFORMANCEDRIVEN` template type is a performance-history association rather than a merge-precedence rule, so the Bim projector resolves it to `OccurrenceWins` at ingress — the three modes being the complete merge-precedence closure, never a per-template inheritance variant.
 - [REALIZING_DETAIL_SCHEMA]: the `DetailSchema` neutral detail bags split realization from product form. `DetailSchema.Realization` owns the `Rasm_ConnectionRealization` analogue for fastener/weld/adhesive/stud/cast/rebar/connector details (`JointType`/`FastenerType`/`AccessoryType`/`BarType`/`NominalDiameter`/`NominalLength`/`CrossSectionArea`/`CarriedMemberWidth`/`CarriedMemberDepth`/`EffectiveThroat`/`BondLine`/`Overlap`) plus the masonry EN 771 size-envelope rows (`SizeTolerance`/`SizeRange`/`SpecialShape`/`UnitHeight`/`CourseHeight`) and the cmu occupancy-derived IFC profile-def token row (`ProfileSubtype` — the wire datum the `Rasm.Bim` egress profile lane resolves), with `OccurrenceWins` inheritance and the closed `JointType` allowed-set `Bolted`/`Welded`/`Bonded`/`Bearing`/`Cast`. `DetailSchema.Product` owns the panel/deck/membrane product rows (`EdgeProfile`/`PanelThickness`/`BoardLength`/`FieldSpacing`/`EdgeSpacing`/`RibDepth`/`RibPitch`/`DeckForm`/`MembraneSeam`/`PanelOrientation`/`CoreClass`/`SpanRating`/`BondClass`/`FoamClass`/`FacerClass`/`ThermalResistance`) plus the IGU build rows (`PaneBuild`/`CavityBuild`/`SpacerType`/`EdgeSeal`/`MuntinGrid`/`FireResistanceEi` — the inputs the seed-time EN 673/EN 410/mass-law receipts compute from), with `TypeDrivenOverride` inheritance and no joint allowed-set.
+- [TYPE_TAKEOFF_SCHEMA]: `DetailSchema.Takeoff` owns the type-level per-running-metre quantity rows (`MassPerLength`/`SurfaceAreaPerLength`/`VolumePerLength`) over the `QuantityBag` alias under `TypeDrivenOverride` inheritance — the IFC `QTO_TYPEDRIVENOVERRIDE` rule, so one Type-bound bag drives every occurrence through the `Bake` type-bag merge and a per-occurrence takeoff mint is the deleted form. Deriving a row stays the producing projector's obligation.
+- [ROW_NAME_CUSTODY]: every bag and edge row name resolves to an owner-declared static. `StructuralRows` holds the cross-package structural vocabulary, since a Bim writer and a Compute reader are non-referencing peers whose duplicated literals fork on the first rename; `PropertyCategory` partitions each producer's own vocabulary, so a package declares its roster in its own domain. `PropertyName` stays an OPEN key at `[02]` for an ingested foreign `Pset` name, and that openness is why authored rows need custody rather than a closed vocabulary.
+- [TAKEOFF_QUANTITY_IDENTITY]: `MassPerLength` and `VolumePerLength` carry the `UnitsNet` registry identities `LinearDensity` (the kg/m signature an `Area × Density` product composes to) and `VolumePerLength` (the `AreaDim` m3/m signature), so both round-trip a display unit through `MeasureValue.In`; `SurfaceAreaPerLength` mints as a consumer name over `LengthDim` because m2/m reduces to m with no registry quantity — the NAME keeping a coating envelope from reading as a `Length` under `As`.
 
 ## [06]-[RESEARCH]
 

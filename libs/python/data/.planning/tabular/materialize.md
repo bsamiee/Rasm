@@ -2,49 +2,65 @@
 
 One incremental CDC-materialization owner, the composing concern above the engines it composes: `DerivedSnapshot` folds the `tabular/lakehouse#LAKEHOUSE` change feed, the `tabular/query#QUERY` engine, and runtime `ContentIdentity` into a partition-delta recompute, and `PartitionBundle` is the per-partition content-keyed Arrow bundle. All three composition edges point strictly down the folder order, keeping `columnar` a pure base with zero back-edges.
 
-Only CDF-changed partitions recompute — an unchanged partition's content key is reused untouched, and a full re-scan is the rejected form. Each touched bundle keys through `columnar`'s public `arrow_bytes` fold, and the parent `snapshot_key` Merkle-folds the child keys. Change-feed reads ride the same `deltalake.load_cdf` surface the `lakehouse` `ChangeFeed` op binds, and this consumer binds that path alone — the lakehouse admits a DuckLake `table_changes` feed its refusal matrix never rejects, so the non-Delta refusal here is a consumer bound, never table-derived law.
+Only CDF-changed partitions recompute — an unchanged partition reuses its content key untouched, and a full re-scan is the rejected form. Each touched bundle keys through `columnar`'s `arrow_bytes` fold, and `snapshot_key` Merkle-folds the child keys. `LakeOp.ChangeFeed` through `Lakehouse.run_async` supplies the feed on its receipt `payload` slot, so this consumer opens no provider, and `_CHANGE_STATE` rows which change-type spellings a recompute reads — a format the lakehouse arms but this table leaves unrowed refuses typed rather than filtering an unknown discriminant to silent emptiness.
 
 ## [01]-[INDEX]
 
-- [01]-[MATERIALIZE]: the `DerivedSnapshot`/`PartitionBundle` partition-delta recompute over the change feed and the query engine.
+- [02]-[MATERIALIZE]: the `DerivedSnapshot`/`PartitionBundle` partition-delta recompute over the change feed and the query engine.
 
 ## [02]-[MATERIALIZE]
 
-- Auto: `load_cdf` returns an `arro3.core.RecordBatchReader`, and the arro3 frame carries no `pyarrow` sort or compute surface — so the zero-copy `pa.table(...)` PyCapsule re-import is the load-bearing hop before the key-sorted partition split. Partitioning is one strict sorted pass over every CDF record. `register_data_hooks(scope)` folds the package point table through `Hooks.register`; every emitting owner carries that same scope, so registry custody and fire cannot cross compositions. Each recomputed bundle fires `REFRESH_POINT` on that scoped registry, and a late subscriber drains the bounded replay ring.
-- Growth: a new transform is a different `QuerySpec`; a new partition strategy is one `partition_by` tuple; a second CDF source is one arm on the lakehouse format axis; a new data hook is one `DATA_HOOK_POINTS` row and its owner fire.
-- Boundary: composes the `lakehouse` `ChangeFeed` op, the `query` engine, the `columnar` `arrow_bytes` fold, and the owner's composition-root-bound `lane` — `refresh` accepts only operation inputs, the partition fan-out drains under `LanePolicy.drain`, never a page-local task-group rig; a casualty fails the refresh closed, no durable derived store, no parallel materialization module, no second CDF reader.
+- Owner: `DerivedSnapshot` — the one incremental-materialization owner over a `(partition_by, transform, generation, lane)` policy, folding one change-feed range into per-partition recomputes; `PartitionBundle` is the per-partition content-keyed unit and `snapshot_key` its Merkle root. Partition identity is the composite key alone, so a second partitioning strategy is a `partition_by` tuple, never a sibling snapshot type.
+- Entry: `DerivedSnapshot.of` admits the policy on the rail — an empty `partition_by` refuses typed, matching the sibling `Lakehouse.open`/`ObjectEgress.of`/`QueryEngine.of` admission contract under `@beartype(conf=FAULT_CONF)`, never a construction-time raise the composition root has no fence for. `refresh` is the one operation entrypoint, taking only the change-feed range and the prior bundle set; `register_data_hooks` is the package's one hook-registration fold.
+- Auto: the `lakehouse` changefeed arm owns the arro3-to-`pyarrow` PyCapsule re-import, so the frame reaching this owner already carries the sort and compute surface the partition split needs. Partitioning is one strict sorted pass over every CDF record, and the `_CHANGE_STATE` row supplies both the discriminant column and its survivor set. `register_data_hooks(scope)` folds the package point table through `Hooks.register`; every emitting owner carries that same scope, so registry custody and fire cannot cross compositions. Each recomputed bundle fires `REFRESH_POINT` on that scoped registry, and a late subscriber drains the bounded replay ring.
+- Receipt: `PartitionBundle.contribute` yields one emitted-phase `Receipt.of("derived-snapshot", ("emitted", partition, facts))` and projects recomputed row volume onto the metric spine under `domain="materialize"`; the partition id stays receipt-only because a composite key carries unbounded cardinality. `snapshot_key` Merkle-folds the partition-sorted child keys, so identical content yields one key whatever order the lane completes in.
+- Packages: `pyarrow`/`pyarrow.compute` (the sorted slice and the change-type filter), `msgspec` (the frozen `Struct` shapes and the canonical-JSON composite key), `expression` (`Block`/`Map` and the `RuntimeRail` carrier), `beartype` (`@beartype(conf=FAULT_CONF)` on the public `of`/`refresh` seams), `tabular/lakehouse#LAKEHOUSE` (`LakeOp.ChangeFeed` through `Lakehouse.run_async`, the receipt `payload` carrying the feed), `tabular/query#QUERY` (the recompute engine), `tabular/columnar#SCAN` (the `arrow_bytes` fold), runtime (`BackendGeneration`/`ContentIdentity`/`RuntimeRail`/`async_boundary`/`Hooks`/`LanePolicy`/`Metrics`/`scoped`). No provider package binds directly: the lakehouse owner holds every change-feed provider this page reads.
+- Growth: a new transform is a different `QuerySpec`; a new partition strategy is one `partition_by` tuple; a second CDF source is one `_CHANGE_STATE` row carrying its discriminant column and survivor states, the lakehouse arm supplying the feed; a new data hook is one `DATA_HOOK_POINTS` row and its owner fire; a new admission invariant is one refusal arm on `of`.
+- Boundary: composes the `lakehouse` `ChangeFeed` op, the `query` engine under the owner's admitted `BackendGeneration`, the `columnar` `arrow_bytes` fold, and the owner's composition-root-bound `lane` — `refresh` accepts only operation inputs, the partition fan-out drains under `LanePolicy.drain`, never a page-local task-group rig; a casualty fails the refresh closed, no durable derived store, no parallel materialization module, no second CDF reader. Deleted forms: a per-partition engine minted with no generation, an admission invariant raising at construction where the composition root carries no fence to convert it, a second CDF reader opened behind the lakehouse owner that already holds one, a hardcoded single-format test where the change vocabulary is a row, a hook-fire rail riding out as the recompute's own value, and a bare `trace.get_tracer(scope)` beside the faults-owned `scoped` stamp.
 
 ```python signature
+from collections.abc import Iterable
+from functools import partial
+from itertools import accumulate, groupby
+from typing import Final, assert_never
+
 import msgspec.json
 import pyarrow as pa
 import pyarrow.compute as pc
-from collections.abc import Iterable
-from deltalake import DeltaTable
-from expression import Error, Ok
-from expression.collections import Block
-from functools import partial
-from itertools import accumulate, groupby
+from beartype import beartype
+from expression import Error, Ok, Result
+from expression.collections import Block, Map
 from msgspec import Struct
 from opentelemetry import trace
-from typing import Final
 
 from rasm.data.tabular.columnar import arrow_bytes
 from rasm.data.tabular.contract import VERDICT_POINT
 from rasm.data.tabular.egress import COPY_POINT, DELETE_POINT, PUT_POINT, RENAME_POINT
-from rasm.data.tabular.lakehouse import LAKE_COMMIT_POINT, Lakehouse, TableFormat
+from rasm.data.tabular.lakehouse import LAKE_COMMIT_POINT, LakeOp, Lakehouse, TableFormat
 from rasm.data.tabular.query import QueryEngine, QuerySpec
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, async_boundary
+from rasm.runtime.admission import BackendGeneration
+from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail, async_boundary, scoped
 from rasm.runtime.hooks import HookPoint, Hooks, Modality
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.lanes import Admit, LanePolicy, on_thread
+from rasm.runtime.lanes import Admit, LanePolicy
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 
-_TRACER: Final = trace.get_tracer("rasm.data.tabular.materialize")
+# faults-owned scope stamp: `scoped` binds the version and semconv triple, so no page re-spells the pin.
+_TRACER: Final = scoped(trace.get_tracer, "rasm.data.tabular.materialize")
 
-# CDF post-state survivor set: `update_preimage` carries the OLD image beside its postimage twin and a delete carries no
-# surviving row, so only these two change types feed a recompute — a kept preimage doubles every updated row.
-_POST_STATE: Final[tuple[str, ...]] = ("insert", "update_postimage")
+# per-format change vocabulary: the discriminant COLUMN and the post-state survivor set a recompute keeps.
+# `update_preimage` carries the OLD image beside its postimage twin and a delete carries no surviving row, so only
+# only rowed change types feed a recompute — a kept preimage doubles every updated row. A format the lakehouse arms
+# but this table does not row refuses TYPED, because filtering an unknown discriminant yields zero rows and
+# publishes a silently empty recompute over a real feed; a second CDF format is one row carrying its own spelling.
+_CHANGE_STATE: Final[Map[TableFormat, tuple[str, tuple[str, ...]]]] = Map.of_seq([
+    (TableFormat.DELTA, ("_change_type", ("insert", "update_postimage"))),
+    # DuckLake spells the discriminant `change_type` without the Delta underscore and emits the same four states, so
+    # survivors stay the POST-state pair here too: `update_preimage` and `delete` describe rows LEAVING the partition,
+    # which a recompute reads off the survivors it keeps rather than off the records that left.
+    (TableFormat.DUCKLAKE, ("change_type", ("insert", "update_postimage"))),
+])
 
 
 class PartitionBundle(Struct, frozen=True):
@@ -54,9 +70,16 @@ class PartitionBundle(Struct, frozen=True):
 
     def contribute(self) -> Iterable[Receipt]:
         # merge-side metric: recomputed row volume lands on the metric spine under domain="materialize"; the partition
-        # id stays receipt-only — unbounded cardinality never becomes a metric dimension.
+        # id stays receipt-only — unbounded cardinality never becomes a metric dimension. The metric rides the
+        # generator's own advance, exactly as every sibling `contribute` emits, so a receipt built and discarded
+        # records nothing and a drained one records once. `domain`/`kind`/`key` are the lifted evidence contract the
+        # `tabular/lakehouse#LAKEHOUSE` residence reads — the SAME pair handed `Metrics.record` beside the minted
+        # key — so a stored row rejoins the series its live twin emitted and a cost slot reconstructs from it.
         Metrics.record({"rasm.materialize.rows": float(self.rows)}, domain="materialize", kind="cdc")
-        return (Receipt.of("derived-snapshot", ("emitted", self.partition, {"rows": self.rows})),)
+        yield Receipt.of(
+            "derived-snapshot",
+            ("emitted", self.partition, {"domain": "materialize", "kind": "cdc", "key": self.content_key.hex, "rows": self.rows}),
+        )
 
 
 # late-attach replay edge: every recomputed bundle fires the REPLAY row inside its composition scope.
@@ -88,16 +111,34 @@ def register_data_hooks(scope: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[tuple[H
 class DerivedSnapshot(Struct, frozen=True):
     partition_by: tuple[str, ...]
     transform: QuerySpec
+    # `generation` binds the recompute's `QueryEngine` to one admitted backend contract, arriving at the
+    # composition root exactly as `lane` does: a per-partition engine minted without one carries no contract
+    # generation, and merged bundles share a version only when every recompute reads the same one.
+    generation: BackendGeneration
     # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner,
     # and a consumer hands `refresh` only operation inputs while capacity, deadline, and cancellation ride this binding.
     lane: LanePolicy
     scope: ScopeKey = DEFAULT_SCOPE
 
-    def __post_init__(self) -> None:
-        # an empty partition column set has no partition identity to key or slice on, so it refuses at construction.
-        if not self.partition_by:
-            raise ValueError("derived snapshot requires at least one partition column")
+    @classmethod
+    @beartype(conf=FAULT_CONF)
+    def of(
+        cls,
+        partition_by: tuple[str, ...],
+        transform: QuerySpec,
+        generation: BackendGeneration,
+        lane: LanePolicy,
+        *,
+        scope: ScopeKey = DEFAULT_SCOPE,
+    ) -> "RuntimeRail[DerivedSnapshot]":
+        # an empty partition column set has no partition identity to key or slice on, so admission refuses it on
+        # exactly the rail every sibling owner admits through: a construction-time `raise` crosses the one
+        # boundary this branch fences nowhere, since composition roots build the owner outside every fence.
+        if not partition_by:
+            return Error(BoundaryFault(config=("derived.snapshot", "partition-by-required")))
+        return Ok(cls(partition_by=partition_by, transform=transform, generation=generation, lane=lane, scope=scope))
 
+    @beartype(conf=FAULT_CONF)
     async def refresh(
         self, source: Lakehouse, start: int, end: int | None, prior: tuple[PartitionBundle, ...]
     ) -> "RuntimeRail[tuple[PartitionBundle, ...]]":
@@ -111,21 +152,52 @@ class DerivedSnapshot(Struct, frozen=True):
     async def _materialize(
         self, source: Lakehouse, start: int, end: int | None, prior: tuple[PartitionBundle, ...]
     ) -> "RuntimeRail[tuple[PartitionBundle, ...]]":
-        if source.table_format is not TableFormat.DELTA:
-            return Error(BoundaryFault(boundary=("derived.refresh", f"{source.table_format.value} carries no load_cdf")))
-        # CDF scan blocks on the native Delta reader, so it crosses the thread band instead of stalling the loop.
-        cdf = pa.table(await on_thread(lambda: DeltaTable(source.table_uri).load_cdf(starting_version=start, ending_version=end).read_all()))
+        match self._vocabulary(source):
+            case Result(tag="error", error=fault):
+                return Error(fault)
+            case Result(tag="ok", ok=vocabulary):
+                return await self._fed(source, start, end, prior, vocabulary)
+            case unreachable:
+                assert_never(unreachable)
+
+    def _vocabulary(self, source: Lakehouse) -> "RuntimeRail[tuple[str, tuple[str, ...]]]":
+        return (
+            _CHANGE_STATE.try_find(source.table_format)
+            .map(Ok)
+            .default_with(lambda: Error(BoundaryFault(boundary=("derived.refresh", f"{source.table_format.value} carries no rowed change feed"))))
+        )
+
+    async def _fed(
+        self, source: Lakehouse, start: int, end: int | None, prior: tuple[PartitionBundle, ...], vocabulary: tuple[str, tuple[str, ...]]
+    ) -> "RuntimeRail[tuple[PartitionBundle, ...]]":
+        # `LakeOp.ChangeFeed` is the LAKEHOUSE owner's op: composing `run_async` reads its reach matrix, its commit span,
+        # its band hop, and its receipt payload, where re-opening `DeltaTable` here forks a second CDF reader behind
+        # an owner that already holds one, and strands every non-Delta feed that owner arms. A rowed format's
+        # changefeed arm always carries the frame, so the payload is total over the vocabularies this table admits.
+        fed = await source.run_async(LakeOp.ChangeFeed(starting_version=start, ending_version=end))
+        match fed:
+            case Result(tag="error", error=fault):
+                return Error(fault)
+            case Result(tag="ok", ok=receipt):
+                return await self._split(receipt.payload, prior, vocabulary)
+            case unreachable:
+                assert_never(unreachable)
+
+    async def _split(
+        self, cdf: pa.Table, prior: tuple[PartitionBundle, ...], vocabulary: tuple[str, tuple[str, ...]]
+    ) -> "RuntimeRail[tuple[PartitionBundle, ...]]":
         # ONE key-sorted pass splits the feed over EVERY CDF record — deletes included, so a delete-only partition
         # still reaches recomputation — adjacent runs over the sorted key tuples bound each partition and every delta
-        # is a zero-copy slice, never a fresh full-table filter per partition; each slice then keeps only its
-        # `_POST_STATE` rows, so a fully-deleted partition recomputes over an empty input and overrides its stale
+        # is a zero-copy slice, never a fresh full-table filter per partition; each slice then keeps only its rowed
+        # survivor states, so a fully-deleted partition recomputes over an empty input and overrides its stale
         # prior bundle instead of carrying it forever.
+        column, survivors = vocabulary
         ordered = cdf.sort_by([(col, "ascending") for col in self.partition_by])
         tuples = list(zip(*(ordered.column(col).to_pylist() for col in self.partition_by), strict=True))
         runs = tuple((key, sum(1 for _ in members)) for key, members in groupby(tuples))
         offsets = tuple(accumulate((count for _key, count in runs), initial=0))[:-1]
         deltas = tuple(
-            (ordered.slice(offset, count).filter(pc.field("_change_type").isin(_POST_STATE)), self._key_id(key))
+            (ordered.slice(offset, count).filter(pc.field(column).isin(survivors)), self._key_id(key))
             for (key, count), offset in zip(runs, offsets, strict=True)
         )
         # independent recomputes drain as bare units under the owner's lane — capacity, deadline, cancellation, and the
@@ -151,13 +223,14 @@ class DerivedSnapshot(Struct, frozen=True):
     async def _recompute(self, delta: pa.Table, partition: str) -> "RuntimeRail[PartitionBundle]":
         # a query fault PROPAGATES — keying the raw delta in place of the transform's output lands untransformed
         # rows under a materialized identity; `arrow_bytes` is the imported `columnar` public fold, never a re-spelled
-        # serialization.
-        railed = await QueryEngine.of({"delta": delta}).run(self.transform)
+        # serialization. The engine binds the owner's admitted `generation` beside the named delta frame, so every
+        # partition of one refresh reads one contract generation.
+        railed = await QueryEngine.of(self.generation, {"delta": delta}).run(self.transform)
         return railed.bind(
             lambda result: ContentIdentity.of("partition", arrow_bytes(result)).map(
                 lambda key: PartitionBundle(partition=partition, rows=result.num_rows, content_key=key)
             )
-        ).bind(lambda bundle: Hooks.fire(REFRESH_POINT.id, bundle, scope=self.scope))
+        ).bind(lambda bundle: Hooks.fire(REFRESH_POINT.id, bundle, scope=self.scope).map(lambda _fact: bundle))
 
 
 def snapshot_key(bundles: tuple[PartitionBundle, ...]) -> "RuntimeRail[ContentKey]":
@@ -168,7 +241,7 @@ def snapshot_key(bundles: tuple[PartitionBundle, ...]) -> "RuntimeRail[ContentKe
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[STATUS]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

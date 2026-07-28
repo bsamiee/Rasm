@@ -345,7 +345,7 @@ class Bootstrap extends Tier {
 
 [ARM_PROGRAMS]:
 - Law: `_estate` is the one k8s-estate composition — namespace → `Secrets` over `_credentials` (the object and Grafana rows beside one `DB_ADMIN_PASSWORD`/`DB_PASSWORD`/`DB_ANALYST_PASSWORD` triple per scope `Postgres.scopes` enumerates, so the data tier's per-scope `auth` callback reads a mint no sibling cluster shares; `CLOUDFLARE_API_TOKEN` pre-exists on the app's config) → `ObjectStore` → `Nats` → `Postgres.admit` (the scope-keyed admin, app, and analyst reads) → `Lgtm` → `Boards` → `Tenants` when the tenancy mode escalates past `single` → the `RandomUuid7` deployment identity → `Workload.token` → optional `Workload` whose live-`Output` env pairs ride `StackOutputs.pairsOf` with the `pulumi.output(value).apply(String)` renderer — the same flatten the decoded getter rides — → and, only when the staged edge is realized (an `internal` exposure stands service-only), one `Certs.root` CA → `Traffic` over the workload service with the issuance capability and the proven `Edge` case injected; graph-late material (`GRAFANA_AUTOMATION_TOKEN` from `Boards.automation`, the per-tenant `GRAFANA_VIEWER_*` keys from `Boards.viewers`, `MESH_CA_KEY` from the CA root) lands through `secrets.store` so it outlives the graph in the one canonical store; the object plane's coordinates thread into `Lgtm` so the mimir escalation binds one storage truth; it returns every realized `StackOutputs` plane, `deploy` included. Both k8s-plane sources feed it: the selfhosted arm's `Bootstrap.kubeconfig` and the aws arm's `eks.Cluster.kubeconfigJson`, so the entire tier roster is plane-agnostic by construction.
-- Law: the app image is one buildx product — the docker arm and any registry cell build through `docker-build.Image` with `push: true`, the immutable `ref`/`digest` pinning every runtime; `platforms` rows make the build multi-arch, `cacheFrom`/`cacheTo` registry rows reuse layers across runs, the push credential rides the `registries` row — `pins.registry` coordinates with the `REGISTRY_PASSWORD` fan-in read, so a `push: true` build carries its own auth instead of assuming an ambient login — and by-value `secrets` bind Doppler outputs so no build credential touches disk. A rust build stage runs `wasm-pack build` over the pinned `fastcdc` crate and the runtime stage copies the pkg, so the chunking artifact ships inside the image digest and no second artifact pipeline exists.
+- Law: app images are one buildx product — the docker arm and any registry cell build through `docker-build.Image` with `push: true`, the immutable `ref`/`digest` pinning every runtime; `platforms` rows make the build multi-arch, `cacheFrom`/`cacheTo` registry rows reuse layers across runs, the push credential rides the `registries` row — `pins.registry` coordinates with the `REGISTRY_PASSWORD` fan-in read, so a `push: true` build carries its own auth instead of assuming an ambient login — and by-value `secrets` bind Doppler outputs so no build credential touches disk. One rust build stage runs `wasm-pack build` over the pinned `fastcdc` crate and the runtime stage copies the pkg, so the chunking artifact ships inside the image digest and no second artifact pipeline exists.
 - Law: the docker arm realizes its whole column — `_grounded` (the one Bootstrap spelling both selfhosted arms share, folding the connection's `hostKey`/`bastion` hardening coordinates in) lays the daemon, the `ssh://` `docker.Provider` binds the proven connection's own `ssh` projection with `dependsOn` the daemon so the first `up` cannot race the install, and the machine estate mirrors `_estate` at container depth: one `Secrets` store with the generated credential entries, one `docker.Network` fence, the mount table minting one `docker.Volume` per store beside its path so mount spellings exist once, the postgres container finalized through the bridged `postgresql.Provider` at full logical depth (`Role`/`Database`/`Extension` rows from the profile's extension subset, the analyst read tier as one `Role` with its `pg_read_all_data` `GrantRole` membership, its schema `Grant`, and its `DefaultPrivileges` future-object ACL, and the `ReplicationSlot` logical seam — the read-back `operate/policy.md`'s `conform` correlates), the MinIO-continuation container whose filesystem bucket pre-creates in its own command, the NATS container configured through an `uploads` row (jetstream fsync-per-write, websocket listener — the same durability law the chart row states), the app container pinning the built digest and injecting `DOPPLER_TOKEN` beside the collector-endpoint row so the baked `doppler run` entrypoint resolves config at start and telemetry exports byte-identically to the estate arm, the `Dev` all-in-one estate realizing the observe cell with `Boards` applied over its URL plane and the automation token landed through `secrets.store`, the `Direct`-edge `DnsRecord` and the ACME trusted pair landed through `secrets.store` when `pins.acme` arms the lane (`_edged` proves domain/zone and refuses the unsupported tunnel posture on the rail), and the `RandomUuid7` deploy identity — the arm returns every plane it realizes: `data`, `object`, `fanout`, `otlp`, `grafana`, `deploy`, and `ingress` under a proven edge.
 - Law: the estate builder rides the rail its tiers admit on — `_estate` and every `_AWS` row return `Effect<Dispatch.Planes, Dispatch.EstateFault>`, so `Converge.admit`, `Postgres.admit`, and the `_coord` proofs compose in one `Effect.gen` and a refused axis surfaces as a typed value rather than a half-built graph; `_bodied` is the sole conversion, the `PulumiFn` seam where the engine's one in-band error contract takes the rail's failure, and a `throw` anywhere inside a tier or an arm body is the defect this owner deletes.
 - Law: the aws arm dispatches its compute posture as data — `_AWS` is a handler record keyed by `StackSpec.Profile["compute"]`: the `serverless` row realizes VPC → ECR build → Fargate behind an ALB with the S3 object cell; the `cluster` row escalates to `eks.Cluster` (`authenticationMode: "API"`, `createOidcProvider: true` for IRSA, `skipDefaultNodeGroup: true`) with one `ManagedNodeGroup` sized from `pins.nodes`, binds `kubeconfigJson` into the arm's one `k8s.Provider` seam, and reuses `_estate` whole — the managed twin of `Bootstrap.kubeconfig`, one seam swap and zero tier edits.
@@ -465,11 +465,15 @@ const _estate = (
       auth: secrets.read("GRAFANA_PASSWORD"),
       // pg-server metrics coordinates: discrete because the two pg receivers take opposite credential shapes; in-graph, never a published output
       data: { host: data.host, port: data.port, database: data.database, user: data.role, password: secrets.read(_scoped("DB_PASSWORD", "data")) },
-      objects: { endpoint: objects.endpoint, bucket: objects.bucket }, // one storage truth: the mimir escalation binds the object plane's own coordinates
+      objects: { endpoint: objects.endpoint, bucket: objects.bucket }, // one storage truth: the mimir ruler and the lake residence bind the object plane's own coordinates
+      alerts: pins.alerts, // the same suite `Boards` compiles: the store row records the burn numerator the alert then reads
     }, bound)
     const boards = new Boards("boards", {
       spec,
       urls: lgtm.urls,
+      // render coordinates ride the tier that OWNS the backend selection: re-deriving them here from the spec spells
+      // a grammar and a driver the installed row never answered, and a mismatched selector matches nothing silently
+      targets: lgtm.targets,
       auth: secrets.read("GRAFANA_PASSWORD"),
       boards: pins.boards,
       alerts: pins.alerts,
@@ -491,6 +495,17 @@ const _estate = (
       fanout: { origin: fanout.origin },
       otlp: { endpoint: lgtm.collectorEndpoint },
       grafana: { url: lgtm.urls.grafana },
+      // query ends bind one residence, and the ARMED ROW publishes its own door: `clickhouse` and `both` publish the
+      // interactive plane, `lake` the object plane's endpoint under the evidence catalog, and `none` publishes no
+      // plane so absence reads as refusal. The tier's own coordinate names WHICH row that door belongs to — the spec
+      // value names a selection (`both` is two planes, not a residence) and publishing it hands a query end a key no
+      // residence family holds. Re-deriving either the door or the row here forks a projection the tier already proved.
+      ...Option.match(lgtm.targets.analytics, {
+        onNone: () => ({}),
+        onSome: ({ residence }) => ({
+          analytics: { residence, endpoint: lgtm.urls.query.residence, database: Lgtm.residence.catalog },
+        }),
+      }),
       deploy: { id: identity.result },
     }
     if (Option.isNone(app)) {
@@ -730,6 +745,7 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
         const boards = new Boards("boards", {
           spec,
           urls: observe.urls,
+          targets: observe.targets, // the loop's bundled store answers for itself; the k8s `_stores` row installs nothing here
           auth: secrets.read("GRAFANA_PASSWORD"),
           boards: pins.boards,
           alerts: pins.alerts,

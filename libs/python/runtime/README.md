@@ -5,37 +5,38 @@
 ## [01]-[ROUTER]
 
 [OBSERVABILITY]:
-- [01]-[RECEIPTS](.planning/observability/receipts.md): Receipt union, drain taxonomy, cost evidence, and contributor-fold port.
-- [02]-[LOGGING](.planning/observability/logging.md): `LogPipeline` shared structlog chain and the `LogShip` stdout ship policy.
-- [03]-[METRICS](.planning/observability/metrics.md): `Metrics` instrument spine — the `INSTRUMENTS` table, record mapping, and instrumentor train.
+- [01]-[RECEIPTS](.planning/observability/receipts.md): Receipt union, drain taxonomy, cost evidence, composition scope, and contributor port.
+- [02]-[LOGGING](.planning/observability/logging.md): `LogPipeline` chain, OTLP wire projection, `LogShip` egress, and the terminal doors.
+- [03]-[METRICS](.planning/observability/metrics.md): `Metrics` spine — `INSTRUMENTS` census, `MEASURES` admission, views, occupancy, and the train.
 - [04]-[HOOKS](.planning/observability/hooks.md): Scoped hook registry with modality rows and telemetry taps.
 - [05]-[PROFILES](.planning/observability/profiles.md): Pyroscope push, benchmark receipts, and the offline-job envelope.
 - [06]-[TELEMETRY](.planning/observability/telemetry.md): Profile-gated OTLP install owner.
 - [07]-[BUNDLE](.planning/observability/bundle.md): Support-bundle capsule — fenced collectors, content-keyed archive, and the diagnostic route.
+- [08]-[JOURNAL](.planning/observability/journal.md): Durable fact stream, retention classes, exact-decimal rating, and crypto-shredded erasure.
 
 [RELIABILITY]:
-- [08]-[FAULTS](.planning/reliability/faults.md): Boundary-fault union and its exception-to-fault projector.
-- [09]-[RESILIENCE](.planning/reliability/resilience.md): Retry policy table, one row per retryable class.
+- [09]-[FAULTS](.planning/reliability/faults.md): Boundary-fault union, its exception-to-fault projector, and the versioned scope coordinate.
+- [10]-[RESILIENCE](.planning/reliability/resilience.md): Retry policy table, one row per retryable class.
 
 [TRANSPORT]:
-- [10]-[ROOTS](.planning/transport/roots.md): Resource roots and refs over fsspec and the remote transports.
-- [11]-[SERVE](.planning/transport/serve.md): gRPC server lifecycle, route roster, capability invoke, and the daemon entry.
-- [12]-[SHAPES](.planning/transport/shapes.md): Proto vocabulary and its descriptor drift gate.
-- [13]-[WIRE](.planning/transport/wire.md): Protobuf transcode, frame legs, and the CRDT-op codec.
+- [11]-[ROOTS](.planning/transport/roots.md): Resource roots and refs over fsspec and the remote transports.
+- [12]-[SERVE](.planning/transport/serve.md): gRPC server lifecycle, route roster, capability invoke, and the daemon entry.
+- [13]-[SHAPES](.planning/transport/shapes.md): Proto vocabulary and its descriptor drift gate.
+- [14]-[WIRE](.planning/transport/wire.md): Protobuf transcode, frame legs, and the CRDT-op codec.
 
 [EXECUTION]:
-- [14]-[ADMISSION](.planning/execution/admission.md): Runtime context, causal frames, and settings admission.
-- [15]-[LANES](.planning/execution/lanes.md): Lane-policy task groups and the stage-plan DAG.
-- [16]-[WORKERS](.planning/execution/workers.md): Worker crossing — the closed kind family, kernel value, warm pools, and supervision.
-- [17]-[RECIPE](.planning/execution/recipe.md): Content-keyed recipe execution on the thread lane.
+- [15]-[ADMISSION](.planning/execution/admission.md): Runtime context, causal frames, and settings admission.
+- [16]-[LANES](.planning/execution/lanes.md): Lane-policy task groups and the stage-plan DAG.
+- [17]-[WORKERS](.planning/execution/workers.md): Worker crossing — the closed kind family, kernel value, warm pools, and supervision.
+- [18]-[RECIPE](.planning/execution/recipe.md): Content-keyed recipe execution on the thread lane.
 
 [EVIDENCE]:
-- [18]-[IDENTITY](.planning/evidence/identity.md): Python content-key implementation proving the shared digest contract.
-- [19]-[REPRODUCTION](.planning/evidence/reproduction.md): Seed-reproduction corpus and its parity fold.
-- [20]-[EVIDENCE](.planning/evidence/evidence.md): Evidence union, catalogue member facts, and grammar registry.
+- [19]-[IDENTITY](.planning/evidence/identity.md): Python content-key implementation proving the shared digest contract.
+- [20]-[REPRODUCTION](.planning/evidence/reproduction.md): Seed-reproduction corpus and its parity fold.
+- [21]-[EVIDENCE](.planning/evidence/evidence.md): Evidence union, catalogue member facts, and grammar registry.
 
 [CLOCK]:
-- [21]-[CLOCK](.planning/clock/clock.md): HLC stamp, element id, tenant, and causal frame.
+- [22]-[CLOCK](.planning/clock/clock.md): HLC stamp, element id, tenant, and causal frame.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -60,6 +61,8 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 
 [OBSERVABILITY]:
 - `opentelemetry-exporter-otlp-proto-grpc` — daemon-selectable OTLP gRPC egress row; proto-http stays the estate default.
+- `opentelemetry-semantic-conventions` — released schema-url roster the one branch schema-url pin reads; a semconv bump moves that pin.
+- `opentelemetry-instrumentation` — `BaseInstrumentor` lifecycle, dependency gate, and suppression scopes every train row below implements.
 - `opentelemetry-instrumentation-asyncio` — coroutine and `to_thread` context propagation on the train.
 - `opentelemetry-instrumentation-dbapi` — PEP-249 wrap seam: db-semconv spans for duckdb and ADBC drivers without a dedicated instrumentor.
 - `opentelemetry-instrumentation-httpx` — client spans on the httpx transport legs.
@@ -72,6 +75,9 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `opentelemetry-resource-detector-containerid` — `container.id` resource detector on the telemetry detector list.
 - `pyroscope-io` — native continuous-profiling push agent.
 - `pyroscope-otel` — continuous-profiling push and the root-span profile link.
+
+[EVIDENCE]:
+- `cryptography` — AEAD envelope and key-wrap primitives the journal's per-subject crypto-shredding seals under.
 
 [EXECUTION]:
 - `apscheduler` — one cron and interval scheduler owner.

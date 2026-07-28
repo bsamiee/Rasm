@@ -12,7 +12,7 @@ ui/
 │   │   ├── act.ts             # Motion and interaction, discrete accessible events split from continuous gestures
 │   │   ├── atom.ts            # One state binding standing the app Layer graph behind the registry
 │   │   ├── hook.ts            # Typed hook registry — the rasm.ui fact rail, modality rows, tap isolation
-│   │   ├── vital.ts           # Browser performance evidence folded into probe-shaped metric rows
+│   │   ├── vital.ts           # LoAF, event, commit, and compile evidence folded into probe-shaped rows; CWV is runtime's
 │   │   ├── intl.ts            # Zero-package locale plane riding native Intl behind one cache
 │   │   └── primitive.ts       # Headless spine: the one styled recipe and the sanitize gate
 │   └── view/                  # View plane composing the system owners into four dense surfaces
@@ -37,7 +37,7 @@ ui/
 - S2 `viewer` — the spatial Nx project atop both strata: `scene` frame-loops on `act`, binds `token` color, rides `Machine` on the atom bridge.
 - S2 `mark` and `scene` compose `geo`'s `Camera` inside the stratum — one camera vocabulary, per-backend adapters.
 - S2 `probe` renders its claim board through `view/table` `Grid` rows and `view/chart` series; `panel` folds receipts on the store.
-- S2 evidence taps and browser vitals arrive through the `hook` and `vital` floor owners.
+- S2 evidence taps and long-frame evidence arrive through the `hook` and `vital` floor owners, `runtime`'s CWV owner over the same point.
 
 ```mermaid
 ---
@@ -78,7 +78,7 @@ flowchart TB
     Board e9@--> Intl
     Board e10@--> Token
     Board e11@-->|"[IMPORT]: Grid"| View
-    Board e14@-->|"[IMPORT]: Vital.board"| Vital
+    Board e14@-->|"[IMPORT]: Vital.entryRows"| Vital
     Board e15@--> Hook
     S0 f1@-->|"forbidden: upward import"| S2
 ```
@@ -112,6 +112,7 @@ flowchart LR
     Core e16@-->|"[SHAPE]: BcfTopic/BcfViewpoint/ControlIntent/LayoutProgram/GeoFeature/PbrGroups"| Viewer
     Runtime e2@-->|"[PORT]: Atom.subscribable"| System
     Runtime e3@-->|"[PORT]: GlbViewport"| Viewer
+    Runtime e17@-->|"[PORT]: Vital.Report"| System
     Runtime e4@-->|"[BOUNDARY]: EXT_meshopt_compression"| Viewer
     Materials e5@-->|"[WIRE]: OpenPbrGroupsWire"| Viewer
     AppHost e6@-->|"[WIRE]: BindingStatusWire/CoercedValueWire/WriteReceiptWire"| Viewer
@@ -120,7 +121,7 @@ flowchart LR
     AppUi e8@-->|"[RECEIPT]: RenderReceipt"| Viewer
     Bim e9@-->|"[WIRE]: BcfTopicWire"| Viewer
     Bim e10@-->|"[WIRE]: BcfViewpointWire"| Viewer
-    Bim e11@-->|"[WIRE]: DiffWire"| Viewer
+    Bim e11@-->|"[WIRE]: ModelDiff"| Viewer
     Bim e14@-->|"[WIRE]: GeoFeatureWire"| Viewer
     System e15@-->|"[SHAPE]: Tap.Registry"| Runtime
 ```
@@ -135,8 +136,8 @@ Every state fact binds through the one atom bridge, so a component projects and 
 
 - IFC semantics and geometry stay unowned; GLB, BCF, WKB, and selection arrive decoded through the core interchange plane, rendered, never re-authored.
 - Every GPU resource is scope-bracketed, so a lost context or a torn-down surface releases its allocations through the same bracket that acquired them.
-- A browser composition root — `GlbViewport` from Depot arrivals, host planes bound into atoms — is app composition, out of scope here.
+- Browser composition roots — `GlbViewport` from Depot arrivals, host planes bound into atoms — are app composition, out of scope here.
 - `EXT_meshopt_compression` assets refuse with the `codec-absent` reason until the iac plane admits the wasm decoder identity and its serving row.
 - History consumers compose from the landed system pages; a second history owner never appears beside the selection atom.
 - Telemetry leaves through app-composed hook taps; the folder mints no OTel instrument and imports no collector.
-- A bridge layer subscribes `system/hook` points at app composition and carries rows to the estate spine.
+- One bridge layer subscribes `system/hook` points at app composition and carries rows to the estate spine.

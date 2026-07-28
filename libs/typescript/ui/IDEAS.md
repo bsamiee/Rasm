@@ -21,7 +21,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 
 [TONE_VOCABULARY]-[QUEUED]: One semantic tone vocabulary — the token authority declares the closed tone set every surface keys.
 - Capability: color semantics are one closed vocabulary at the color authority — every surface `_tone` table keys onto the declared set, so a new tone is one authority row and a surface-local tone union has no place to exist.
-- Shape: the closed tone set lands on `libs/typescript/ui/.planning/system/token.md`'s color authority; keying rows follow at `system/primitive.md` (recipe tone axis and `Note`), `viewer/panel.md` phase table, `viewer/mark.md` status table, `viewer/probe.md` verdict tones, and `system/vital.md`'s rating table — whose `caution` token today appears in no sibling union.
+- Shape: the closed tone set lands on `libs/typescript/ui/.planning/system/token.md`'s color authority; keying rows follow at `system/primitive.md` (recipe tone axis and `Note`), `viewer/panel.md` phase table, `viewer/mark.md` status table, `viewer/probe.md` verdict tones, and `system/vital.md`'s grade-keyed `_tone` table — whose `caution` token today appears in no sibling union.
 - Unlocks: five divergent inline tone unions collapse to keyed reads; the review surface's change-kind tones key onto the same set.
 - Anchors: `token.md` OKLCH color authority; the five probed inline unions (`neutral|accent|danger`, `neutral|accent|success|danger`, `success|caution|danger`); `[DIFF_SURFACE]` as the next consumer; the tone-homing row at `libs/typescript/ui/RULINGS.md` `[02]-[SHAPE]`.
 - Ripple: precedes [DIFF_SURFACE].
@@ -29,7 +29,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [DIFF_SURFACE]-[QUEUED]: One model-review surface renders the decoded `BimDiff`/`IdsAudit` verdicts across every echo plane.
 - Capability: a viewer review plane folding `BimDiff` element changes and `IdsAudit` verdicts into board rows, per-element tone echoes, and selection ops over the one `GlobalId` set.
 - Shape: one `.planning/viewer/` design page — change-kind tones keyed onto the token authority's tone set, a diff board riding `view/table` rows, scene and deck tint echoes through `mark`'s op fold, and a camera reveal per changed element.
-- Unlocks: the `DiffWire`/`IdsAuditWire` rows the codec registry decodes for `ui` gain their consumer; review workflows land on the selection, echo, and evidence planes the BCF board already rides.
+- Unlocks: the decoded `BimDiff`/`IdsAudit` owners the codec registry lands for `ui` gain their consumer; review workflows land on the selection, echo, and evidence planes the BCF board already rides.
 - Anchors: `core/interchange/codec`'s decoded `BimDiff`/`IdsAudit` owners; `viewer/mark`'s `Selection.Op` fold and tone tables; `viewer/scene#DRAW_COLLAPSE`'s `setVisibleAt` and tint rows.
 - Ripple: follows [TONE_VOCABULARY].
 
@@ -45,12 +45,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Unlocks: cold-start residency, offline evidence boards, resumable uploads across reloads; perspective `page_to_disk` gains a sibling law instead of a lone comment.
 - Anchors: `viewer/scene#RESIDENCY_GRAFT` ledger; `system/atom#STORE_ROOT` `Atom.kvs` schema-coded persistence; `view/form#UPLOAD_LANE` tus sessions; `@effect/platform-browser` `KeyValueStore`.
 
-[ASSET_IDENTITY]-[QUEUED]: One served-asset identity vocabulary unifies every self-hosted wasm and codec path.
-- Capability: draco/ktx2/meshopt loader statics, model-viewer decoder locations, and the perspective engine wasm resolve from ONE identity roster the `[CODEC_IDENTITY_GATE]` gate reads — identity and serving row per asset, refusals keep their `codec-absent` spelling.
-- Shape: `libs/typescript/ui/.planning/viewer/scene.md` extends the codec-injection cluster with the roster value; `libs/typescript/ui/ARCHITECTURE.md` boundary row names the iac counterpart serving the roster.
-- Unlocks: iac serves the roster as stack rows with content-addressed immutable paths; CSP stays airtight because no loader ever side-loads a foreign CDN; a new codec is one roster row.
-- Anchors: `viewer/scene#RESIDENCY_GRAFT` `setDRACOLoader`/`setKTX2Loader`/`setMeshoptDecoder` statics; `viewer/scene#EMBED_ROW` decoder locations; ARCHITECTURE `codec-absent` boundary.
-
 [POINT_CLOUD]-[QUEUED]: Scan and survey point clouds land as first-class geo rows — LAS ingestion, eye-dome shading, BVH picking.
 - Capability: LAS/LAZ point clouds stream into deck point layers beside the tile engine, eye-dome lighting renders depth-legible clouds through the effect-compositing pipeline, and BVH-accelerated raycast keeps mark's pick pipes interactive over merged meshes and dense clouds.
 - Shape: `libs/typescript/ui/.planning/viewer/geo.md` gains `PointCloudLayer` payload rows fed by `@loaders.gl/las` over the loaders core and an eye-dome `PostProcessEffect` row on the shared context; `libs/typescript/ui/.planning/viewer/mark.md` gains `three-mesh-bvh` accelerated pick rows; `@loaders.gl/3d-tiles` lands as the loader the existing `Tile3DLayer` row already presumes.
@@ -63,6 +57,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[ASSET_IDENTITY]-[COMPLETE]: `Glb.AssetRoster` owns the slug-unique served-asset identity, `Glb.asset` resolves one row with `codec-absent` on absence, and `Glb.assetPath` derives the immutable digest address.
 [HOOK_RAIL]-[COMPLETE]: `.planning/system/hook.md` and six owning endpoints carry the open `Points` seam and runtime rows; veto consultation is payload-selected, adopted sources merge before registration, publish is bounded, and tap faults isolate.
-[VITAL_PLANE]-[COMPLETE]: `.planning/system/vital.md` captures five vitals, owns bounded LoAF/event/long-task and id-keyed Profiler windows, publishes every runtime row through the replay hook, composes shipped cutoffs, and folds compiler diagnostics.
+[VITAL_PLANE]-[COMPLETE]: `.planning/system/vital.md` owns the browser evidence this floor can see — bounded LoAF and event-timing windows over one multi-part measure table, id-keyed Profiler windows, compiler diagnostics — publishes every row through the replay hook, and spells the runtime plane's grade vocabulary for tone alone; Core Web Vitals collapsed onto `runtime:otel/vital`.
 [SIGNAL_WEAVE]-[COMPLETE]: observe seams land at their owners — AtomRpc `spanPrefix`, Form's definition-seam preflight/outcome trip, chart pivot span/frame count, and scene's spanned graft metrics with one adopted residency-fact stream.

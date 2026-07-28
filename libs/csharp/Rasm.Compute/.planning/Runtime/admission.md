@@ -6,14 +6,14 @@ Discipline lanes own their own typed entry folds — `Solver/contract` `Solve`, 
 
 ## [01]-[INDEX]
 
-- [02]-[INTENT_FAMILY]: seven intent cases, one shared `Spec` record, one boundary admission fold.
+- [02]-[INTENT_FAMILY]: `ComputeIntent` closes the intent roster over one shared `Spec` record and one boundary admission fold.
 - [03]-[SUBSTRATE_AXIS]: five substrate rows (incl. device-wgpu GPGPU); capability needs, browser exclusion, provider gates, ranks, caps, load as columns.
 - [04]-[DISPATCH_SPINE]: fault band 2200, ordered selection fold, total dispatch, selection receipt.
 
 ## [02]-[INTENT_FAMILY]
 
 - Owner: `ComputeIntent` `[Union]` cases with the nested `Spec` shared-policy record; `AdmittedIntent` the evidence carrier whose private constructor makes `Admit` the only mint — the admission fold lives ON the carrier, so an unadmitted intent structurally cannot reach `Plan`, `Enqueue`, or `DispatchTable.Run`, which all take `AdmittedIntent`.
-- Cases: TensorOp | ModelInfer | RemoteCall | UnitProject | SymbolicProject | Pipeline | Generate; `Spec` carries deadline row, lane row, allocation row, cache-policy row, payload caps, forced-substrate `Option`, progress-subscription `Option`, and one inseparable `(Allotted, Provenance)` override.
+- Cases: TensorOp | ModelInfer | RemoteCall | UnitProject | SymbolicProject | SensorAdmit | Pipeline | Generate; `Spec` carries deadline row, lane row, allocation row, cache-policy row, payload caps, forced-substrate `Option`, progress-subscription `Option`, and one inseparable `(Allotted, Provenance)` override.
 - Entry: `public static Fin<AdmittedIntent> AdmittedIntent.Admit(ComputeIntent intent, ComputeIntent.Spec spec, CorrelationId correlation, CancelScope parent, IClock clock, TimeProvider time)` — `Fin<T>` aborts; admission runs exactly once at the boundary and interiors never re-validate; the byte and element caps are independent gates, so `Bounded` accumulates both violations through the `Validation` applicative pair before `ToFin` widens once — a first-fail cap gate that hides the second breach is the rejected form.
 - Auto: the intent digest derives from the operation symbol and payload bytes and feeds every selection receipt; the admitted `CancelScope` child binds the allotted deadline so expiry rides the linked token.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, System.IO.Hashing, BCL inbox
@@ -37,6 +37,14 @@ public abstract partial record ComputeIntent {
     // expression, its per-symbol dimension declarations, the numeric bindings, and the target unit — dispatched
     // onto the Symbolic lane's dimension proof + compiled evaluation + unit projection chain.
     public sealed record SymbolicProject(SymbolicExpr Formula, Map<string, string> Dimensions, Map<string, double> Bindings, string TargetUnit) : ComputeIntent;
+
+    // Broker-decoded sensor sample: the twin's telemetry crossing enters the ONE admission gate exactly as a
+    // tensor op does, so its deadline budget, element cap, cancel scope, and correlation bind before the
+    // CaptureIngest channel holds it and a DropOldest shed lands as Backpressure evidence carrying the
+    // dropped sample's own correlation. `Runtime/transport#BROKER_INGEST` mints the case off the pump and
+    // `Solver/clash#CLASH_AND_TWIN` `TwinLoop.Ingest` is the bound lane dispatch — a raw envelope pushed
+    // onto a channel beside `AdmittedIntent` forks the lane's admission law and strands that evidence.
+    public sealed record SensorAdmit(SensorEnvelope<TwinSignal> Envelope) : ComputeIntent;
 
     public sealed record Pipeline(Seq<ComputeIntent> Stages) : ComputeIntent;
 
@@ -136,6 +144,10 @@ public sealed record AdmittedIntent {
             unitProject: static _ => Fin.Succ((0L, 1L)),
             symbolicProject: static op => Fin.Succ((0L, (long)Math.Max(1, op.Bindings.Count))),
             generate: static op => Fin.Succ(((long)Encoding.UTF8.GetByteCount(op.Prompt), 0L)),
+            // Broker decode consumed the body, so no byte figure survives to cap here; element count carries
+            // sample width — operating-point dimensions beside one measurement — which is what an element cap
+            // bounds when a mis-shaped publisher floods the capture lane.
+            sensorAdmit: static op => Fin.Succ((0L, (long)op.Envelope.Data.OperatingPoint.Length + 1L)),
             pipeline: static line => line.Stages.IsEmpty
                 ? Fin.Fail<(long, long)>(new ComputeFault.PayloadOverBounds("pipeline:empty"))
                 : line.Stages.TraverseM(static child => Measured(child)).As().Bind(Summed));
@@ -167,6 +179,14 @@ public sealed record AdmittedIntent {
                 $"{op.Formula.ContentKey:x32}|{string.Join(',', op.Dimensions.OrderBy(static d => d.Key, StringComparer.Ordinal).Map(static d => $"{d.Key}={d.Value}"))}>{op.TargetUnit}",
                 MemoryMarshal.AsBytes<double>([.. op.Bindings.OrderBy(static b => b.Key, StringComparer.Ordinal).Map(static b => CanonicalForm.Scalar(b.Value))])),
             generate: static op => Seeded(op.Model.ToString("x32", CultureInfo.InvariantCulture), Encoding.UTF8.GetBytes(op.Prompt)),
+            // Sensor identity is the sample's own content — signal row, instant, and the canonical
+            // operating-point vector beside the measurement — so a broker replay carries the digest its first
+            // delivery carried and the job graph's content-keyed cone re-scores nothing.
+            sensorAdmit: static op => Seeded(
+                $"{op.Envelope.Data.SignalId}@{op.Envelope.Data.At}",
+                MemoryMarshal.AsBytes<double>([
+                    .. op.Envelope.Data.OperatingPoint.Select(CanonicalForm.Scalar),
+                    CanonicalForm.Scalar(op.Envelope.Data.Measured)])),
             pipeline: static line => Combined(line.Stages.Map(Derived)));
 
     private static UInt128 Seeded(string operation, ReadOnlySpan<byte> payload) =>
@@ -279,8 +299,8 @@ public sealed partial class Substrate {
 
 - Owner: `ComputeFault` fault family on the doctrine `Expected` shape with the dual-tier `Create` contract in the 2200 code band beside LifecycleFault 1200 and HopFault 4500; `SelectionHop` and `SelectionReceipt` evidence records; `SubstrateSelection` ordered-predicate fold; `DispatchTable` total row dispatch.
 - Cases: Text with the twelve domain cases SubstrateUnavailable | PayloadOverBounds | DeadlineExpired | Cancelled | ShutdownDrained | ModelRejected | ExtensionAssetMissing | EndpointUnreachable | RetryOwnerConflict | AllocationOverClass | EquivalenceMiss | CacheCorrupt — this owner declares the 2200..2212 core; discipline pages extend the SAME band as partial `ComputeFault` records on this owner, never a parallel fault union.
-- Band custody: 2200..2212 core (here); 2213..2216 Symbolic lane (`Symbolic/expression` `SymbolicFault` ParseRejected/SymbolUndefined/NonDifferentiable 2213..2215 + `Symbolic/dimensional` DimensionMismatch 2216); 2217..2219 analysis lane (`Analysis/assessment` AssessmentInputMissing/ToolchainUnresolved/AnalysisFailed); 2220..2223 scheduling lane (`Runtime/scheduling` GraphCyclic/GraphRejected/GraphStalled/CheckpointRejected); next-free 2224. `Runtime/wire#FAULT_PROJECTION` mirrors every band row.
-- Second custody: the Remote `WireFault` 4520..4532 wire sub-band (`Runtime/wire#FAULT_PROJECTION`) is Compute's SECOND custody — distinct from this 2200 band and from the AppHost `HopFault` 4500 hop band — recorded here beside the primary map and pinned reciprocally in the sibling registries.
+- Law: 2200..2212 core (here); 2213..2216 Symbolic lane (`Symbolic/expression` `SymbolicFault` ParseRejected/SymbolUndefined/NonDifferentiable 2213..2215 + `Symbolic/dimensional` DimensionMismatch 2216); 2217..2219 analysis lane (`Analysis/assessment` AssessmentInputMissing/ToolchainUnresolved/AnalysisFailed); 2220..2223 scheduling lane (`Runtime/scheduling` GraphCyclic/GraphRejected/GraphStalled/CheckpointRejected); next-free 2224. `Runtime/wire#FAULT_PROJECTION` mirrors every band row.
+- Law: the Remote `WireFault` 4520..4532 wire sub-band (`Runtime/wire#FAULT_PROJECTION`) is Compute's SECOND custody — distinct from this 2200 band and from the AppHost `HopFault` 4500 hop band — recorded here beside the primary map and pinned reciprocally in the sibling registries.
 - Foreign neighborhoods (PINNED mirror rows — a foreign band change is a row edit on both ends, never prose): AppHost 1xxx lifecycle + 4100..4810 wire/coordination (its `CoordinationFault` re-banded to 4540 around Compute's 4520..4532); AppUi 6xxx; Persistence 5xxx / 771x / 82xx..83xx; the AEC 23xx..27xx registry — each registry pins Compute's two custodies (2200..2223, 4520..4532), so cross-package band disjointness is checkable from both ends.
 - Entry: `public static Fin<Seq<SelectionReceipt>> Plan(AdmittedIntent admitted, SelectionContext context)` — `Fin<T>` aborts; the pipeline case folds its stages sequentially with short-circuit and the stage receipts share the parent correlation and digest.
 - Auto: every selection walk materializes one `SelectionReceipt` — evaluated rows, rejection reasons, fallback hops, forced bypass, warm-affinity influence, final route — and the receipts page carries it to the sink as the Selection case of the package receipt union, so a farm hop proves itself on the same receipt rail every other hop rides; the composition root threads the `Runtime/receipts#HOOK_POINTS` `ComputeHookRail` around this spine — `Planned` runs the `rasm.compute.runtime.admit` veto fold over the `AdmittedIntent` before `Plan` so an app-composed policy gate transforms or refuses on the emitter's own rail, and `Ran` fires the `rasm.compute.runtime.dispatch` observe tap with the `SelectionReceipt` before `DispatchTable.Run` — domain code fires evidence, subscribers attach at composition, and a subscriber fault lands on the AppHost hook fault band, never on this spine.
@@ -328,16 +348,28 @@ public sealed record SelectionReceipt(
     Instant At);
 
 public static class SubstrateSelection {
-    // Intent-specific eligibility owns fallback membership; row policy owns ordering within that closed set.
+    // Every chain is CONSTANT per case and three local folds share one, so each materializes once at type init and
+    // the generated Map projects a precomputed row — a per-arm lambda re-allocates its chain on every selection walk.
+    static readonly Seq<Substrate> TensorChain = Seq(Substrate.DeviceWgpu, Substrate.CpuTensor, Substrate.RemoteGrpc);
+    static readonly Seq<Substrate> ModelChain = Seq(Substrate.Onnx, Substrate.RemoteGrpc);
+    static readonly Seq<Substrate> GenerateChain = Seq(Substrate.GenAi, Substrate.RemoteGrpc);
+    static readonly Seq<Substrate> RemoteChain = Seq(Substrate.RemoteGrpc);
+    static readonly Seq<Substrate> LocalChain = Seq(Substrate.CpuTensor);
+    static readonly Seq<Substrate> NoChain = Seq<Substrate>();
+
+    // Intent-specific eligibility owns fallback membership; row policy owns ordering within that closed set. A
+    // decoded sensor sample folds on the twin loop's own host, so it rides the local chain beside the unit and
+    // symbolic projections — shipping one measurement to a farm costs more than the fold it asks for.
     public static Seq<Substrate> Eligible(ComputeIntent intent) =>
-        intent.Switch(
-            tensorOp: static _ => Seq(Substrate.DeviceWgpu, Substrate.CpuTensor, Substrate.RemoteGrpc),
-            modelInfer: static _ => Seq(Substrate.Onnx, Substrate.RemoteGrpc),
-            remoteCall: static _ => Seq(Substrate.RemoteGrpc),
-            unitProject: static _ => Seq(Substrate.CpuTensor),
-            symbolicProject: static _ => Seq(Substrate.CpuTensor),
-            generate: static _ => Seq(Substrate.GenAi, Substrate.RemoteGrpc),
-            pipeline: static _ => Seq<Substrate>());
+        intent.Map(
+            tensorOp: TensorChain,
+            modelInfer: ModelChain,
+            remoteCall: RemoteChain,
+            unitProject: LocalChain,
+            symbolicProject: LocalChain,
+            generate: GenerateChain,
+            sensorAdmit: LocalChain,
+            pipeline: NoChain);
 
     public static Fin<Seq<SelectionReceipt>> Plan(AdmittedIntent admitted, SelectionContext context) =>
         admitted.Intent is ComputeIntent.Pipeline line

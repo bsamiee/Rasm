@@ -12,8 +12,8 @@ Mesh-topology conditioning and metrology over an in-memory triangulation: `MeshQ
 
 - Owner: `MeshQuality` — the boundary capsule over the four arms; `SmoothKind` makes the smoothing filter family one row on the `Smooth` case, never three parallel entrypoints; the `_arm` cross-cut folds every arm's `Outcome` into the one held receipt (the `mesh/spatial#SPATIAL` `_fold` convention), so a new case writes only the geometry body producing an `Outcome`.
 - Cases: `Decimate` coarsens mesh topology for a downstream geometry op — render-time decimation for display is the artifacts figures owner's, and an LOD/display-budget arm here trespasses that boundary; `Subdivide` densifies before a curvature-sensitive metric pass; `Smooth` denoises before a deviation pass; `Metrics` is the gate the daemon and the clash/deviation hops read before trusting a surface.
+- Law: `_metrics_outcome` records the mesh genus/aspect charter rows through the graduation `charter_record` derivation at the producing fold — parent-side, `boundary`-fenced, never in a worker kernel, spellings derived, never hand-picked — and `QualityMetrics.frame` projects the whole grade as one `EvidenceFrame` row whose `GeometrySubject` the graduating owner supplies, so one metrics pass feeds the dashboard histograms and the data plane's columnar tier from one fold.
 - Auto: the `MANIFOLD3D` tier is enrichment over the always-available `SPINE` Euler-characteristic default, never the spine itself — one offloaded build yields the exact genus (summed over `decompose()` components), the exact counts, and the kernel mass superseding the `trimesh` measure in a single fold.
-- Observability: `_metrics_outcome` records the mesh genus/aspect charter rows through the graduation `charter_record` derivation at the producing fold — parent-side, `boundary`-fenced, never in a worker kernel, spellings derived, never hand-picked — and `QualityMetrics.frame` projects the whole grade as one `EvidenceFrame` row whose `GeometrySubject` the graduating owner supplies, so one metrics pass feeds the dashboard histograms and the data plane's columnar tier from one fold.
 - Packages: `trimesh` (the conditioning filters, cached validity/mass axes, `vertex_defects`), `numpy` (the half-edge incidence fold and per-cell shape statistics), `manifold3d` (the exact tier, reached only through the `QualityBackend` row), `expression`, `msgspec`, geometry graduation (`EvidenceFrame`/`charter_record`, the charter measure authority), and the runtime rails per the fence imports.
 - Growth: a new conditioning op is one `MeshQualityOp` case and its mirrored `MeshQualityResult` arm and one `Outcome`-producing body; a new smoothing filter is one `SmoothKind` row; a new topology backend is one `QualityBackend` row.
 - Boundary: watertight repair, hole-fill, and boolean CSG are `mesh/repair`'s; proximity, ray, contains, and sampling queries are `mesh/spatial`'s; registration and reconstruction are `scan/registration`+`scan/reconstruction`'s; mesh-file decode/encode is the data `MeshPayload` owner's (`rasm.data.spatial.mesh`).
@@ -102,9 +102,10 @@ class QualityMetrics(Struct, frozen=True):  # holds tuple distributions, so it s
     def worst(self) -> tuple[float, float]:  # the tail verdict off the held distributions, never a re-run of the cell fold
         return (self.aspect_ratio[4], self.skewness[4])
 
-    def frame(self, subject: GeometrySubject, evidence_key: ContentKey) -> EvidenceFrame:
+    def frame(self, subject: GeometrySubject, evidence_key: ContentKey) -> "RuntimeRail[EvidenceFrame]":
         # one columnar row through the graduation frame port; the graduating owners (repair, reconstruction)
-        # supply their subject — quality mints none — so one grade serves both evidence classes.
+        # supply their subject — quality mints none — so one grade serves both evidence classes, and the port's rail
+        # returns a width mismatch to this producer rather than raising past its consumer.
         table: dict[str, list[object]] = {
             "watertight": [self.watertight],
             "winding_consistent": [self.winding_consistent],
@@ -363,14 +364,10 @@ class MeshQuality:  # structural ReceiptContributor conformance — the base add
     def _metrics_outcome(self, exact: ExactTopology | None) -> Outcome:
         metrics = closure_fold(self._mesh, exact)
         worst = metrics.worst
-        # parent-side charter projection at the producing fold, kind keyed by the receipt scope: the genus/aspect
-        # spellings derive from the charter rows — MESH_ALGEBRA and RECONSTRUCTED_MESH share them under the
-        # one-member law, so either key derives the same spellings and quality still mints no subject.
-        charter_record(
-            GeometrySubject.MESH_ALGEBRA,
-            {"genus": metrics.genus, "worst_aspect_ratio": worst[0]},
-            "rasm.geometry.mesh.quality",
-        )
+        # parent-side charter projection at the producing fold: the genus/aspect spellings AND the recorded discriminant
+        # both derive from the subject — MESH_ALGEBRA and RECONSTRUCTED_MESH share the rows under the one-member law, so
+        # either key derives the same spellings and this engine page mints no subject and spells no kind of its own.
+        charter_record(GeometrySubject.MESH_ALGEBRA, {"genus": metrics.genus, "worst_aspect_ratio": worst[0]})
         before = len(self._mesh.faces)
         return Outcome(MeshQualityResult.Metrics(metrics), before, before, metrics.watertight, worst[0], worst[1], metrics.genus)
 

@@ -6,10 +6,10 @@ Correlation identity, cancellation provenance, `IClock`, the scheduler marshal d
 
 ## [01]-[INDEX]
 
-- [01]-[PHASE_FAMILY]: monotonic phase rows with rank and terminal columns; the aggregate bottleneck resolver.
-- [02]-[PROGRESS_CELL]: atom-backed capsule; CAS rank guard; cadence-gated delivery; throughput/ETA derivation; child roll-up.
-- [03]-[OBSERVATION_SEAMS]: AppUi marshal seam; wire mirror seam; instrument tap; sink-edge receipt law.
-- [04]-[TS_PROJECTION]: progress wire shape consumed as connect-es server-stream.
+- [02]-[PHASE_FAMILY]: monotonic phase rows with rank and terminal columns; the aggregate bottleneck resolver.
+- [03]-[PROGRESS_CELL]: atom-backed capsule; CAS rank guard; cadence-gated delivery; throughput/ETA derivation; child roll-up.
+- [04]-[OBSERVATION_SEAMS]: AppUi marshal seam; wire mirror seam; instrument tap; sink-edge receipt law.
+- [05]-[TS_PROJECTION]: progress wire shape consumed as connect-es server-stream.
 
 ## [02]-[PHASE_FAMILY]
 
@@ -87,7 +87,7 @@ stateDiagram-v2
 ## [03]-[PROGRESS_CELL]
 
 - Owner: `ProgressMark` readonly record struct hot-path capsule carrying the `Rate`/`Eta` read-side derivations and the `Roll` aggregate fold; `SubscriptionPolicy` cadence record with the `Due` delivery predicate over interval, fraction, and segment thresholds; `ProgressCell` Atom-backed boundary capsule with the `Aggregate` parent-fold factory and first typed observer failure.
-- Seeds: `SubscriptionPolicy.Immediate` | `SubscriptionPolicy.Interactive` | `SubscriptionPolicy.Wire`; callers derive composed policies from the same parameterized carrier.
+- Cases: `SubscriptionPolicy.Immediate` | `SubscriptionPolicy.Interactive` | `SubscriptionPolicy.Wire`; callers derive composed policies from the same parameterized carrier.
 - Entry: `public ProgressMark Advance(ProgressPhase phase, double fraction = 0d, long segments = 0L)` — value-returning commit; the unchanged snapshot is the rejection contract and the hot path carries no fault rail.
 - Auto: `ProgressMark.Accept` rejects invalid fractions, negative segments, rank regressions, and terminal regressions; same-phase fractions and all segment counts rise monotonically, timestamps never move backward, correlation stays cell-owned, and a higher-`Dominance` terminal can replace a lower terminal under a concurrent race. Each observer gate applies the same order through `Due`; a failed observer effect stores its first `Error` in `LatestFailure` and advances the cell to `Faulted`. `Aggregate` subscribes before its initial child fold, then re-folds `Roll` on change, so no advance can fall between snapshot and registration; an empty child set returns `None` rather than minting an unrequested parent.
 - Receipt: none minted here — every mark carries the intent correlation that keys receipt evidence at the sink edge, so terminal marks join observers to evidence in one hop.
@@ -234,7 +234,7 @@ public sealed class ProgressCell {
 - Entry: `public PhaseSubscription Observe(UiSchedulerPort scheduler, Action<ProgressMark> render)` — the returned detacher composite disposes LIFO.
 - Packages: LanguageExt.Core, BCL inbox
 - Growth: one seam member binding a cadence row to one observer shape; zero new surface.
-- Boundary: AppUi presentation marshals through the port delegate so no Compute type touches a UI thread. `Stream` feeds the ComputeService server-stream at app roots, and every seam returns `IO<Unit>` into `ProgressCell.Subscribe`; the proto phase enum generates from `ProgressPhase.Keys`, so a second wire vocabulary is the named defect. Aggregate parents use these identical seams because their rolled value is a `ProgressMark`. Receipts materialize only at the sink edge. `Instrument` writes the two `rasm.compute.progress.*` rows through the `Runtime/receipts` mounted `InstrumentSet` — the marks counter per delivered mark, the cadence histogram per consecutive-mark interval, both tagged by phase — so progress telemetry is one more subscriber under the identical cadence gate and the cell never touches a meter; the prior-mark register reads before it swaps, so no instrument write runs inside the CAS body.
+- Boundary: AppUi presentation marshals through the port delegate so no Compute type touches a UI thread. `Stream` feeds the ComputeService server-stream at app roots, and every seam returns `IO<Unit>` into `ProgressCell.Subscribe`; the proto phase enum generates from `ProgressPhase.Keys`, so a second wire vocabulary is the named defect. Aggregate parents use these identical seams because their rolled value is a `ProgressMark`. Receipts materialize only at the sink edge. `Instrument` writes the two `rasm.compute.progress.*` rows through the `Runtime/receipts` mounted `InstrumentSet` — the marks counter per delivered mark, the cadence histogram per consecutive-mark interval, both tagged by phase — so progress telemetry is one more subscriber under the identical cadence gate and the cell never touches a meter; the prior-mark register reads before it swaps and advances only once both writes land, so no instrument write runs inside the CAS body and a refused row never becomes observable history, and the writer returns the kernel rail so that refusal raises on the subscription's own error channel rather than vanishing at the seam.
 
 ```csharp signature
 public static class ProgressSeams {
@@ -251,13 +251,21 @@ public static class ProgressSeams {
         }
     }
 
-    static Unit Written(InstrumentSet set, Atom<Option<ProgressMark>> prior, ProgressMark mark) {
+    // Instrument name and dimension slot are the `Runtime/receipts` owner's consts, so the declared row and
+    // this writer are one vocabulary; cadence needs a predecessor, so the FIRST mark this subscription observes
+    // records none — the register carries the subscription's own history and no phase flip resets it.
+    // Returning the kernel rail binds `IO.lift`'s railed overload at the subscribe seam above, so a refused
+    // write raises on the subscription's error channel instead of dying one frame short of it. The predecessor
+    // advances on the SUCCESS path alone and outside the CAS body, so a refused pair leaves the register on the
+    // last mark that actually recorded and the next interval spans the real gap instead of dropping it.
+    static Fin<Unit> Written(InstrumentSet set, Atom<Option<ProgressMark>> prior, ProgressMark mark) {
         Option<ProgressMark> held = prior.Value;
-        ignore(prior.Swap(_ => Some(mark)));
-        ignore(set.Count("rasm.compute.progress.marks", 1L, new KeyValuePair<string, object?>("phase", mark.Phase.Key)));
-        held.Iter(previous => ignore(set.Record("rasm.compute.progress.cadence", (mark.At - previous.At).TotalSeconds,
-            new KeyValuePair<string, object?>("phase", mark.Phase.Key))));
-        return unit;
+        KeyValuePair<string, object?> phase = new(ReceiptSurface.PhaseSlot, mark.Phase.Key);
+        return set.Write(ReceiptSurface.ProgressMarks, 1L, phase)
+            .Bind(_ => held.Match(
+                Some: previous => set.Write(ReceiptSurface.ProgressCadence, (mark.At - previous.At).TotalSeconds, phase),
+                None: () => Fin.Succ(unit)))
+            .Map(_ => ignore(prior.Swap(_ => Some(mark))));
     }
 }
 ```
@@ -288,6 +296,5 @@ interface ProgressMarkWire {
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [COMMIT_ORDER]-[OPEN]: does any interleaving of concurrent `Advance` commits forward a rank-decreasing mark to a subscriber or store a rank below a prior committed mark; CsCheck `SampleParallel` property at implementation.
-- [AGGREGATE_FANOUT]-[OPEN]: at what part count does the O(parts) `Aggregate` re-roll per part change become the sweep bottleneck, ceding `Immediate` re-folding to `Interactive`/`Wire` coalescing; measurement on a wide job-graph fan at implementation.
-- [GH2_READBACK_IDLE]-[OPEN]: what idle-loop interval does a GH2 `SolveInstance` poll `ProgressCell.Latest` for a terminal mark before re-scheduling its solve; the live GH2 solver idle loop, gating only whether a readback cadence row beyond `SubscriptionPolicy.Interactive` is warranted since the in-flight ceiling is `Runtime/scheduling#SOLVE_GUARD`-owned.
+- [AGGREGATE_FANOUT]-[BLOCKED]: at what part count does the O(parts) `Aggregate` re-roll per part change become the sweep bottleneck, ceding `Immediate` re-folding to `Interactive`/`Wire` coalescing; a running wide job-graph fan reports it, and none exists.
+- [GH2_READBACK_IDLE]-[BLOCKED]: at what cadence a GH2 `Component.Process(IDataAccess)` re-entry observes `ProgressCell.Latest` for a terminal mark, gating only whether a readback cadence row beyond `SubscriptionPolicy.Interactive` is warranted since the in-flight ceiling is `Runtime/scheduling#SOLVE_GUARD`-owned; a live GH2 solve reports it, and the bridge supervisor is unbuilt.

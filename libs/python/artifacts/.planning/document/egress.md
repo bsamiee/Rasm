@@ -2,7 +2,7 @@
 
 Security-and-navigation finishing closes over an emitted PDF or Office container: `DocumentEgress` takes bytes authored by `document/emit#DOCUMENT` and returns a sealed, watermarked, redaction-burned, imposed, form-baked, content-rewritten, or Office-(de)sealed artifact keyed by the runtime content key — it finishes an emitted artifact and never authors one. Re-signing routes to `exchange/conformance#CONFORMANCE`, PDF/A authoring to `document/emit#DOCUMENT`, named-layer authoring to `export/layered#LAYERED`, descriptive-metadata authoring to `exchange/metadata#METADATA`.
 
-`EgressStep` is the closed `StrEnum` over the finishing operations and `FINISHERS` binds each step to one `Finisher` row — its `FinishFact`-returning arm, its `office` receipt discriminant, its optional `permissive` arm — so the table is the totality proof. `LicenseLane` selects the footing at the value: `AGPL_MAX` keeps the richest arm, `PERMISSIVE` the MIT/Apache/BSD arm so a closed-distributed deliverable carries no copyleft obligation (MPL `pikepdf` counts outside the permissive footing, so ENCRYPT and SANITIZE both carry a `pdf_oxide` alternate). Every arm resolves in-process; the fold crosses the GIL-releasing runtime thread lane through the owner's own `lane: LanePolicy` under the `@receipted(OPEN)` weave and contributes one `core/receipt#RECEIPT` `ArtifactReceipt.Egress`/`.Office` case off the `office` discriminant. `OUTLINE` and `REDACT` fold the `document/model#NODE` semantic tree — `SectionNode` headings into the bookmark hierarchy, `AnnotKind.REDACTION` rects into the burn targets — and because those arms derive output bytes from the tree, `node` joins the content-key preimage so two egresses differing only by tree never alias one cached artifact.
+`EgressStep` is the closed `StrEnum` over the finishing operations and `FINISHERS` binds each step to one `Finisher` row — its `FinishFact`-returning arm, its `office` receipt discriminant, its optional `permissive` arm — so the table is the totality proof. `LicenseLane` selects the footing at the value: `AGPL_MAX` keeps the richest arm, `PERMISSIVE` the MIT/Apache/BSD arm so a closed-distributed deliverable carries no copyleft obligation (MPL `pikepdf` counts outside the permissive footing, so SANITIZE carries a `pdf_oxide` alternate while ENCRYPT carries none and refuses that footing outright). Every arm resolves in-process; the fold crosses the GIL-releasing runtime thread lane through the owner's own `lane: LanePolicy` under the `@receipted(OPEN)` weave and contributes one `core/receipt#RECEIPT` `ArtifactReceipt.Egress`/`.Office` case off the `office` discriminant. `OUTLINE` and `REDACT` fold the `document/model#NODE` semantic tree — `SectionNode` headings into the bookmark hierarchy, `AnnotKind.REDACTION` rects into the burn targets — and because those arms derive output bytes from the tree, `node` joins the content-key preimage so two egresses differing only by tree never alias one cached artifact.
 
 ## [01]-[INDEX]
 
@@ -11,10 +11,10 @@ Security-and-navigation finishing closes over an emitted PDF or Office container
 ## [02]-[FINISH]
 
 - Owner: `DocumentEgress` — one `Finisher.arm` per step resolved off `FINISHERS`, never an `if step ==` cascade or a worker-side `match`; `LicenseLane` is read once at the value in `_stepped`, never a per-call knob. `Finishing` bundles every trusted policy value object while `Extras` carries the untrusted material (stamp bytes, attachment payload, Office credentials) — the admission split is trust, not concern, so passwords never ride the untrusted payload and stamp bytes never ride a trusted default.
-- Entry: `of` admits untrusted material exactly once through the `EgressPayload` `TypedDict`, its `extra_items=str` band folding the format-discriminated Office credential axis into `Extras.credentials`, and rejects an under-supplied step through `_PREREQ` into `EgressFault.incomplete` before the fold runs — the interior is total over admitted owners and never re-validates; material the selected footing's arm cannot express (a needle-bearing REDACT, a finer-than-coarse ENCRYPT policy, an active-content SANITIZE demand under `PERMISSIVE`) refuses through the `_LANE_GAPS` predicate table as `EgressFault.lane`, never a silent drop or a weakened seal. One polymorphic entry owns both the singular step and the chain: the `EgressStep | tuple[EgressStep, ...]` discriminant threads finished bytes step-to-step through one `reduce`, never a caller-orchestrated re-entry or a `mode` knob.
-- Auto: each arm returns a `FinishFact` merged onto the running owner through the `FinishFact.combined` monoid (`rails-and-effects.md` STATE_RECEIPTS) — terminal bytes and page count ride the newest fact, single-owner scalars (`encryption_r`, `outline_depth`) survive by right-or-left, additive counters sum — so a chain's earlier evidence never vanishes under a later step's default zeros and `contribute` reads the whole chain's facts without a second parse. `pypdf` is reserved for the structural OUTLINE/IMPOSE/NAVIGATE/FORMS arms and the gated SANITIZE/OPTIMIZE second passes it owns, never a parallel encryptor — qpdf authors every encryption strength through one `pikepdf.Encryption` leg on the rich lane, `pdf_oxide.to_bytes_encrypted` the permissive alternate. Native packages bind as module-scope `lazy import` reified on first arm use; no native import lands on the core owner.
+- Entry: `of` admits untrusted material exactly once through the `EgressPayload` `TypedDict`, its `extra_items=str` band folding the format-discriminated Office credential axis into `Extras.credentials`, and rejects an under-supplied step through `_PREREQ` into `EgressFault.incomplete` before the fold runs — the interior is total over admitted owners and never re-validates; material the selected footing's arm cannot express (a needle-bearing REDACT, an active-content SANITIZE demand, an ENCRYPT request at all under `PERMISSIVE`) refuses through the `_LANE_GAPS` predicate table as `EgressFault.lane`, never a silent drop or a weakened seal. One polymorphic entry owns both the singular step and the chain: the `EgressStep | tuple[EgressStep, ...]` discriminant threads finished bytes step-to-step through one `reduce`, never a caller-orchestrated re-entry or a `mode` knob.
+- Auto: each arm returns a `FinishFact` merged onto the running owner through the `FinishFact.combined` monoid (`rails-and-effects.md` STATE_RECEIPTS) — terminal bytes and page count ride the newest fact, single-owner scalars (`encryption_r`, `outline_depth`) survive by right-or-left, additive counters sum — so a chain's earlier evidence never vanishes under a later step's default zeros and `contribute` reads the whole chain's facts without a second parse. `pypdf` is reserved for the structural OUTLINE/IMPOSE/NAVIGATE/FORMS arms and the gated SANITIZE/OPTIMIZE second passes it owns, never a parallel encryptor — qpdf authors every encryption strength through one `pikepdf.Encryption` leg, and ENCRYPT carries NO permissive alternate because the `pdf_oxide` seal omits the `/Perms` entry its own R6/V5 dictionary requires. Native packages bind as module-scope `lazy import` reified on first arm use; no native import lands on the core owner.
 - Receipt: the node key mints PRE-RUN over the canonical input (steps, source, node, finishing, extras, footing) so keyed admission probes the warm seed before the fold runs, and `receipt.slot == node.key`. REWRITE's OCG-strip count and FORMS' baked-widget count ride the `overlays` slot — content-composition operations of the watermark-overlay family.
-- Packages: `pikepdf` (MPL) owns the qpdf object model, encryption, composition, and save strategy; `pypdf` (BSD) the pure-Python structural arms and the `ObjectDeletionFlag` object pruner; `pymupdf` (AGPL) the richest REDACT burn-in with `search_for` needle match, flagged for supersession on the permissive lane; `pdf_oxide` (MIT/Apache) the permissive ENCRYPT/REDACT/SANITIZE arms and the STRIP running-content removal no other step owns; `msoffcrypto` the bidirectional Office confidentiality rail.
+- Packages: `pikepdf` (MPL) owns the qpdf object model, encryption, composition, and save strategy; `pypdf` (BSD) the pure-Python structural arms and the `ObjectDeletionFlag` object pruner; `pymupdf` (AGPL) the richest REDACT burn-in with `search_for` needle match, flagged for supersession on the permissive lane; `pdf_oxide` (MIT/Apache) the permissive REDACT/SANITIZE arms and the STRIP running-content removal no other step owns, never an ENCRYPT arm; `msoffcrypto` the bidirectional Office confidentiality rail.
 - Growth: a new finishing step is one `EgressStep` row, one `Finisher` row, and one `_PREREQ` row when it needs material; a commercial-safe alternative is one `Finisher.permissive` arm, never a parallel license-keyed table; a new policy concern is one `Finishing` field carrying its own value object; a new receipt fact is one `FinishFact` field with its `combined` column, never a re-derivation off the bytes; an encryption strength is one `Strength` row with its `_STRENGTHS` cell; a document-wide strip class is one `PruneClass` member with one `_PRUNE` row; a deeper chain is one more step in the sequence the rail already folds.
 
 ```python signature
@@ -648,25 +648,6 @@ def _encrypt(egress: DocumentEgress) -> FinishFact:
         return FinishFact(sink.getvalue(), pages=len(pdf.pages), encryption_r=enc.r)
 
 
-def _encrypt_oxide(egress: DocumentEgress) -> FinishFact:
-    # MIT/Apache ENCRYPT alternate: the `_LANE_GAPS` admission already refused any policy the coarse four-permission
-    # axis cannot carry losslessly (split print, divergent assemble/fill-forms, accessibility denial, plaintext metadata,
-    # non-default strength), so each boolean below is exact; cipher revision is engine-chosen and unexposed, so
-    # `encryption_r` stays 0 as unknown-revision evidence (the RESEARCH row below).
-    enc, allow = egress.finishing.encryption, egress.finishing.permissions
-    assert enc is not None
-    with pdf_oxide.PdfDocument.from_bytes(egress.source) as doc:
-        sealed = doc.to_bytes_encrypted(
-            enc.user or enc.owner,
-            owner_password=enc.owner,
-            allow_print=allow.print_highres,
-            allow_copy=allow.extract,
-            allow_modify=allow.modify,
-            allow_annotate=allow.annotate,
-        )
-        return FinishFact(sealed, pages=doc.page_count)
-
-
 type _Outline = tuple[frozendict[int, "IndirectObject"], int]
 
 
@@ -879,13 +860,42 @@ def _redact(egress: DocumentEgress) -> FinishFact:
         return FinishFact(sink.getvalue(), pages=doc.page_count)
 
 
+def _needle_rects(doc: "pdf_oxide.PdfDocument", page: int, needles: tuple[str, ...]) -> tuple[tuple[float, float, float, float], ...]:
+    # `search_page` locates but never bounds: its hit dicts carry the whole SOURCE LINE's `(x, y, width, height)`, so
+    # burning them redacts every neighbouring word on the line. A substring test over `extract_words` fails the other
+    # way twice — it burns `category` for the needle `cat`, and it misses every multi-word needle no single word ever
+    # contains, which under-redacts the exact bytes this step exists to destroy. The fold therefore matches each
+    # needle's own token SEQUENCE exactly against the word stream and unions that run's glyph-exact `bbox` set, so a
+    # hit covers what the needle spells and nothing beside it; `extract_words` carries `(x, y, w, h)` while
+    # `add_redaction` takes `(x0, y0, x1, y1)`, so the union converts once and no rect passes through untouched.
+    words = tuple(doc.extract_words(page))
+    runs = tuple(
+        tuple(word.bbox for word in words[index : index + len(tokens)])
+        for needle in needles
+        for tokens in (tuple(needle.split()),)
+        if tokens
+        for index in range(len(words) - len(tokens) + 1)
+        if all(words[index + offset].text == token for offset, token in enumerate(tokens))
+    )
+    return tuple(
+        (
+            min(box[0] for box in boxes),
+            min(box[1] for box in boxes),
+            max(box[0] + box[2] for box in boxes),
+            max(box[1] + box[3] for box in boxes),
+        )
+        for boxes in runs
+    )
+
+
 def _redact_oxide(egress: DocumentEgress) -> FinishFact:
-    # needle content-search stays AGPL_MAX-only — `PdfDocument.search_page` returns an untyped hit set, no verified rect shape to
-    # burn; the Rust-core handle closes deterministically through the `with` bracket, never a GC-reaped native document.
+    # `with` closes the Rust-core handle deterministically, never leaving a GC-reaped native document.
+    # `apply_redactions_destructive` RAISES on a composite/Type0 font rather than under-redacting, which is the honest
+    # failure the folder rail converts — an under-redacted seal would ship the very bytes this step exists to destroy.
     label, scrub, tree_rects = egress.finishing.label, egress.finishing.scrub, _redaction_rects(egress.node)
     with pdf_oxide.PdfDocument.from_bytes(egress.source) as doc:
         for index in range(doc.page_count):
-            for rect in tree_rects.try_find(index).default_value(()):
+            for rect in (*tree_rects.try_find(index).default_value(()), *_needle_rects(doc, index, label.needles)):
                 doc.add_redaction(index, rect, fill=label.fill)
         doc.apply_redactions_destructive(
             scrub_metadata=scrub.metadata, remove_javascript=scrub.javascript, remove_embedded_files=scrub.embedded_files
@@ -1046,7 +1056,7 @@ def _pruned_pages(writer: "PdfWriter", flag: "ObjectDeletionFlag", /) -> None:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 FINISHERS: Final[Map[EgressStep, Finisher]] = Map.of_seq([
-    (EgressStep.ENCRYPT, Finisher(_encrypt, permissive=_encrypt_oxide)),  # pikepdf (MPL) rich arm; pdf_oxide `to_bytes_encrypted` under `PERMISSIVE`
+    (EgressStep.ENCRYPT, Finisher(_encrypt)),  # pikepdf (MPL) rich arm alone; the pdf_oxide seal emits an unopenable dictionary
     (EgressStep.OUTLINE, Finisher(_outline)),
     (EgressStep.WATERMARK, Finisher(_watermark)),
     (EgressStep.ATTACH, Finisher(_attach)),
@@ -1093,23 +1103,15 @@ _PREREQ: Final[Map[EgressStep, Callable[[DocumentEgress], bool]]] = Map.of_seq([
 # Per-step PERMISSIVE expressibility gate: a predicate proves the admitted policy exceeds what the step's
 # permissive arm can express, and `of` refuses that step as `EgressFault.lane` instead of silently weakening it.
 _LANE_GAPS: Final[Map[EgressStep, Callable[[DocumentEgress], bool]]] = Map.of_seq([
-    # `_redact_oxide` burns tree rects only — `search_page` returns no verified rect shape (the RESEARCH row).
-    (EgressStep.REDACT, lambda eg: bool(eg.finishing.label.needles)),
-    # `to_bytes_encrypted` exposes four coarse permission booleans over an engine-chosen cipher: a split print policy,
-    # an assemble/fill-forms grant diverging from its coarse superset, an accessibility denial, a plaintext-metadata
-    # demand, and a non-default strength each have no pdf_oxide member.
-    (
-        EgressStep.ENCRYPT,
-        lambda eg: eg.finishing.encryption is not None
-        and (
-            eg.finishing.encryption.strength is not Strength.AES_256
-            or not eg.finishing.encryption.encrypt_metadata
-            or eg.finishing.permissions.print_lowres != eg.finishing.permissions.print_highres
-            or not eg.finishing.permissions.accessibility
-            or eg.finishing.permissions.assemble != eg.finishing.permissions.modify
-            or eg.finishing.permissions.fill_forms != eg.finishing.permissions.annotate
-        ),
-    ),
+    # ENCRYPT has NO permissive lane, so ONE unconditional row carries it: `to_bytes_encrypted` writes R6/V5/AES-256
+    # yet omits the `/Perms` entry that revision requires, so qpdf and pikepdf both refuse the file and pdf_oxide's
+    # own authenticated read-back returns empty text on AES-CBC padding errors. A seal no reader opens is worse than
+    # a refused step. Policy expressibility never enters: the same member exposes four coarse permission booleans
+    # over an engine-chosen cipher, so a split print policy, an assemble/fill-forms grant diverging from its coarse
+    # superset, an accessibility denial, a plaintext-metadata demand, and a non-default strength are each
+    # inexpressible too — a second keyed row narrowing on those axes is unreachable behind this one and `Map.of_seq`
+    # keeps only one row per key besides.
+    (EgressStep.ENCRYPT, lambda _eg: True),
     # `sanitize_document` scrubs metadata/javascript/embedded-files only — the external-access, multimedia, and
     # signature-disable axes have no pdf_oxide member, so an active-content strip demand refuses rather than surviving.
     (
@@ -1125,5 +1127,4 @@ _LANE_GAPS: Final[Map[EgressStep, Callable[[DocumentEgress], bool]]] = Map.of_se
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [OXIDE_SEARCH]-[OPEN]: does `pdf_oxide.PdfDocument.search_page` return typed rects usable for a permissive-lane needle redaction; verify against the folder `.api/pdf-oxide.md` catalog.
-- [OXIDE_ENCRYPT_R]-[OPEN]: which encryption revision does `pdf_oxide.PdfDocument.to_bytes_encrypted` write, so the permissive ENCRYPT arm can record a true `FinishFact.encryption_r`; verify via `uv run python` over a sealed round-trip inspected with `pikepdf.open(...).encryption`.
+- [OXIDE_PERMS_ENTRY]-[BLOCKED]: which `pdf_oxide` release writes the `/Perms` entry its own `/R 6 /V 5` dictionary requires, re-admitting a permissive ENCRYPT lane; the crate's R≥5 construction arm hard-codes the field absent and `save_encrypted`/`to_bytes_encrypted` share that one path, so the emitted `/Encrypt` carries `/R 6 /V 5 /AESV3 /UE /OE` and no `/Perms` — `pikepdf.open(...).encryption` and `qpdf --show-encryption` both refuse the file, and `PdfDocument.extract_page_text` answers empty on the authenticated re-open's AES-CBC padding error; the gate lifts on a release whose emitted dictionary carries `/Perms`, never a re-probe of the same build.

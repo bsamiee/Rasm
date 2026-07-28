@@ -18,9 +18,10 @@ The keyed-decode engine of the interchange plane: ONE closed census of every con
 ## [02]-[WIRE_CENSUS]
 
 [WIRE_CENSUS]:
-- Owner: the census anchors — `_families`, the ordered key tuple of every contract wire family; `_census`, the fact table carrying `arm` (the closed four-value format axis), `source` (the C# mint), `consumer` (the surface reading the decoded value: `value`, `state`, `observe`, `interchange`, `security`, `data`, `runtime`, `ui`), and `home` (the interchange page owning the landing: `codec`, `format`, `contract`, `frame`, `invoke`); `_wireLiteral`, the family-name schema every fault, feed, and verdict types `family` fields with. The merged-hub guard pair ties tuple and table closed in both directions, and the `Home`/`Consumer` type anchors govern the fact columns — a census row naming a page or surface outside either closed set fails the row guard, never a review.
+- Owner: the census anchors — `_families`, the ordered key tuple of every contract wire family; `_census`, the fact table carrying `arm` (the closed four-value format axis), `source` (the peer mint whose bytes this landing decodes), `consumer` (the surface reading the decoded value: `value`, `state`, `observe`, `interchange`, `security`, `data`, `runtime`, `ui`), and `home` (the interchange page owning the landing: `codec`, `format`, `contract`, `frame`, `invoke`); `_wireLiteral`, the family-name schema every fault, feed, and verdict types `family` fields with. The merged-hub guard pair ties tuple and table closed in both directions, and the `Home`/`Consumer` type anchors govern the fact columns — a census row naming a page or surface outside either closed set fails the row guard, never a review.
 - Law: the census is the plane's single source of truth for which wire families exist — a decode surface for a family absent from the census, or a census row with no landing at its home page, is the defect the contract gate's coverage walk surfaces.
 - Law: `arm` is closed at four — `proto`, `cbor`, `msgpack`, `jsonpatch` — one arm per C# mint format; a family under two arms is a census error, never a dispatch case.
+- Law: `source` names where a decoded value came from, never who owns the shape — a family whose `tests/contracts/` entry classes it `infrastructure` is co-minted, so this branch mints it locally as well and the column still records the peer whose bytes cross; reading the column as sole authorship is what lets two ends drift into incompatible shapes under one family name.
 - Law: `home` partitions the landing obligation — `codec` rows resolve in this module's landing table; `format`, `contract`, `frame`, and `invoke` rows land at their owning page, and the census still names them so coverage is one walk over one tuple.
 - Growth: a new C# wire family is one tuple entry plus one census row plus one landing row at its home — the guards break every stale projection at compile time; never a new folder, never a parallel list.
 - Boundary: verdict grading over descriptor generations is the contract page's; the proto `GenMessage` suite the census's proto rows bind is `format#PROTO_ENGINE`'s.
@@ -429,7 +430,9 @@ type CrdtOp = typeof CrdtOp.Type
 - Law: `Hops` carries four columns — gRPC `code`, `retryable`, `terminal`, and `class`, the `value/fault` classification each hop reason projects — so `FaultDetail` satisfies the branch classification convention structurally and every compiled `Budget` schedule gates it with zero adapter; the code-to-reason projection generates from the table's own `code` column and cannot drift.
 - Law: `FaultDetail` is wire-only altitude — constructed at exactly two sites: the `FaultDetailWire` decode row and the invoke page's transport fold; a third construction site in the branch is the defect the architecture suite audits. `EnricherLive` satisfies the `value/fault` `FaultEnricher` endo-arrow by reading the structured `wire.reason` attribute the crash boundary preserves from a `FaultDetail`; a capture without an admitted reason passes through untouched, so enrichment degrades to identity and never parses message prose. The stamped keys are the `_WIRE_ATTR` vocabulary rows — this enricher's owned `wire.*` axis beside the corpus-wide registry the observe convention page owns — never free string literals at the call site.
 - Law: `Credential.material` is `Schema.Redacted` — the secret never exists raw past the decode transform, rotation compares sealed through `_sameMaterial`, the equivalence `Schema.equivalence` derives from the field's own `Schema.Redacted` declaration so equality has no second spelling beside the schema, and `fingerprint` is the only audit identity a log meets.
-- Law: the benchmark claim carries the whole measurement-statistics band — each metric row mirrors the mitata `stats` record field-for-field under the `fn`/`iter`/`yield` modality discriminant: `ticks`, the raw `samples` timings, the `min`/`max`/`avg` triple, the `p25`/`p50`/`p75`/`p99`/`p999` ladder, and the honestly-optional `gc`/`heap`/`counters` enrichment bands (`counters` flattening the addon's `cycles`/`instructions`/`cache`/`cacheMisses`/`branchMisses` averages) — so a TS-lane run lands claims in the admitted family the C# corpus gate feeds, the observe `bench` regression fold grades the ladder structurally, and `admit` refuses a host print unequal to `AppIdentity.host`, making cross-host comparison unspellable at the landing.
+- Law: the benchmark claim is the one host-admitted document `tests/contracts/` `BENCHMARK_CLAIM` fixes — `suite`, `host`, `minted`, and metric rows under the `fn`/`iter`/`yield` modality discriminant, each carrying its subject, its positive sample count beside the at-least-one-rung map its own harness measured — the two structural floors that keep an evidence-free band from grading as a passing claim — its optional `ticks` and raw `samples` timings, the honestly-optional `gc`/`heap`/`counters` enrichment bands (`counters` flattening the addon's `cycles`/`instructions`/`cache`/`cacheMisses`/`branchMisses` averages), and its warmup, allocation, and operation columns — so a TS-lane mitata run and a C#-side equivalence sweep land in ONE family with neither fabricating the other's statistic, the observe `bench` fold grades the single rung its tolerance names, and `admit` refuses a host print unequal to `AppIdentity.host`, making cross-host comparison unspellable at the landing.
+- Law: a metric row's `unit` is the MINTING HARNESS's vocabulary, deliberately outside the telemetry unit roster — a timing harness spells nanoseconds, a render probe spells a per-second rate beside a bare count, a C# sweep spells its own — so the column stays a free non-empty string the grade compares verbatim as an equality axis; narrowing it onto `Convention.units` refuses every measure that roster was never built to carry, and the claim plane measures what a harness measures rather than what the instrument census mounts.
+- Law: the claim subject carries its own tag because the selection coordinate belongs to a kernel run alone — a flat row widening `input`, `substrate`, `route`, `provider`, and the equivalence columns to optional admits a probe row claiming a substrate it never ran, and the tag refuses that shape at decode rather than at a downstream gate.
 - Law: `GeoFeature`'s WKB band is opaque carriage under the gated `WkbParser` port — geometry materializes only through the port the ui wave satisfies, and the tile algebra (`quadkey`, `parent`, `children`) is total over the zoom-bounded grid refinement.
 - Exemption: `Crs.of`'s `in`-probe key narrowing, the `EnricherLive` structured-reason probe (`token in _hops` behind its refinement), and the `Tile.quadkey` bit walk are marked kernels — the checker cannot carry the probe onto the key type, and only immutable values leave.
 - Growth: a new shell intent, appearance block, BCF axis, or fault evidence field is one case or field mirroring the C# emit; a new landing plane is one owner block here plus its census rows.
@@ -831,12 +834,16 @@ class SnapshotHeader extends Schema.Class<SnapshotHeader>("SnapshotHeader")({
   minted: Schema.DateTimeUtc,
 }) {}
 
+// `print` is the one rendered identity every gate compares on; `stamps` is the open extension bag a
+// minting runtime fills with what its own probe reached, so a new host fact needs no schema edit here.
 class HostFingerprint extends Schema.Class<HostFingerprint>("HostFingerprint")({
   print: Schema.NonEmptyString,
   machine: Schema.NonEmptyString,
+  os: Schema.NonEmptyString,
   arch: Schema.NonEmptyString,
-  cores: Schema.Int.pipe(Schema.positive()),
+  processors: Schema.Int.pipe(Schema.positive()),
   runtime: Schema.NonEmptyString,
+  stamps: Schema.Record({ key: Schema.NonEmptyString, value: Schema.String }),
 }) {}
 
 // Benchmark measures are physical quantities — nanoseconds, bytes, hardware counts: a negative or
@@ -855,35 +862,83 @@ const _Counters = Schema.Struct({
   cacheMisses: _Measure,
   branchMisses: _Measure,
 })
+const _RUNGS = ["min", "max", "avg", "p25", "p50", "p75", "p95", "p99", "p999", "stdDev"] as const
+// One rung vocabulary spans every minting harness: mitata computes the whole sampling ladder beside its
+// raw vector, a C#-side equivalence sweep persists p50, p95, and stdDev alone, so the map carries what
+// its own harness measured and a grader naming an absent rung refuses at its own axis. A required rung
+// would force one harness to fabricate the other's statistic; a fixed struct would strand both halves.
+const _Rungs = Schema.Record({ key: Schema.Literal(..._RUNGS), value: _Measure }).pipe(
+  Schema.partialWith({ exact: true }),
+  // A band ASSERTS a measurement, so it reports at least one rung off the roster: an empty map computes nothing while
+  // the sample count claims a run, and an empty evidence fold then grades as a passing benchmark claim. WHICH rungs
+  // stay the harness's own — the floor is one, never a named one, so no harness fabricates the other's statistic.
+  Schema.filter((rungs) => Array.some(_RUNGS, (rung) => rungs[rung] !== undefined) || "<rungless-band>", { identifier: "MeasuredRungs" }),
+)
 const _Band = Schema.Struct({
-  // the mitata stats mirror: nanosecond ladder, raw samples, and the honestly-optional enrichment bands
-  ticks: Schema.Int.pipe(Schema.nonNegative()),
-  samples: Schema.Array(_Measure),
-  min: _Measure,
-  max: _Measure,
-  avg: _Measure,
-  p25: _Measure,
-  p50: _Measure,
-  p75: _Measure,
-  p99: _Measure,
-  p999: _Measure,
+  // Zero samples is not a measurement: every rung beside it is a statistic over nothing, so the floor is structural
+  // here exactly as `_Measure` refuses a negative quantity, and no grade arm re-decides it.
+  sampleCount: Schema.Int.pipe(Schema.positive()),
+  rungs: _Rungs,
+  ticks: Schema.optionalWith(Schema.Int.pipe(Schema.nonNegative()), { as: "Option" }),
+  samples: Schema.optionalWith(Schema.Array(_Measure), { as: "Option" }),
   gc: Schema.optionalWith(_Aggregate, { as: "Option" }),
   heap: Schema.optionalWith(_Aggregate, { as: "Option" }),
   counters: Schema.optionalWith(_Counters, { as: "Option" }),
 })
 
+const _Input = Schema.Struct({
+  payloadBytes: Schema.BigInt,
+  band: Schema.Literal("micro", "small", "medium", "large"),
+  dtype: Schema.NonEmptyString,
+  shape: Schema.Array(Schema.BigInt),
+  strides: Schema.Array(Schema.BigInt),
+  batch: Schema.Int.pipe(Schema.positive()),
+  density: Schema.Number.pipe(Schema.between(0, 1)),
+  rank: Schema.Int.pipe(Schema.nonNegative()),
+  contiguous: Schema.Boolean,
+})
+
+// Subjects discriminate what a row measured: a bare probe carries the shared label/unit/modality
+// triple alone, while a kernel run carries the selection coordinate a route, provider, or encoding
+// decision resolves on. Widening every kernel column to optional on one flat row admits a probe row
+// claiming a substrate it never ran, which is the exact mismatch the tag forecloses at decode.
+const _Subject = Schema.Union(
+  Schema.Struct({ subject: Schema.Literal("probe") }),
+  Schema.Struct({
+    subject: Schema.Literal("kernel"),
+    input: _Input,
+    substrate: Schema.NonEmptyString,
+    family: Schema.NonEmptyString,
+    case: Schema.NonEmptyString,
+    route: Schema.NonEmptyString,
+    provider: Schema.NonEmptyString,
+    corpus: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+    artifactKey: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+    equivalenceMaxDeviation: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
+    toleranceClass: Schema.NonEmptyString,
+  }),
+)
+
 class Claim extends Schema.Class<Claim>("Claim")({
   suite: Schema.NonEmptyString,
   metrics: Schema.NonEmptyArray(Schema.Struct({
     label: Schema.NonEmptyString,
+    // Each minting harness spells its own vocabulary, never the instrument census's — a render probe spells `1/s` and a
+    // bare count, neither carried by the telemetry unit roster — so the grade compares this column verbatim
     unit: Schema.NonEmptyString,
     kind: Schema.Literal("fn", "iter", "yield"),
+    subject: _Subject,
     band: _Band,
+    warmups: Schema.optionalWith(Schema.Int.pipe(Schema.nonNegative()), { as: "Option" }),
+    allocatedBytes: Schema.optionalWith(Schema.BigInt, { as: "Option" }),
+    operations: Schema.optionalWith(Schema.BigInt, { as: "Option" }),
   })),
   host: HostFingerprint,
   minted: Schema.DateTimeUtc,
 }) {
+  static readonly RUNGS: typeof _RUNGS = _RUNGS
   static readonly Band: typeof _Band = _Band
+  static readonly Subject: typeof _Subject = _Subject
   static readonly Host: typeof HostFingerprint = HostFingerprint
   static readonly admit = (claim: Claim, identity: AppIdentity): Effect.Effect<Claim, WireFault> =>
     claim.host.print === identity.host

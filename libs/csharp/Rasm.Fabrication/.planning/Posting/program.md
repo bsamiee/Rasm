@@ -14,10 +14,10 @@
 
 - Owner: `CutProgram` mints the canonical AST and `Post` owns every transform that changes it.
 - Cases: `GNode` carries block framing beside executable node families; `GValue` preserves numeric, variable, expression, and text evidence; `GCommand.Wcs` and `WcsExtended` retain base and extended coordinate forms; `ProgramEvent` carries the canonical interpretation.
-- Entry: `Post.Lower` discriminates on `PostSource`; `Post.Parse` discriminates on `ProgramIngress`; `Post.Publish` projects one `CutProgram` through `ProgramView`.
-- Auto: `GCommand.Admit` composes address shape with row-owned scalar policy before AST construction, `ModalState` threads controller state once, and `Dialect.Emit` derives framed physical records, record capacity, bytes, and content identity together.
 - Law: `GCommand.Requires` and `GCommand.Modalities` declare what a command demands of a controller, and `GCommand.Admits` decides admissibility against `PostDialect.Features` and `PostDialect.Modalities` — no dialect identity is ever tested, and no roster mirrors the vocabulary.
 - Law: `ProgramUnits` carries one millimetre scale in both directions, and `GNode.Word.With` preserves the replaced value's source units or the word's established source-unit row. Every `ProgramEvent` carries one structural `ProgramLocus`; motion also carries every admitted axis, resolved plane, and arc center, so consumers never re-derive modal state, discard rotary or auxiliary axes, or substitute a chord.
+- Entry: `Post.Lower` discriminates on `PostSource`; `Post.Parse` discriminates on `ProgramIngress`; `Post.Publish` projects one `CutProgram` through `ProgramView`.
+- Auto: `GCommand.Admit` composes address shape with row-owned scalar policy before AST construction, `ModalState` threads controller state once, and `Dialect.Emit` derives framed physical records, record capacity, bytes, and content identity together.
 - Receipt: `CutProgram.Key` identifies the length-framed AST; `PostedProgram.Key` identifies rendered records; admitted `ProgramTrace` preserves modal state and the complete node-and-repeat path of every expanded executable leaf.
 - Packages: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, `UnitsNet` through `PhysicsQuantity`, `geometry3Sharp`, `CavalierContours` through `Loop`, `ArcAlgebra`, and `PlineSeg`, `MTConnect.NET-Common` through `ToolAssembly`, and `DSTV.Net` through `SteelImport.Read`.
 - Growth: a syntax construct is one `GNode` case; a command is one `GCommand` row with its grammar and demanded features; a parse grammar is one `ProgramIngress` case; a projection is one `ProgramView` row.
@@ -1077,7 +1077,7 @@ public static partial class Post {
 ## [04]-[CONDITIONING]
 
 - Owner: `CutConditioning` composes cut, fit, compensation, dynamics, and committed-chain policy as admitted values.
-- Entry: motion, placement, and specialized envelopes enter one `Post.Lower` fold and diverge only inside `PostSource.Switch`.
+- Entry: motion, placement, and specialized envelopes enter one `Post.Lower` fold and diverge only inside `PostSource.Switch`; every arm opens its program on `Prologue`, which prepends the run's keyed drawing marks as one verbatim comment block ahead of the frame assignments.
 - Auto: `ToolMagazine.Schedule` carries lifecycle and process-range evidence; `SetupSchedule.Apply` supplies WCS assignment; `Workholding.Apply` conditions motion; `ArcAlgebra.Apply` owns kerf, lead, and compensation.
 - Boundary: statement flow is confined to modal, render, and parse boundaries with the `LookaheadKernel`, `Segments`, `Fit`, and `BulgeArc` numeric kernels; joins use `Fold`, `FoldM`, `TraverseM`, generated `Switch`, and query syntax.
 
@@ -1100,16 +1100,17 @@ public static partial class Post {
             : Fin.Fail<SetupSchedule>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "post:setup-result").ToError())
         from program in source.Switch(
             state: (Dialect: dialect, Input: input, Policy: policy, Changes: changes, Schedule: schedule),
-            motion: static (state, value) => MotionProgram(value.Value, state.Dialect, state.Policy, state.Changes, state.Schedule),
-            placement: static (state, value) => PlacementProgram(value.Value, state.Dialect, state.Policy, state.Changes, state.Schedule),
-            specialized: static (state, value) => SpecializedProgram(value.Value, state.Dialect, state.Schedule))
+            motion: static (state, value) => MotionProgram(value.Value, state.Dialect, state.Policy, state.Changes, state.Schedule, state.Input.Tags),
+            placement: static (state, value) => PlacementProgram(value.Value, state.Dialect, state.Policy, state.Changes, state.Schedule, state.Input.Tags),
+            specialized: static (state, value) => SpecializedProgram(value.Value, state.Dialect, state.Schedule, state.Input.Tags))
         select program;
 
     private static Fin<CutProgram> SpecializedProgram(
         SpecializedToolpathEnvelope payload,
         PostDialect dialect,
-        SetupSchedule schedule) => payload.IsValid
-            ? Fin.Succ(CutProgram.Of(Prologue(schedule)
+        SetupSchedule schedule,
+        Map<string, Arr<ProfileMarking>> tags) => payload.IsValid
+            ? Fin.Succ(CutProgram.Of(Prologue(schedule, tags)
                 .Add(new GNode.Directive(new MotionDirective.Specialized(-1, payload)))
                 .Add(new GNode.Word(GCommand.ProgramEnd, Arr<GParam>(), None)), dialect))
             : Fin.Fail<CutProgram>(new GeometryFault.DegenerateInput(
@@ -1120,7 +1121,8 @@ public static partial class Post {
         PostDialect dialect,
         PostPolicy policy,
         Seq<ToolChange> changes,
-        SetupSchedule schedule) =>
+        SetupSchedule schedule,
+        Map<string, Arr<ProfileMarking>> tags) =>
         from held in Workholding.Apply(new WorkholdingOp.Condition(
             policy.Setup.Workholding.Fixture,
             policy.Setup.Workholding.State,
@@ -1130,7 +1132,7 @@ public static partial class Post {
             : Fin.Fail<Seq<Move>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "post:workholding-result").ToError())
         from body in ToolSections(GNode.Moves(moves, motion.Directives, Point3d.Origin), changes, policy)
         from looked in Lookahead(body, policy.Cut.Dynamics, dialect)
-        let program = CutProgram.Of(Prologue(schedule).Concat(looked)
+        let program = CutProgram.Of(Prologue(schedule, tags).Concat(looked)
             .Add(new GNode.Word(GCommand.ProgramEnd, Arr<GParam>(), None)), dialect)
         select program;
 
@@ -1139,13 +1141,14 @@ public static partial class Post {
         PostDialect dialect,
         PostPolicy policy,
         Seq<ToolChange> changes,
-        SetupSchedule schedule) =>
+        SetupSchedule schedule,
+        Map<string, Arr<ProfileMarking>> tags) =>
         from paths in policy.Cut.Chains.IsEmpty
             ? Unlinked(placement, dialect, policy)
             : policy.Cut.Chains.TraverseM(chain => ChainPath(chain, dialect, policy)).As().Map(static rows => rows.Bind(identity))
         from body in ToolSections(paths, changes, policy)
         from looked in Lookahead(body, policy.Cut.Dynamics, dialect)
-        let program = CutProgram.Of(Prologue(schedule).Concat(looked)
+        let program = CutProgram.Of(Prologue(schedule, tags).Concat(looked)
             .Add(new GNode.Word(GCommand.ProgramEnd, Arr<GParam>(), None)), dialect)
         select program;
 
@@ -1531,10 +1534,28 @@ public static partial class Post {
         return Math.Min(ceiling, policy.Dynamics.JunctionFeed(Vector3d.VectorAngle(incoming, outgoing)));
     }
 
-    private static Seq<GNode> Prologue(SetupSchedule schedule) =>
-        schedule.Wcs.Map(assignment => (GNode)new GNode.CoordinateFrame(
+    // Every program opens on the drawing's keyed marks — part mark, heat number, shop tag — as one comment block
+    // ahead of the frame assignments, so an operator verifies the material in the machine against the sheet the
+    // program was posted from. Marks ride the dialect's verbatim comment channel and never an executable word, so a
+    // controller that ignores comments loses nothing and no dialect needs a marking spelling of its own. A run with
+    // no marks emits no block rather than an empty one.
+    private static Seq<GNode> Prologue(SetupSchedule schedule, Map<string, Arr<ProfileMarking>> tags) =>
+        Marks(tags) + schedule.Wcs.Map(assignment => (GNode)new GNode.CoordinateFrame(
             assignment,
             schedule.Setups[assignment.Setup].Mounting.Frame)).ToSeq();
+
+    // Rows sort by name so two posts of one drawing emit byte-identical headers and a program diff reads as a real
+    // change; a tag whose content carries several lines joins them under one row rather than fanning comment lines
+    // a controller's line-length rule then truncates independently.
+    private static Seq<GNode> Marks(Map<string, Arr<ProfileMarking>> tags) =>
+        tags.Fold(Seq<string>(), static (rows, name, marks) => rows + marks.ToSeq()
+            .Choose(static mark => mark.Content is MarkingContent.Tag tag ? Some(tag.Type.Text.Replace('\n', ' ')) : None)
+            .Map(text => $"{name}={text}"))
+        .OrderBy(static row => row, StringComparer.Ordinal).ToSeq() switch {
+            { IsEmpty: true } => Seq<GNode>(),
+            var rows => Seq<GNode>(new GNode.Block(
+                new BlockFrame(None, None, false, false, None, rows, "marks"), Arr<GNode>())),
+        };
 
     private static Fin<CutProgram> ParseRs274(
         string source, PostDialect dialect, Encoding codec, Option<ChecksumRule> checksum) =>

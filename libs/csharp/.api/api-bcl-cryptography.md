@@ -14,24 +14,25 @@
 
 [PUBLIC_TYPE_SCOPE]: armor, certificate, seal, signature, and integrity owners
 
-| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]  | [CAPABILITY]                                |
-| :-----: | :----------------------------------- | :------------- | :------------------------------------------ |
-|  [01]   | `PemEncoding`                        | static class   | RFC-7468 armor write and locate             |
-|  [02]   | `PemFields`                          | struct         | armor element ranges over the source        |
-|  [03]   | `X509CertificateLoader`              | static class   | DER and PKCS#12 certificate admission       |
-|  [04]   | `Pkcs12LoaderLimits`                 | class          | parse bounds a PKCS#12 load binds           |
-|  [05]   | `X509Certificate2`                   | class          | certificate identity and PEM round-trip     |
-|  [06]   | `ECDsaCertificateExtensions`         | static class   | certificate-to-`ECDsa` key binding          |
-|  [07]   | `AesGcm`                             | sealed class   | authenticated encryption under a caller key |
-|  [08]   | `AuthenticationTagMismatchException` | exception      | forged-tag signal an open raises            |
-|  [09]   | `ECDsa`                              | abstract class | elliptic-curve sign and verify              |
-|  [10]   | `DSASignatureFormat`                 | enum           | signature wire framing selector             |
-|  [11]   | `CryptographicOperations`            | static class   | zeroization and constant-time integrity     |
-|  [12]   | `RandomNumberGenerator`              | abstract class | cryptographic entropy fill and draw         |
-|  [13]   | `HashAlgorithmName`                  | struct         | digest algorithm selector on every call     |
+| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]  | [CAPABILITY]                                    |
+| :-----: | :----------------------------------- | :------------- | :---------------------------------------------- |
+|  [01]   | `PemEncoding`                        | static class   | RFC-7468 armor write and locate                 |
+|  [02]   | `PemFields`                          | struct         | armor element ranges over the source            |
+|  [03]   | `X509CertificateLoader`              | static class   | DER and PKCS#12 certificate admission           |
+|  [04]   | `Pkcs12LoaderLimits`                 | class          | parse bounds a PKCS#12 load binds               |
+|  [05]   | `X509Certificate2`                   | class          | certificate identity and PEM round-trip         |
+|  [06]   | `ECDsaCertificateExtensions`         | static class   | certificate-to-`ECDsa` key binding              |
+|  [07]   | `AesGcm`                             | sealed class   | authenticated encryption under a caller key     |
+|  [08]   | `AuthenticationTagMismatchException` | exception      | forged-tag signal an open raises                |
+|  [09]   | `ECDsa`                              | abstract class | elliptic-curve sign and verify                  |
+|  [10]   | `DSASignatureFormat`                 | enum           | signature wire framing selector                 |
+|  [11]   | `CryptographicOperations`            | static class   | zeroization and constant-time integrity         |
+|  [12]   | `RandomNumberGenerator`              | abstract class | cryptographic entropy fill and draw             |
+|  [13]   | `HashAlgorithmName`                  | struct         | digest algorithm selector on every call         |
 |  [14]   | `X509ChainPolicy`                    | sealed class   | chain-build inputs: anchors, stores, revocation |
-|  [15]   | `X509ChainTrustMode`                 | enum           | `System` platform roots / `CustomRootTrust` |
-|  [16]   | `X509Certificate2Collection`         | class          | certificate set a store or chain input holds |
+|  [15]   | `X509ChainTrustMode`                 | enum           | `System` platform roots / `CustomRootTrust`     |
+|  [16]   | `X509Certificate2Collection`         | class          | certificate set a store or chain input holds    |
+|  [17]   | `IncrementalHash`                    | sealed class   | segmented digest and HMAC accumulation          |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -81,15 +82,15 @@
 
 [ENTRYPOINT_SCOPE]: chain-build policy (`X509ChainPolicy`)
 
-| [INDEX] | [SURFACE]                                          | [SHAPE]  | [CAPABILITY]                                     |
-| :-----: | :------------------------------------------------- | :------- | :----------------------------------------------- |
-|  [01]   | `TrustMode -> X509ChainTrustMode`                  | property | selects platform roots or the custom store       |
-|  [02]   | `CustomTrustStore -> X509Certificate2Collection`   | property | anchor set `CustomRootTrust` builds against      |
-|  [03]   | `ExtraStore -> X509Certificate2Collection`         | property | intermediates offered to the builder             |
-|  [04]   | `RevocationMode -> X509RevocationMode`             | property | `NoCheck` / `Online` / `Offline` posture         |
-|  [05]   | `RevocationFlag -> X509RevocationFlag`             | property | which chain elements revocation covers           |
-|  [06]   | `VerificationFlags -> X509VerificationFlags`       | property | per-check waivers the build applies              |
-|  [07]   | `Clone() -> X509ChainPolicy`                       | instance | independent copy for a second consumer           |
+| [INDEX] | [SURFACE]                                        | [SHAPE]  | [CAPABILITY]                                |
+| :-----: | :----------------------------------------------- | :------- | :------------------------------------------ |
+|  [01]   | `TrustMode -> X509ChainTrustMode`                | property | selects platform roots or the custom store  |
+|  [02]   | `CustomTrustStore -> X509Certificate2Collection` | property | anchor set `CustomRootTrust` builds against |
+|  [03]   | `ExtraStore -> X509Certificate2Collection`       | property | intermediates offered to the builder        |
+|  [04]   | `RevocationMode -> X509RevocationMode`           | property | `NoCheck` / `Online` / `Offline` posture    |
+|  [05]   | `RevocationFlag -> X509RevocationFlag`           | property | which chain elements revocation covers      |
+|  [06]   | `VerificationFlags -> X509VerificationFlags`     | property | per-check waivers the build applies         |
+|  [07]   | `Clone() -> X509ChainPolicy`                     | instance | independent copy for a second consumer      |
 
 - `CustomTrustStore` and `ExtraStore` are get-only collections, so a policy fills them through a nested object initializer or `Add`, never assignment.
 - `TrustMode` at `CustomRootTrust` NARROWS the anchor set to `CustomTrustStore` alone — platform roots stop applying, so a private chain admits and a public one no longer does.
@@ -138,6 +139,23 @@
 |  [04]   | `HashDataAsync(HashAlgorithmName, Stream, Memory<byte>, CancellationToken) -> ValueTask<int>` | static  | async stream digest    |
 |  [05]   | `TryHmacData(HashAlgorithmName, ReadOnlySpan<byte>, ReadOnlySpan<byte>, Span<byte>, out int)` | static  | MAC; `false` if short  |
 
+[ENTRYPOINT_SCOPE]: segmented digest (`IncrementalHash`)
+
+| [INDEX] | [SURFACE]                                           | [SHAPE]  | [CAPABILITY]                          |
+| :-----: | :-------------------------------------------------- | :------- | :------------------------------------ |
+|  [01]   | `CreateHash(HashAlgorithmName) -> IncrementalHash`  | static   | open an accumulation over one digest  |
+|  [02]   | `CreateHMAC(HashAlgorithmName, ReadOnlySpan<byte>)` | static   | open a keyed accumulation             |
+|  [03]   | `AppendData(ReadOnlySpan<byte>)`                    | instance | fold one segment in call order        |
+|  [04]   | `GetHashAndReset(Span<byte>) -> int`                | instance | close into a rented span              |
+|  [05]   | `GetCurrentHash(Span<byte>) -> int`                 | instance | read without closing the accumulation |
+|  [06]   | `TryGetHashAndReset(Span<byte>, out int) -> bool`   | instance | close; `false` on a short span        |
+|  [07]   | `Clone() -> IncrementalHash`                        | instance | fork the accumulated prefix           |
+|  [08]   | `HashLengthInBytes -> int`                          | property | size the destination before a close   |
+|  [09]   | `AlgorithmName -> HashAlgorithmName`                | property | the bound digest selector             |
+
+- `IncrementalHash.AppendData`: segments fold in call order, so a multi-part preimage digests with no concatenation buffer between the parts.
+- `IncrementalHash.Clone`: forks the prefix accumulated so far, so one shared prefix serves many suffixes without re-appending it per name.
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
@@ -153,10 +171,12 @@
 - `Rasm.AppHost` credential lifecycle: `PemEncoding` and `X509Certificate2` own the at-rest and on-wire armor while the lease owner holds the live rented copy and drives its `ZeroMemory` terminal, so material never carries two encodings.
 - `Rasm.Persistence` object store: the client-side seal binds one `AesGcm` per KMS-unwrapped DEK and derives its nonce from the content address, so a resumed multipart replays byte-identical ciphertext and the DEK zeroizes at the same terminal.
 - `Rasm.Fabrication` attestation: `GetECDsaPrivateKey` signs the receipt preimage under `Rfc3279DerSequence`, and verification runs `CreateFromPem` with `GetECDsaPublicKey` over the exported certificate.
+- `Rasm.Persistence` derived identity: `CreateHash` folds the namespace bytes then the name bytes and `GetHashAndReset` closes into a `stackalloc` span, so the RFC 4122 name-based mint spends no concatenation buffer between the two segments.
 
 [LOCAL_ADMISSION]:
 - Certificates enter through `X509CertificateLoader` or `CreateFromPem` and leave through `ExportCertificatePem` or `RawDataMemory`.
 - `CryptographicOperations` MAC and digest members serve authenticity claims; identity and cache keys ride the `api-hashing` non-cryptographic digest.
+- `HashAlgorithmName.SHA1` admits at `IncrementalHash` for the RFC 4122 name-based UUID construction alone — the specification fixes that digest, so the row carries no security claim and no other caller admits it.
 - Secret buffers rent, fill once, and overwrite through `ZeroMemory` at their owning lifecycle's terminal.
 
 [RAIL_LAW]:

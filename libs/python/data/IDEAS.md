@@ -19,13 +19,6 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-[ENGINE_PROFILE_PARITY]-[BLOCKED]: Native profile payloads converge on the shared query profile band.
-- Capability: DuckDB native operator evidence joins the settled scalar band and Daft operator rows through `EngineProfile.of`; Polars rides the portable scalar floor, exposing no native profile surface.
-- Shape: one `ProfileHarvest` case per proven native payload; portable scalar harvest remains the truthful floor for every engine.
-- Unlocks: engine-native operator evidence joins the shared profile band, cost comparison across DuckDB and Daft reading one receipt shape.
-- Anchors: `.planning/tabular/columnar.md` `[DUCKDB_PROFILE_PAYLOAD]`; `QueryReceipt.profile`.
-- Arms: the duckdb folder-tier catalog row carries the exact return type and payload schema of `get_profiling_information()`.
-
 [LAYER_TOPOLOGY_GRAPH_FACTS]-[QUEUED]: Decoded `LayerTopologyFact` rows fold into a containment graph the graph plane analyzes for host organization.
 - Capability: Wire-carried layer and relation keys decode into a `GraphPayload` whose nodes are layer identities and whose edges are layer-path nesting and membership, so topology analysis — containment ancestry, nesting depth, membership closure — answers layer organization over the decoded graph with no host handle; per-viewport overrides ride the decoded rows as detached facts.
 - Shape: `graph/graph.md` gains the boundary decoder folding the detached fact rows into the graph plane's node-link source; `GraphPayload.analyze` runs the containment and nesting queries on the one `rustworkx` kernel keyed by the stable `NodeId` index, and the node-keyed `GraphResult.frame` left-joins layer organization onto the `tabular/columnar` scan plane by `node`.
@@ -33,20 +26,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: `graph/graph.md` `GraphPayload`/`analyze`/`NodeId`/`GraphResult.frame`; `rasm.runtime.identity` `ContentIdentity`/`ContentKey` for the stable wire identity; `README.md` host-free interchange role meeting C# only at the content-identity wire.
 - Tension: Wire schema and codec mint in C#; this plane decodes and never re-mints, and the containment graph carries only detached fact rows, never a host layer handle.
 - Ripple: `libs/.planning` `[LAYER_TOPOLOGY_GRAPH_FACTS]`.
-
-[ADBC_DRIVER_SET]-[QUEUED]: ADBC driver family completes with native Postgres, SQLite, and Snowflake arms beside the admitted manager and Flight SQL rows.
-- Capability: `QuerySpec.Remote` reaches Postgres, SQLite files, and Snowflake warehouses through native ADBC drivers on the one `RemoteOp` sub-axis — same DBAPI bracket, same retry class, same receipt fold — closing the partial-family state where only the manager and Flight SQL arms exist.
-- Shape: driver rows on the query plane's remote dispatch — `adbc-driver-postgresql`, `adbc-driver-sqlite`, `adbc-driver-snowflake` — each a row naming its driver entrypoint and `db_kwargs` knob family, ConnectorX still accelerating the read-parallel paths per the landed division.
-- Unlocks: local-file and warehouse federation with zero new query surface, and the sqlite storage arm the branch instrumentor train already covers.
-- Anchors: `.planning/tabular/query.md` `Remote`/`RemoteOp`/`guarded(RetryClass.REMOTE_DB)`; `.api/adbc-driver-manager.md` `dbapi.connect`; the set-completion law — a partial admitted family names every member.
-- Tension: driver admission rides the serialized admission lane; cards assume it lands.
-
-[SUBSTRAIT_PLAN_GATE]-[QUEUED]: inbound Substrait plan bytes validate and introspect through a typed plan model before any engine executes them.
-- Capability: a Persistence-authored plan admits through typed parse and validation — a malformed or version-skewed plan becomes a typed refusal at the gate instead of a datafusion engine fault mid-execution — and a relation-op census off the parsed plan enriches the receipt beside `lineage_edges`.
-- Shape: a `substrait`-package admission fence on the query plane's `Federated` and `Flight` arms — parse, validate, census, then hand the untouched original bytes to `Serde.deserialize_bytes`; the plan-bytes identity law survives because the gate never re-serializes.
-- Unlocks: fail-fast federation over the C# wire and plan-structure evidence on the one `QueryReceipt` stream.
-- Anchors: `.planning/tabular/query.md` `Federated`/`Flight` arms, `ContentIdentity.of("query.plan", wire)`; `Rasm.Persistence` federation wire per `ARCHITECTURE.md` `[02]`.
-- Tension: data executes foreign plans and never re-plans them — the gate inspects and refuses, never rewrites.
 
 [GEOARROW_NATIVE_SET]-[QUEUED]: GeoArrow family completes — core array types, native format IO, and the pyarrow extension bridge beside the admitted compute kernels.
 - Capability: FlatGeobuf, GeoParquet, shapefile, and GeoJSON decode straight into GeoArrow memory, shapely and geopandas geometry bridges zero-copy through pyarrow extension arrays, and the full compute member set — `frechet_distance` for scan-trajectory similarity, `line_locate_point`, geodesic measures — runs on the arrays the claims plane already egresses.
@@ -131,8 +110,13 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-[EMBEDDED_ENGINE_OBSERVABILITY]-[COMPLETE]: embedded engines carry no scrape surface, so the profiled session bracket became the DuckDB observability owner — harvest folded onto the one `QueryReceipt` stream, instruments projected through the runtime metric spine, DBAPI spans owned by the root-composed instrumentor train.
-[QUERY_BENCH_LANE]-[COMPLETE]: landed — `tabular/query#QUERY` `QueryEngine.bench` drives runtime `Bench.run` per `QuerySpec` tag under the `_BENCH_MODE` rows, refuses the mutation `Remote` INGEST spec, and rides `anyio.run` per round.
-[DATA_HOOK_POINTS]-[COMPLETE]: `.planning/tabular/materialize.md` `DATA_HOOK_POINTS` and `register_data_hooks(scope)` consume every registration rail at composition; each emitting owner carries the same `ScopeKey` into `Hooks.fire`.
-[DATASET_COST_LEDGER]-[COMPLETE]: `.planning/tabular/cost.md` `CostFact.of` normalizes receipts, wire mappings, and facts; `CostLedger.of` harvests that mixed stream before the content-keyed priced-frame fold.
-[DBAPI_SPAN_THREADING]-[COMPLETE]: landed — `tabular/query#QUERY` `dbapi_seams()` declares the duckdb/ADBC/Flight SQL `DbapiSeam` rows the composition root threads through `Instrumentation.dbapi`; ConnectorX excluded by shape.
+[DURABLE_EVIDENCE_JOURNAL]-[COMPLETE]: realized as `tabular/journal.md`, which composes the commit and scan owners rather than widening either.
+[ENGINE_PROFILE_PARITY]-[COMPLETE]: every engine feeds `EngineProfile.of` its own payload and none widened the band.
+[RESIDENCE_PROVISIONING]-[COMPLETE]: arming is a `ResidenceRow.layout` row the ingest plan leads with, so no composition remembers an out-of-band create.
+[SUBSTRAIT_PLAN_GATE]-[COMPLETE]: both inbound plan legs admit at `_reach` through `_plan_refusal`, and the original bytes reach the executor untouched.
+[ADBC_DRIVER_SET]-[COMPLETE]: the three native driver rows landed on `_DRIVER`, from which the floor roster and the instrumentation seam both derive.
+[EMBEDDED_ENGINE_OBSERVABILITY]-[COMPLETE]: embedded engines carry no scrape surface, so the profiled session bracket is their whole observability.
+[QUERY_BENCH_LANE]-[COMPLETE]: `QueryEngine.bench` drives the runtime bench lane per spec tag and refuses the mutation INGEST spec.
+[DATA_HOOK_POINTS]-[COMPLETE]: one composition registration consumes every data hook point under one scope.
+[DATASET_COST_LEDGER]-[COMPLETE]: `tabular/cost.md` harvests every receipt family into one content-keyed priced frame.
+[DBAPI_SPAN_THREADING]-[COMPLETE]: `dbapi_seams()` derives its rows from `_DRIVER` under the same floor gate the dispatch reads.

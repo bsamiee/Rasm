@@ -8,7 +8,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 <!-- source-only: open task card template:
 [ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
-- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Capability: <the higher-order invariant, owner capability, or concept established — concept grain only, never a page path, row list, or member spelling>.
 - Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
 - Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
 - Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
@@ -33,23 +33,11 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Unlocks: federated coordination review and `Members`-closed partial exchange.
 - Anchors: `Header.CanonicalBytes`; tolerance-quantized measure bytes; `GeoReference` divergence cases.
 
-[OBSERVATION_PAGE]-[QUEUED]: Author the observation-series design for `[OBSERVATION_SERIES]`.
-- Capability: measured time-series evidence folds into the one `Bake` read beside computed assessments.
-- Shape: `libs/csharp/Rasm.Element/.planning/Assessment/observation.md` (new page) carrying the series descriptor; one `Node` case and `AssignKind` row and `LegalAssign`/`Bake` arms in `libs/csharp/Rasm.Element/.planning/Graph/element.md` and `libs/csharp/Rasm.Element/.planning/Relations/relation.md`; one `NodeWire` oneof arm in `libs/csharp/Rasm.Element/.planning/Graph/wire.md`.
-- Unlocks: the commissioning comparison lane and the `Rasm.Compute` computed-vs-measured routes.
-- Anchors: `RasterKey`/`ResultBlob` by-reference precedent; NodaTime `Interval`; a new `NodeWire` oneof arm is additive under the `Graph/wire.md` contract-evolution law.
-
 [REDACTION_IDENTITY_RULING]-[BLOCKED]: Resolve redacted-crossing identity preservation for `[REDACTION_SCOPED_EGRESS]`.
 - Capability: the ruling fixes whether redacted crossings preserve or re-derive content keys, and with it the decode-side `AddressUnstable` posture.
 - Shape: question and route stated on the owning idea; on resolution, pin the `WireLimits`-sibling redaction policy record and the `Encode` parameterization in `libs/csharp/Rasm.Element/.planning/Graph/wire.md` and the parity-corpus vectors for redacted nodes.
 - Unlocks: partner-scoped deliverables off one stored model.
 - Anchors: `IRedactorProvider`/`DataClassificationSet` in `libs/csharp/.api/api-redaction.md`; `ContentAddress.Verify` dual.
-
-[TABLE_ROW_SCHEMA]-[QUEUED]: Pin the row families and the `Tabulate` fold for `[ANALYTIC_TABLE_PROJECTION]`.
-- Capability: the columnar schema is seam-owned, so every landing (Parquet, DuckDB, Flight) shares one shape.
-- Shape: element/property/quantity/material/edge/assessment row records with the snapshot `ContentAddress` column, and the one `Tabulate(graph)` fold, in `libs/csharp/Rasm.Element/.planning/Graph/table.md` (new page).
-- Unlocks: the Persistence columnar landing and Flight SQL serving counterpart.
-- Anchors: `Element` flat record; `MeasureValue.Si`; `Relationship.Kind` flat edge column.
 
 [AUDIT_FOLD]-[QUEUED]: Pin the coverage ratios, integrity sweeps, and `ModelAudit` receipt for `[MODEL_COMPLETENESS_AUDIT]`.
 - Capability: model maturity is one typed receipt a gate or dashboard reads, never a per-consumer query pile.
@@ -62,21 +50,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Shape: execute every current `GraphForge.Mint` grade from `tests/csharp`, commit the four literal `ContentAddress` values in `Graph/corpus#CORPUS_ROSTER`, and mirror the roster in `libs/python` and `libs/typescript/core`.
 - Unlocks: build-breaking whole-graph parity across C#, Python, and TypeScript.
 - Anchors: `CorpusGate.Stable`; `CorpusWitness.Snapshot`; `ContentAddress.OfGraph`.
-- Tension: arming trigger — the tests-estate corpus harness can execute the settled forge against current source owners; no unset `Option` or self-derived runtime value qualifies as an expected pin.
-
-[TYPE_QUANTITY_SEAM_ROWS]-[QUEUED]: Admit the type-level quantity rows and the substance-density accessor the QTO mint reads.
-- Capability: a Type-level quantity property-set row family — linear mass, surface area per length, volume per length — joins the `DetailSchema` property vocabulary as unit-carried quantities (typed value with unit identity per the kernel unit-bridge law, canonical SI encoding), and `MaterialPropertySet` gains one typed substance-density accessor returning the density quantity, never a bare double: the two seam surfaces the Materials type-quantity receipt consumes whole instead of re-deriving numeric semantics.
-- Shape: canonical detail `PropertyName` rows on `Properties/property#DETAIL_SCHEMA` and one density accessor member on `Composition/material#MATERIAL_PROPERTY`.
-- Unlocks: unblocks the Materials `[QTO_MINT_PINS]` route; type-level takeoff reads seam-owned vocabulary instead of re-deriving it.
-- Anchors: the `DetailSchema` vocabulary owner, the `MaterialPropertySet.Mechanical` density column, the accumulating `Of` admission law.
-- Ripple: `Rasm.Materials` `[TYPE_QUANTITY_RECEIPT]`.
-
-[DETAIL_SCHEMA_READER_PROVISION]-[QUEUED]: Land the owner-declared structural row statics and the blessed reader-local category.
-- Capability: the seam bag's key space closes over owner provision — structural wire names become owner statics, reader-only enrichment rows gain their blessed category, and the associated-material-grade prohibition names the element-own EXPRESS token it does not cover.
-- Shape: `libs/csharp/Rasm.Element/.planning/Properties/property.md` — the structural `PropertyName` statics (`AtStart` and the force/moment rows), the reader-local category clause, and the sharpened grade boundary sentence.
-- Unlocks: IDEAS.md `[READER_ROW_CUSTODY]` — writer and reader adoption becomes a retarget, not a redesign.
-- Anchors: `libs/csharp/.planning/RULINGS.md` seam-bag custody row; the `DetailSchema` vocabulary owner.
-- Ripple: precedes `Rasm.Bim` `[READER_ROWS_RECONCILE]` and `Rasm.Compute` `[STRUCTURAL_ROW_STATICS]`.
+- Tension: arming trigger — the tests-estate corpus harness can execute the settled forge against current source owners; no unset `Option` or self-derived runtime value qualifies as an expected pin, and every forge edit re-derives all four, so the forge settles before a pin lands.
 
 [WIRE_EVOLUTION_PROSE_ALIGN]-[QUEUED]: Growth prose on the graph and material pages aligns to the additive wire law.
 - Capability: column-add growth reads as ordinary additive evolution; no page narrates a campaign freeze the wire owner's law forecloses.
@@ -91,6 +65,12 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-[HOOK_POINT_ROSTER]-[COMPLETE]: `Projection/observe#HOOK_RAIL` pins the `HookPoint` roster with the kernel `HookModality` column, the `ElementFact` payloads, and the `ElementHookRail.Of` mint over the kernel point capsule — subscriber faults park as point-attributed `IsolatedFault` rows read through `TapFaults`.
-[INSTRUMENT_ROW_TABLE]-[COMPLETE]: `Projection/observe#INSTRUMENT_PROJECTION` pins `ElementInstruments.Rows` as kernel `InstrumentRow` declarations with `Buckets` advice, the span-name constants, the contributor-port mint, and the `IMeterFactory` injection seam through the kernel identity entry.
+[TYPE_QUANTITY_SEAM_ROWS]-[COMPLETE]: `Properties/property#DETAIL_SCHEMA` declares `MassPerLength`, `SurfaceAreaPerLength`, and `VolumePerLength` as owner statics under the `Takeoff` bag at `InheritanceMode.TypeDrivenOverride`, with `Quantities(Option<PropertySource>)` beside `Bag` pinning set name, precedence, and source rank identically; `Composition/material#MATERIAL_PROPERTY` gained `Option<MeasureValue> Density` forwarding over BOTH `Mechanical` and `Orthotropic`, since a directional timber stores density on the orthotropic carrier and one column answers without a case branch.
+[OBSERVATION_PAGE]-[COMPLETE]: `Assessment/observation.md` carries the series descriptor and the derived statistics plane, and the ripples landed in one pass — the `Node.Observation` case with its ordinal-7 canonical arm, `Element.Observations` off `BakeObject`, the `AssignKind.Observation` row with its occurrence-only `LegalAssign` arm, the additive `NodeWire` oneof arm 9 with its codec legs, and `ContentAddress.Verify` extended so the default-free node switch stops throwing on the new case.
+[FORGE_OBSERVATION_GRADE]-[COMPLETE]: `Graph/corpus#GRAPH_FORGE` mints one `ObservationSeries` per `ObservationStride`-th occurrence through the production `Open`/`Encode`/`From`/`Append` chain and links it by `AssignKind.Observation`, so the ordinal-7 canonical arm, wire oneof arm 9, the occurrence-only assign legality, and the new chunk codec all cross every graded witness; `[CORPUS_SNAPSHOT_PINS]` re-armed to `[BLOCKED]` since the forge edit re-derives all four addresses and no source tree exists to run.
+[DETAIL_SCHEMA_READER_PROVISION]-[COMPLETE]: `Properties/property#DETAIL_SCHEMA` declares `StructuralRows` — `AtStart`/`Station`/`SupportedLength`/`Frame`/`LoadKind`/`Case` beside axis-generated `Translation`/`Rotation`/`Force`/`Moment` families and the `Dofs` projection — killing the Bim-writer/Compute-reader literal fork, and `PropertyCategory` blesses each producer's own scope with `Row` the one mint a producer roster composes; `PropertyCategory.Seam` carries the empty prefix, so every landed `DetailSchema` static keeps the bare name an IFC round-trip froze.
+[TABLE_TEMPORAL_CATEGORY]-[COMPLETE]: `Graph/table.md` states each family's temporal CATEGORY under the branch analytics ruling rather than a spine preference — `element.assessments` is event-time on `at`, every snapshot family is landing-time because re-tabulating one frozen graph reproduces identical facts and the snapshot address already carries the version identity; `element.observations` and `element.coverages` joined the roster in the same pass, so every `Seq` a baked `Element` carries reaches a dataset. Landing-time batches cannot land today: the custodian appends `landed_at` to the admitted schema yet `ResidenceLanding.Stage` binds only tenant beside the producer's positional cells, so `Conformed` refuses each one on arity — a `Rasm.Persistence` defect returned as a receipt, never a producer-side spine.
+[TABLE_ROW_SCHEMA]-[COMPLETE]: the row families and the `Tabulate` fold pin at `Graph/table.md`; the six `TableFamily` rows carry each dataset's columns, key, spine, and measure, and `family.Admission` hands the custodian's gate its whole argument set so a composing root cannot pair one family's columns with another's key.
+[HOOK_POINT_ROSTER]-[COMPLETE]: `Projection/observe#HOOK_RAIL` pins the `ElementPoint` roster with the kernel `HookModality` column and the `TraceScope` plane derived off each id, the `ElementFact` payloads with their span `Marks`, and the `ElementHookRail.Of` mint over the kernel point capsule and the admitted `SpanBand` — subscriber faults park as point-attributed `IsolatedFault` rows read through `TapFaults`.
+[INSTRUMENT_ROW_TABLE]-[COMPLETE]: `Projection/observe#INSTRUMENT_PROJECTION` pins `ElementInstruments.Rows` as kernel `InstrumentSpec` declarations carrying kind, measurement form, `Buckets` advice, and the tenant slot, beside the dotted slot vocabulary both planes spell and the contributor port the composing root materializes.
 [ENVELOPE_VOCAB]-[COMPLETE]: `Graph/wire#EVENT_ENVELOPE` pins the `GraphEventType` token rows and the `GraphEventEnvelope` record with `Attributes`/`Admit` and the W3C trace slots.

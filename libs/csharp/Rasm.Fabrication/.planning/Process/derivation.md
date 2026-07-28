@@ -21,9 +21,9 @@ Wire posture: HOST-LOCAL. `FabricationPlan` crosses to the caller and `Verify/es
 - Entry: `Plan(FabricationPolicy.Derive, FabricationInput)` admits the policy aggregate, admits DfM routing at every ceiling, gates full-plan capability, reduces the operation DAG into an `OperationTopology`, composes assembly precedence, verifies setup coverage, selects the highest-score feasible machine per step, and closes the lot against its due bound.
 - Auto: `Manufacturability.Assess(DfmRequest)` supplies ranked routes, fleet supplies scored matches, `AssemblyPlan.Apply(AssemblyOp.Plan)` supplies reduced join precedence and join duration, and `SetupSchedule.Apply(SetupOp.Schedule)` partitions topologically ordered demands. Every plan-derivation rejection lowers through `Reject` onto `FabricationFault.DerivationRejected` carrying its `DeriveWitness` and the stage that raised it. `RequestedArtifacts` changes plan identity but never pretends an artifact was produced.
 - Receipt: `FabricationPlan` is the derivation evidence: case-derived ceiling, DfM-ranked `Routing` rows, retained `MachineMatch` routes, admitted topology and steps, capability requirement and verdict, lot receipt, key ledger, and content key. `LotReceipt` adds availability, calendar completion, total work, critical-chain effort, the critical operation chain, the derived `Slack` between work and chain, and the derived `Queue` between lead and chain. `DfmReport` and `AssemblyPlan` remain stage-local because the terminal result carries their ranked-route and plan projections at every ceiling.
-- Packages: Process exports `AdmittedComponent`, `PlannedStep`, `FabricationPlan`, `EgressKind`, and `ContentKey`; stage owners export `Manufacturability.Assess`, `Fleet.Capable`, `AvailabilityPlan.Finish`, `AssemblyPlan.Apply`, and `SetupSchedule.Apply`; QuikGraph owns DAG validation, reduction, and topological order; NodaTime owns instant and duration semantics; `Rasm.Element` owns graph projection; Thinktecture.Runtime.Extensions and LanguageExt.Core own generated values and rails.
+- Packages: Process exports `AdmittedComponent`, `PlannedStep`, `FabricationPlan`, `EgressKind`, and `ContentKey`; stage owners export `Manufacturability.Assess`, `Fleet.Capable`, `AvailabilityPlan.Finish`, `AssemblyPlan.Apply`, and `SetupSchedule.Apply`; QuikGraph owns DAG validation, reduction, and topological order; NodaTime owns instant and duration semantics; `Rasm.Element` owns graph projection and the `PropertyCategory` row-name custody every bag key mints through; Thinktecture.Runtime.Extensions and LanguageExt.Core own generated values and rails.
 - Growth: a rail segment is one ordered `DerivationStage` row and one fold arm; a work modality is one `WorkAxis` row with its `WorkKind` case, admission and byte projection following without a consumer edit; a join class becomes routable as one `JoinRouting` row; a route or plan fact widens the existing `FabricationPlan` receipt and canonical-byte projection; an element fact extends the existing total `Lower` arm for its owning result case.
-- Boundary: `Derivation.Plan` owns orchestration, `RoutingInfeasible`, and plan identity. `TopologyOf` is the QuikGraph mutation kernel, while `KeyOf`, `Framed`, and the `Write` overloads are the canonical-byte kernel every optional slot presence-frames through. Projection keeps each fact typed on the graph — counts as `PropertyValue.Integer`, ratios as `Number`, gate outcomes as `Boolean`, dimensioned facts as SI-coerced `MeasureValue` quantities, and step and route collections as `List` of `Complex` rows — so no consumer parses a stringified number back out. DfM owns routing evidence, fleet owns machine matches, assembly owns precedence, setup owns partitions, and later `Run(Post)` and `Run(Document)` calls own artifact production.
+- Boundary: `Derivation.Plan` owns orchestration, `RoutingInfeasible`, and plan identity. `TopologyOf` is the QuikGraph mutation kernel, while `KeyOf`, `Framed`, and the `Write` overloads are the canonical-byte kernel every optional slot presence-frames through. Projection keeps each fact typed on the graph — counts as `PropertyValue.Integer`, ratios as `Number`, gate outcomes as `Boolean`, dimensioned facts as SI-coerced `MeasureValue` quantities, and step and route collections as `List` of `Complex` rows — so no consumer parses a stringified number back out. Every row name mints through `Row` over the seam owner's `PropertyCategory.Fabrication` scope, so this package declares its own vocabulary inside a partition the seam blesses and a bare `PropertyName.Create` at any write site is the deleted form. DfM owns routing evidence, fleet owns machine matches, assembly owns precedence, setup owns partitions, and later `Run(Post)` and `Run(Document)` calls own artifact production.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -1034,6 +1034,11 @@ public sealed class FabricationProjector(Seq<(NodeId Element, FabricationResult 
                 ("LotQueue", TimeDim, lot.Queue.ToTimeSpan().Ticks / (double)TimeSpan.TicksPerSecond)),
             None: static () => Seq<(string, Dimension, double)>());
 
+    // Every seam row this package writes mints through the Element owner's own blessed producer scope, so the
+    // fabrication key space cannot collide with a Bim or Compute spelling and a reader resolves one prefix rather
+    // than guessing at a bare noun. A call-site PropertyName.Create here is the fork the seam custody ruling deletes.
+    private static PropertyName Row(string name) => PropertyCategory.Fabrication.Row(name);
+
     private static (string Key, PropertyValue Value) Count(string key, int value) =>
         (key, new PropertyValue.Integer(value));
 
@@ -1052,7 +1057,7 @@ public sealed class FabricationProjector(Seq<(NodeId Element, FabricationResult 
         (key, new PropertyValue.Text($"{value.Kind.Key}:{value.Digest:x32}"));
 
     private static PropertyValue Complex(string usage, Seq<(string Key, PropertyValue Value)> rows) =>
-        new PropertyValue.Complex(usage, toMap(rows.Map(static row => (PropertyName.Create(row.Key), row.Value))));
+        new PropertyValue.Complex(usage, toMap(rows.Map(static row => (Row(row.Key), row.Value))));
 
     private static Fin<GraphDelta> Emit(
         (NodeId Element, double Tolerance) state,
@@ -1075,14 +1080,14 @@ public sealed class FabricationProjector(Seq<(NodeId Element, FabricationResult 
                     NodeId.Content(ReadOnlySpan<byte>.Empty),
                     properties.Fold(
                         PropertyBag.Empty($"Rasm_Fabrication_{set}", InheritanceMode.OccurrenceWins, PropertySource.Derived),
-                        static (bag, row) => bag.With(PropertyName.Create(row.Key), row.Value))), state.Tolerance);
+                        static (bag, row) => bag.With(Row(row.Key), row.Value))), state.Tolerance);
                 return measures.IsEmpty
                     ? authored
                     : authored.Merge(Author(state.Element, new Node.QuantitySet(
                         NodeId.Content(ReadOnlySpan<byte>.Empty),
                         measures.Fold(
                             QuantityBag.Empty($"Rasm_Fabrication_{set}", InheritanceMode.OccurrenceWins, PropertySource.Derived),
-                            static (bag, row) => bag.With(PropertyName.Create(row.Key), row.Measure))), state.Tolerance));
+                            static (bag, row) => bag.With(Row(row.Key), row.Measure))), state.Tolerance));
             });
 
     private static GraphDelta Author(NodeId element, Node draft, double tolerance) {

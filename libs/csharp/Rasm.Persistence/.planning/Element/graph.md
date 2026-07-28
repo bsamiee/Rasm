@@ -1,23 +1,25 @@
 # [PERSISTENCE_ELEMENT_GRAPH]
 
-Rasm.Persistence persists each `Rasm.Element` graph as one Marten stream keyed by `ModelId`. `GraphCreated`, `GraphRevised`, and `GraphRetired` carry seam-validated `GraphDelta` bodies; the inline `GraphProjection` and AS-OF reconstruction reuse `GraphDelta.ReplayOnto`. `IdentityStore.Stamp` queues the provider-bound `IdentityWriter` on the same `IDocumentSession`, so identity, event, lineage, and inline projection commit once without a second writer. `GraphWriteStamp` carries actor, origin, optional project, and the boot-composed identity writer only on write operation cases; read cases carry none of those knobs. `ProjectionContext` owns tenant, correlation, and clock values. `FaultBand` remains the single Persistence fault registry.
+Rasm.Persistence persists each `Rasm.Element` graph as one Marten stream keyed by `ModelId`: `GraphCreated`, `GraphRevised`, and `GraphRetired` carry seam-validated `GraphDelta` bodies, and the inline `GraphProjection` and the AS-OF reconstruction reuse the one `GraphDelta.ReplayOnto` fold.
+
+`IdentityStore.Stamp` queues the provider-bound `IdentityWriter` on the same `IDocumentSession`, so identity, event, lineage, and inline projection commit once without a second writer; `GraphWriteStamp` carries actor, origin, optional project, and the boot-composed identity writer on write cases alone; `ProjectionContext` owns the clock delegates beside the kernel `CorrelationId`/`TenantContext` pair as VALUES, so every leg reads one tenancy and one correlation with no per-seam lift; `FaultBand` remains the single fault registry.
 
 ## [01]-[INDEX]
 
 - [02]-[STREAM_GRAIN]: model-stream identity, the `GraphEvent` body family, optimistic append, and the schema-keyed event registration.
-- [03]-[GRAPH_PROJECTION]: the inline `SingleStreamProjection` folding `GraphDelta` into the STJ-rehydratable `GraphProjection` over the seam `GraphDelta.ReplayOnto`, the materialized `ElementGraph` read boundary, and the read-your-writes consistency boundary.
-- [04]-[STORE_RAIL]: the Persistence-owned frame shapes (`StoreActor`/`ProjectionContext`/`ResolvedProfile`), the one `GraphStoreOp` operation family over the generated total `Switch`, the session bracket, the exclusive-lock escalation, AS-OF reconstruction, the durable naming-lineage rows, and the co-transactional identity commit.
-- [05]-[FAULT_TABLES]: the `FaultBand` `[SmartEnum<int>]` band-allocation registry (one row per own decade + pinned foreign mirrors) and the `GraphFault` band it hosts.
+- [03]-[GRAPH_PROJECTION]: Inline `SingleStreamProjection` folding `GraphDelta` into the STJ-rehydratable `GraphProjection` over the seam `GraphDelta.ReplayOnto`, the materialized `ElementGraph` read boundary, and the read-your-writes consistency boundary.
+- [04]-[STORE_RAIL]: Persistence-owned frame shapes (`StoreActor`/`ProjectionContext`/`ResolvedProfile`), the one `GraphStoreOp` operation family over the generated total `Switch`, the session bracket, the exclusive-lock escalation, AS-OF reconstruction, the durable naming-lineage rows, and the co-transactional identity commit.
+- [05]-[FAULT_TABLES]: `FaultBand` `[SmartEnum<int>]` band-allocation registry (one row per own decade + pinned foreign mirrors) and the `GraphFault` band it hosts.
 
 ## [02]-[STREAM_GRAIN]
 
 - Owner: `ModelId` the `[ValueObject<Guid>]` per-model stream key under the `IObjectFactory` floor; `GraphEvent` the `[Union]` event-body family every model stream appends, carrying the `Body`/`Lifecycle` projections the `Version/ledger#CHANGEFEED` `OpLog.Project` reads off each Marten event; `EventLifecycle` the `[SmartEnum<string>]` create/revise/retire verb each event row carries; `ElementSchema` the static surface owning the `StoreOptions` event registration, the strong-typed value registration, the inline projection registration, and the per-model stream-start and append legs over the one `IDocumentSession`.
-- Cases: `GraphCreated(Header Header, GraphDelta Delta)` opens a stream carrying the `Rasm.Element` `Header` (`ReleaseVersion`/`ModelView`/`GeoReference`/`Tolerance`/`Instant`/`StepHeader`) AND the assembled opening `GraphDelta` (the `Projection/projection#PROJECTION_CONTRACT` `Assemble` merged model-creating delta), so a model is created in ONE event rather than an empty open plus a separate content commit; `GraphRevised(GraphDelta Delta)` is the steady-state append; `GraphRetired(GraphDelta Delta, string Reason)` carries the retirement delta whose `GraphDelta` removes the retired nodes/edges — so retirement is a real convergent delta the projection folds, never an out-of-band tombstone; the event body is ALWAYS the seam `GraphDelta`, NEVER a whole-graph snapshot, because the delta replays deterministically through `GraphDelta.ReplayOnto` and a whole-graph body bloats every append by the model size.
+- Cases: `GraphCreated(Header Header, GraphDelta Delta)` opens a stream carrying the `Rasm.Element` `Header` (`ReleaseVersion`/`ModelView`/`GeoReference`/`Tolerance`/`Instant`/`StepHeader`) AND the assembled opening `GraphDelta` (the `Projection/projection#PROJECTION_CONTRACT` `Assemble` merged model-creating delta), so a model is created in ONE event rather than an empty open beside a separate content commit; `GraphRevised(GraphDelta Delta)` is the steady-state append; `GraphRetired(GraphDelta Delta, string Reason)` carries the retirement delta whose `GraphDelta` removes the retired nodes/edges — so retirement is a real convergent delta the projection folds, never an out-of-band tombstone; the event body is ALWAYS the seam `GraphDelta`, NEVER a whole-graph snapshot, because the delta replays deterministically through `GraphDelta.ReplayOnto` and a whole-graph body bloats every append by the model size.
 - Entry: `public static StoreOptions Configure(StoreOptions opts, NpgsqlDataSource source)` registers the event types, the strong-typed `ModelId`/`NodeId` value types, the inline `GraphProjection` self-aggregating snapshot, and the metadata columns once at boot; `public static StreamAction Open(IDocumentSession session, ModelId model, Header header, GraphDelta opening)` calls `session.Events.StartStream<GraphProjection>(model.Value, new GraphEvent.GraphCreated(header, opening))` so the assembled opening delta is the one model-creating event; `public static StreamAction Append(IDocumentSession session, ModelId model, GraphEvent body, long expectedVersion)` appends with the inline optimistic version guard so a concurrent writer racing the same stream version aborts at `SaveChangesAsync` rather than silently interleaving.
 - Auto: `StreamIdentity.AsGuid` keys one stream per `ModelId`. `EventAppendMode.Rich` remains invariant for authoring and re-ingest because `actor`/`origin`/`tenant` headers are durable blame inputs; Marten's `Quick` modes trade away metadata richness and therefore do not admit this stream. `GraphDelta` is the seam-validated event body. `RegisterValueType<ModelId>()`/`RegisterValueType<NodeId>()` preserve typed keys, and `UseSystemTextJsonForSerialization(ElementJson.Options, …)` binds the one generated serializer profile.
 - Receipt: a stream open rides `store.element.open`, a delta append rides `store.element.commit` carrying the delta node/edge counts, a retirement rides `store.element.retire`; the `StreamAction.Version` is the optimistic guard the next append reads.
 - Packages: Marten (`StartStream`/`Append`/`StreamAction`/`EventAppendMode`/`StreamIdentity`/`RegisterValueType`/`Snapshot`/`UseSystemTextJsonForSerialization`/`MetadataConfig`), Npgsql, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new durable change kind is one `GraphEvent` case plus one `EventLifecycle` row plus one projection `Apply` method the convention discovery forces; a richer model header is one field on the seam `Header`; a per-spatial-partition grain is one `ModelId` minting policy, never a second stream shape; zero new surface — a per-`NodeId` stream, a whole-graph event body, a second event table, or a bespoke `OpLogEntry` store beneath Marten is the deleted form because Marten owns the durable append and the rebuildable read views, and the `Version/` engine projects FROM these events (`Version/ledger#CHANGEFEED` `OpLog.Project` over `e.Data.Body`/`e.Data.Lifecycle`).
+- Growth: a new durable change kind is one `GraphEvent` case, one `EventLifecycle` row, and one projection `Apply` method the convention discovery forces; a richer model header is one field on the seam `Header`; a per-spatial-partition grain is one `ModelId` minting policy, never a second stream shape; zero new surface — a per-`NodeId` stream, a whole-graph event body, a second event table, or a bespoke `OpLogEntry` store beneath Marten is the deleted form because Marten owns the durable append and the rebuildable read views, and the `Version/` engine projects FROM these events (`Version/ledger#CHANGEFEED` `OpLog.Project` over `e.Data.Body`/`e.Data.Lifecycle`).
 - Boundary: stream grain is ONE stream PER MODEL (or per spatial partition), never per-`NodeId`, and the event body is the `GraphDelta`, never a whole-graph snapshot; the `GraphDelta` is the seam-owned graph-mutation record the projection folds immutably through `GraphDelta.ReplayOnto`, so the durable history is a delta log the engine replays and the rehydrated graph is bit-identical to the live state at any version because the fold is the ONE `GraphDelta.ReplayOnto` the AS-OF reconstruction also runs; the optimistic append (`Append(stream, expectedVersion, …)`) is the inline guard, `AppendOptimistic` the read-then-guard, and the `GraphStoreOp.CommitExclusive` case the stream-level advisory-lock escalation (`FetchForExclusiveWriting<GraphProjection>`, `#STORE_RAIL`); the `GraphRetired` delta is a real convergent retirement the projection folds and the `Version/retention#RETENTION_CLASSES` sweep reclaims, never an `ArchiveStream` that hides the events from the fold (archive is the AS-OF cut boundary, not retirement); a `GraphCreated` carries the `Header` so the stream's `ReleaseVersion`/`GeoReference`/`Tolerance` are the first folded fact and every later delta's measure quantization (`Element/codec#CONTENT_ADDRESS`) reads the header tolerance; `EventAppendMode` trades metadata richness for throughput as a config value, never a per-call branch; the `GraphEvent` is the body family `Version/ledger#CHANGEFEED` lifts (`OpLog.Project(IEvent<GraphEvent>)` reads `e.Data.Body`/`e.Data.Lifecycle`), so this owner's body shape is the changefeed's input contract.
 
 ```csharp signature
@@ -34,6 +36,7 @@ using Marten.Events;
 using Marten.Events.Projections;
 using NodaTime;
 using Npgsql;
+using Rasm.Domain;
 using Rasm.Element.Graph;
 using Rasm.Element.Projection;
 using Rasm.Element.Relations;
@@ -49,8 +52,8 @@ public readonly partial struct ModelId {
     public static ModelId New() => Create(Guid.CreateVersion7());
 }
 
-// The project altitude above the per-model stream: federated disciplines live in separate `ModelId` streams,
-// and the project id is the grouping key the `project` blame header carries and the `#STORE_RAIL`
+// `ProjectId` names the altitude above the per-model stream: federated disciplines live in separate `ModelId`
+// streams, and this id is the grouping key the `project` blame header carries and the `#STORE_RAIL`
 // `ProjectRollup` slices by.
 [ValueObject<Guid>]
 public readonly partial struct ProjectId {
@@ -66,7 +69,7 @@ public sealed partial class EventLifecycle {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-// The event body family every model stream appends. The body is ALWAYS the seam `GraphDelta`
+// `GraphEvent` is the body family every model stream appends, ALWAYS carrying the seam `GraphDelta`
 // (the validated graph-mutation record), never a whole-graph snapshot — `GraphCreated` adds the
 // opening `Header`, `GraphRetired` adds the retirement reason, and all three fold through the one
 // `GraphDelta.ReplayOnto` the projection runs, so the durable history is a deterministic delta log.
@@ -111,17 +114,17 @@ public static class ElementSchema {
         // ONE registration: `GraphProjection` is the self-aggregating inline snapshot — its `Create`/`Apply`
         // convention methods fold the stream into the document written in the SAME append transaction, so a
         // read-your-writes interactive query (`Query/lane#READ_ROUTING`) reads the head with no daemon lag.
-        // A second `Projections.Add<GraphProjection>` is the deleted double-registration (it would re-treat the
-        // aggregate as a raw `IProjection`); the inline aggregate IS the materialized view that bounds replay.
+        // `Projections.Add<GraphProjection>` beside this call is the deleted double-registration, re-treating the
+        // aggregate as a raw `IProjection`; the inline aggregate IS the materialized view that bounds replay.
         opts.Projections.Snapshot<GraphProjection>(SnapshotLifecycle.Inline);
-        // The project rollup is ASYNC by construction (a dashboard/roster view, never interactive correctness),
+        // `ProjectRollup` runs ASYNC by construction — a dashboard/roster view, never interactive correctness —
         // and the coordination edges index by project for the federated selection reads.
         opts.Projections.Add(new ProjectRollup(), ProjectionLifecycle.Async);
         opts.Schema.For<ModelLink>().Index(static l => l.Project);
         return opts;
     }
 
-    // The model-creating event carries BOTH the `Header` AND the assembled opening `GraphDelta` (the one
+    // `GraphCreated` carries BOTH the `Header` AND the assembled opening `GraphDelta` (the one
     // `Projection/projection#PROJECTION_CONTRACT` `Assemble` merged delta, header folded in via `Reheader`),
     // so a model is created in ONE event the inline projection's `Create` folds — never an empty open plus a
     // separate content commit. A from-scratch model opens with `GraphDelta.Empty` at the call site.
@@ -160,13 +163,13 @@ public static class ElementSchema {
 
 ```csharp signature
 // --- [MODELS] --------------------------------------------------------------------------
-// The inline single-stream aggregate. Marten folds the model stream into this document inside the
-// append transaction, so a same-unit `Read` is read-your-writes consistent. It carries the STJ-
-// rehydratable PRIMITIVES (`Header` + node map + edge array + version), NOT the seam `ElementGraph`
-// — a sealed read-snapshot class with no deserialization path whose only mint is `Of`/`Genesis`/
-// `Apply` — and materializes the frozen `ElementGraph` ONCE through the seam `ElementGraph.Of` via
-// the memoized `Graph` accessor (the one place the incidence index, `QuikGraph` view, and `Bake`
-// memo build). `GraphDelta.ReplayOnto` is the one immutable fold the AS-OF reconstruction also runs,
+// Marten folds the model stream into this inline single-stream aggregate inside the append transaction, so a
+// same-unit `Read` is read-your-writes consistent. `GraphProjection` carries the STJ-rehydratable PRIMITIVES
+// (`Header` + node map + edge array + version), NOT the seam `ElementGraph` — a sealed read-snapshot class with
+// no deserialization path whose only mint is `Of`/`Genesis`/`Apply` — and materializes the frozen `ElementGraph`
+// ONCE through `ElementGraph.Of` behind a memoized `Graph` accessor, the one place the incidence index,
+// `QuikGraph` view, and `Bake` memo build. `GraphDelta.ReplayOnto` is the one immutable fold the AS-OF
+// reconstruction also runs,
 // so a folded graph is bit-identical to the live state at that version. `From` is the ONLY mint, so
 // no `with` copy can alias the materialized `graph` cache across folds.
 public sealed record GraphProjection(
@@ -197,18 +200,18 @@ public sealed record GraphProjection(
 
 ## [04]-[STORE_RAIL]
 
-- Owner: `StoreActor` the Persistence-owned `[ComplexValueObject]` actor value (subject + role claims) AppHost's composition root MAPS its richer `Principal` onto at the port boundary — the AppHost simple name never crosses down, mirroring the `Grant`/`Capability` never-share-a-name law; `ProjectionContext` the Persistence-owned injected frame carrying the clock delegates, the correlation `Guid`, and the tenant `UInt128` as VALUES (AppHost fills the slots from its own `ClockPolicy`/`CorrelationId`/`TenantContext` at the boundary; every Persistence page threads this frame, never an AppHost type); `RecoveryObjective`/`ResolvedProfile` the recovery-objective ingredient shapes `Version/recovery` re-threads onto (defined here, consumed there); `NameLineage` the durable REFERENCE-axis row persisting the kernel `Rasm/Spatial/naming` generational `Track(prior, rebuilt)` pairing across sessions; `ProjectId`/`LinkKind`/`ModelLink` the federated-coordination vocabulary — the durable cross-model reference edge IFC cannot carry, co-committed like `NameLineage`; `ProjectGraph`/`ProjectRollup` the realized project-altitude `MultiStreamProjection` sliced by the `project` blame header (async, roster + watermark only — never a second delta materializer); `GraphStoreOp` the `[Union]` operation family every durable graph interaction is a value in; `GraphStore` the static surface owning the one bracket over the generated total `Switch` — pooled session acquisition, the strong-typed append, the exclusive-lock escalation, the inline-projection read, the AS-OF fold, the co-transactional identity commit, and provider-fault conversion to `GraphFault`; `GraphReceipt` the typed per-op evidence carrying the model, the resulting version, and the elapsed `Duration`.
+- Owner: `StoreActor` the Persistence-owned `[ComplexValueObject]` actor value (subject + role claims) AppHost's composition root MAPS its richer `Principal` onto at the port boundary — the AppHost simple name never crosses down, mirroring the `Grant`/`Capability` never-share-a-name law; `ProjectionContext` the Persistence-owned injected frame carrying the clock delegates beside the kernel `CorrelationId`/`TenantContext` pair as VALUES (AppHost fills the slots from its own `ClockPolicy` and the kernel causal frame at the boundary; every Persistence page threads this frame, never an app-platform type, and a leg emitting a signal, a receipt, or an RLS predicate reads the kernel pair straight off the frame — the per-seam lift from a raw `Guid`/`UInt128` slot is the deleted form, and the raw key scalars survive only where a durable column, an object-name prefix, or a series key demands the packed value through `TenantId.Value`); `RecoveryObjective`/`ResolvedProfile` the recovery-objective ingredient shapes `Version/recovery` re-threads onto (defined here, consumed there); `NameLineage` the durable REFERENCE-axis row persisting the kernel `Rasm/Spatial/naming` generational `Track(prior, rebuilt)` pairing across sessions; `ProjectId`/`LinkKind`/`ModelLink` the federated-coordination vocabulary — the durable cross-model reference edge IFC cannot carry, co-committed like `NameLineage`; `ProjectGraph`/`ProjectRollup` the realized project-altitude `MultiStreamProjection` sliced by the `project` blame header (async, roster + watermark only — never a second delta materializer); `GraphStoreOp` the `[Union]` operation family every durable graph interaction is a value in; `GraphStore` the static surface owning the one bracket over the generated total `Switch` — pooled session acquisition, the strong-typed append, the exclusive-lock escalation, the inline-projection read, the AS-OF fold, the co-transactional identity commit, and provider-fault conversion to `GraphFault`; `GraphReceipt` the typed per-op evidence carrying the model, the resulting version, and the elapsed `Duration`.
 - Cases: write cases carry their required `ElementIdentity` and `GraphWriteStamp`; `Link` carries its project-scoped links and stamp; `Read`, `ReadAsOf`, and `State` carry only their read discriminants. `ModelLink` covers directed and symmetric cross-model relationships, validity interval, and extensible attributes; `LinkKind` carries directionality as row data.
 - Entry: `Run(IDocumentSession, GraphStoreOp, ProjectionContext, CancellationToken)` dispatches the closed family, the token threading to every provider await so caller cancellation reaches the store instead of dying at the rail boundary. Write cases stamp their carrier and queue identity before `SaveChangesAsync`; read cases require no dummy identity, actor, origin, or project. `ReadAsOf` passes a nullable version only when the cut carries one and otherwise passes only the timestamp, preserving the version-XOR-time contract.
-- Auto: the bracket runs the op through the generated total `GraphStoreOp.Switch` (compile-time exhaustive over the closed family — a new op breaks the build at the `Run` dispatch, never a runtime-silent `_` arm) and `SaveChangesAsync` commits events plus the queued identity upsert plus the lineage rows plus the inline projection in one Postgres transaction — there is no separate identity ORM and no two-phase dance because the identity write is the one model-derived statement `IdentityStore.Stamp` queues on the session; the read op calls `FetchLatest<GraphProjection>(model)` which returns the inline document when present or live-folds the tail, so a read after a commit in the same unit is consistent; the AS-OF op binds either a `version` or a `timestamp` (one or the other, never both) from the `TimeCut` so an historical read folds the SAME `GraphDelta.ReplayOnto` deterministically; a `Commit`/`CommitExclusive` carrying `Some(NameLineage)` stores the lineage rows in the same session so the kernel `NameTable.Track(prior, rebuilt)` reads a durable PRIOR generation on the next session — a durable projection of the kernel lineage as string pairs, never the kernel interior types crossing a wire (naming's interior-type law holds), the REFERENCE axis distinct from the merge-consumed per-node `NamingHash` CONTENT receipt; provider exceptions convert to `GraphFault` at the one bracket boundary and the interior never sees a raw `Marten.Exceptions.MartenException`, while caller cancellation passes through untyped.
+- Auto: the bracket runs the op through the generated total `GraphStoreOp.Switch` (compile-time exhaustive over the closed family — a new op breaks the build at the `Run` dispatch, never a runtime-silent `_` arm) and `SaveChangesAsync` commits events, the queued identity upsert, the lineage rows, and the inline projection in one Postgres transaction — there is no separate identity ORM and no two-phase dance because the identity write is the one model-derived statement `IdentityStore.Stamp` queues on the session; the read op calls `FetchLatest<GraphProjection>(model)` which returns the inline document when present or live-folds the tail, so a read after a commit in the same unit is consistent; the AS-OF op binds either a `version` or a `timestamp` (one or the other, never both) from the `TimeCut` so an historical read folds the SAME `GraphDelta.ReplayOnto` deterministically; a `Commit`/`CommitExclusive` carrying `Some(NameLineage)` stores the lineage rows in the same session so the kernel `NameTable.Track(prior, rebuilt)` reads a durable PRIOR generation on the next session — a durable projection of the kernel lineage as string pairs, never the kernel interior types crossing a wire (naming's interior-type law holds), the REFERENCE axis distinct from the merge-consumed per-node `NamingHash` CONTENT receipt; provider exceptions convert to `GraphFault` at the one bracket boundary and the interior never sees a raw `Marten.Exceptions.MartenException`, while caller cancellation passes through untyped.
 - Receipt: an `Open`/`Commit`/`Retire` rides `store.element.<verb>` carrying the resulting `StreamAction.Version`; a `CommitExclusive` rides `store.element.commit-exclusive`; a `Link` rides `store.element.link` carrying the landed edge count; a `Read`/`ReadAsOf` rides `store.element.read` carrying the folded node count; the identity co-commit rides `store.element.identity` carrying the `NodeId` count (`Element/identity#ELEMENT_IDENTITY`); the op crosses the `rasm.persistence.element.append` veto and the settled receipt fires `rasm.persistence.element.committed` through the `Store/observability#HOOK_RAIL` `PersistenceHooks.Guarded` composition adapter — hook points are composition-mounted values, never rail parameters.
 - Packages: Marten (`IDocumentSession`/`IQuerySession`/`SetHeader`/`SaveChangesAsync`/`FetchLatest`/`FetchForExclusiveWriting`/`IEventStream<T>.AppendOne`/`AggregateStreamAsync`/`FetchStreamStateAsync`/`Store`), LanguageExt.Core (`IO`/`Fin`/`Option`), NodaTime, Thinktecture.Runtime.Extensions, BCL inbox.
-- Growth: a new durable interaction is one `GraphStoreOp` case plus one branch in the generated total `Switch` the closed family forces; a new read modality is one op case discriminating on its input (a key resolves to one graph, a cut to an AS-OF graph, a state probe to a head version) whose leg projects through the one `Received` receipt fold (the `(version, nodes, edges)` extractor the only per-leg difference); a new frame ingredient is one slot on `ProjectionContext`/`ResolvedProfile`, never a new signature parameter; a same-session SQL side-write (a coordination cursor, an outbox advance) is `IDocumentOperations.QueueSqlCommand` inside the one transaction, never a second connection; zero new surface — a repository per model, a per-verb service, an injected `persist` delegate, a per-read-leg receipt-construction-plus-absence-arm copy, a `using Rasm.AppHost` import, or a separate identity transaction is the deleted form because the one rail owns the bracket, the one session owns identity-plus-event atomicity, the one `Received` fold owns the receipt-and-absence projection, and the op family discriminates by value shape through the generated `Switch`.
-- Boundary: the one transaction owner for identity plus event is the `IDocumentSession` — the `ElementIdentity` row lands as the ONE model-derived upsert the `Element/identity#ELEMENT_IDENTITY` `IdentityStore.Stamp` owner queues on the same session as the appended events, so a single `SaveChangesAsync` commits both with no free two-ORM atomicity and no EF-versus-Marten gap (the EF identity model of `Element/identity` names the one `element_identity` relation for DDL and every H3/PostGIS/pgvector/ACL read while holding zero write authority — the session is the only writer); the blame headers are the WRITE side of the read-side blame contract — `Stage` stamps `actor`/`origin`/`tenant` so every appended event carries the slots `MetadataConfig.HeadersEnabled` persists and `Version/ledger#CHANGEFEED` `OpLog.Project`/`Version/timetravel#TIME_TRAVEL` `ActorOf`/`OriginOf` read; omitting the stamp is the deleted form that collapses the `OriginStoreId` LWW tie-break to `Guid.Empty` and strands blame with no actor; the frame ingredients cross the strata as VALUES on the Persistence-owned shapes this section defines — a `ClockPolicy`/`CorrelationId`/`TenantContext`/`Principal` parameter on any Persistence signature is the named strata inversion, and every Persistence page re-threads onto `ProjectionContext`/`StoreActor`/`ResolvedProfile` in its own rebuild; the read op is read-your-writes through the inline projection and NEVER routes to an async analytical lane; the AS-OF op binds `version` XOR `timestamp` so a precise cut pins a version and an instant cut binds the wall clock, and the fold reuses the one `GraphDelta.ReplayOnto` so an historical graph equals the live state; optimistic concurrency is `Commit(model, delta, expectedVersion, …)` whose inline `Append(stream, expectedVersion, body)` aborts a racing same-version writer at `SaveChangesAsync` — surfacing as `Marten.Exceptions.ConcurrentUpdateException` wrapping the inner `JasperFx.Events.EventStreamUnexpectedMaxEventIdException`, both lifted to `GraphFault.StreamVersionConflict` carrying the head version — and the escalation is the `CommitExclusive` OP CASE, never prose: the advisory lock serializes hostile writers and its refusal is the typed `GraphFault.TxnConflict` (8303), so the folded transaction rail raises a registered sub-band row, never a loose 7001 integer; `SaveChangesAsync` is the only commit and the bracket never bypasses it; provider failure converts to `GraphFault` once at the bracket and the op-log changefeed (`Version/ledger#CHANGEFEED`) projects FROM the committed events, never a trigger-based second write path; a re-ingest of an existing model is aligned UPSTREAM by the `Version/merge#STRUCTURAL_DIFF` `Reconcile` (correlating the projector's freshly-minted rooted `NodeId`s onto the durable ids on `Node.Object.ExternalId`, the 1:1 IFC GlobalId) BEFORE the aligned `GraphDelta` reaches this `Commit`, so a re-import revises the existing stream rather than forking a duplicate model — this store appends the already-aligned delta, never re-deriving the alignment.
+- Growth: a new durable interaction is one `GraphStoreOp` case and one branch in the generated total `Switch` the closed family forces; a new read modality is one op case discriminating on its input (a key resolves to one graph, a cut to an AS-OF graph, a state probe to a head version) whose leg projects through the one `Received` receipt fold (the `(version, nodes, edges)` extractor the only per-leg difference); a new frame ingredient is one slot on `ProjectionContext`/`ResolvedProfile`, never a new signature parameter; a same-session SQL side-write (a coordination cursor, an outbox advance) is `IDocumentOperations.QueueSqlCommand` inside the one transaction, never a second connection; zero new surface — a repository per model, a per-verb service, an injected `persist` delegate, a per-read-leg receipt-construction-and-absence-arm copy, a `using Rasm.AppHost` import, or a separate identity transaction is the deleted form because the one rail owns the bracket, the one session owns identity-with-event atomicity, the one `Received` fold owns the receipt-and-absence projection, and the op family discriminates by value shape through the generated `Switch`.
+- Boundary: the `IDocumentSession` is the one transaction owner for identity with event — the `ElementIdentity` row lands as the ONE model-derived upsert the `Element/identity#ELEMENT_IDENTITY` `IdentityStore.Stamp` owner queues on the same session as the appended events, so a single `SaveChangesAsync` commits both with no free two-ORM atomicity and no EF-versus-Marten gap (the EF identity model of `Element/identity` names the one `element_identity` relation for DDL and every H3/PostGIS/pgvector/ACL read while holding zero write authority — the session is the only writer); the blame headers are the WRITE side of the read-side blame contract — `Stage` stamps `actor`/`origin`/`tenant` so every appended event carries the slots `MetadataConfig.HeadersEnabled` persists and `Version/ledger#CHANGEFEED` `OpLog.Project`/`Version/timetravel#TIME_TRAVEL` `ActorOf`/`OriginOf` read; omitting the stamp is the deleted form that collapses the `OriginStoreId` LWW tie-break to `Guid.Empty` and strands blame with no actor; the frame ingredients cross the strata as VALUES on the Persistence-owned shapes this section defines — a `ClockPolicy` or `Principal` parameter on any Persistence signature is the named strata inversion, while the kernel causal frame (`CorrelationId`, `TenantId`/`TenantContext`, `ReceiptEnvelope`, `ReceiptSinkPort`) is S0 vocabulary this package composes directly and therefore SEATS on the frame rather than being re-derived at each seam, so every Persistence receipt spells `CorrelationId` (a neutral-`Guid` receipt field is the twin the kernel forecloses), every RLS predicate, blame header, and meter tag spells `TenantContext.Entry`, every census wire spells `Slug`, and `TenantId.Value` is reached only where a durable column, an object-name prefix, an AAD digest, or a series key packs the raw scalar; every Persistence page re-threads onto `ProjectionContext`/`StoreActor`/`ResolvedProfile` in its own rebuild; the read op is read-your-writes through the inline projection and NEVER routes to an async analytical lane; the AS-OF op binds `version` XOR `timestamp` so a precise cut pins a version and an instant cut binds the wall clock, and the fold reuses the one `GraphDelta.ReplayOnto` so an historical graph equals the live state; optimistic concurrency is `Commit(model, delta, expectedVersion, …)` whose inline `Append(stream, expectedVersion, body)` aborts a racing same-version writer at `SaveChangesAsync` — surfacing as `Marten.Exceptions.ConcurrentUpdateException` wrapping the inner `JasperFx.Events.EventStreamUnexpectedMaxEventIdException`, both lifted to `GraphFault.StreamVersionConflict` carrying the head version — and the escalation is the `CommitExclusive` OP CASE, never prose: the advisory lock serializes hostile writers and its refusal is the typed `GraphFault.TxnConflict` (8303), so the folded transaction rail raises a registered sub-band row, never a loose 7001 integer; `SaveChangesAsync` is the only commit and the bracket never bypasses it; provider failure converts to `GraphFault` once at the bracket and the op-log changefeed (`Version/ledger#CHANGEFEED`) projects FROM the committed events, never a trigger-based second write path; a re-ingest of an existing model is aligned UPSTREAM by the `Version/merge#STRUCTURAL_DIFF` `Reconcile` (correlating the projector's freshly-minted rooted `NodeId`s onto the durable ids on `Node.Object.ExternalId`, the 1:1 IFC GlobalId) BEFORE the aligned `GraphDelta` reaches this `Commit`, so a re-import revises the existing stream rather than forking a duplicate model — this store appends the already-aligned delta, never re-deriving the alignment.
 
 ```csharp signature
 // --- [TYPES] ---------------------------------------------------------------------------
-// The Persistence-owned port-input shapes ([A.1]): AppHost's composition root FILLS these slots from its
+// AppHost's composition root FILLS these Persistence-owned port-input shapes ([A.1]) from its
 // own Principal/ClockPolicy/CorrelationId/TenantContext/RecoveryObjective at the PORT boundary — the
 // ingredients cross as delegate and wire VALUES, so no AppHost simple name resolves below the strata seam.
 // Every frame-referencing Persistence page re-threads onto these shapes in its own leg.
@@ -218,10 +221,16 @@ public sealed partial class StoreActor {
     public Seq<string> Roles { get; }
 }
 
-public sealed record ProjectionContext(Func<long> Mark, Func<long, Duration> Elapsed, Func<Instant> Now, Guid Correlation, UInt128 Tenant);
+// `ProjectionContext` carries the kernel causal pair AS THE KERNEL TYPES, never their key scalars: `TenantContext`
+// supplies `Partitions` (the structural absent-tenant arm — the root row is the single-tenant store and
+// writes no partition text anywhere), `Entry` (the one fixed-width `x32` spelling the RLS predicate, the
+// blame header, the object-name prefix, and the meter tag all compare), `Slug` (the census wire's tenancy
+// text), and `TenantId.Value` (the raw `UInt128` a durable column or series key packs). A raw `Guid`/
+// `UInt128` frame slot re-mints the lift at every seam and strands the absent-tenant arm on a zero sentinel.
+public sealed record ProjectionContext(Func<long> Mark, Func<long, Duration> Elapsed, Func<Instant> Now, CorrelationId Correlation, TenantContext Tenant);
 
 public sealed record RecoveryObjective(Duration Rpo, Duration Rto);
-public sealed record ResolvedProfile(RecoveryObjective Recovery, UInt128 Tenant);
+public sealed record ResolvedProfile(RecoveryObjective Recovery, TenantContext Tenant);
 public sealed record GraphWriteStamp(StoreActor Actor, Guid Origin, Option<ProjectId> Project, IdentityWriter Identity);
 
 // `TimeCut` is the one temporal-cut value-object owned by `Version/timetravel#TIME_TRAVEL` (frozen-vocab
@@ -235,7 +244,7 @@ public abstract partial record GraphStoreOp {
     public sealed record Commit(ModelId Model, GraphDelta Delta, long Expected, Option<NameLineage> Lineage, ElementIdentity Identity, GraphWriteStamp Stamp) : GraphStoreOp;
     public sealed record CommitExclusive(ModelId Model, GraphDelta Delta, Option<NameLineage> Lineage, ElementIdentity Identity, GraphWriteStamp Stamp) : GraphStoreOp;
     public sealed record Retire(ModelId Model, GraphDelta Delta, string Reason, long Expected, ElementIdentity Identity, GraphWriteStamp Stamp) : GraphStoreOp;
-    // The federated-coordination write: durable cross-model edges land as rows in the same session, so a
+    // `Link` is the federated-coordination write: durable cross-model edges land as rows in the same session, so a
     // clash pairing or provision-for-void reference commits with full blame headers under the project id.
     public sealed record Link(ModelId Model, ProjectId Project, Seq<ModelLink> Links, GraphWriteStamp Stamp) : GraphStoreOp;
     public sealed record Read(ModelId Model) : GraphStoreOp;
@@ -244,9 +253,9 @@ public abstract partial record GraphStoreOp {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct GraphReceipt(string Slot, ModelId Model, long Version, int Nodes, int Edges, Duration Elapsed, Instant At, Guid Correlation);
+public readonly record struct GraphReceipt(string Slot, ModelId Model, long Version, int Nodes, int Edges, Duration Elapsed, Instant At, CorrelationId Correlation);
 
-// The durable REFERENCE-axis lineage row: the kernel `Rasm/Spatial/naming` `NameTable.Track(prior, rebuilt)`
+// `NameLineage` is the durable REFERENCE-axis row: kernel `Rasm/Spatial/naming` `NameTable.Track(prior, rebuilt)`
 // needs a PRIOR generation across sessions, so each rename-bearing commit persists the prior->rebuilt
 // `TopoName` pairing as STRING pairs co-committed with the delta — a durable projection, never the kernel
 // interior types crossing a wire. Distinct from the merge-consumed per-node `NamingHash` CONTENT receipt.
@@ -256,7 +265,7 @@ public sealed record NameLineage(ModelId Model, long Version, HashMap<string, st
     public Guid Id { get; init; } = Guid.CreateVersion7();
 }
 
-// The federated-coordination edge vocabulary and row: IFC carries no cross-file relationship, so the
+// `LinkKind` and `ModelLink` carry the federated-coordination edge vocabulary: IFC declares no cross-file relationship, so the
 // inter-model reference (a duct penetrating an arch wall, a provision-for-void pairing, a shared-grid
 // alignment) is a first-class DURABLE row co-committed like `NameLineage` — the in-model seam `Relationship`
 // stays single-graph and is never widened. `Query/lane#ELEMENT_SET_ALGEBRA` and `Query/topology` are the
@@ -293,7 +302,7 @@ public sealed record ModelLink(
     public Guid Id { get; init; } = Guid.CreateVersion7();
 }
 
-// The project-altitude rollup REALIZED (async daemon view — project dashboards, model rosters, whole-project
+// `ProjectRollup` REALIZES the project altitude (async daemon view — project dashboards, model rosters, whole-project
 // watermarks), sliced by the `project` blame header `Blame` stamps so membership is a WRITE-time fact, never
 // a fold-time join. It folds rosters and event watermarks ONLY — the per-model graph stays the inline
 // aggregate's, so no second delta materializer exists.
@@ -324,19 +333,19 @@ file sealed class ProjectHeaderGrouper : IAggregateGrouper<Guid> {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class GraphStore {
-    // The registry-mounted census of every receipt kind this rail emits (`Store/observability#SLOT_REGISTRY`).
+    // `Slots` censuses every receipt kind this rail emits, registry-mounted (`Store/observability#SLOT_REGISTRY`).
     public static readonly Seq<StoreSlot> Slots = Seq(
         StoreSlot.Create("store.element.open"), StoreSlot.Create("store.element.commit"), StoreSlot.Create("store.element.commit-exclusive"),
         StoreSlot.Create("store.element.retire"), StoreSlot.Create("store.element.link"), StoreSlot.Create("store.element.read"),
         StoreSlot.Create("store.element.identity"), StoreSlot.Create("store.element.project"), StoreSlot.Create("store.element.fault"));
 
-    // The one rail — the generated total `GraphStoreOp.Switch` (compile-time exhaustive over the closed
-    // family, NO runtime-silent `_` default arm) dispatches each op to its bracket leg; a new op breaks
-    // the build here. Open/Commit/Retire share the co-transactional `Stage` write fold (stamp the blame
-    // headers, stage the stream action, `IdentityStore.Stamp`, lineage rows, `SaveChangesAsync`);
-    // CommitExclusive is the advisory-lock escalation; Read/ReadAsOf/State are the read legs. `actor` is
-    // the Persistence-owned `StoreActor` and `storeId` the store's own origin Guid (the LWW tie-break
-    // origin) — the SAME `actor`/`origin` header slots the read side reads.
+    // `Run` is the one rail: the generated total `GraphStoreOp.Switch` (compile-time exhaustive over the
+    // closed family, NO runtime-silent `_` default arm) dispatches each op to its bracket leg, so a new op
+    // breaks the build here. Open/Commit/Retire share the co-transactional `Stage` write fold — blame headers
+    // stamped, stream action staged, `IdentityStore.Stamp`, lineage rows, `SaveChangesAsync`; CommitExclusive
+    // escalates to the advisory lock; Read/ReadAsOf/State are the read legs. `actor` spells the
+    // Persistence-owned `StoreActor` and `storeId` the store's own origin Guid (the LWW tie-break origin),
+    // matching the SAME `actor`/`origin` header slots the read side reads.
     public static IO<Fin<GraphReceipt>> Run(IDocumentSession session, GraphStoreOp op, ProjectionContext frame, CancellationToken cancellationToken) =>
         from mark in IO.lift(frame.Mark)
         from outcome in op.Switch(
@@ -361,12 +370,12 @@ public static class GraphStore {
                 token: cancellationToken))
             .Map(Optional);
 
-    // The co-transactional write fold: STAMP the blame headers (`actor` = `StoreActor.Subject`, `origin` =
-    // the store's own `storeId` Guid, `tenant` = the frame's RLS partition) onto the session so every event
-    // this transaction appends carries them (`MetadataConfig.HeadersEnabled` is set in `Configure`), stage
-    // the stream action (open/append), stamp the identity row and the lineage rows in the SAME session, then
-    // ONE `SaveChangesAsync` commits the event-with-headers, the identity document, the lineage rows, and
-    // the inline projection atomically. A provider failure converts to `GraphFault` at this one boundary via `Lift`.
+    // `Stage` is the co-transactional write fold: it STAMPS the blame headers (`actor` = `StoreActor.Subject`,
+    // `origin` = the store's own `storeId` Guid, `tenant` = the frame's RLS partition) onto the session so every
+    // event this transaction appends carries them (`Configure` sets `MetadataConfig.HeadersEnabled`), stages the
+    // stream action (open/append), stamps the identity row and the lineage rows in the SAME session, then lets
+    // ONE `SaveChangesAsync` commit the event-with-headers, the identity document, the lineage rows, and the
+    // inline projection atomically. `Lift` converts a provider failure to `GraphFault` at this one boundary.
     static IO<Fin<GraphReceipt>> Stage(IDocumentSession session, ElementIdentity identity, GraphWriteStamp stamp, ModelId model, GraphDelta delta, long expected, Option<NameLineage> lineage, Func<Unit, StreamAction> stage, ProjectionContext frame, long mark, string slot, CancellationToken cancellationToken) =>
         IO.liftAsync(async () => {
             Blame(session, stamp, frame);
@@ -377,7 +386,7 @@ public static class GraphStore {
             return Fin<GraphReceipt>.Succ(new GraphReceipt(slot, model, action.Version, delta.NodeCount, delta.EdgeCount, frame.Elapsed(mark), frame.Now(), frame.Correlation));
         }) | @catch<IO, Fin<GraphReceipt>>(static _ => true, error => Lift(session, model, expected, error));
 
-    // The coordination-edge write: link rows land as Marten documents in the same blame-stamped session, so a
+    // `StageLinks` writes coordination edges: link rows land as Marten documents in the same blame-stamped session, so a
     // cross-model reference commits atomically with full actor/origin/tenant/project headers; the receipt's
     // edge count carries the landed link count.
     static IO<Fin<GraphReceipt>> StageLinks(IDocumentSession session, GraphStoreOp.Link op, ProjectionContext frame, long mark, CancellationToken cancellationToken) =>
@@ -388,7 +397,7 @@ public static class GraphStore {
             return Fin<GraphReceipt>.Succ(new GraphReceipt("store.element.link", op.Model, 0L, 0, op.Links.Count, frame.Elapsed(mark), frame.Now(), frame.Correlation));
         }) | @catch<IO, Fin<GraphReceipt>>(static _ => true, error => Lift(session, op.Model, 0L, error));
 
-    // The multi-writer-hostile escalation: `FetchForExclusiveWriting` takes the stream-level advisory lock,
+    // `StageExclusive` escalates against hostile writers: `FetchForExclusiveWriting` takes the stream-level advisory lock,
     // so hostile writers serialize instead of racing the optimistic guard. A lock or serialization refusal
     // is the folded-transaction conflict `GraphFault.TxnConflict` (8303); a plain version race still lifts
     // through the shared `Lift` conversion.
@@ -411,14 +420,17 @@ public static class GraphStore {
     static void Blame(IDocumentSession session, GraphWriteStamp stamp, ProjectionContext frame) {
         session.SetHeader("actor", stamp.Actor.Subject);
         session.SetHeader("origin", stamp.Origin.ToString());
-        session.SetHeader("tenant", frame.Tenant.ToString("x32"));
-        // The project slot is the ProjectRollup's grouping fact — stamped at write time, never joined at fold time.
+        // Kernel root partitions nothing, so an ABSENT tenant header IS the single-tenant fact the
+        // `TryGetValue` read side folds to empty — a zero-valued partition string is the deleted sentinel.
+        // `Entry` is the one fixed-width `x32` spelling the RLS predicate and the meter tag both compare.
+        Optional(frame.Tenant.Partitions ? frame.Tenant.Entry : null).IfSome(entry => session.SetHeader("tenant", entry));
+        // `project` carries ProjectRollup's grouping fact — stamped at write time, never joined at fold time.
         stamp.Project.IfSome(p => session.SetHeader("project", p.Value.ToString()));
     }
 
-    // The three read legs differ ONLY in the fetch shape and the (version, nodes, edges) triple each extracts; the
-    // Some -> store.element.read receipt and the None -> ModelAbsent absence arm are ONE projection the legs share
-    // (Received), so the receipt construction and the absence rail are owned once, never re-spelled per read modality.
+    // Three read legs differ ONLY in fetch shape and the (version, nodes, edges) triple each extracts; `Received`
+    // owns both the Some -> store.element.read receipt and the None -> ModelAbsent absence arm as ONE shared
+    // projection, so receipt construction and the absence rail are spelled once, never per read modality.
     static IO<Fin<GraphReceipt>> ReadGraph(IDocumentSession session, ModelId model, ProjectionContext frame, long mark, CancellationToken cancellationToken) =>
         IO.liftAsync(() => session.Events.FetchLatest<GraphProjection>(model.Value, cancellationToken))
             .Map(p => Received(model, Optional(p), static g => (g.Version, g.Graph.Nodes.Count, g.Graph.Edges.Length), frame, mark));
@@ -459,21 +471,23 @@ public static class GraphStore {
 |  [03]   | AS-OF fold             | `AggregateStreamAsync(version\|timestamp)` | version XOR instant; reuses `GraphDelta.ReplayOnto`             |
 |  [04]   | optimistic concurrency | `Append(model, delta, expectedVersion)`    | racing writer aborts → `StreamVersionConflict`                  |
 |  [05]   | exclusive escalation   | `CommitExclusive` op case                  | `FetchForExclusiveWriting`; refusal → `TxnConflict` 8303        |
-|  [06]   | frame injection        | `StoreActor` + `ProjectionContext`         | AppHost fills slots at the port; no AppHost type crosses down   |
+|  [06]   | frame injection        | `StoreActor` + `ProjectionContext`         | AppHost fills slots at the port; no app-platform type crosses   |
 |  [07]   | naming lineage         | `NameLineage` co-committed rows            | kernel `Track(prior, rebuilt)` reads a durable prior generation |
 |  [08]   | coordination edges     | `ModelLink` rows + `Link` op case          | cross-model references durable, project-scoped, blame-stamped   |
 |  [09]   | project rollup         | `ProjectRollup` header-sliced, async       | roster + watermark only; never a second delta materializer      |
+|  [10]   | causal pair            | `CorrelationId` + `TenantContext` on frame | kernel types seat on the frame; raw scalars only at pack sites  |
+|  [11]   | tenant text            | `TenantContext.Entry` fixed-width `x32`    | RLS predicate, blame header, and meter tag compare alike        |
 
 ## [05]-[FAULT_TABLES]
 
-- Owner: `FaultBand` the `[SmartEnum<int>]` band-allocation registry — ONE row per Persistence fault decade plus the pinned MIRROR rows reserving every foreign registry's integers against Persistence claimants, mirroring the seam `Rasm.Element` registry shape (its own/mirror discriminant included); `GraphFault` the store-rail band this page hosts as the registry's own exemplar (8300-8303), the `[Union]` over the kernel `Rasm.Domain.Expected` every projection/store failure rails.
+- Owner: `FaultBand` the `[SmartEnum<int>]` band-allocation registry — ONE row per Persistence fault decade beside the pinned MIRROR rows reserving every foreign registry's integers against Persistence claimants, mirroring the seam `Rasm.Element` registry shape (its own/mirror discriminant included); `GraphFault` the store-rail band this page hosts as the registry's own exemplar (8300-8303), the `[Union]` over the kernel `Rasm.Domain.Expected` every projection/store failure rails.
 - Entry: every Persistence fault union derives `Code => FaultBand.<Row> + n` through the generated implicit `SmartEnum`-to-`int` conversion — one line, never a `.Value` spelling and never a bare integer literal; a duplicate band integer FAILS the generated key lookup at type initialization, so cross-page disjointness is type-enforced, never prose (per-page decade prose is the deleted form; this registry is the one pointer).
-- Growth: a new band is ONE row here plus the owning page's union derivation; a new case inside a band is one union case whose offset stays inside the row's decade; a foreign registry change is one mirror-row edit; zero new surface — a page-local band constant, a loose `Error.New(83xx)` integer, or a prose decade table is the deleted form.
+- Growth: a new band is ONE row here beside the owning page's union derivation; a new case inside a band is one union case whose offset stays inside the row's decade; a foreign registry change is one mirror-row edit; zero new surface — a page-local band constant, a loose `Error.New(83xx)` integer, or a prose decade table is the deleted form.
 - Boundary: own rows carry `Mirror: false` and name their owning page anchor for telemetry docs; mirror rows reserve the integer only (AppHost 1xxx/4100-4810, Compute 2200-2299 + Remote `WireFault` 4520-4532, AppUi 6xxx, the AEC registry 2300/2350/2400/2450/2470/2500/2600/2700-2710, kernel-substrate 9104) and no Persistence union ever derives from a mirror; the folded-transaction concurrency conflict is the registered `GraphFault.TxnConflict` sub-band row 8303, NEVER a loose 7001; `Element/authority` composes `IdentityFault` (8340) and carries no band of its own; `Version/timetravel`/`Version/merge`/`Version/provenance`/`Query/lane` are the no-band total algebras.
 
 ```csharp signature
 // --- [TABLES] ----------------------------------------------------------------------------
-// The Persistence band-allocation registry: a new band is ONE row; a duplicate integer fails the
+// `FaultBand` allocates every Persistence band: a new band is ONE row; a duplicate integer fails the
 // generated key lookup at type initialization — disjointness is type-enforced, never prose. Own rows
 // name the declaring page; mirror rows reserve foreign registries' integers against every Persistence
 // claimant. Every Persistence fault union derives `Code => FaultBand.<Row> + n` through the generated
@@ -503,7 +517,8 @@ public sealed partial class FaultBand {
     public static readonly FaultBand WideColumn   = new(8450, "Query/cache#CacheFault at 8450 + WideColumnFault 8451-8458");
     public static readonly FaultBand Selection    = new(8460, "Query/lane#SelectionFault");
     public static readonly FaultBand Issue        = new(8470, "Ingest/issue#IssueFault");
-    public static readonly FaultBand Series       = new(8480, "Query/columnar#SeriesFault (the temporal/scale-out residences beside the 835x engine decade)");
+    public static readonly FaultBand Series       = new(8480, "Query/columnar#ResidenceFault (the analytics residence family beside the 835x engine decade)");
+    public static readonly FaultBand Stat         = new(8490, "Store/observability#StatFault (slot grammar, registry admission, engine-harvest refusal)");
     public static readonly FaultBand Ingress      = new(8500, "Version/ingress#IngressFault (the inbound CDC consume door beside the 8270 egress band)");
     public static readonly FaultBand Contract     = new(8510, "Store/schema#ContractFault");
     // Pinned mirrors — foreign registries' integers reserved; no Persistence union derives from these rows.
@@ -528,13 +543,13 @@ public sealed partial class FaultBand {
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
-// The projection/store fault band: a closed [Union] over the KERNEL `Rasm.Domain.Expected` (parameterless
+// `GraphFault` is the projection/store band: a closed [Union] over the KERNEL `Rasm.Domain.Expected` (parameterless
 // protected ctor; `Category` virtual; `Code`/`Message` inherited from `Error`), the SAME federation base the
 // seam `ElementFault` (2500) and `BimFault` (2600) realize — NOT `LanguageExt.Common.Expected`, whose
 // `(string,int,Option)` ctor is the deleted form. Band membership derives `Code => FaultBand.Graph + n`
 // through the registry row, so the typed case lifts BARE onto `Fin<T>`/`Validation<Error,T>` with no
 // `.ToError()` hop and a recovery reads `error.IsType<GraphFault.StreamVersionConflict>()` /
-// `error.HasCode(8301)` / `error.Category()`, never a message substring. `TxnConflict` (8303) is the
+// `error.HasCode(8301)` / `error.Category`, never a message substring. `TxnConflict` (8303) is the
 // folded-transaction sub-band row — the advisory-lock/serialization refusal of the `CommitExclusive`
 // escalation, never a loose 7001. No `[GenerateUnionOps]` — the kernel union-ops generator is strictly opt-in.
 [Union]

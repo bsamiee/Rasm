@@ -178,8 +178,8 @@ public static class StructuralMerge {
         return nodes.Values.Filter(static node => node.Parent.IsNone).Bind(root => Seal(root, nodes));
     }
 
-    // The content axis: the non-Object nodes (Material/PropertySet/QuantitySet/Coverage/Appearance/Assessment) the
-    // Object-forest never topologizes, projected as Parent-less GraphNodes carrying only the PropertyHash content
+    // Content axis: every non-Object node the Object-forest never topologizes — the ContentRole switch names
+    // that roster and breaks on the next case — projects as Parent-less GraphNodes carrying only the PropertyHash content
     // signature (GeometryHash 0). The three-way merge diffs these DIRECTLY off the node map so a single-side content
     // edit APPLIES as a Members patch and a both-side content edit is a ParallelEdit — an Object-only forest would
     // silently drop a changed property set / material, the deleted form.
@@ -364,12 +364,23 @@ public static class StructuralMerge {
         return acc.GetCurrentHashAsUInt128();
     }
 
-    // The neutral content-node role — a leaf classification of the non-Object node kinds the content axis carries.
+    // Neutral content-node role, one arm per non-Object case and NO catch-all: a `_` arm files the next case the
+    // seam mints under whichever role it happens to sit beside, so a ninth node kind lands misclassified and the
+    // diff never says so. `Node.Object` reaches this fold from nowhere — `ContentNodes` filters it out and the
+    // forest arm owns it — yet its arm is spelled, because an unlisted case in a switch expression is a
+    // `SwitchExpressionException` out of a pure projection rather than a compiler complaint.
+    // `Observation` classifies Occurrence beside Material and Coverage: a deployed sensor's measured run is
+    // resident evidence a commissioning comparison reads, so a `Retype` off that row reports a real instrument
+    // remount, where an Annotation reading buries it among presentation facets.
     static NodeRole ContentRole(Node node) => node switch {
         Node.Material => NodeRole.Occurrence,
         Node.Coverage => NodeRole.Occurrence,
+        Node.Observation => NodeRole.Occurrence,
+        Node.Assessment => NodeRole.Annotation,
         Node.Appearance => NodeRole.Annotation,
-        _ => NodeRole.Annotation, // PropertySet/QuantitySet/Assessment — definition facets, never topologized
+        Node.PropertySet => NodeRole.Annotation,
+        Node.QuantitySet => NodeRole.Annotation,
+        Node.Object o => NodeRole.Of(o.Kind, containerWhole: false, hasGeometry: !o.Representations.ByIdentifier.IsEmpty),
     };
 
     static Seq<GraphNode> Seal(GraphNode node, HashMap<NodeId, GraphNode> nodes) {

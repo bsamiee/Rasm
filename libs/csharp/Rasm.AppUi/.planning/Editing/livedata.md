@@ -4,10 +4,10 @@ Rasm.AppUi live data owns every change-set pipeline between data sources and scr
 
 ## [01]-[INDEX]
 
-- [01]-[DATA_SOURCES]: Seven sourcing cases; one cache feed dispatch; the live-data spine.
-- [02]-[CHANGE_PIPELINES]: Operator rows; dynamic predicate, comparer, page, window streams.
-- [03]-[BINDING_CAPSULE]: One UI-thread binding edge; single `ObserveOn`; the fault rail.
-- [04]-[AGGREGATION_SPINE]: Stat folds, change-audit evidence, suspend-resume law.
+- [02]-[DATA_SOURCES]: Seven sourcing cases; one cache feed dispatch; the live-data spine.
+- [03]-[CHANGE_PIPELINES]: Operator rows; dynamic predicate, comparer, page, window streams.
+- [04]-[BINDING_CAPSULE]: One UI-thread binding edge; single `ObserveOn`; the fault rail.
+- [05]-[AGGREGATION_SPINE]: Stat folds, change-audit evidence, suspend-resume law.
 
 ## [02]-[DATA_SOURCES]
 
@@ -334,7 +334,7 @@ public sealed record BindingCapsule(IScheduler Ui, Action<Error> Fault) {
 - Entry: `public IDisposable Tile<TRow, TKey>(IObservable<IChangeSet<TRow, TKey>> pipeline, Func<IObservable<IChangeSet<TRow, TKey>>, IObservable<double>> fold, Action<double> render)` — one entrypoint serves every stat row.
 - Receipt: change-audit rows fold `ChangeSummary` scalars into one `EvidenceReceipt.LiveData` case (adds, updates, removes, refreshes per slot) sealed through the `ReceiptSinkPort` envelope — process-local, HLC-correlated, one union case at the evidence owner, never a parallel evidence shape; `TelemetryRow` contributes the change-throughput and live-fault instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: DynamicData, System.Reactive, LanguageExt.Core
-- Growth: a new statistic is one stat row mapping a fold; one live instrument is one `InstrumentRow` on `LiveDataOps.TelemetryRow`; zero new surface.
+- Growth: a new statistic is one stat row mapping a fold; one live instrument is one `InstrumentSpec` row on `LiveDataOps.TelemetryRow`; zero new surface.
 - Boundary: suspend and resume ride the activation scope — surface visibility drives activation at the screens owner, a hidden surface holds zero live subscriptions, and cache state delivers instant replay on resume; gauge and stat tiles on the dashboard surfaces consume `Tile` streams as rows; the change-throughput instrument pulls from the `ChangeStatistics` count and the live-fault instrument from the one `Action<Error>` rail, so metrics and the `ReceiptSinkPort` evidence stream derive from the same audit and a second hand-synced counter is the rejected form; an OAPH mirror of change-set state, a stats service, and a notification-center history store are the rejected forms.
 
 ```csharp signature
@@ -342,10 +342,11 @@ public static class LiveDataOps {
     public const string ChangesInstrument = "rasm.appui.live.changes";
     public const string FaultsInstrument = "rasm.appui.live.faults";
 
-    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
-        AppUiTelemetry.Contribute(version, schemaUrl,
-            new(ChangesInstrument, InstrumentKind.Count, "{change}", "live change-set operations by slot and change kind"),
-            new(FaultsInstrument, InstrumentKind.Count, "{fault}", "live-data faults by slot"));
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            InstrumentSpec.Count(ChangesInstrument, "{change}", "live change-set operations by slot and change kind", MeasureForm.Whole,
+                AppUiTelemetry.SlotSlot, AppUiTelemetry.ChangeSlot),
+            InstrumentSpec.Count(FaultsInstrument, "{fault}", "live-data faults by slot", MeasureForm.Whole));
 
     extension(BindingCapsule capsule) {
         public IDisposable Tile<TRow, TKey>(

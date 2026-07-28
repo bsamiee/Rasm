@@ -1,6 +1,6 @@
 # [SECURITY_AUDIT]
 
-Security fact rail: breach evidence is receipt-truth on one typed `SecurityFact` plane, and metrics stay the lossy dashboard channel beside it. Every loud arm the folder fires — refresh reuse, webauthn clone, ceremony refusal, secret rotation, policy deny, key-admission quarantine, shred-open reject — publishes one tagged fact through `Witness`, a `Context.Reference` whose default is silent: security state correction precedes the receipt tap where an arm mutates state, the publish error channel stays empty, and a library composition without the rail pays zero requirement pressure. Registry state is app-scoped data — the closed `_points` table brands every fact with its `rasm.security.<domain>.<point>` key and its observe/veto modality, `Audit.live(identity)` binds the live rail per app root so two apps in one process never share a mutable registry, and subscribers consume their own scoped `PubSub` streams on their own fibers, so a subscriber fault degrades one observer and can never reach a publisher or a verdict. Durability is class-routed lane policy: `breached`-class facts (reuse, clone, shred-open) ride the bounded suspend lane — backpressure is the deliberate coupling after state correction, because dropped breach evidence costs more than publish latency — while `notice`-class facts ride the sliding lane, and both drain into the append-only `AuditJournal` port under a jittered retry gated on `FaultClass.retryable`; the app root supplies that port, and its data-side mirror belongs on the journal append owner. Analytics egress is pseudonymized by construction: `Audit.egress` folds each record through the `Pseudonym` port — the app root satisfies it with `Crypto.sign` under a dedicated egress pepper, a KEYED mac, because an unkeyed digest over low-entropy subject identifiers is dictionary-reversible and therefore never a pseudonymizer — and the `AuditTrace` wire carries masked subjects and schema-checked projection facets, so no subject identifier leaves to an analytics store. Board and alert planes stay with their one owners, and this page only feeds them: `Audit.board` composes the core `DashboardModel` security pack, `Audit.objectives` declares the folder's latency objectives over the `Convention.instrument.security*` histogram rows, `Alert.of` alone derives their burn specs, and zero-tolerance paging on breached facts is a fact-rail subscriber at the app root — never a hand alert rule and never a parallel dashboard family. `Audit.snapshot` is the exporter-free support bundle: the core `Metric.snapshot` read twin filtered to the folder instrument set and sealed into a typed receipt.
+Security fact rail: breach evidence is receipt-truth on one typed `SecurityFact` plane, and metrics stay the lossy dashboard channel beside it. Every loud arm the folder fires — refresh reuse, webauthn clone, ceremony refusal, secret rotation, policy deny, key-admission quarantine, shred-open reject — publishes one tagged fact through `Witness`, a `Context.Reference` whose default is silent: security state correction precedes the receipt tap where an arm mutates state, the publish error channel stays empty, and a library composition without the rail pays zero requirement pressure. Registry state is app-scoped data — the closed `_points` table brands every fact with its `rasm.security.<domain>.<point>` key and its observe/veto modality, `Audit.live(identity)` binds the live rail per app root so two apps in one process never share a mutable registry, and subscribers consume their own scoped `PubSub` streams on their own fibers, so a subscriber fault degrades one observer and can never reach a publisher or a verdict. Durability is class-routed lane policy: `breached`-class facts (reuse, clone, shred-open) ride the bounded suspend lane — backpressure is the deliberate coupling after state correction, because dropped breach evidence costs more than publish latency — while `notice`-class facts ride the sliding lane, and both drain into the append-only `AuditJournal` port under a jittered retry gated on `FaultClass.retryable`; the app root supplies that port, and the data plane satisfies it at its fact rail — `data:journal/fact#RAIL` projects every record onto the one `record` entrypoint, so breach evidence takes the drain, retention window, subject index, and DSAR fold every other fact takes. Analytics egress is pseudonymized by construction: `Audit.egress` folds each record through the `Pseudonym` port — the app root satisfies it with `Crypto.sign` under a dedicated egress pepper, a KEYED mac, because an unkeyed digest over low-entropy subject identifiers is dictionary-reversible and therefore never a pseudonymizer — and the `AuditTrace` wire carries masked subjects and schema-checked projection facets, so no subject identifier leaves to an analytics store. Board and alert planes stay with their one owners, and this page only feeds them: `Audit.board` composes the core `DashboardModel` security pack, `Audit.objectives` declares the folder's latency objectives over the `Convention.instrument.security*` histogram rows, `Alert.of` alone derives their burn specs, and zero-tolerance paging on breached facts is a fact-rail subscriber at the app root — never a hand alert rule and never a parallel dashboard family. `Audit.snapshot` is the exporter-free support bundle: the core `Metric.snapshot` read twin filtered to the folder instrument set and sealed into a typed receipt.
 
 ## [01]-[INDEX]
 
@@ -22,8 +22,8 @@ Security fact rail: breach evidence is receipt-truth on one typed `SecurityFact`
 - Growth: a new loud arm is one case, one `_points` row, and one publish line at its arm; a new fact field is a case field the journal inherits.
 - Packages: `effect` (`Schema`, `Option`); `@rasm/ts/core` (`FaultClass`, `TenantContext`).
 
-```typescript
-import { Alert, type AppIdentity, Convention, DashboardModel, FaultClass, Objective, Sli, TenantContext } from "@rasm/ts/core"
+```typescript signature
+import { Alert, AppIdentity, Convention, DashboardModel, FaultClass, Objective, Query, Sli, TenantContext } from "@rasm/ts/core"
 import {
   Array, Context, DateTime, Duration, Effect, Layer, Match, Number, Option, PubSub, Queue, Record, Schedule, Schema, Stream, pipe,
 } from "effect"
@@ -144,12 +144,15 @@ class AuditFault extends Schema.TaggedError<AuditFault>()("AuditFault", {
 - Law: the observe fan is decoupled by construction — `Audit.live` publishes each record to a sliding `PubSub` beside the lanes, a subscriber consumes its own subscription stream on its own fiber, and unsubscription is the subscriber's scope closing, so a slow or faulted subscriber costs its own lag, never publish latency and never a sibling's delivery.
 - Law: the registry is app-scoped — `Audit.live(identity)` stamps `identity.app` on every record and each app root binds its own `Witness`, so two apps composing this library in one process hold disjoint rails and disjoint subscriber sets with no shared mutable registry.
 - Growth: a new lane class is one `_LANES` row with its `_points` class value; a new delivery guarantee is a drain policy edit, never a second rail.
-- Boundary: the data wave maps `append` onto its one atomic journal write with the audit retention class and per-subject crypto-shred wiring; sealing subject-bearing fields under `SealedEnvelope`/`WrappedKey` is the data plane's, and this page never composes a store.
+- Boundary: `data:journal/fact#RAIL` satisfies this port by projecting every record onto its one fact entrypoint, so the audit retention class and per-subject crypto-shred wiring ride the rail every other fact rides; sealing subject-bearing fields under `SealedEnvelope`/`WrappedKey` is the data plane's, and this page never composes a store.
 - Packages: `effect` (`Context`, `PubSub`, `Queue`, `Schedule`, `Stream`, `DateTime`); `@rasm/ts/core` (`FaultClass`).
 
-```typescript
+```typescript signature
 class AuditRecord extends Schema.Class<AuditRecord>("AuditRecord")({
-  app: Schema.NonEmptyString,
+  // Branded keys cross here, never bare strings: the data plane keys subject custody on `(app, tenant, subject)` and
+  // indexes the landed row on the same triple, so an unbranded half admits a spelling the index never matches
+  // and strands every sealed field of that subject beyond the reach of its own erasure.
+  app: AppIdentity.fields.app,
   at: Schema.DateTimeUtc,
   point: Schema.NonEmptyString,
   fact: _Fact,
@@ -182,7 +185,7 @@ const _APPEND_RETRY = Schedule.exponential(Duration.millis(50)).pipe(Schedule.ji
 - Boundary: which store receives `AuditTrace` values is the composing app's lake seam; this page owns only the projection and its masking law.
 - Packages: `effect` (`Match`, `Option`, `Record`); `crypt/sign` (`Crypto.sign` as the root-side `Pseudonym` satisfaction, never an import here).
 
-```typescript
+```typescript signature
 class Pseudonym extends Context.Tag("security/access/Pseudonym")<Pseudonym, {
   readonly mask: (value: string) => Effect.Effect<string, AuditFault>
 }>() {}
@@ -237,20 +240,26 @@ const _egress = (record: AuditRecord): Effect.Effect<AuditTrace, AuditFault, Pse
 [BOARD]:
 - Owner: `Audit` — the assembled rail owner: the scoped service holds the app-stamped publish fold, the class-routed lanes, the drain fibers, and the polymorphic `subscribe`; the statics carry every projection — `live` (the rail with its `Witness` binding), `egress`, `snapshot`, `objectives`, `alerts`, and `board` — so one import serves arms, subscribers, the support bundle, and the deploy plane. `Snapshot` is the typed support-bundle receipt over `SnapshotRow` rows.
 - Law: `subscribe` is one entrypoint over every consumption modality — no selection streams the whole rail, a class literal (`"breached"`) streams a severity band, a point key streams one arm — discriminated on the input value, never a `subscribeByPoint` sibling; zero-tolerance paging is exactly `subscribe("breached")` routed to the app's notifier at the root, so breach alerting reads receipt-truth, not a lossy rate.
-- Law: the board and alert owners are composed, never re-minted — `board` calls the core `DashboardModel` security pack, so a panel-set change is a core pack row; `objectives` declares the folder's two latency objectives over the `securityKdf` and `securityJwksResolve` histogram rows with ceilings that land on declared bucket bounds; `alerts` is `Alert.of` folded over them, so burn thresholds, windows, and severities stay the core burn table's and the iac observe leg compiles the same specs the board annotates — a hand-authored security alert rule or a security-local dashboard family is the forked-discipline defect.
+- Law: the board and alert owners are composed, never re-minted — `board` takes the app root's whole `DashboardModel.Board` context (emitter identity, log datasource, metrics target, analytics residence) and calls the core `DashboardModel` security pack, so a panel-set change is a core pack row and a plane swap is one root value this page never spells; `objectives` declares the folder's two latency objectives over the `securityKdf` and `securityJwksResolve` histogram rows with ceilings that land on declared bucket bounds; `alerts` is `Alert.of` folded over them, so burn thresholds, windows, and severities stay the core burn table's and the iac observe leg compiles the same specs the board annotates — a hand-authored security alert rule or a security-local dashboard family is the forked-discipline defect.
+- Law: the pack payload derives from the objectives, never from a literal — the core security pack renders its JWKS and key-derivation quantile panels over exactly the two metrics `_OBJECTIVES` grades, so the roster folds off those rows and dedups, and an objective moving a quantile moves its panel in the same edit; a quantile spelled at the `pack` call forks the board away from the alert it illustrates on the first tuning.
 - Law: tenant grouping stays governed at the core pack owner — a security panel groups only through `Convention.rasm.tenant` and its pack-owned variable; this page neither mints a local query nor forks a variable family.
-- Law: `snapshot` is exporter-free — it reads the core `Metric.snapshot` twin (`DashboardModel.snapshot`), keeps exactly the `Convention.instrument.security*` rows, and seals them with the app key and instant into one encodable receipt, so a doctor probe, a test, or a support bundle dumps the folder's live counters with no telemetry backend and no second registry walk.
-- Receipt: `Snapshot` — app, instant, and one `SnapshotRow` per live security series with its kind, labels, reading, and the frequency occurrence map when the instrument carries one.
+- Law: `snapshot` is exporter-free — it reads the core `Metric.snapshot` twin (`DashboardModel.snapshot`), keeps exactly the `Convention.instrument.security*` rows, and seals them with the app key and instant into one encodable receipt, so a doctor probe, a test, or a support bundle dumps the folder's live counters with no telemetry backend and no second registry walk; each row names the signal's own declared wire form and carries no reading where the state answered none, so an unmeasured instrument and a zero one both survive the seal as themselves.
+- Law: `pack` is the folder's whole deploy-plane surface — one encoded value carrying `wire` beside the boards and burn specs `board` and `alerts` already decided, so the deploy tuple admits this producer by its own minted key and the compile leg tags what arrived rather than decoding a security-specific census; `wire` lives here because a provenance key spelled at the consuming tier alone forks the moment either end edits it.
+- Law: encoding happens once, at this seam — `pack` seals the decoded model through the core owner's own encode so the deploy plane ingests wire values and never a live class, and a root re-encoding downstream mints a second projection of one board.
+- Receipt: `Snapshot` — app, instant, and one `SnapshotRow` per live security series with its declared kind, labels, the reading where one exists, and the frequency occurrence map when the instrument carries one.
 - Growth: a new objective is one `_OBJECTIVES` row over an instrument-qualified Convention metric; a new subscriber posture is a selection value, never a new member.
-- Boundary: pack dispatch and panel vocabulary are the core board owner's; burn rows and severity routing are the core slo owner's; rule and dashboard compilation is the iac observe leg's over the encoded specs; the runtime export lane owns the OTLP path the snapshot bypasses.
-- Packages: `effect` (`Effect`, `Layer`, `Queue`, `PubSub`, `Stream`, `Number`); `@rasm/ts/core` (`DashboardModel`, `Alert`, `Objective`, `Sli`, `Convention`).
+- Boundary: pack dispatch and panel vocabulary are the core board owner's; burn rows and severity routing are the core slo owner's; rule and dashboard compilation is the iac observe leg's over the encoded values `pack` hands it; the runtime export lane owns the OTLP path the snapshot bypasses.
+- Entry: `Audit.pack(board)` at the app's deploy-feed seam beside `Audit.board(board)` — a pure value mint over the context the root already holds, never a Layer and never a second board.
+- Packages: `effect` (`Effect`, `Layer`, `Queue`, `PubSub`, `Stream`, `Number`, `Array`, `Option`, `Record`); `@rasm/ts/core` (`DashboardModel`, `Alert`, `Objective`, `Query`, `Sli`, `Convention`).
 
-```typescript
+```typescript signature
 class SnapshotRow extends Schema.Class<SnapshotRow>("SnapshotRow")({
   name: Schema.NonEmptyString,
-  kind: Schema.Literal("counter", "frequency", "gauge", "histogram", "summary", "unknown"),
+  // `Convention.kinds` IS the wire-form roster, decoded closed off the vocabulary rather than re-listed here, so a
+  // form the estate admits reaches this receipt with no schema edit and one it never admits refuses at the decode.
+  kind: Schema.Literal(...Convention.kinds),
   labels: Schema.Record({ key: Schema.String, value: Schema.String }),
-  value: Schema.Number,
+  value: Schema.optionalWith(Schema.Number, { as: "Option" }),
   count: Schema.optionalWith(Schema.Number, { as: "Option" }),
   occurrences: Schema.optionalWith(Schema.Record({ key: Schema.String, value: Schema.Number }), { as: "Option" }),
 }) {}
@@ -269,20 +278,24 @@ const _instruments: ReadonlyArray<string> = pipe(
 const _labels = (bag: Convention.Bag): Record.ReadonlyRecord<string, string> =>
   Record.map(bag, (value) => String(value))
 
+// `kind` reads the signal's own DECLARED wire form on every arm rather than a literal per case: the read plane
+// already carries the vocabulary column, and a hand-spelled kind reports `counter` for every `updown` row Effect
+// stores as a counter state. A state no case shapes yields NO value — a zero written there is a measurement the
+// process never took, and a support receipt is exactly where that forgery survives longest.
 const _rowOf = (signal: DashboardModel.Signal): SnapshotRow =>
   Match.valueTags(signal, {
-    Counter: ({ labels, name, value }) =>
-      new SnapshotRow({ name, kind: "counter", labels: _labels(labels), value: globalThis.Number(value), count: Option.none(), occurrences: Option.none() }),
-    Frequency: ({ labels, name, values }) =>
-      new SnapshotRow({ name, kind: "frequency", labels: _labels(labels), value: Number.sumAll(values.values()), count: Option.none(), occurrences: Option.some(Record.fromEntries(values)) }),
-    Gauge: ({ labels, name, value }) =>
-      new SnapshotRow({ name, kind: "gauge", labels: _labels(labels), value: globalThis.Number(value), count: Option.none(), occurrences: Option.none() }),
-    Histogram: ({ count, labels, name, sum }) =>
-      new SnapshotRow({ name, kind: "histogram", labels: _labels(labels), value: sum, count: Option.some(count), occurrences: Option.none() }),
-    Summary: ({ count, labels, name, sum }) =>
-      new SnapshotRow({ name, kind: "summary", labels: _labels(labels), value: sum, count: Option.some(count), occurrences: Option.none() }),
-    Unknown: ({ labels, name }) =>
-      new SnapshotRow({ name, kind: "unknown", labels: _labels(labels), value: 0, count: Option.none(), occurrences: Option.none() }),
+    Counter: ({ declared, labels, name, value }) =>
+      new SnapshotRow({ name, kind: declared, labels: _labels(labels), value: Option.some(globalThis.Number(value)), count: Option.none(), occurrences: Option.none() }),
+    Frequency: ({ declared, labels, name, values }) =>
+      new SnapshotRow({ name, kind: declared, labels: _labels(labels), value: Option.some(Number.sumAll(values.values())), count: Option.none(), occurrences: Option.some(Record.fromEntries(values)) }),
+    Gauge: ({ declared, labels, name, value }) =>
+      new SnapshotRow({ name, kind: declared, labels: _labels(labels), value: Option.some(globalThis.Number(value)), count: Option.none(), occurrences: Option.none() }),
+    Histogram: ({ count, declared, labels, name, sum }) =>
+      new SnapshotRow({ name, kind: declared, labels: _labels(labels), value: Option.some(sum), count: Option.some(count), occurrences: Option.none() }),
+    Summary: ({ count, declared, labels, name, sum }) =>
+      new SnapshotRow({ name, kind: declared, labels: _labels(labels), value: Option.some(sum), count: Option.some(count), occurrences: Option.none() }),
+    Unknown: ({ declared, labels, name }) =>
+      new SnapshotRow({ name, kind: declared, labels: _labels(labels), value: Option.none(), count: Option.none(), occurrences: Option.none() }),
   })
 
 const _OBJECTIVES = {
@@ -297,6 +310,25 @@ const _OBJECTIVES = {
     target: 0.99,
   }),
 } as const
+
+// Core's security pack renders one quantile panel pair per roster entry, and its two metrics — JWKS resolve and key
+// derivation — are exactly what `_OBJECTIVES` grades, so this roster folds off those rows and dedups rather than
+// restating them. An objective moving its quantile moves the board panel in one edit, where a literal spelled here
+// drifts from the alert it illustrates. Core owns the branded scalar, so this mint crosses at its own constructor.
+const _QUANTILES: ReadonlyArray<Query.QuantileValue> = Array.dedupe(
+  Array.filterMap(Record.values(_OBJECTIVES), (objective) =>
+    objective.sli._tag === "Latency" ? Option.some(Query.quantile(objective.sli.quantile)) : Option.none()),
+)
+
+declare namespace Audit {
+  // Deploy-plane ingest takes this producer-pack shape: one provenance key beside already-encoded boards and burn
+  // specs, so the compile leg tags what arrived and folds its alerts without decoding a producer-specific census.
+  type Pack = {
+    readonly wire: typeof Audit.wire
+    readonly boards: ReadonlyArray<typeof DashboardModel.Encoded>
+    readonly alerts: ReadonlyArray<Alert.Spec>
+  }
+}
 
 class Audit extends Effect.Service<Audit>()("security/access/Audit", {
   scoped: (identity: AppIdentity) =>
@@ -335,14 +367,25 @@ class Audit extends Effect.Service<Audit>()("security/access/Audit", {
   accessors: true,
 }) {
   static readonly alerts: ReadonlyArray<Alert.Spec> = Array.flatMap(Record.values(_OBJECTIVES), Alert.of)
-  static readonly board = (identity: AppIdentity): DashboardModel => DashboardModel.pack("security", identity, {})
+  static readonly board = (board: DashboardModel.Board): DashboardModel => DashboardModel.pack("security", board, { quantiles: _QUANTILES })
   static readonly egress = (record: AuditRecord): Effect.Effect<AuditTrace, AuditFault, Pseudonym> => _egress(record)
+  // Deploy-plane ingest takes one encoded value carrying its own provenance key, so this fold seals the folder's board
+  // beside its burn specs and encodes once — the root supplies the plane context it already supplies to `board`, and
+  // nothing downstream re-authors what these two statics already decided.
+  static readonly pack = (board: DashboardModel.Board): Audit.Pack => ({
+    wire: Audit.wire,
+    boards: [Schema.encodeSync(DashboardModel)(Audit.board(board))],
+    alerts: Audit.alerts,
+  })
   static readonly live = (identity: AppIdentity): Layer.Layer<Audit | Witness, never, AuditJournal> =>
     Layer.provideMerge(
       Layer.effect(Witness, Effect.map(Audit, (audit) => ({ publish: audit.publish }))),
       Audit.Default(identity),
     )
   static readonly objectives: ReadonlyArray<Objective> = Record.values(_OBJECTIVES)
+  // Provenance key minted where the projection earning it lives, so the deploy tuple and this producer hold one
+  // spelling and a composing root never re-types the literal that admits its own pack.
+  static readonly wire = "security.audit" as const
   static readonly snapshot = (identity: AppIdentity): Effect.Effect<Snapshot> =>
     Effect.flatMap(DateTime.now, (at) =>
       Effect.map(DashboardModel.snapshot, (signals) =>

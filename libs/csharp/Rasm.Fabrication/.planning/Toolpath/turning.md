@@ -14,32 +14,32 @@
 
 ## [02]-[VOCABULARY]
 
-- Coordinates: each `Move.Target.X` is axial machine `Z`, each `Move.Target.Y` is radial machine `X`, and every admitted profile is open.
-- Sides: `CutSide` carries `RadialSign` and its `Target` allowance delegate, so an external sweep leaves stock outward while a bore leaves stock inward; `StockRadius`, `Available`, `Advance`, and `Clear` derive every other side-dependent value from that one row.
-- Cycles: `SweepKind` binds each row to its `CutSide` and its `Emit` generation delegate, so a new sweep is one row rather than a branch; `PlungeKind` distinguishes grooving, undercutting, and forming; `AxialKind` binds each row to its `Depths` peck schedule. `Part` and `Tap` remain total cases without ignored target, pitch, or hand fields.
-- Threads: `ThreadForm` carries load-flank angle, clearance-flank angle, crest/root truncation, crest/root radius, and pitch-depth factor. Named standard values are seed data, while `ThreadForm.Validate` admits custom geometry through the same owner. Buttress geometry remains asymmetric through every pass.
-- Tooling: `TurnInsert` composes `CutterForm` with insert width, clearance, lead, and semantic tip orientation; no controller tip number enters the process owner.
-- Channels: `SpindleSide` and `TurretChannel` are process facts. `ChannelToken` creates wait/signal barriers without embedding a dialect word.
+- Owner: `CutSide` carries `RadialSign` and its `Target` allowance delegate, so an external sweep leaves stock outward while a bore leaves stock inward; `StockRadius`, `Available`, `Advance`, and `Clear` derive every other side-dependent value from that one row.
+- Owner: `ThreadForm` carries load-flank angle, clearance-flank angle, crest/root truncation, crest/root radius, and pitch-depth factor. Named standard values are seed data, while `ThreadForm.Validate` admits custom geometry through the same owner. Buttress geometry remains asymmetric through every pass.
+- Owner: `TurnInsert` composes `CutterForm` with insert width, clearance, lead, and semantic tip orientation; no controller tip number enters the process owner.
+- Cases: `SweepKind` binds each row to its `CutSide` and its `Emit` generation delegate, so a new sweep is one row rather than a branch; `PlungeKind` distinguishes grooving, undercutting, and forming; `AxialKind` binds each row to its `Depths` peck schedule. `Part` and `Tap` remain total cases without ignored target, pitch, or hand fields.
+- Law: each `Move.Target.X` is axial machine `Z`, each `Move.Target.Y` is radial machine `X`, and every admitted profile is open.
+- Boundary: `SpindleSide` and `TurretChannel` are process facts. `ChannelToken` creates wait/signal barriers without embedding a dialect word.
 
 ## [03]-[DEMAND]
 
-- Stock: `TurnStock` admits solid, tubular, and near-net blanks with axial bounds, inner/outer radii, and optional profile evidence.
-- Policy: `TurnPolicy` owns approach, retract, overlap, chord, biarc, peck, thread, and spindle-radius values; no operation body carries a local machining constant.
-- Admission: `TurnDemand.ValidateFactoryArguments` and `TurnRequest.ValidateFactoryArguments` accumulate profile, stock, insert, process, spindle, step, operation, synchronization, and numeric defects before construction.
-- Ingress: `TurnDemand` accepts canonical `Loop`, `CutterForm`, `CuttingData`, and `ProcessBudget.Turning` owners. `CuttingData.FeedBasis` must be `FeedBasis.PerRevolution`.
+- Owner: `TurnStock` admits solid, tubular, and near-net blanks with axial bounds, inner/outer radii, and optional profile evidence.
+- Owner: `TurnPolicy` owns approach, retract, overlap, chord, biarc, peck, thread, and spindle-radius values; no operation body carries a local machining constant.
+- Entry: `TurnDemand.ValidateFactoryArguments` and `TurnRequest.ValidateFactoryArguments` accumulate profile, stock, insert, process, spindle, step, operation, synchronization, and numeric defects before construction.
+- Boundary: `TurnDemand` accepts canonical `Loop`, `CutterForm`, `CuttingData`, and `ProcessBudget.Turning` owners. `CuttingData.FeedBasis` must be `FeedBasis.PerRevolution`.
 
 ## [04]-[GENERATE]
 
+- Law: tip-radius compensation offsets every profile vertex along its local `ZX` normal, orients that normal by the insert's radial posture so traversal order cannot invert the offset, and reanchors it with the semantic `TipOrientation` vector; clearance-angle gouge admission precedes motion and accumulates every gouging span.
+- Law: each `SweepKind` row emits its own motion — longitudinal rows require positive radial stock before generating passes, facing roughing derives every interpolated material crossing, pattern roughing shifts the full near-net profile and retracts before repositioning, and the finish rows follow the profile natively; `FinishForm` then routes fitted curves through `CurveAlgebra.Apply(CurveOp)` or fits line-sourced chords through `g3.BiArcFit2` with a measured error fallback.
+- Law: material crossings dedupe within the profile tolerance before pairing, so coincident wall hits at one pass radius cannot shift every span; odd wall parity fails on the sweep's `Fin` rail.
+- Law: explicit axial position, band width, target radius, peck fraction, and dwell generate groove, undercut, and form families; `Part` reconstructs width and terminal radius from mounted insert and stock.
+- Law: drill, ream, counterbore, and countersink rows share one depth/diameter/peck/tip-angle generator; `Tap` carries thread form, pitch, hand, and semantic spindle synchronization.
+- Law: axial endpoints determine travel, hand remains spindle-synchronization evidence, each start owns pitch indexing, and every pass carries approach, run-in, runout, pullout, asymmetric flank shift, finish, and spring roles.
+- Law: main/sub-spindle grip and pull facts remain directives; `CutoffTransfer` carries its own executed parting span and load evidence. Channel waits and signals preserve twin-turret ordering.
+- Law: `Loaded` is the one pass constructor; an operation stating its own load carries it, and every other pass derives `TurnLoad.Cutting` per cutting span through `CuttingData.Evaluate(CutIntent)`. Knurl pressure states `TurnLoad.Forming` instead of impersonating chip-removal force, and a non-removing pass carries no load.
+- Law: `CutIntent` admits UnitsNet quantities, so the load boundary converts machining-canonical millimetre, rpm, and feed scalars through `Length.FromMillimeters`, `RotationalSpeed.FromRevolutionsPerMinute`, and `Speed.FromMillimetersPerMinutes` exactly once; radial depth and diameter derive engagement on the admitted intent.
 - Entry: `Turning.Generate(TurnRequest?)` is the only raw operation.
-- Compensation: tip-radius compensation offsets every profile vertex along its local `ZX` normal, orients that normal by the insert's radial posture so traversal order cannot invert the offset, and reanchors it with the semantic `TipOrientation` vector; clearance-angle gouge admission precedes motion and accumulates every gouging span.
-- Sweep: each `SweepKind` row emits its own motion — longitudinal rows require positive radial stock before generating passes, facing roughing derives every interpolated material crossing, pattern roughing shifts the full near-net profile and retracts before repositioning, and the finish rows follow the profile natively; `FinishForm` then routes fitted curves through `CurveAlgebra.Apply(CurveOp)` or fits line-sourced chords through `g3.BiArcFit2` with a measured error fallback.
-- Crossings: material crossings dedupe within the profile tolerance before pairing, so coincident wall hits at one pass radius cannot shift every span; odd wall parity fails on the sweep's `Fin` rail.
-- Plunge: explicit axial position, band width, target radius, peck fraction, and dwell generate groove, undercut, and form families; `Part` reconstructs width and terminal radius from mounted insert and stock.
-- Axial: drill, ream, counterbore, and countersink rows share one depth/diameter/peck/tip-angle generator; `Tap` carries thread form, pitch, hand, and semantic spindle synchronization.
-- Thread: axial endpoints determine travel, hand remains spindle-synchronization evidence, each start owns pitch indexing, and every pass carries approach, run-in, runout, pullout, asymmetric flank shift, finish, and spring roles.
-- Transfer: main/sub-spindle grip and pull facts remain directives; `CutoffTransfer` carries its own executed parting span and load evidence. Channel waits and signals preserve twin-turret ordering.
-- Load: `Loaded` is the one pass constructor; an operation stating its own load carries it, and every other pass derives `TurnLoad.Cutting` per cutting span through `CuttingData.Evaluate(CutIntent)`. Knurl pressure states `TurnLoad.Forming` instead of impersonating chip-removal force, and a non-removing pass carries no load.
-- Quantities: `CutIntent` admits UnitsNet quantities, so the load boundary converts machining-canonical millimetre, rpm, and feed scalars through `Length.FromMillimeters`, `RotationalSpeed.FromRevolutionsPerMinute`, and `Speed.FromMillimetersPerMinutes` exactly once; radial depth and diameter derive engagement on the admitted intent.
 - Receipt: `TurnPass` carries moves, directives, load, and removal envelope; `TurnProgram` carries ordered passes, barriers, residual radial bounds, and physics evidence.
 - Packages: `Thinktecture.Runtime.Extensions` owns generated closed families; `LanguageExt.Core` owns accumulated admission and traversal; `System.Numerics.Tensors` owns batch finiteness; `CavalierContours` remains native through `Loop`; `geometry3Sharp` owns residual line-sourced biarcs; `ToolAssembly.Snapshot` supplies provider-detached insert width and lead angle through `ToolMeasure`; `UnitsNet` admits the `CutIntent` load boundary and remains at process ingress and receipt boundaries.
 - Boundary: `Turning` owns process geometry and semantic directives; `motion.md` refuses directive-bearing programs because `Move` has no directive atom, and posting admits no typed `TurnProgram` counterpart.

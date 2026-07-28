@@ -1,94 +1,317 @@
 # [RUNTIME_VITAL]
 
-Browser RUM is a vocabulary table, one scoped observer bridge, and one report intake — zero `web-vitals`, zero polling: every vital kind is a policy row carrying budget thresholds and accumulation semantics, the web family (LCP, CLS, INP, FCP, TTFB, long task) adding its Performance-Timeline entry type and the render family (`frame`, `gpumem`, `capture`) entering through the intake an app-composed tap feeds; one `PerformanceObserver` bracket lifts the platform's push callbacks into a typed `Stream` of vital facts, and a `mapAccum` step folds the accumulation semantics each kind declares — CLS folds session windows to their crest per the web standard, INP tracks the interaction crest, paint kinds settle once.
+Browser RUM is one vital-kind table, one capture bracket, and one graded emission: `web-vitals` measures the Core Web Vitals family whole — session-windowed CLS, interaction-grouped INP, input-finalized LCP, activation-corrected TTFB, FCP — and every kind it leaves enters the same table through a raw Performance-Timeline row or the app-composed report intake. Grading rides the cutoff pairs the library ships, so a budget edit moves the grade fold, both instruments, and every dashboard panel at once.
 
-Emission is two bounded instruments per fact — the current level as a tagged gauge, the graded occurrence as a tagged counter — named by `Convention` rows; grading derives from the row thresholds, so a budget change is a row edit that moves the grade fold, the metrics, and every dashboard panel at once. This module is `runtime:browser` — the `./browser` subpath alone resolves it. Its module is `runtime/src/otel/vital.ts`.
+Capture belongs to the browser condition and the table does not — every platform touch sits inside a body `Vital.live` reaches, so a process plane folding `Vital.rows` opens no observer. This owner holds every Core Web Vital in the estate: the ui plane measures none, mints no instrument, and reaches these two through the `Vital.Report` intake. `Vital.rows` is the budget table `otel/meter#BOARD` folds into the deploy feed, `Vital.enrich` is the projection `browser/fetch` lays over its dial spans, and `Convention` owns every name stamped here. Its module is `runtime/src/otel/vital.ts`.
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]  | [OWNS]                                                                                | [PUBLIC] |
-| :-----: | :--------- | :------------------------------------------------------------------------------------ | :------- |
-|  [01]   | `BUDGETS`  | the vital-kind vocabulary: entry types, thresholds, accumulation semantics            | `Vital`  |
-|  [02]   | `OBSERVER` | the scoped `PerformanceObserver` bridge and the accumulation fold                     | `Vital`  |
-|  [03]   | `EMISSION` | bounded instruments, the report intake, the drain Layer, the span-enrichment boundary | `Vital`  |
+- [02]-[BUDGETS]: `_rows` fixes every vital kind — capture source, shipped cutoff pair, accumulation column, accrual flag, UCUM unit.
+- [03]-[CAPTURE]: one bracket registers three capture sources and projects each arrival into one sample shape.
+- [04]-[CONTEXT]: `_context` resolves document RUM identity, and `Vital.enrich` projects resource timing onto a caller's span.
+- [05]-[EMISSION]: two bounded instruments, one accounting ledger, one drain Layer, one report intake.
 
 ## [02]-[BUDGETS]
 
 [BUDGETS]:
-- Owner: the interior `_rows` anchor — one row per vital kind: `entry` (the Performance-Timeline `entryType` the observer subscribes — absent on the render rows, which enter through the report intake alone), `good`/`poor` (the budget thresholds the grade fold reads), `unit`, `fold` (the accumulation semantic: `session` for CLS's session-window law, `crest` for INP's worst-interaction tracking, long-task ceilings, and render peaks, `last` for the settle-once paint, navigation, and verdict kinds), and the optional `threshold` (the observer's `durationThreshold` floor where the entry family admits one — the INP row prunes sub-40ms events at the platform, before any callback fires).
-- Law: the thresholds are the Core Web Vitals standard grades as data — LCP 2500/4000 ms, CLS 0.1/0.25, INP 200/500 ms, FCP 1800/3000 ms, TTFB 800/1800 ms, long task 50/200 ms — and the three-grade verdict derives from the row, so no consumer ever compares against a literal.
-- Law: render rows grade by the same discipline — `frame` against the 60/30 fps frame budget (17/33 ms) at its crest, `gpumem` against the byte-budget peak, `capture` against the capture-hash verdict (0 match, 1 mismatch) — so a render budget change is the same row edit as a web budget change.
-- Law: CLS session accumulation is the standard's own window law as one policy row — shifts group into a session window while the gap to the previous shift stays under `_SESSION.gap` (1 s) and the window's span under `_SESSION.cap` (5 s), the page's CLS is the CREST of its session windows — so the fold state carries the temporal dimensions the semantics demand and separate interaction bursts can never inflate one score; a page-lifetime sum is the rejected accounting.
-- Law: the kind union, the grade union, and the fold union all derive — `keyof typeof _rows` against the `_KINDS` key tuple, the `_GRADES` tuple, the row's `fold` column — and the guard pair on the merged hub ties tuple and table closed in both directions.
-- Growth: a new vital (a soft-navigation metric, a custom mark budget) is one row — the observer where the row carries `entry`, the fold, the grade, the instruments, and the board panels all follow from it; a new accumulation semantic is one `_folds` arm the column selects.
+- Owner: the interior `_rows` anchor — one row per vital kind carrying `source` (which capture path mints it: `library` for a `web-vitals` registrar, `entry` for a Performance-Timeline entry type, `report` for the app-composed intake), the source's own capture column (`on` the registrar a library row calls, `entry` the entry type an entry row joins beside the `read` projecting a raw entry to its measure), `fold` (`level` where the producer already accounted the value, `crest` where the worst sample stands), `accrues` (whether the producer's `delta` is a per-report increment), `good`/`poor` (the cutoff pair the grade fold reads), and `unit` (the UCUM code selecting the kind's level instrument, which `otel/meter#BOARD` carries onto its panel).
+- Law: one OTLP metric name carries one descriptor unit, so the level family spans one `Convention._instrument` row per code.
+- Law: `_LEVELS` keys those rows by code, so a kind's unit selects its series and refuses when no series receives it.
+- Law: a dimensionless gauge carrying milliseconds is the wire defect that split forecloses.
+- Law: `web-vitals` owns the Core Web Vitals cutoffs — every web-family row projects its budget from the shipped `*Thresholds` pair, so a standard revision arrives with a version bump rather than a hand edit, and the render rows project through the same `_budget` shape so a render budget is the same row edit as a web budget: `frame` against the 60/30 fps frame budget, `gpumem` against the byte-budget peak, `capture` against the binary capture-hash verdict whose `[0, 0]` pair grades a match good and any mismatch poor.
+- Law: the grade vocabulary is the library's own `good`/`needs-improvement`/`poor` triple — a library fact carries the `rating` the package computed against the same pair and this module never re-buckets it, while an entry or report fact grades through `_grade` off the row's pair; one vocabulary reaches `Convention.rasm.vitalGrade`, the ui evidence tone table, and the `otel/meter#BOARD` burn slice.
+- Law: `accrues` reads whether the producer's `delta` is a per-report INCREMENT or a re-read of one level, never whether the fold crests — the library's `delta` chains across the instances a bfcache restore mints, a long-task increment totals main-thread occupancy, and a capture verdict totals mismatches, each beside its own fold, while a re-read level (the frame span, the gpu-memory peak) accrues nothing because summing one sampled level measures nothing; a non-accruing kind therefore carries NO session total rather than a zero one.
+- Law: the kind union, the grade union, the navigation union, the fold union, and the report-only kind subset all derive — `keyof typeof _rows` against the `_KINDS` key tuple, the `_GRADES` and `_NAVIGATIONS` tuples, the row's `fold` column, and a mapped filter over the `source` column — so the intake refuses a library-owned kind at the type level rather than at a runtime check.
+- Growth: a new vital is one row — its capture source selects the registration arm and supplies that arm's own column, its fold selects the accounting arm, and the grade, both instruments, the deploy-feed budget, and every board panel follow; a new accumulation semantic is one `_folds` arm the column selects.
 
-```typescript
-import { Context, Effect, HashMap, Layer, Metric, Number, Option, Predicate, Queue, Schema, Stream, pipe } from "effect"
+```typescript signature
+import { Array, Chunk, Context, Effect, HashMap, Layer, Metric, Number, Option, ParseResult, PubSub, Queue, Record, Schema, Stream, pipe } from "effect"
 import type { HrTime, Span } from "@opentelemetry/api"
-import { addSpanNetworkEvents, getResource, normalizeUrl } from "@opentelemetry/sdk-trace-web"
+import { addSpanNetworkEvents, getElementXPath, getResource, normalizeUrl } from "@opentelemetry/sdk-trace-web"
 import { Convention } from "@rasm/ts/core"
+import {
+  CLSThresholds,
+  FCPThresholds,
+  INPThresholds,
+  LCPThresholds,
+  TTFBThresholds,
+  type INPAttributionReportOpts,
+  type MetricRatingThresholds,
+  type MetricWithAttribution,
+  onCLS,
+  onFCP,
+  onINP,
+  onLCP,
+  onTTFB,
+} from "web-vitals/attribution"
 
 const _KINDS = ["capture", "cls", "fcp", "frame", "gpumem", "inp", "lcp", "longtask", "ttfb"] as const // key tuple: the spread below holds Schema.Literal's non-empty overload; derived keys would demote it to the widened array
-const _GRADES = ["good", "mid", "poor"] as const
+const _GRADES = ["good", "needs-improvement", "poor"] as const
+const _NAVIGATIONS = ["navigate", "reload", "back-forward", "back-forward-cache", "prerender", "restore", "soft-navigation"] as const
 
-const _SESSION = { gap: 1_000, cap: 5_000 } as const
+const _budget = (pair: MetricRatingThresholds): { readonly good: number; readonly poor: number } => ({ good: pair[0], poor: pair[1] })
 
 const _rows = {
-  capture: { fold: "last", good: 0, poor: 0.5, unit: "1" },
-  cls: { entry: "layout-shift", fold: "session", good: 0.1, poor: 0.25, unit: "score" },
-  fcp: { entry: "paint", fold: "last", good: 1800, poor: 3000, unit: "ms" },
-  frame: { fold: "crest", good: 17, poor: 33, unit: "ms" },
-  gpumem: { fold: "crest", good: 536_870_912, poor: 1_073_741_824, unit: "By" },
-  inp: { entry: "event", fold: "crest", good: 200, poor: 500, threshold: 40, unit: "ms" },
-  lcp: { entry: "largest-contentful-paint", fold: "last", good: 2500, poor: 4000, unit: "ms" },
-  longtask: { entry: "longtask", fold: "crest", good: 50, poor: 200, unit: "ms" },
-  ttfb: { entry: "navigation", fold: "last", good: 800, poor: 1800, unit: "ms" },
-} as const
+  capture: { ..._budget([0, 0]), accrues: true, fold: "level", source: "report", unit: "1" },
+  cls: { ..._budget(CLSThresholds), accrues: true, fold: "level", on: onCLS, source: "library", unit: "1" },
+  fcp: { ..._budget(FCPThresholds), accrues: true, fold: "level", on: onFCP, source: "library", unit: "ms" },
+  frame: { ..._budget([17, 33]), accrues: false, fold: "crest", source: "report", unit: "ms" },
+  gpumem: { ..._budget([536_870_912, 1_073_741_824]), accrues: false, fold: "crest", source: "report", unit: "By" },
+  inp: { ..._budget(INPThresholds), accrues: true, fold: "level", on: onINP, source: "library", unit: "ms" },
+  lcp: { ..._budget(LCPThresholds), accrues: true, fold: "level", on: onLCP, source: "library", unit: "ms" },
+  longtask: { ..._budget([50, 200]), accrues: true, entry: "longtask", fold: "crest", read: (entry: PerformanceEntry) => entry.duration, source: "entry", unit: "ms" },
+  ttfb: { ..._budget(TTFBThresholds), accrues: true, fold: "level", on: onTTFB, source: "library", unit: "ms" },
+} as const satisfies Record<(typeof _KINDS)[number], Vital.Row> // tuple-to-table closure; `_Keys` below closes table-to-tuple
 
 declare namespace Vital {
-  type Kind = keyof typeof _rows
-  type Grade = (typeof _GRADES)[number]
   type Fold = (typeof _rows)[Kind]["fold"]
-  type Row = {
-    readonly entry?: string
-    readonly fold: "crest" | "last" | "session"
-    readonly good: number
-    readonly poor: number
-    readonly threshold?: number
-    readonly unit: string
-  }
+  type Grade = (typeof _GRADES)[number]
+  type Kind = keyof typeof _rows
+  type Level = keyof typeof _LEVELS // the UCUM codes a level series exists for: a row cannot name a unit no instrument receives
+  type Navigation = (typeof _NAVIGATIONS)[number]
+  type Reported = { readonly [K in Kind]: (typeof _rows)[K]["source"] extends "report" ? K : never }[Kind]
+  type Registrar = (report: (metric: MetricWithAttribution) => void, opts: INPAttributionReportOpts) => void
+  type Row =
+    & { readonly accrues: boolean; readonly good: number; readonly poor: number; readonly unit: Level }
+    & (
+      | { readonly fold: "level"; readonly on: Registrar; readonly source: "library" }
+      | { readonly entry: string; readonly fold: "crest" | "level"; readonly read: (entry: PerformanceEntry) => number; readonly source: "entry" }
+      | { readonly fold: "crest" | "level"; readonly source: "report" }
+    )
   type Fact = _Fact
   type Policy = _Policy
-  type _Rows<T extends Record<(typeof _KINDS)[number], Row> = typeof _rows> = T
+  type Session = _Session
   type _Keys<K extends (typeof _KINDS)[number] = Kind> = K
 }
 
-class _Fact extends Schema.Class<_Fact>("Vital/Fact")({
-  at: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
-  kind: Schema.Literal(..._KINDS),
-  value: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
-}) {}
-
-class _Policy extends Schema.Class<_Policy>("Vital/Policy")({
-  pulse: Schema.Int.pipe(Schema.positive()),
-  settle: Schema.Duration,
-}) {}
-
 const _grade = (kind: Vital.Kind, value: number): Vital.Grade =>
-  value <= _rows[kind].good ? "good" : value <= _rows[kind].poor ? "mid" : "poor"
+  value <= _rows[kind].good ? "good" : value <= _rows[kind].poor ? "needs-improvement" : "poor"
 ```
 
-## [03]-[OBSERVER]
+## [03]-[CAPTURE]
 
-[OBSERVER]:
-- Owner: the `_observed` bridge — one `Stream.asyncScoped` whose acquisition constructs a single `PerformanceObserver`, intersects the table with `PerformanceObserver.supportedEntryTypes`, subscribes one `observe({ type, buffered: true })` per supported row (the row's `threshold` column riding `durationThreshold` where present), and whose release disconnects; `buffered: true` replays entries recorded before the observer attached, so a late boot still sees the paint vitals while a browser lacking an entry family degrades by data instead of defecting acquisition.
-- Law: the raw entry maps to a `Fact` at the seam — `layout-shift` entries contribute their `value` with input-caused shifts (`hadRecentInput`) excluded, `event` entries contribute their `duration` only when a non-zero `interactionId` marks a real interaction, `navigation` entries their `responseStart` as TTFB, paint entries their `startTime` discriminated by `name` — every fact stamped with the entry's own `startTime` so the temporal folds read timeline coordinates, never wall clock.
-- Law: the accumulation fold is one `mapAccum` over the row's `fold` column threading a per-kind cell ledger — the cell carries the emitted crest with the session dimensions (`window`, `opened`, `last`) the `session` arm consumes — so the emitted stream carries the current accounted value per kind, never a raw sample downstream consumers must re-fold, and the fold arms are one `_folds` record the column indexes.
-- Exemption: the observer callback is the platform-forced statement seam — emissions are `void`-discarded inside the listener; the entry projection beside it is the marked admission kernel for the untyped `PerformanceEntry` records.
-- Boundary: URL-bearing span enrichment composes through `Vital.enrich(span, request)`: `normalizeUrl` fixes the lookup identity, `getResource` selects the nearest unused main/preflight timing pair inside the supplied span range, and `addSpanNetworkEvents` projects both onto the caller-owned fetch/XHR span. This bridge never opens a span, so `browser/fetch` keeps request ownership while this module owns the browser Performance-Timeline projection.
-- Growth: a new entry projection is one arm in the admission kernel keyed by the row's `entry`.
+[CAPTURE]:
+- Owner: `_watched(policy, navigation)` — one `Stream.asyncScoped` whose acquisition walks `_rows` once and dispatches on `source`: a `library` row calls its own registrar with the shared opt bag, an `entry` row joins the single `PerformanceObserver` when `PerformanceObserver.supportedEntryTypes` carries it, and a `report` row registers nothing because the intake feeds it; release disconnects the observer and closes the emission gate.
+- Law: `web-vitals` registrations are page-lifetime and idempotent — the package exposes no unregister, so the release arm closes a gate the emitter reads instead of pretending to tear the callback down, and a late callback discards rather than emitting into a dead stream; the raw observer releases properly because `disconnect()` exists.
+- Law: the registrars own their own entry families — `web-vitals` observes `layout-shift`, `paint`, `largest-contentful-paint`, `event`, `long-animation-frame`, and `soft-navigation` on this owner's behalf, so an `entry` row spells only what remains after those six and re-observing one of them here mints the second accounting this table exists to prevent; the display plane windowing `event` and `long-animation-frame` forks nothing because it grades nothing and mints no instrument, and the one value both readers share is `policy.interaction` — a second `event-timing` floor lets a graded interaction name an event the display window never received.
+- Law: `buffered: true` replays entries recorded before the observer attached, and an entry family the platform withholds degrades by absent data instead of defecting acquisition — the library applies the same discipline per vital, so a browser missing an entry family reports the vitals it can.
+- Law: report cadence, interaction floor, and soft-navigation reporting are one policy row applied to every registrar — `stream` selects streaming versus terminal reporting, `interaction` floors the `event-timing` stream the INP estimator consumes, and `soft` arms soft-navigation re-reporting so a client-routed view change re-reports against its own navigation identity; a per-vital opt bag is the named defect.
+- Law: attribution rides the enriched build and lands as the fact's causal decomposition, both halves — `_phases` projects each metric's numeric subparts (INP input delay, processing, presentation, longest intersecting script, and the four LoAF-derived script/style-and-layout/paint/unattributed totals; LCP byte, resource-start, resource-load, and element-render delays; TTFB cache, dns, connection, request, and waiting durations; FCP byte and render halves; CLS largest shift) beside the discrete subject record naming WHAT the value fell on (the attributed element, the LCP resource, the interaction's input class, the document load state, and the worst script's own source, function, invoker, and the subpart it ran in), so a poor grade answers which phase spent the budget, which element spent it, and which script code path did the spending; the enriched build re-exports the standard registrars and cutoff pairs unchanged, so the choice costs one module specifier and widens no signature.
+- Law: the attribution union narrows per arm — a metric's subpart roster correlates with its own `name`, so one exhaustive switch is the only form that reads it without erasing the correlation, and a shared indexed reader over the union types every roster as every other's.
+- Law: each arm keys its causal records on `Convention._rasm` rows, so the drain spreads them and no mapping layer exists.
+- Law: an undispatched subpart omits its key — `_present` is the one omission projection every optional-bearing arm returns through, so an absent CLS shift entry, an element gone from the DOM before the report, and an INP total no long frame intersects each drop their key instead of carrying a fabricated zero or an empty string, while an arm whose whole roster is unconditional states that by spelling its record directly.
+- Law: interaction targets spell through `getElementXPath` and LAND — `generateTarget` answers the same XPath the DOM-event instrumentation rows stamp and the arm's `element` subject carries it onto the fact, so an attributed interaction and the span its click opened name one element on one trace; a target the registrar computes and the fact drops pays the selector cost for nothing.
+- Exemption: the registrar and observer callbacks are the platform-forced statement seam — emissions are `void`-discarded inside them; the sample projections beside them are the marked admission kernel for the untyped `PerformanceEntry` records and the library's own `Metric` union.
+- Growth: a new library-covered vital is one `_LIBRARY` row beside its `_rows` row; a new entry family is one `_rows` entry row carrying its own `entry` type and `read`, which `_ENTERED` indexes and the observer callback resolves with no arm edit.
 
-```typescript
+```typescript signature
+type _Hints = { readonly model?: string; readonly platformVersion?: string }
+
+// both causal records key on `Convention._rasm` rows at the arm that builds them, so the drain spreads them onto the
+// evidence span with no mapping layer and a subpart outside the vital roster is the free-string key the vocabulary owner names
+type _Parts = Readonly<Record<string, number>>
+
+type _Subject = Readonly<Record<string, string>>
+
+// one causal read per metric: the numeric decomposition beside the discrete record naming what the value fell on
+type _Causal = { readonly phases: _Parts; readonly subject: _Subject }
+
+type _Sample = {
+  readonly at: number
+  readonly delta: number
+  readonly instance: string
+  readonly kind: Vital.Kind
+  readonly navigation: Vital.Navigation
+  readonly phases: _Parts
+  readonly rated: Option.Option<Vital.Grade>
+  readonly subject: _Subject
+  readonly value: number
+}
+
+// a subpart the browser never dispatched reads undefined at every arm: one projection drops the key rather than minting a zero
+const _present = <A>(row: Readonly<Record<string, A | undefined>>): Readonly<Record<string, A>> =>
+  Record.filterMap(row, Option.fromNullable)
+
+const _LIBRARY = { CLS: "cls", FCP: "fcp", INP: "inp", LCP: "lcp", TTFB: "ttfb" } as const satisfies Record<MetricWithAttribution["name"], Vital.Kind>
+
+// platform navigation types are a strict subset of the library's and spell the bfcache value with an underscore
+const _NAVIGATED = { back_forward: "back-forward", navigate: "navigate", reload: "reload" } as const satisfies Record<NavigationTimingType, Vital.Navigation>
+
+const _navigation = (): Vital.Navigation =>
+  Option.match(Option.fromNullable(performance.getEntriesByType("navigation")[0]), {
+    onNone: () => "navigate",
+    onSome: (entry) => _NAVIGATED[entry.type],
+  })
+
+// each attribution roster correlates with its own name: one exhaustive switch is the only reader that keeps the correlation
+const _phases = (metric: MetricWithAttribution): _Causal => {
+  switch (metric.name) {
+    case "CLS":
+      return {
+        phases: _present({ [Convention.rasm.vitalPhaseLargestShift]: metric.attribution.largestShiftValue }),
+        subject: _present({
+          [Convention.rasm.vitalElement]: metric.attribution.largestShiftTarget,
+          [Convention.rasm.vitalState]: metric.attribution.loadState,
+        }),
+      }
+    case "FCP":
+      return {
+        phases: {
+          [Convention.rasm.vitalPhaseFirstByte]: metric.attribution.timeToFirstByte,
+          [Convention.rasm.vitalPhaseRender]: metric.attribution.firstByteToFCP,
+        },
+        subject: { [Convention.rasm.vitalState]: metric.attribution.loadState },
+      }
+    case "INP":
+      return {
+        phases: _present({
+          [Convention.rasm.vitalPhaseInput]: metric.attribution.inputDelay,
+          [Convention.rasm.vitalPhasePaint]: metric.attribution.totalPaintDuration,
+          [Convention.rasm.vitalPhasePresentation]: metric.attribution.presentationDelay,
+          [Convention.rasm.vitalPhaseProcessing]: metric.attribution.processingDuration,
+          [Convention.rasm.vitalPhaseScript]: metric.attribution.totalScriptDuration,
+          // `intersectingDuration` measures the part of that script landing INSIDE this interaction, never the script's whole run
+          [Convention.rasm.vitalPhaseLongestScript]: metric.attribution.longestScript?.intersectingDuration,
+          [Convention.rasm.vitalPhaseStyleAndLayout]: metric.attribution.totalStyleAndLayoutDuration,
+          [Convention.rasm.vitalPhaseUnattributed]: metric.attribution.totalUnattributedDuration,
+        }),
+        subject: _present({
+          [Convention.rasm.vitalElement]: metric.attribution.interactionTarget,
+          [Convention.rasm.vitalInteraction]: metric.attribution.interactionType,
+          // `subpart` names WHERE the worst script ran, so a poor interaction resolves to a code path and never to a duration alone
+          [Convention.rasm.vitalScriptInvoker]: metric.attribution.longestScript?.entry.invokerType,
+          [Convention.rasm.vitalScript]: metric.attribution.longestScript?.entry.sourceURL,
+          [Convention.rasm.vitalScriptFunction]: metric.attribution.longestScript?.entry.sourceFunctionName,
+          [Convention.rasm.vitalScriptPart]: metric.attribution.longestScript?.subpart,
+          [Convention.rasm.vitalState]: metric.attribution.loadState,
+        }),
+      }
+    case "LCP":
+      return {
+        phases: {
+          [Convention.rasm.vitalPhaseElementRender]: metric.attribution.elementRenderDelay,
+          [Convention.rasm.vitalPhaseFirstByte]: metric.attribution.timeToFirstByte,
+          [Convention.rasm.vitalPhaseResourceLoad]: metric.attribution.resourceLoadDuration,
+          [Convention.rasm.vitalPhaseResourceStart]: metric.attribution.resourceLoadDelay,
+        },
+        subject: _present({
+          [Convention.rasm.vitalElement]: metric.attribution.target,
+          [Convention.rasm.vitalResource]: metric.attribution.url,
+        }),
+      }
+    case "TTFB":
+      return {
+        phases: {
+          [Convention.rasm.vitalPhaseCache]: metric.attribution.cacheDuration,
+          [Convention.rasm.vitalPhaseConnection]: metric.attribution.connectionDuration,
+          [Convention.rasm.vitalPhaseDns]: metric.attribution.dnsDuration,
+          [Convention.rasm.vitalPhaseRequest]: metric.attribution.requestDuration,
+          [Convention.rasm.vitalPhaseWaiting]: metric.attribution.waitingDuration,
+        },
+        subject: {},
+      }
+  }
+}
+
+const _reported = (metric: MetricWithAttribution): _Sample =>
+  pipe(_phases(metric), (causal) => ({
+    at: performance.now(),
+    delta: metric.delta,
+    instance: metric.id, // a bfcache restore mints a fresh instance whose value restarts while delta keeps advancing
+    kind: _LIBRARY[metric.name],
+    navigation: metric.navigationType,
+    phases: causal.phases,
+    rated: Option.some(metric.rating), // the shipped rating buckets against the same pair the row carries: re-deriving it forks the standard
+    subject: causal.subject,
+    value: metric.value,
+  }))
+
+// entry rows index by their own entry type, so the observer callback stays total and a new family costs no arm here
+const _ENTERED: Readonly<Record<string, { readonly kind: Vital.Kind; readonly read: (entry: PerformanceEntry) => number }>> = pipe(
+  Record.toEntries(_rows),
+  Array.filterMap(([kind, row]) => (row.source === "entry" ? Option.some([row.entry, { kind, read: row.read }] as const) : Option.none())),
+  Record.fromEntries,
+)
+
+const _entered = (entry: PerformanceEntry, session: string, navigation: Vital.Navigation): Option.Option<_Sample> =>
+  Option.map(Record.get(_ENTERED, entry.entryType), (row) =>
+    pipe(row.read(entry), (value) => ({
+      at: entry.startTime, // the entry's own timeline coordinate, never wall clock
+      delta: value,
+      instance: session,
+      kind: row.kind,
+      navigation,
+      phases: {},
+      rated: Option.none(),
+      subject: {},
+      value,
+    })))
+
+const _watched = (policy: Vital.Policy, navigation: Vital.Navigation): Stream.Stream<_Sample> =>
+  Stream.asyncScoped<_Sample>(
+    (emit) =>
+      Effect.acquireRelease(
+        Effect.sync(() => {
+          const gate = { open: true }
+          const push = (sample: _Sample): void => void (gate.open && emit.single(sample))
+          // one annotated reporter: the row table's five registrar signatures intersect their callback parameter, and this is the one shape all five admit
+          const report = (metric: MetricWithAttribution): void => push(_reported(metric))
+          const opts: INPAttributionReportOpts = {
+            durationThreshold: policy.interaction,
+            generateTarget: (node) => (node === null ? undefined : getElementXPath(node, true)),
+            reportAllChanges: policy.stream,
+            reportSoftNavs: policy.soft,
+          }
+          const observer = new PerformanceObserver((list) => {
+            for (const entry of list.getEntries()) {
+              Option.match(_entered(entry, policy.session.id, navigation), { onNone: () => undefined, onSome: push })
+            }
+          })
+          const supported = new Set(PerformanceObserver.supportedEntryTypes)
+          for (const row of Record.values(_rows)) {
+            if (row.source === "library") row.on(report, opts)
+            else if (row.source === "entry" && supported.has(row.entry)) observer.observe({ buffered: true, type: row.entry })
+          }
+          return { gate, observer }
+        }),
+        ({ gate, observer }) =>
+          Effect.sync(() => {
+            gate.open = false // the library registrations outlive the scope: the gate is the only teardown they admit
+            observer.disconnect()
+          }),
+      ),
+    { bufferSize: policy.window, strategy: "sliding" },
+  )
+```
+
+## [04]-[CONTEXT]
+
+[CONTEXT]:
+- Owner: `_context(session)` — the document RUM context resolved once at Layer construction into a `Convention.Attributes` record: browser brands, mobility, platform, and language; the device model behind the high-entropy client hint; the network connection type; and the session pair the composition root supplies.
+- Law: `Convention.ValueOf` binds the connection key to the bounded spec union, so a raw browser word fails the stamp.
+- Law: `_CONNECTED` maps the four Network Information API transports the spec rows name, at this one site.
+- Law: every remaining browser answer folds onto the family's unknown row, so a new transport degrades rather than refuses.
+- Law: session identity arrives as policy, never mints here — the crash signal and any app analytics fold join on the same id, so a second mint inside this module forks the correlation key; `previous` carries the prior session so a soft navigation or a resumed visit chains, and an absent dimension is omitted rather than sentinelled so a backend filter never matches an empty string.
+- Law: the RUM context stamps spans, never metric tags — brands are an array and model, platform, and session are identifier-grade, so the whole record rides the evidence span while the two instruments keep exactly the kind and grade dimensions their cardinality budget admits.
+- Law: `Navigator` members no shipped lib declares enter through one marked global augmentation beside the entry kernel — the same discipline `web-vitals` applies to the performance globals — and the high-entropy hint call answers an empty hint set when the browser refuses, so a permission denial degrades the context rather than the Layer.
+- Law: the package's performance augmentation is composed, never re-guarded — its types build keys `Performance.getEntriesByType` by entry name, so the navigation and resource buffers arrive as their concrete entry types and a narrowing predicate over them is a hand-rolled guard that copies the buffer and admits every element it tested.
+- Boundary: URL-bearing span enrichment composes through `Vital.enrich(span, request)` — `normalizeUrl` fixes the lookup identity, `getResource` selects the nearest unused main and preflight timing pair inside the supplied span range, and `addSpanNetworkEvents` projects both onto the caller-owned dial span under the new content-length semconv alone, dropping zeroed phases so an unused phase never reads as a measured zero. This bridge never opens a span, so `browser/fetch` keeps request ownership while this module owns the Performance-Timeline projection; the fetch instrumentation row leaves `clearTimingResources` off so the buffer this reads survives.
+- Growth: a new context dimension is one projection line beside its `Convention` row.
+
+```typescript signature
+declare global {
+  // Navigator members no shipped lib declares: one marked augmentation, never a second @types package
+  interface Navigator {
+    readonly connection?: { readonly type?: string }
+    readonly userAgentData?: {
+      readonly brands: ReadonlyArray<{ readonly brand: string; readonly version: string }>
+      readonly getHighEntropyValues: (hints: ReadonlyArray<string>) => Promise<_Hints>
+      readonly mobile: boolean
+      readonly platform: string
+    }
+  }
+}
+
 declare namespace Vital {
   type Request = {
     readonly url: string
@@ -99,10 +322,57 @@ declare namespace Vital {
   }
 }
 
-const _enrich = (span: Span, request: Vital.Request): Option.Option<PerformanceResourceTiming> => {
-  const resources = performance.getEntriesByType("resource").filter(
-    (entry): entry is PerformanceResourceTiming => "initiatorType" in entry,
+const _HINTS = ["model", "platformVersion"] as const
+
+// Network Information API answers its own vocabulary — bluetooth, cellular, ethernet, mixed, none, other, unknown, wifi,
+// wimax — where the bounded spec row set is cell, unavailable, unknown, wifi, wired, so this table maps the dialect at one
+// stamp site and folds every unmapped transport onto the family's own unknown row instead of reaching a bounded key raw
+const _CONNECTED: Readonly<Record<string, Convention.ConnectionType>> = {
+  cellular: Convention.value.connectionCell,
+  ethernet: Convention.value.connectionWired,
+  none: Convention.value.connectionUnavailable,
+  wifi: Convention.value.connectionWifi,
+}
+
+const _connected = (transport: string): Convention.ConnectionType =>
+  Option.getOrElse(Record.get(_CONNECTED, transport), () => Convention.value.connectionUnknown)
+
+const _context = (session: Vital.Session): Effect.Effect<Convention.Attributes> =>
+  Effect.map(
+    Effect.orElseSucceed(
+      // `Promise.resolve` takes the hint annotation: an unannotated `{}` widens the awaited union and strands every field read below
+      Effect.tryPromise(() => globalThis.navigator.userAgentData?.getHighEntropyValues([..._HINTS]) ?? Promise.resolve<_Hints>({})),
+      (): _Hints => ({}), // a refused hint permission degrades the context, never the Layer
+    ),
+    (hints) => ({
+      [Convention.incubating.browserLanguage]: globalThis.navigator.language,
+      [Convention.incubating.sessionId]: session.id,
+      ...Option.match(Option.fromNullable(globalThis.navigator.userAgentData), {
+        onNone: () => ({}),
+        onSome: (agent) => ({
+          [Convention.incubating.browserBrands]: agent.brands.map((row) => `${row.brand} ${row.version}`),
+          [Convention.incubating.browserMobile]: agent.mobile,
+          [Convention.incubating.browserPlatform]: agent.platform,
+        }),
+      }),
+      ...Option.match(Option.fromNullable(hints.model), {
+        onNone: () => ({}),
+        onSome: (model) => ({ [Convention.incubating.deviceModel]: model }),
+      }),
+      ...Option.match(Option.fromNullable(globalThis.navigator.connection?.type), {
+        onNone: () => ({}),
+        onSome: (transport) => ({ [Convention.incubating.connectionType]: _connected(transport) }),
+      }),
+      ...Option.match(session.previous, {
+        onNone: () => ({}),
+        onSome: (previous) => ({ [Convention.incubating.sessionPrevious]: previous }),
+      }),
+    }),
   )
+
+const _enrich = (span: Span, request: Vital.Request): Option.Option<PerformanceResourceTiming> => {
+  // `getEntriesByType` keys by entry name in the types build, so the resource buffer arrives typed and a narrowing guard filters nothing
+  const resources = performance.getEntriesByType("resource")
   const timing = getResource(
     normalizeUrl(request.url),
     request.start,
@@ -113,172 +383,234 @@ const _enrich = (span: Span, request: Vital.Request): Option.Option<PerformanceR
   )
   const attach = (entry: PerformanceResourceTiming): PerformanceResourceTiming => {
     request.used.add(entry)
-    addSpanNetworkEvents(span, entry)
+    addSpanNetworkEvents(span, entry, false, true, true) // emit events, drop zeroed phases, skip the deprecated content-length keys
     return entry
   }
   Option.match(Option.fromNullable(timing.corsPreFlightRequest), { onNone: () => undefined, onSome: attach })
   return Option.map(Option.fromNullable(timing.mainRequest), attach)
 }
+```
 
-const _fact = (entry: PerformanceEntry): Option.Option<Vital.Fact> => {
-  switch (entry.entryType) {
-    case "layout-shift":
-      return (Predicate.hasProperty(entry, "hadRecentInput") && entry.hadRecentInput === true) ||
-        !Predicate.hasProperty(entry, "value") || !Predicate.isNumber(entry.value)
-        ? Option.none()
-        : Option.some(new _Fact({ at: entry.startTime, kind: "cls", value: entry.value }))
-    case "event":
-      // interactionId 0 marks a non-interaction event: it never counts toward INP
-      return !Predicate.hasProperty(entry, "interactionId") || !Predicate.isNumber(entry.interactionId) || entry.interactionId === 0
-        ? Option.none()
-        : Option.some(new _Fact({ at: entry.startTime, kind: "inp", value: entry.duration }))
-    case "largest-contentful-paint":
-      return Option.some(new _Fact({ at: entry.startTime, kind: "lcp", value: entry.startTime }))
-    case "longtask":
-      return Option.some(new _Fact({ at: entry.startTime, kind: "longtask", value: entry.duration }))
-    case "navigation":
-      return !Predicate.hasProperty(entry, "responseStart") || !Predicate.isNumber(entry.responseStart)
-        ? Option.none()
-        : Option.some(new _Fact({ at: entry.startTime, kind: "ttfb", value: entry.responseStart }))
-    case "paint":
-      return entry.name === "first-contentful-paint"
-        ? Option.some(new _Fact({ at: entry.startTime, kind: "fcp", value: entry.startTime }))
-        : Option.none()
-    default:
-      return Option.none()
-  }
-}
+## [05]-[EMISSION]
 
-type _Cell = { readonly held: number; readonly window: number; readonly opened: number; readonly last: number }
+[EMISSION]:
+- Owner: the assembled `Vital` export — the row table spread in, the grade fold, the level projection, the accounting ledger, the instruments, the report intake, and the drain Layer under one name; every instrument materializes through `Convention.mount`, so name, description, UCUM code, and wire form arrive from the row and no signal-site literal exists here.
+- Law: the level plane is one level series per UCUM code, each written through `Metric.set` and tagged by kind.
+- Law: `vitalObserved` is one incremental counter tagged by kind and grade, so the observation fan is the kind-grade product.
+- Law: the exact-value distribution beyond a level gauge is an export-lane concern, never a third instrument here.
+- Law: `Vital.level(kind)` is the one kind-to-level-series projection, so `otel/meter#BOARD` never re-derives a metric name.
+- Law: `Vital.levels` carries the level-name tuple, so the board schema decodes to the closed union rather than a bare string.
+- Law: the accounting fold is one `mapAccum` over a per-kind cell ledger holding the accounted level, the metric instance, and the whole-session delta total, and it suppresses exactly one thing — a crest sample that failed to rise — because a level sample IS the producer's own new accounting and dropping it on an equal value strands the element, phase split, and delta riding that report; suppression is per kind rather than per adjacent pair so interleaved kinds never mask each other, a restore-minted instance always emits and resets the crest while the session total keeps accumulating across instances, and a non-accruing kind projects no total at all because a zero one reads as a measured session.
+- Law: `Vital.live(policy)` is the one registration node — a scoped Layer resolving the context, minting the intake queue and the replay hub, and forking one drain: the capture stream merged with the intake, the accounting fold, and `Stream.throttle` shaping the stamp rate through `settle` and `pulse`, weighing each chunk by its own size so a layout-shift burst and a whole intake drain both pay their real cost; every surviving fact publishes to the hub and drains into both instruments, and the Layer merges at the browser composition root beside `Export.live`.
+- Law: one document runs one capture — `Vital.Report` carries both the intake and the accounted fact stream, so a consumer folding its own view subscribes the same registration rather than minting a second capture, and the intake admits exactly the report-source kinds because a library-owned kind arriving from an app tap double-counts the accounting the library already performed; the sample VALUE admits at that same intake against the fact's own constraint and refuses on the typed parse rail, since the accounted fold constructs its fact inside a stream accumulator where a malformed number raises and kills the capture whole.
+- Law: render-vital emission is this module's — the ui component floor and viewer probe stay display surfaces and mint no instrument, and `ui:viewer/probe`'s render rows (per-frame render time, the gpu-memory peak, capture-hash verdicts) reach these instruments through the `Vital.Report` tap an app composition root composes over `ui:system/hook`'s `rasm.ui.vital.row` point; label vocabularies stay surface-local, so the tap resolves each row onto its `Vital.Reported` kind and supplies the producer's own phases and subject, and a render kind then answers the same phase and element questions the library answers for a web kind.
+- Law: every report row carries a producing surface — the carrier set is closed at `Vital.Reported`, so a kind added here without a row minting it is a type admitting a wire nobody sends, and the peer surface's row lands in the same change under `docs/laws/topology.md`.
+- Receipt: each throttled fact opens one short root evidence span carrying the document RUM context beside the kind and grade rows, so the trace signal is inhabited and exemplar click-through lands on the counter's own coordinate; the span roots explicitly because the drain fiber owns no ambient request span and an inherited parent attributes a page-lifecycle fact to whatever call opened last.
+- Law: the evidence span carries the fact WHOLE — accounting identity, phase decomposition, and subject record ride it beside the context.
+- Law: the two instruments hold exactly the kind and grade dimensions their cardinality budget admits; every other axis is span-only.
+- Law: the phase plane's one reader is that span, so a `Vital.Report.facts` consumer folding phases duplicates a landed signal.
+- Entry: `Vital.live(policy)` at the browser composition root; `Vital.Report` for the render tap and the accounted fact stream; `Vital.rows` beside `Vital.grade(kind, value)` for the deploy-feed budget fold — the table and its fold travel as one pair, because a holder of the cutoffs alone re-buckets them and that is the forked-standard defect this owner exists to foreclose.
+- Growth: an instrument axis is closed — new analysis lands as board queries over the same two instruments.
+- Packages: `effect` (`Array`, `Chunk`, `Context`, `Effect`, `HashMap`, `Layer`, `Metric`, `Number`, `Option`, `PubSub`, `Queue`, `Record`, `Schema`, `Stream`, `pipe`); `web-vitals/attribution` (the five registrars, the five cutoff pairs, the five attribution shapes through `MetricWithAttribution`, `MetricRatingThresholds`, `INPAttributionReportOpts`, and the performance-global types build); `@opentelemetry/sdk-trace-web` (`normalizeUrl`, `getResource`, `addSpanNetworkEvents`, `getElementXPath`); `@rasm/ts/core` (`Convention`).
 
-const _EMPTY: _Cell = { held: 0, window: 0, opened: 0, last: 0 }
+```typescript signature
+class _Session extends Schema.Class<_Session>("Vital/Session")({
+  id: Schema.NonEmptyString,
+  previous: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+}) {}
+
+class _Fact extends Schema.Class<_Fact>("Vital/Fact")({
+  at: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
+  delta: Schema.Number.pipe(Schema.finite()),
+  grade: Schema.Literal(..._GRADES),
+  instance: Schema.NonEmptyString,
+  kind: Schema.Literal(..._KINDS),
+  navigation: Schema.Literal(..._NAVIGATIONS),
+  phases: Schema.Record({ key: Schema.String, value: Schema.Number }),
+  // absent on a non-accruing kind: a zero total reads as a measured session rather than as one nobody accrues
+  session: Schema.optionalWith(Schema.Number.pipe(Schema.finite(), Schema.nonNegative()), { as: "Option" }),
+  subject: Schema.Record({ key: Schema.String, value: Schema.String }),
+  value: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
+}) {}
+
+class _Policy extends Schema.Class<_Policy>("Vital/Policy")({
+  interaction: Schema.Int.pipe(Schema.nonNegative()),
+  pulse: Schema.Int.pipe(Schema.positive()),
+  session: _Session,
+  settle: Schema.Duration,
+  soft: Schema.Boolean,
+  stream: Schema.Boolean,
+  window: Schema.Int.pipe(Schema.positive()),
+}) {}
+
+type _Cell = { readonly held: number; readonly instance: string; readonly session: number }
+
+const _EMPTY: _Cell = { held: 0, instance: "", session: 0 } // the empty instance IS the unwritten mark: a first sample always emits
 
 const _folds = {
-  crest: (cell, fact) => ({ ...cell, held: Number.max(cell.held, fact.value) }),
-  last: (cell, fact) => ({ ...cell, held: fact.value }),
-  session: (cell, fact) => {
-    // CWV window law: a >1s gap or a >5s span opens a fresh window; the score is the crest of windows
-    const fresh = fact.at - cell.last > _SESSION.gap || fact.at - cell.opened > _SESSION.cap
-    const window = fresh ? fact.value : cell.window + fact.value
-    return { held: Number.max(cell.held, window), window, opened: fresh ? fact.at : cell.opened, last: fact.at }
-  },
-} as const satisfies Record<Vital.Fold, (cell: _Cell, fact: Vital.Fact) => _Cell>
+  crest: (held: number, value: number) => Number.max(held, value),
+  level: (_held: number, value: number) => value, // the producer accounted it already: web-vitals for the web family, the verdict fold for the render rows
+} as const satisfies Record<Vital.Fold, (held: number, value: number) => number>
 
 const _accounted = (
   ledger: HashMap.HashMap<Vital.Kind, _Cell>,
-  fact: Vital.Fact,
-): readonly [HashMap.HashMap<Vital.Kind, _Cell>, Vital.Fact] => {
-  const cell = _folds[_rows[fact.kind].fold](Option.getOrElse(HashMap.get(ledger, fact.kind), () => _EMPTY), fact)
-  return [HashMap.set(ledger, fact.kind, cell), new _Fact({ at: fact.at, kind: fact.kind, value: cell.held })]
+  sample: _Sample,
+): readonly [HashMap.HashMap<Vital.Kind, _Cell>, Option.Option<Vital.Fact>] => {
+  const prior = Option.getOrElse(HashMap.get(ledger, sample.kind), () => _EMPTY)
+  const row = _rows[sample.kind]
+  const restored = prior.instance !== "" && prior.instance !== sample.instance
+  const held = _folds[row.fold](restored ? 0 : prior.held, sample.value)
+  const grade = Option.getOrElse(sample.rated, () => _grade(sample.kind, held))
+  const cell: _Cell = { held, instance: sample.instance, session: prior.session + (row.accrues ? sample.delta : 0) }
+  // a level sample IS the producer's own new accounting: suppressing it on an equal value drops the element, phase split, and delta riding it
+  const advanced = prior.instance === "" || restored || row.fold !== "crest" || held > prior.held
+  return [
+    HashMap.set(ledger, sample.kind, cell),
+    advanced
+      ? Option.some(
+          new _Fact({
+            at: sample.at,
+            delta: sample.delta,
+            grade,
+            instance: sample.instance,
+            kind: sample.kind,
+            navigation: sample.navigation,
+            phases: sample.phases,
+            session: row.accrues ? Option.some(cell.session) : Option.none(),
+            subject: sample.subject,
+            value: held,
+          }),
+        )
+      : Option.none(),
+  ]
 }
 
-const _FLOW = { buffer: 32 } as const
+// one level series per UCUM code, keyed by the code itself: the row's unit selects the instrument, so a kind cannot
+// declare a unit no series receives and a millisecond level never lands on a dimensionless descriptor
+const _LEVELS = {
+  [Convention.instrument.vitalDuration.unit]: Convention.instrument.vitalDuration,
+  [Convention.instrument.vitalScore.unit]: Convention.instrument.vitalScore,
+  [Convention.instrument.vitalSize.unit]: Convention.instrument.vitalSize,
+} as const
 
-const _watched: Stream.Stream<Vital.Fact> = Stream.asyncScoped<Vital.Fact>(
-  (emit) =>
-    Effect.acquireRelease(
-      Effect.sync(() => {
-        const observer = new PerformanceObserver((list) => {
-          for (const entry of list.getEntries()) {
-            Option.match(_fact(entry), {
-              onNone: () => undefined,
-              onSome: (fact) => void emit.single(fact),
-            })
-          }
-        })
-        const supported = new Set(PerformanceObserver.supportedEntryTypes)
-        for (const row of Object.values(_rows)) {
-          if ("entry" in row && supported.has(row.entry)) {
-            observer.observe({
-              buffered: true,
-              type: row.entry,
-              ...("threshold" in row && { durationThreshold: row.threshold }),
-            })
-          }
-        }
-        return observer
-      }),
-      (observer) => Effect.sync(() => observer.disconnect()),
-    ),
-  { bufferSize: _FLOW.buffer, strategy: "sliding" },
-)
+// name tuple beside the table: Schema.Literal holds its non-empty overload off literals, which a Record.values walk widens away
+const _LEVEL_NAMES = [
+  Convention.instrument.vitalDuration.name,
+  Convention.instrument.vitalScore.name,
+  Convention.instrument.vitalSize.name,
+] as const
 
-const _observed: Stream.Stream<Vital.Fact> = _watched.pipe(
-  Stream.mapAccum(HashMap.empty<Vital.Kind, _Cell>(), _accounted),
-)
-```
+const _level = Record.map(_LEVELS, (row) => Convention.mount(row.name))
 
-## [04]-[EMISSION]
+const _observed = Convention.mount(Convention.metric.vitalObserved)
 
-[EMISSION]:
-- Owner: the assembled `Vital` export — the row table spread in, the grade fold, the live fact stream, the report intake, and the drain Layer under one name.
-- Law: two instruments serve every kind, both bounded — `Convention.metric.vitalLevel` is a gauge written through `Metric.set` and tagged by the kind row, `Convention.metric.vitalObserved` is an incremental counter tagged by kind and derived grade — the series fan is the kind and grade product, and the exact-value distribution beyond the gauge is an export-lane concern, never a third instrument here.
-- Law: `Vital.live(policy)` is the registration node — a scoped Layer providing the `Vital.Report` intake and forking one drain: the observer stream merged with the intake queue, the accumulation fold, `Stream.changesWith` on the accounted value (a repeat of an unchanged accounting emits nothing), and `Stream.throttle` shaping the stamp rate through the policy's `settle` and `pulse` axes so a layout-shift burst cannot flood the gauge, each surviving fact draining into the two instruments; the Layer merges at the browser composition root beside `Export.live`.
-- Law: render-vital emission is this module's — the ui viewer probe stays display-only, and its local render rows (frame timing, the DeckMetrics counters with the gpu-memory peak, capture-hash verdicts) reach the two instruments only through the `Vital.Report` tap an app composition root composes.
-- Receipt: each throttled fact opens one short `Convention.metric.vitalObserved` evidence span and annotates it with the kind and grade rows, so the trace signal is inhabited rather than depending on an ambient request span that the observer fiber cannot own.
-- Entry: `Vital.live(policy)`; `Vital.Report` for the app-composed render tap; `Vital.stream` for a consumer that folds its own web-family view; `Vital.grade(kind, value)` for board threshold reuse.
-- Growth: an instrument axis is closed — new analysis lands as board queries over the same two instruments.
-- Packages: `effect` (`Metric`, `Layer`, `Stream`, `Queue`, `Context`), `@opentelemetry/sdk-trace-web` (`normalizeUrl`, `getResource`, `addSpanNetworkEvents`), `@rasm/ts/core` (`Convention`).
+class _Report extends Context.Tag("Vital/Report")<_Report, {
+  readonly facts: Stream.Stream<Vital.Fact>
+  // The value carries the caller's own number across a plane boundary, so the intake refuses on the parse rail
+  // rather than admitting it: the accounted fold constructs its fact inside a stream accumulator, where a
+  // malformed sample raises and takes the whole capture with it.
+  readonly report: (
+    sample: { readonly kind: Vital.Reported; readonly phases?: _Parts; readonly subject?: _Subject; readonly value: number },
+  ) => Effect.Effect<void, ParseResult.ParseError>
+}>() {}
 
-```typescript
-const _level = Metric.gauge(Convention.metric.vitalLevel)
-const _observedCount = Metric.counter(Convention.metric.vitalObserved, { incremental: true })
-
-class _Report extends Context.Tag("Vital/Report")<_Report, (fact: Vital.Fact) => Effect.Effect<void>>() {}
-
-const _drained = (fact: Vital.Fact): Effect.Effect<void> =>
-  pipe(_grade(fact.kind, fact.value), (grade) =>
-    Effect.all(
-      [
-        Metric.set(Metric.tagged(_level, Convention.rasm.vitalKind, fact.kind), fact.value),
-        Metric.increment(
-          Metric.tagged(
-            Metric.tagged(_observedCount, Convention.rasm.vitalKind, fact.kind),
-            Convention.rasm.vitalGrade,
-            grade,
-          ),
-        ),
-        Effect.annotateCurrentSpan(Convention.rasm.vitalKind, fact.kind),
-        Effect.annotateCurrentSpan(Convention.rasm.vitalGrade, grade),
-      ],
-      { discard: true },
-    ).pipe(Effect.withSpan(Convention.metric.vitalObserved)))
+const _drained = (context: Convention.Attributes, fact: Vital.Fact): Effect.Effect<void> =>
+  Effect.all(
+    [
+      // Each row's unit selects its level series, so a millisecond kind and a byte kind never share a descriptor
+      Metric.set(Metric.tagged(_level[_rows[fact.kind].unit], Convention.rasm.vitalKind, fact.kind), fact.value),
+      Metric.increment(
+        Metric.tagged(Metric.tagged(_observed, Convention.rasm.vitalKind, fact.kind), Convention.rasm.vitalGrade, fact.grade),
+      ),
+    ],
+    { discard: true },
+  ).pipe(
+    Effect.withSpan(Convention.metric.vitalObserved, {
+      attributes: {
+        ...context,
+        // both causal records already key on Convention rows, so the whole decomposition spreads with no mapping layer
+        ...fact.phases,
+        ...fact.subject,
+        [Convention.rasm.vitalDelta]: fact.delta,
+        [Convention.rasm.vitalGrade]: fact.grade,
+        [Convention.rasm.vitalInstance]: fact.instance,
+        [Convention.rasm.vitalKind]: fact.kind,
+        [Convention.rasm.vitalNavigation]: fact.navigation,
+        // absent on a non-accruing kind: a zero total reads as a measured session rather than as one nobody accrues
+        ...Option.match(fact.session, {
+          onNone: () => ({}),
+          onSome: (session) => ({ [Convention.rasm.vitalSession]: session }),
+        }),
+      },
+      root: true, // the drain fiber owns no ambient request span: an inherited parent misattributes a page-lifecycle fact
+    }),
+  )
 
 const Vital: {
   readonly Fact: typeof _Fact
   readonly Policy: typeof _Policy
   readonly Report: typeof _Report
+  readonly Session: typeof _Session
   readonly enrich: (span: Span, request: Vital.Request) => Option.Option<PerformanceResourceTiming>
   readonly grade: (kind: Vital.Kind, value: number) => Vital.Grade
+  readonly level: (kind: Vital.Kind) => Convention.MetricName<"gauge">
+  readonly levels: typeof _LEVEL_NAMES
   readonly live: (policy: Vital.Policy) => Layer.Layer<_Report>
   readonly rows: typeof _rows
-  readonly stream: Stream.Stream<Vital.Fact>
 } = {
   Fact: _Fact,
   Policy: _Policy,
   Report: _Report,
+  Session: _Session,
   enrich: _enrich,
   grade: _grade,
+  level: (kind) => _LEVELS[_rows[kind].unit].name,
+  levels: _LEVEL_NAMES,
   live: (policy) =>
     Layer.scoped(
       _Report,
       Effect.gen(function* () {
-        const intake = yield* Queue.sliding<Vital.Fact>(_FLOW.buffer)
+        const context = yield* _context(policy.session)
+        const navigation = _navigation()
+        const intake = yield* Queue.sliding<_Sample>(policy.window)
+        const hub = yield* PubSub.sliding<Vital.Fact>({ capacity: policy.window, replay: policy.window })
         yield* Effect.forkScoped(
           Stream.runForEach(
-            Stream.merge(_watched, Stream.fromQueue(intake)).pipe(
+            Stream.merge(_watched(policy, navigation), Stream.fromQueue(intake)).pipe(
               Stream.mapAccum(HashMap.empty<Vital.Kind, _Cell>(), _accounted),
-              Stream.changesWith((prior, next) => prior.kind === next.kind && prior.value === next.value),
-              Stream.throttle({ cost: () => 1, duration: policy.settle, strategy: "shape", units: policy.pulse }),
+              Stream.filterMap((accounted) => accounted),
+              // cost is per CHUNK: the intake drains every queued report in one pull, so a flat cost of one shapes nothing on the tap's own burst
+              Stream.throttle({ cost: Chunk.size, duration: policy.settle, strategy: "shape", units: policy.pulse }),
             ),
-            _drained,
+            (fact) => Effect.zipRight(PubSub.publish(hub, fact), _drained(context, fact)),
           ),
         )
-        return (fact: Vital.Fact) => Queue.offer(intake, fact).pipe(Effect.asVoid)
+        return {
+          facts: Stream.fromPubSub(hub),
+          report: (sample) =>
+            pipe(
+              // ONE cutoff owner: the sample admits against the FACT's own value constraint, so the intake and the
+              // accounted fold cannot disagree on what a measurable number is and no malformed report reaches a
+              // `Schema.Class` construction inside the accumulator.
+              Schema.decodeUnknown(_Fact.fields.value)(sample.value),
+              Effect.flatMap((value) =>
+                Queue.offer(intake, {
+                  at: performance.now(),
+                  delta: value,
+                  instance: policy.session.id, // a report-source kind carries the document's own identity: it never restores
+                  kind: sample.kind,
+                  navigation,
+                  phases: sample.phases ?? {},
+                  rated: Option.none(),
+                  subject: sample.subject ?? {},
+                  value,
+                })),
+              Effect.asVoid,
+            ),
+        }
       }),
     ),
   rows: _rows,
-  stream: _observed,
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------
@@ -286,6 +618,6 @@ const Vital: {
 export { Vital }
 ```
 
-## [05]-[RESEARCH]
+## [06]-[RESEARCH]
 
 (none)

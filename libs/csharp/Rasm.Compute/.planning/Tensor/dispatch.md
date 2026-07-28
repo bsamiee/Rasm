@@ -4,17 +4,17 @@ CPU tensor dispatch binds each `TensorOpFamily` row to one arity kernel, claim-g
 
 ## [01]-[INDEX]
 
-- [01]-[KERNEL_DISPATCH]: arity kernel-delegate tables; one `TensorOps` dispatch surface.
-- [02]-[EQUIVALENCE_INTEROP]: equivalence proofs of the vector lane against its scalar-path reference; matmul route; dual-mode (forward+reverse) differentiable adjoint; generalized Gauss-Newton `JᵀJ` product; sparse-Jacobian coloring; copy-point law.
-- [03]-[DEVICE_KERNELS]: WGSL compute-pipeline registry lowering matrix/structural/sparse op-family rows to `ONE_WGPU_DEVICE` workgroup dispatch behind the residency gate and a winning benchmark claim.
+- [02]-[KERNEL_DISPATCH]: arity kernel-delegate tables; one `TensorOps` dispatch surface.
+- [03]-[EQUIVALENCE_INTEROP]: equivalence proofs of the vector lane against its scalar-path reference; matmul route; dual-mode (forward+reverse) differentiable adjoint; generalized Gauss-Newton `JᵀJ` product; sparse-Jacobian coloring; copy-point law.
+- [04]-[DEVICE_KERNELS]: WGSL compute-pipeline registry lowering matrix/structural/sparse op-family rows to `ONE_WGPU_DEVICE` workgroup dispatch behind the residency gate and a winning benchmark claim.
 
 ## [02]-[KERNEL_DISPATCH]
 
 - Owner: `TensorOps`
 - Entry: `TensorOps.Map` and its arity-shaped siblings validate common extents before selecting one closed row. `Segment` validates every segment id before grouped reduction, `Gather`/`Scatter` prove every index against the addressed extent before element movement, `Pool` validates rank, axis, window, stride, and exact destination shape before arbitrary-axis reduction, and `Partition` selects inline, block, or plane execution from the admitted claim. Every span-shaped method catches at its statement seam because ref-struct operands never cross an effect closure.
 - Packages: System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: a new operation binds one entry on its arity kernel table; a new activation is one `Activations<T>` composed fold plus one `Unary` row, a new pooling row is one `PoolReducers<T>` window-reducer entry on the shared `Pool` fold, a new predicate-aggregate is one `AggregateReducers<T>` entry on the shared `Aggregate` fold, a new segmented reduction is one `SegmentReducers<T>` seed/combine/finalize row on the shared `Segment` fold, an index-driven structural op is one row-gated span arity beside `Gather`/`Scatter`, and a new element-domain op is one `ComplexKernels`/`QuaternionKernels` entry — never a sibling activation/pooling/aggregate/segment/complex method; a matrix kernel is one lowering row read from `Tensor/factor#KERNEL_LOWERING`, never a span-kernel entry; the partition column is one claim-gated execution path reading `CpuBudget.PartitionCap` and the claim's route column, never a new owner; zero new surface.
-- Boundary: arity tables bind only verified `TensorPrimitives` members at compatible generic constraints. Author folds cover activation, complex, and quaternion operations that have no direct member; matrix operations lower through the numeric lane; pooling reduces arbitrary axes through tuple policy rows; predicates, reductions, masks, segments, index gathers/scatters, partitions, and conversions retain their distinct destination and admission shapes. Frozen indexes use ordinal comparison, and ref-struct kernels remain statement-shaped. Kernel-interior `SpanOwner`/`MemoryOwner` scratch rents ride the intent-level `Tensor/memory#ALLOCATION_AXIS` `AllocationClass.Grant` — admission grants once against the intent-declared bound covering the kernel working set, so an interior rent never re-grants and never chooses a class at the call site.
+- Growth: a new operation binds one entry on its arity kernel table; a new activation is one `Activations<T>` composed fold with one `Unary` row, a new pooling row is one `PoolReducers<T>` window-reducer entry on the shared `Pool` fold, a new predicate-aggregate is one `AggregateReducers<T>` entry on the shared `Aggregate` fold, a new segmented reduction is one `SegmentReducers<T>` seed/combine/finalize row on the shared `Segment` fold, an index-driven structural op is one row-gated span arity beside `Gather`/`Scatter`, and a new element-domain op is one `ComplexKernels`/`QuaternionKernels` entry — never a sibling activation/pooling/aggregate/segment/complex method; a matrix kernel is one lowering row read from `Tensor/factor#KERNEL_LOWERING`, never a span-kernel entry; the partition column is one claim-gated execution path reading `CpuBudget.PartitionCap` and the claim's route column, never a new owner; zero new surface.
+- Boundary: arity tables bind only verified `TensorPrimitives` members at compatible generic constraints. Author folds cover activation, complex, and quaternion operations that have no direct member, and vector normalization composes `Norm` then `Divide` against the reduced magnitude rather than binding a row of its own; matrix operations lower through the numeric lane; pooling reduces arbitrary axes through tuple policy rows; predicates, reductions, masks, segments, index gathers/scatters, partitions, and conversions retain their distinct destination and admission shapes. Frozen indexes use ordinal comparison, and ref-struct kernels remain statement-shaped. Kernel-interior `SpanOwner`/`MemoryOwner` scratch rents ride the intent-level `Tensor/memory#ALLOCATION_AXIS` `AllocationClass.Grant` — admission grants once against the intent-declared bound covering the kernel working set, so an interior rent never re-grants and never chooses a class at the call site.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -258,8 +258,8 @@ public static class QuaternionKernels {
 }
 
 public static class TensorOps {
-    // A span operand is a ref struct and cannot cross a closure, so every span entry is the named kernel
-    // statement seam: admit the common extent, resolve the table row, invoke in place, convert a throw once.
+    // Span operands are ref structs and cross no closure, so every span entry is the named kernel statement
+    // seam: admit the common extent, resolve the table row, invoke in place, convert a throw once.
     private static Fin<Unit> Mismatch(TensorOpFamily row, int expected, int actual) =>
         TensorFault.Fail<Unit>("length-mismatch", row.Key, $"{expected}!={actual}");
     private static Fin<A> Threw<A>(TensorOpFamily row, Exception ex) => TensorFault.Fail<A>("kernel-threw", row.Key, ex.Message);
@@ -546,9 +546,9 @@ public readonly struct PlaneZipBlock<T>(ReadOnlyMemory<T> x, ReadOnlyMemory<T> y
 
 - Owner: `EquivalencePolicy`; `AdjointMode` `[SmartEnum<string>]` forward/reverse rows; `DifferentiableOp` the per-`TensorOpFamily` binding table carrying the reverse-mode vector-Jacobian-product, the `Diagonal` flag, and the forward-mode Jacobian-vector-product as a TOTAL (non-optional) `Func` column on every bound row; `Sensitivity` the ONE directional-derivative owner carrying each non-elementwise op's reverse VJP and forward JVP — sharing one body wherever the two directions coincide so a `Forward`/`Backward` class pair with copy-pasted SoftMax/MatMul bodies is the deleted illusory-dual form — with the MatMul weight projection selected by `AdjointMode` (`Wᵀ` reverse for `ȳ·Wᵀ`, `W` forward for `ẋ·W`), the symmetric SoftMax Jacobian shared across both directions, and the `Operator` DDG geometry apply selecting the page-owned `OperatorRow.Adjoint` (reverse transpose `Aᵀ·ȳ`) or `OperatorRow.Apply` (forward pushforward `A·ṫ`) — the row table composing the kernel `Rasm.Numerics` `DiscreteCalculus`; `SensitivityLaw` the static dual-mode adjoint, forward and reverse tape sweeps over BOTH the `(op, primal)` and `GeometryTape` tapes, the generalized Gauss-Newton `JᵀJ·v` (reverse-over-forward) surface, AND the hyper-dual scalar leg — the THIRD leg of the ONE `Sensitivity` family beside the geometry tape and the `Symbolic/lowering` symbolic tape: a general smooth scalar objective authored once over the `HyperJet` hyper-dual scalar yields the EXACT gradient (order 1) and the EXACT gradient+Hessian (order 2) in one evaluation through `DDScalar.Variables`/`GetGradient()`/`GetHessian()`, deleting the finite-difference fall its consumers carried (a fourth parallel gradient mechanism is the deleted form); `JacobianColoring` the graph-coloring sparse-Jacobian assembler over the AD tape into the `Tensor/factor#SPARSE_SOLVE` CSR storage.
 - Entry: `EquivalenceLaw.Prove` admits a positive sample count, captures distribution and kernel boundaries, and applies `ToleranceClass.Bound`. `SensitivityLaw.Adjoint`, `Chain`, `Pushforward`, and `GaussNewton` keep derivative shape and operator failures on `Fin`; `Gradient` and `Hessian` trap hyper-dual evaluation. `JacobianColoring.Of` admits matrix extents and every sparsity coordinate before `Assemble` recovers colored derivatives into CSR storage.
-- Receipt: equivalence runs and explicit copy points materialize as TensorRun receipt evidence at the sink edge, stamped through the threaded NodaTime `IClock`/BCL `TimeProvider` pair (the App-owned `ClockPolicy` stays at composition) and keyed by `CorrelationId`; the copy points are exactly the three named bridges the `ORT_BRIDGE` capsule owns plus the `Span2D` staging-plane view and the `ByteString` remote-edge projection.
+- Receipt: equivalence runs and explicit copy points materialize as TensorRun receipt evidence at the sink edge, stamped through the threaded NodaTime `IClock`/BCL `TimeProvider` pair (the App-owned `ClockPolicy` stays at composition) and keyed by `CorrelationId`; the copy points are exactly the three named bridges the `ORT_BRIDGE` capsule owns, the `Span2D` staging-plane view, and the `ByteString` remote-edge projection.
 - Packages: Rasm (project), System.Numerics.Tensors, MathNet.Numerics, HyperJet (the hyper-dual scalar-AD leg — `DDScalar`/`DDScalar1..15`/`DDScalarSpan`, `GetGradient()`/`GetHessian()` MathNet export), Microsoft.ML.OnnxRuntime, CommunityToolkit.HighPerformance, NodaTime, LanguageExt.Core
-- Growth: a new kernel route is one `TensorOpFamily` row with one `EquivalencePolicy` row; convolution lands as one matrix-kind row lowered through `Tensor/factor#KERNEL_LOWERING` im2col and pooling as one structural-kind row lowered to the strided-window route; a new differentiable operator is one `DifferentiableOp` row binding its vector-Jacobian-product and (for a non-elementwise op) its Jacobian-vector-product to one `Sensitivity` directional body, so the six DDG geometry rows each gain reverse-mode adjoint coverage by one `DifferentiableOp` row routing to `Sensitivity.Operator` under `AdjointMode.Reverse` and forward coverage under `AdjointMode.Forward`, a new geometry operator (remeshing-step, connection-Laplacian) lands as one `Tensor/vocabulary#OPERATION_TABLE` geometry row plus one `GeometryAdjoint.Rows` binding, a generalized Gauss-Newton curvature operator is one `SensitivityLaw.GaussNewton` composition over the existing forward+reverse primitives, while the EXACT Hessian-vector product is a distinct second-order capability that grows an `f''` curvature column on `DifferentiableOp` plus a flowing-activation tape (never a free composition of first-order primitives), and a large sparse Jacobian is one `JacobianColoring` over the same tape into the `Tensor/factor#SPARSE_SOLVE` CSR storage — never a parallel autodiff surface; a new gradient SOURCE is one leg on the `Sensitivity` family (the hyperdual scalar leg is the proof — one pair of entries, no fourth mechanism); zero new surface.
+- Growth: a new kernel route is one `TensorOpFamily` row with one `EquivalencePolicy` row; convolution lands as one matrix-kind row lowered through `Tensor/factor#KERNEL_LOWERING` im2col and pooling as one structural-kind row lowered to the strided-window route; a new differentiable operator is one `DifferentiableOp` row binding its vector-Jacobian-product and (for a non-elementwise op) its Jacobian-vector-product to one `Sensitivity` directional body, so the six DDG geometry rows each gain reverse-mode adjoint coverage by one `DifferentiableOp` row routing to `Sensitivity.Operator` under `AdjointMode.Reverse` and forward coverage under `AdjointMode.Forward`, a new geometry operator (remeshing-step, connection-Laplacian) lands as one `Tensor/vocabulary#OPERATION_TABLE` geometry row with one `GeometryAdjoint.Rows` binding, a generalized Gauss-Newton curvature operator is one `SensitivityLaw.GaussNewton` composition over the existing forward+reverse primitives, while the EXACT Hessian-vector product is a distinct second-order capability that grows an `f''` curvature column on `DifferentiableOp` and a flowing-activation tape (never a free composition of first-order primitives), and a large sparse Jacobian is one `JacobianColoring` over the same tape into the `Tensor/factor#SPARSE_SOLVE` CSR storage — never a parallel autodiff surface; a new gradient SOURCE is one leg on the `Sensitivity` family (the hyperdual scalar leg is the proof — one pair of entries, no fourth mechanism); zero new surface.
 - Boundary: `TensorOps` binds verified span members directly, routes matrix rows through `KernelLowering`, folds arbitrary-axis pooling over dense outer×axis×inner coordinates, and rejects missing geometry or arity before mutation. `EquivalenceLaw` compares span kernels against scalar or reassociated references, matrix kernels against `KernelLowering.ProveGemm`, and geometry kernels against the recorded `OperatorRow` transpose identity. `SensitivityLaw` composes total forward and reverse maps, matrix-free `JᵀJ·v`, sparse coloring, and hyper-dual scalar derivatives without parallel gradient owners.
 
 ```csharp signature
@@ -589,8 +589,8 @@ public readonly record struct ProofEvidence(double Deviation, int Length, double
 }
 
 public static class StagePlane {
-    // A Span2D is a ref struct and rides neither a tuple nor a Fin, so the plane leaves through `out` while
-    // admission and the copy-point receipt stay on the rail; rows·columns must exactly cover the rented backing.
+    // Span2D is a ref struct riding neither a tuple nor a Fin, so the plane leaves through `out` while admission
+    // and the copy-point receipt stay on the rail; rows·columns must exactly cover the rented backing.
     public static Fin<CopyPoint> Stage(MemoryOwner<float> backing, int rows, int columns, IClock clock, TimeProvider time, CorrelationId correlation, out Span2D<float> plane) {
         plane = default;
         if (rows <= 0 || columns <= 0 || (long)rows * columns != backing.Length) {
@@ -872,8 +872,8 @@ public sealed record DifferentiableOp(
             static (primal, tangent) => Sensitivity.Dot(primal, tangent, AdjointMode.Forward)),
     }.ToFrozenDictionary();
 
-    // An elementwise op's diagonal Jacobian makes the VJP and JVP the one `direction .* f'(primal)` fold, so
-    // both directions bind the same derivative body.
+    // Diagonal Jacobians collapse an elementwise op's VJP and JVP into the one `direction .* f'(primal)` fold,
+    // so both directions bind the same derivative body.
     static DifferentiableOp Diag(TensorOpFamily forward, Func<ReadOnlyMemory<float>, ReadOnlyMemory<float>, ReadOnlyMemory<float>> derivative) =>
         new(forward, Diagonal: true,
             (primal, seed) => Capture(forward, () => Fin.Succ(derivative(primal, seed))),
@@ -1065,8 +1065,8 @@ public static class EquivalenceLaw {
         return new ProofEvidence(deviation, length, mass, ratio);
     }
 
-    // A span-coupled row has no scalar-tail identity — softmax over a length-1 slice is the constant 1 — so
-    // its reference is the shift invariance f(x + c) == f(x), a real metamorphic oracle at the same envelope.
+    // Span-coupled rows carry no scalar-tail identity — softmax over a length-1 slice is the constant 1 — so
+    // each references the shift invariance f(x + c) == f(x), a real metamorphic oracle at the same envelope.
     static readonly FrozenSet<TensorOpFamily> Coupled = new[] { TensorOpFamily.SoftMax, TensorOpFamily.LogSoftMax }.ToFrozenSet();
 
     static double CoupledGap(UnaryKernel<double> kernel, ReadOnlySpan<double> input) {
@@ -1127,7 +1127,7 @@ public static class EquivalenceLaw {
 - Receipt: a device dispatch emits the `TensorRun` `ComputeReceipt` carrying the op family, the resolved per-pass GPU nanosecond duration from the `QuerySet` timestamp (never a busy-wait fence), the `device-wgpu` SIMD-width tag and the workgroup count as the partition count, the `DeterminismTag` extended with the device identity, and the `Tensor/memory#ALLOCATION_AXIS` `AllocationClass.DeviceWgpu`; the device GEMM is a new `LinearProvider.DeterminismTag` because a device result is bit-divergent from the managed/native CPU GEMM, so the `SolveDedupKey` folds the device identity exactly as it folds the managed/native provider or a cross-substrate cache hit returns bit-divergent numbers.
 - Packages: Silk.NET.WebGPU, Silk.NET.WebGPU.Extensions.WGPU (the `Wgpu` table for `DevicePoll`/`QueueSubmitForIndex` device-tick readback), Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new device operation is one WGSL row; a launch shape is one `DeviceStep.Workgroups` value; a multi-kernel chain is one `DevicePlan` value with roster-indexed intermediates and one submission. Device residency remains `OrtResidency.DeviceResident`, never a parallel tensor type.
-- Boundary: `DeviceKernels.Compile` caches typed compile results by device identity and operation, rejects null native handles, releases partial construction, and exposes device-scoped cache retirement. `DevicePlan` carries ordered kernels, binding slots, and workgroups. `DeviceDispatch.Dispatch` proves non-empty bindings, device residency, binding indexes, workgroup arithmetic, terminal output byte alignment, and one common submission. `WgpuDevice.RecordAndSubmit` admits plan and binding counts against fixed caps before any stack staging, then owns one encoder, timestamped passes, one submit, blocking poll, one mapped readback, and deterministic transient-handle release; shared `Device` and `Queue` remain AppUi-owned. Device-limit negotiation and WGPU↔ORT pointer interop remain research leaves because no verified body claims them.
+- Boundary: `DeviceKernels.Compile` caches typed compile results by device identity and operation, rejects null native handles, releases partial construction, and exposes device-scoped cache retirement. `DevicePlan` carries ordered kernels, binding slots, and workgroups. `DeviceDispatch.Dispatch` proves non-empty bindings, device residency, binding indexes, workgroup arithmetic, terminal output byte alignment, and one common submission. `WgpuDevice.RecordAndSubmit` admits plan and binding counts against fixed caps before any stack staging, then owns one encoder, timestamped passes, one submit, blocking poll, one mapped readback, and deterministic transient-handle release; shared `Device` and `Queue` remain AppUi-owned. Every submission records inside one `ErrorFilter.Validation` scope drained through `DevicePopErrorScope` before its duration becomes a receipt, so a driver-rejected dispatch rails `device-validation` instead of returning timing for work that never ran. Device-limit negotiation reads `DeviceGetLimits` at admission; WGPU↔ORT pointer interop remains the one research leaf because no verified body claims it.
 
 ```csharp signature
 // --- [CONSTANTS] ---------------------------------------------------------------------------
@@ -1278,6 +1278,21 @@ public sealed unsafe class WgpuDevice(WebGPU api, Wgpu ext, Device* device, Queu
 
     static readonly PfnBufferMapCallback MapNoop = new(static (BufferMapAsyncStatus status, void* data) => { });
 
+    // WGPU reports shader, binding, and dispatch validation faults asynchronously, so an unmanaged sink closing over
+    // nothing writes the drained message into a [ThreadStatic] slot the owning submission reads back on its own thread.
+    [ThreadStatic] static string? scopeFault;
+
+    static readonly PfnErrorCallback ScopeSink = new(static (ErrorType type, byte* message, void* data) => {
+        if (type != ErrorType.NoError) { scopeFault = $"{type}:{Marshal.PtrToStringUTF8((nint)message)}"; }
+    });
+
+    // Pop drains asynchronously, so one blocking poll settles the scope before the slot is read.
+    Fin<Unit> DrainScope(string key) {
+        api.DevicePopErrorScope(device, ScopeSink, null);
+        ext.DevicePoll(device, true, null);
+        return scopeFault is { } captured ? TensorFault.Fail<Unit>("device-validation", key, captured) : Fin.Succ(unit);
+    }
+
     public string Identity => identity;
 
     internal Fin<DeviceKernel> Build(TensorOpFamily op, string wgsl) {
@@ -1288,8 +1303,8 @@ public sealed unsafe class WgpuDevice(WebGPU api, Wgpu ext, Device* device, Queu
         BindGroupLayout* layout = null;
         bool transferred = false;
         try {
-            code = SilkMarshal.StringToPtr(wgsl, NativeStringEncoding.UTF8);
-            entry = SilkMarshal.StringToPtr("main", NativeStringEncoding.UTF8);
+            code = Marshal.StringToCoTaskMemUTF8(wgsl);
+            entry = Marshal.StringToCoTaskMemUTF8("main");
             ShaderModuleWGSLDescriptor wgslDesc = new() { Chain = new ChainedStruct { SType = SType.ShaderModuleWgslDescriptor }, Code = (byte*)code };
             ShaderModuleDescriptor moduleDesc = new() { NextInChain = (ChainedStruct*)&wgslDesc };
             module = api.DeviceCreateShaderModule(device, &moduleDesc);
@@ -1309,8 +1324,8 @@ public sealed unsafe class WgpuDevice(WebGPU api, Wgpu ext, Device* device, Queu
                 if (pipeline != null) { api.ComputePipelineRelease(pipeline); }
                 if (module != null) { api.ShaderModuleRelease(module); }
             }
-            if (code != 0) { SilkMarshal.Free(code); }
-            if (entry != 0) { SilkMarshal.Free(entry); }
+            if (code != 0) { Marshal.FreeCoTaskMem(code); }
+            if (entry != 0) { Marshal.FreeCoTaskMem(entry); }
         }
     }
 
@@ -1335,7 +1350,11 @@ public sealed unsafe class WgpuDevice(WebGPU api, Wgpu ext, Device* device, Queu
         CommandEncoder* encoder = null;
         CommandBuffer* commands = null;
         bool mapped = false;
+        bool scoped = false;
         try {
+            scopeFault = null;
+            api.DevicePushErrorScope(device, ErrorFilter.Validation);
+            scoped = true;
             QuerySetDescriptor querySetDesc = new() { Type = QueryType.Timestamp, Count = checked((uint)(2 * steps)) };
             timestamps = api.DeviceCreateQuerySet(device, &querySetDesc);
             BufferDescriptor resolveDesc = new() { Size = checked((ulong)(2 * steps * sizeof(ulong))), Usage = BufferUsage.QueryResolve | BufferUsage.CopySrc };
@@ -1384,10 +1403,18 @@ public sealed unsafe class WgpuDevice(WebGPU api, Wgpu ext, Device* device, Queu
             mapped = true;
             ulong* ticks = (ulong*)api.BufferGetMappedRange(readback, 0, (nuint)byteCount);
             if (ticks == null) { return TensorFault.Fail<Duration>("device-map", "range"); }
-            return Fin.Succ(Duration.FromNanoseconds(checked((long)(ticks[(2 * steps) - 1] - ticks[0]))));
+            Duration elapsed = Duration.FromNanoseconds(checked((long)(ticks[(2 * steps) - 1] - ticks[0])));
+            // Captured validation faults mean the readback ticks describe a dispatch the driver rejected, so the
+            // scope drains BEFORE the duration becomes a receipt — and the flag clears only once that drain
+            // RETURNS, so a throwing drain still meets the finally's retry rather than skipping the cleanup on the
+            // strength of an intent that never completed.
+            Fin<Duration> drained = DrainScope(plan.Steps[0].Kernel.Op.Key).Map(_ => elapsed);
+            scoped = false;
+            return drained;
         }
         catch (Exception ex) { return TensorFault.Fail<Duration>("device-submit", "native", ex.Message); }
         finally {
+            if (scoped) { _ = DrainScope(plan.Steps[0].Kernel.Op.Key); }
             if (mapped) { api.BufferUnmap(readback); }
             foreach (nint group in groups) { if (group != 0) { api.BindGroupRelease((BindGroup*)group); } }
             if (timestamps != null) { api.QuerySetRelease(timestamps); }
@@ -1426,8 +1453,8 @@ public static class DeviceKernels {
 }
 
 public static class DeviceDispatch {
-    // A span operand cannot cross into the receipt lambda, so element and workgroup facts precompute; the
-    // singular dispatch is a one-step plan through DevicePlan.Of — one entrypoint owns both modalities.
+    // Span operands cross no receipt lambda, so element and workgroup facts precompute; singular dispatch is a
+    // one-step plan through DevicePlan.Of — one entrypoint owns both modalities.
     public static Fin<ComputeReceipt.TensorRun> Dispatch(WgpuDevice device, DevicePlan plan, ReadOnlySpan<DeviceBuffer> roster, OrtResidency residency, CorrelationId correlation) {
         if (plan.Steps.IsEmpty) { return TensorFault.Fail<ComputeReceipt.TensorRun>("empty-plan", "device"); }
         if (!residency.Device) { return TensorFault.Fail<ComputeReceipt.TensorRun>("device-residency-required", plan.Steps[0].Kernel.Op.Key); }
@@ -1468,8 +1495,4 @@ public static class DeviceDispatch {
 
 ## [05]-[RESEARCH]
 
-- [OPERATOR_BACKLOG]: `Normalize` has no `TensorPrimitives` member and never becomes a single-call row — vector normalization composes `Norm` then `Divide` against the reduced magnitude. `ConvertToInteger`/`ConvertToIntegerNative` bind on `IntegerConvertKernels<TFrom, TTo>` through the `TensorOps.ConvertToInteger` entry, reached only behind a `TensorDtype.Quantized` admission, never a bare float-to-int loop.
-- [PARTITION_CLAIM]: `BenchmarkRow.Route` remains the live-fingerprint gate for `ParallelHelper` partitioning; an absent winning row selects inline execution.
-- [DEVICE_RESIDENCY]: `DeviceDispatch` is grounded through pipeline compilation, plan recording, timestamp readback, and native cleanup. Live device limits, error scopes, remaining shader rows, and WGPU↔ORT buffer-pointer interop remain open host-bound leaves.
-- [DDG_ADJOINT]: `GeometryAdjoint.ProveAdjoint` certifies each recorded DEC operator through `⟨A·x,y⟩ = ⟨x,Aᵀ·y⟩`; new operators extend the closed vocabulary and `GeometryAdjoint.Rows` together.
-- [GAUSS_NEWTON_AND_COLORING]: `SensitivityLaw.GaussNewton` and `JacobianColoring` settle first-order matrix-free curvature and sparse recovery; exact tensor-tape Hessian-vector products still require flowing activations and an `f''` column.
+- [WGPU_ORT_BUFFER_INTEROP]-[OPEN]: which `Microsoft.ML.OnnxRuntime` member hands a device-resident `OrtValue`'s buffer pointer to a `WgpuDevice` binding without a host round-trip, and which `Silk.NET.WebGPU` buffer-import path accepts it; `uv run python -m tools.assay api query --key Microsoft.ML.OnnxRuntime --symbol OrtValue`, landing the row in `Rasm.Compute/.api/api-onnxruntime.md`.

@@ -2,13 +2,13 @@
 
 Every payload that crosses Rasm.Compute between intent admission and the IO edges is staged through one owned class on the `AllocationClass` axis, granted once against the intent-declared payload bound, and folded onto one `AllocationEvidence` fact stream discriminated by `StagingEventKind` and keyed by `CorrelationId`. `Grant` is the one admission edge — success stamps evidence, failure folds the typed `ComputeFault.AllocationOverClass`; beneath it compose the `StagingViews` bit-mask/grow/tokenize views over rented memory, the bare plane projections over `CommunityToolkit.HighPerformance`, and the one-per-process recyclable stream pool whose constructor wires every manager event into the evidence fold.
 
-`CorrelationId`/`ReceiptSinkPort`/`TenantContext`/`ComputeFault` arrive settled from the AppHost ports and `Runtime/admission#DISPATCH_SPINE`; pooled `MemoryOwner<T>`/`SpanOwner<T>` owners are the lifetime boundary; the `DeviceWgpu` row classifies the `Tensor/dispatch#DEVICE_KERNELS` GPU buffer the renderer's `ONE_WGPU_DEVICE` owns.
+`CorrelationId`/`ReceiptSinkPort`/`TenantContext` arrive settled from the kernel signal capsule `Rasm/Domain/telemetry#CAUSAL_FRAME` and `ComputeFault` from `Runtime/admission#DISPATCH_SPINE`; pooled `MemoryOwner<T>`/`SpanOwner<T>` owners are the lifetime boundary; the `DeviceWgpu` row classifies the `Tensor/dispatch#DEVICE_KERNELS` GPU buffer the renderer's `ONE_WGPU_DEVICE` owns.
 
 ## [01]-[INDEX]
 
-- [01]-[ALLOCATION_AXIS]: staging axis (incl. device-wgpu GPU buffer); `Admits` predicate; `Grant` rail with the typed allocation fault; `StagingEventKind` evidence taxonomy; `AllocationEvidence` slot/kind fact; bit-mask/grow/tokenize views.
-- [02]-[PLANE_VIEWS]: bare plane projections; row/axis kernels; contiguity probe; reinterpretation law; layout split.
-- [03]-[STREAM_POOL]: one pooled stream manager; policy record; eleven-event evidence fold; zero-copy contiguous and segment handoff.
+- [02]-[ALLOCATION_AXIS]: staging axis (incl. device-wgpu GPU buffer); `Admits` predicate; `Grant` rail with the typed allocation fault; `StagingEventKind` evidence taxonomy; `AllocationEvidence` slot/kind fact; bit-mask/grow/tokenize views.
+- [03]-[PLANE_VIEWS]: bare plane projections; row/axis kernels; contiguity probe; reinterpretation law; layout split.
+- [04]-[STREAM_POOL]: one pooled stream manager; policy record; eleven-event evidence fold; zero-copy contiguous and segment handoff.
 
 ## [02]-[ALLOCATION_AXIS]
 
@@ -17,8 +17,8 @@ Every payload that crosses Rasm.Compute between intent admission and the IO edge
 - Entry: `Fin<AllocationEvidence> Grant(AllocationRequest request)` consumes one request carrier holding correlation, byte bound, lane timing, copy reason, and native reservation; `Admits(AllocationRequest)` is the pure predicate. Negative bytes, over-bound grants, synchronous-only classes in async lanes, blank copy reasons, and invalid native reservations fold through `ComputeFault.AllocationOverClass`.
 - Auto: intent admission calls `Grant` once against the intent-declared payload bound; every grant materializes one `AllocationEvidence` value under the intent correlation with zero call-site accounting, and the eleven manager events fold to the same record through the `[03]-[STREAM_POOL]` `PoolEvidence` projection.
 - Receipt: `AllocationEvidence` — correlation, class row, `StagingEventKind` discriminant, the requested/granted byte pair (reused per kind), the polymorphic `Detail` string (copy reason on a copy-receipted grant, discard reason on a discard, lifetime on a dispose, allocation stack on a leak), the native/device allocator slots, and the small/large free-pool gauges populated only on `UsageReport`; it is a `readonly record struct` that materializes at the receipt sink edge from hot-path values.
-- Packages: CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project)
-- Growth: one `AllocationClass` row with its predicate columns; a new evidence event is one `StagingEventKind` row plus its projection arm; a cap change is one policy value; a new evidence fact is one `AllocationEvidence` slot; zero new entrypoint.
+- Packages: CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project, kernel signal capsule)
+- Growth: one `AllocationClass` row with its predicate columns; a new evidence event is one `StagingEventKind` row with its projection arm; a cap change is one policy value; a new evidence fact is one `AllocationEvidence` slot; zero new entrypoint.
 - Boundary: the class is intent-declared data, never a call-site choice, so `Grant` is the one admission edge and a bare `ArrayPool<T>.Shared` rent beside it is the deleted form; `Admits` makes all three policy columns load-bearing — `SyncOnly` rejects a stack row requested for an async lane (the data-level complement of the `SpanOwner<T>` ref-struct that already cannot cross an `await`/iterator boundary), `CopyReceipted` rejects a copy without a reason, and the bound rejects an over-class request — and a false `Admits` folds `ComputeFault.AllocationOverClass` (the `Runtime/admission#DISPATCH_SPINE` 2210 band, never a stringly `ComputeFault.Create` text fault) with the discriminated detail. `MemoryOwner<T>`/`SpanOwner<T>` are the lifetime boundary composed bare while `Ref<T>` carriers and `DangerousGetReference` stay kernel-internal, and `DangerousGetArray` is the `ArraySegment<T>` handoff seam for the tensor-lane rented-array `Tensor.Create` factory and the `StreamPool` zero-copy `ByteString` wrap. Content hashing rides the suite `System.IO.Hashing` `XxHash3`/`XxHash128` owner, never a second staging-local `HashCode<T>` digest. This axis admits no `System.IO.Pipelines` route and no unowned buffer type without a row.
 
 ```csharp signature
@@ -138,7 +138,7 @@ Each staging route carries one allocation ruling:
 - [04]-[INCREMENTAL_BUILD]: `ArrayPoolBufferWriter<T>`/`MemoryBufferWriter<T>` own growing payloads as the `IBufferWriter<T>` codec-emit sink on the `PooledMemory` row; `WrittenMemory`/`WrittenSpan` read the committed payload back zero-copy
 - [05]-[RENT_CLEARING]: `AllocationMode.Default` everywhere — upstream classification keeps secret payloads out of staging, so clearing buys nothing; `ZeroOutBuffer` stays a `Diagnostic`-row policy
 - [06]-[FOREIGN_EVIDENCE]: native and device grants pass `nativeAllocator`/`nativeReservedBytes` into `Grant` — the `NativeOrt` row carries the model-lane allocator name and reserved bytes and the `DeviceWgpu` row the `wgpu:<deviceId>` descriptor through the same slot pair
-- [07]-[EDGE_COPY]: a `Grant` on the `EdgeCopy` row carries a copy reason or `Admits` rejects it; every array materialization and stream flatten routes through it, and the realized copy surfaces as the `StreamConvertedToArray` diagnostic event
+- [07]-[EDGE_COPY]: every `Grant` on the `EdgeCopy` row carries a copy reason or `Admits` rejects it; every array materialization and stream flatten routes through it, and the realized copy surfaces as the `StreamConvertedToArray` diagnostic event
 - [08]-[TEXT_INTERNING]: `StringPool.GetOrAdd` interns receipt and diagnostic text at the sink edge only; `ReadOnlySpan<byte>.Fields`/`Tokenize` split codec text spans without intermediate strings
 - [09]-[BIT_PACKING]: `StagingViews.Mark`/`Clear`/`Cell` set/test one occupancy bit and `Pack`/`Read` pack/extract a multi-bit material-id field over a `Span<ulong>` window of `PooledMemory` (sixty-four cells per word) through the branchless `BitHelper` `ref`-overloads — one bit per cell replaces a `byte` buffer and the tensor-lane `VoxelGrid` encoding stages the mask
 - [10]-[IN_PLACE_GROWTH]: `ArrayPool<byte>.Grow` (over `ArrayPoolExtensions.EnsureCapacity`) grows the rented backing during incremental codec emit; the writer never reallocates through a second `MemoryOwner<T>.Allocate` and the granted-byte slot reflects the grown capacity
@@ -176,13 +176,13 @@ Each entry carries one ruling:
 
 ## [04]-[STREAM_POOL]
 
-- Owner: `StreamPool` boundary capsule owning the one process `RecyclableMemoryStreamManager`; `StreamPoolPolicy` carries every pool policy value; `PoolEvidence` the foreign-receiver projection folding the eleven manager events to `AllocationEvidence`.
+- Owner: `StreamPool` boundary capsule owning its composition's `RecyclableMemoryStreamManager`; `StreamPoolPolicy` carries every pool policy value; `PoolEvidence` the foreign-receiver projection folding the eleven manager events to `AllocationEvidence`.
 - Entry: `Fin<RecyclableMemoryStream> Get(CorrelationId correlation, StreamGrant grant)` admits positive sizes and contiguous-buffer capacity before trapping the manager rent. `Write(CorrelationId, IMessage)` derives the length-prefixed size and emits through `WriteLengthPrefixedTo(IBufferWriter<byte>)`; `Read<T>(RecyclableMemoryStream, MessageParser<T>)` parses the fragmented `GetReadOnlySequence()` without flattening. `StreamGrant` remains the closed `Open | Sized | ContiguousFrame` acquisition discriminant.
 - Auto: the constructor creates the manager from `policy.Options` and attaches all eleven manager events through `PoolEvidence.Project`, each event projecting its `EventArgs` to an `AllocationEvidence` value riding `ReceiptSinkPort.Send` with zero call-site code; `Get` passes the correlation as the `Guid` stream id on every path so every later event rejoins its intent by id, and the `RecyclableStream` row key is the tag.
 - Receipt: double-dispose, finalization, and discarded-buffer events are leak diagnostics (the `StagingEventKind.Diagnostic` column), never log noise; an array-conversion event is the `StreamConvertedToArray` diagnostic corroborating an edge copy.
-- Packages: Microsoft.IO.RecyclableMemoryStream, CommunityToolkit.HighPerformance, Google.Protobuf, LanguageExt.Core, Rasm.AppHost (project)
+- Packages: Microsoft.IO.RecyclableMemoryStream, CommunityToolkit.HighPerformance, Google.Protobuf, LanguageExt.Core, Rasm (project, kernel signal capsule)
 - Growth: one policy value on `StreamPoolPolicy`; a new evidence slot is one `AllocationEvidence` field; a new manager event is one `PoolEvidence.Project` row in the constructor; zero new surface.
-- Boundary: `StreamPool` is the named boundary capsule for the statement carve-out — the constructor's manager creation, event wiring, and detacher collection carry language-owned statement forms while every other member stays expression-shaped, and `StagingViews.Grow`'s `ref byte[]?` growth is the one further platform-forced statement seam. `PoolEvidence.Project` is the foreign-receiver/local-behavior extension form: the AppHost `ReceiptSinkPort` is the foreign receiver read only to stamp evidence while the subscription detacher holding the exact handler identity is Compute-owned behavior, so the block adds no second disposer registry and mutates no port state. One capsule per process composes as a singleton at the app root, the `Diagnostic` policy row binding on the debug and test-host profiles; memory, owners, writers, and sequences become streams only through the `AsStream` extension family at IO edges, and the package-internal stream classes never enter vocabulary. This capsule deletes per-call-site manager instances, raw `MemoryStream` construction, copy-shaped `ByteString.CopyFrom`, and unreceipted `ToArray` flattens.
+- Boundary: `StreamPool` is the named boundary capsule for the statement carve-out — the constructor's manager creation, event wiring, and detacher collection carry language-owned statement forms while every other member stays expression-shaped, and `StagingViews.Grow`'s `ref byte[]?` growth is the one further platform-forced statement seam. `PoolEvidence.Project` is the foreign-receiver/local-behavior extension form: the kernel `ReceiptSinkPort` is the foreign receiver read only to stamp evidence while the subscription detacher holding the exact handler identity is Compute-owned behavior, so the block adds no second disposer registry and mutates no port state. One capsule per COMPOSITION — the composing root supplies the policy and owns the capsule's lifetime and disposal, so this tier holds no static, no ambient locator, and no process-wide claim a plugin host loading the assembly into a second load context would already break, each composition owning its own manager — the `Diagnostic` policy row binding on the debug and test-host profiles; memory, owners, writers, and sequences become streams only through the `AsStream` extension family at IO edges, and the package-internal stream classes never enter vocabulary. This capsule deletes per-call-site manager instances, raw `MemoryStream` construction, copy-shaped `ByteString.CopyFrom`, and unreceipted `ToArray` flattens.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -345,7 +345,7 @@ public static class PoolEvidence {
             Action<EventHandler<TArgs>> remove,
             JsonSerializerOptions wire,
             Func<TArgs, AllocationEvidence> evidence) where TArgs : EventArgs {
-            // A throwing sink must never propagate into the manager's event dispatch, so the run traps once.
+            // Throwing sinks never propagate into the manager's event dispatch, so the run traps once.
             EventHandler<TArgs> handler = (_, args) => ignore(Try.lift(() => Stamp(sink, wire, evidence(args)).Run()).Run());
             add(handler);
             return () => remove(handler);
@@ -367,19 +367,19 @@ Each manager event projects one evidence ruling:
 - [06]-[BLOCKCREATED]: `SmallPoolInUse` fills the granted slot tracking small-pool growth; no `Id`, so `CorrelationId.None`
 - [07]-[LARGEBUFFERCREATED]: `RequiredSize`/`LargePoolInUse` fill the byte pair and `Pooled` rides `Detail` — surfaces an unpooled large grant the moment it happens
 - [08]-[BUFFERDISCARDED]: `BufferType:Reason` rides `Detail` as the discard taxonomy diagnostic
-- [09]-[USAGEREPORT]: the four pool byte gauges feed steady-state telemetry — in-use fills the byte pair, free fills the `SmallPoolFreeBytes`/`LargePoolFreeBytes` slots
+- [09]-[USAGEREPORT]: four pool byte gauges feed steady-state telemetry — in-use fills the byte pair, free fills the `SmallPoolFreeBytes`/`LargePoolFreeBytes` slots
 - [10]-[STREAMDOUBLEDISPOSED]: leak diagnostic — `DisposeStack2` rides `Detail` on the `Diagnostic` policy row
 - [11]-[STREAMFINALIZED]: leak diagnostic — an undisposed stream reached the finalizer; `AllocationStack` rides `Detail` when call stacks are on
 
 Each entry carries one ruling:
 
 - [01]-[FRAGMENTED_READ]: `GetReadOnlySequence` is the default read of staged bytes; segments map one-to-one onto pooled blocks (single-block and large-buffer streams collapse to one segment) and wire encode and decode never flatten the payload
-- [02]-[ZERO_COPY_EDGE]: the remote edge wraps sequence windows with `UnsafeByteOperations.UnsafeWrap` under the frame law the remote lane owns
+- [02]-[ZERO_COPY_EDGE]: `UnsafeByteOperations.UnsafeWrap` wraps sequence windows at the remote edge under the frame law the remote lane owns
 - [03]-[CODEC_WINDOW]: `TryGetBuffer` exposes a contiguous window for codecs bounded by `MaximumBufferSize`; `WriteTo` is the array-free stream-to-stream copy
 - [04]-[BLOCK_ALIGNMENT]: `BlockSize` holds exactly two 64 KiB `ArtifactSync` frames, so a frame never straddles a pooled block
 - [05]-[PAYLOAD_CAP]: `MaximumBufferSize` equals the wire payload cap from the canonical channel policy; large buffers step in 1 MiB multiples to that cap
 - [06]-[STREAM_CAP]: `MaximumStreamCapacity` zero is the package no-limit spelling; per-intent payload bounds own staging caps at admission through `AllocationClass.Grant`
-- [07]-[POOL_RETENTION]: the free-bytes caps pin retention to 128 pooled blocks and eight payload-cap buffers; returns beyond them release as `BufferDiscarded` events
+- [07]-[POOL_RETENTION]: free-bytes caps pin retention to 128 pooled blocks and eight payload-cap buffers; returns beyond them release as `BufferDiscarded` events
 - [08]-[CONTIGUOUS_VIEW]: `GetBuffer` exposes the whole stream as one array when the codec needs a contiguous backing past `MaximumBufferSize`; the call is array-free against pooled blocks and never copies, where `TryGetBuffer` caps at one block
 - [09]-[SEGMENT_HANDOFF]: `MemoryOwner<byte>.DangerousGetArray` hands the rented `ArraySegment<byte>` to `UnsafeByteOperations.UnsafeWrap` so a pooled payload becomes a `ByteString` with zero copy; the owner outlives the wrap and disposes after send
 - [10]-[BLOCK_DIAGNOSTIC]: `BlockAndOffset`/`BlockSegment` address pooled-block boundaries on the `Diagnostic` policy row so a frame-straddle assertion reads exact block positions; production reads only `GetReadOnlySequence` segment counts

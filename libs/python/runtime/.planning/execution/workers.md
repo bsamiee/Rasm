@@ -48,7 +48,7 @@ from msgspec import Struct
 from opentelemetry import trace
 from tblib import pickling_support
 
-from rasm.runtime.faults import SCOPES, RuntimeRail, Scope, boundary
+from rasm.runtime.faults import SCOPES, RuntimeRail, Scope, boundary, scoped
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.profiles import Profiles
 from rasm.runtime.receipts import Cost, Signals
@@ -56,6 +56,11 @@ from rasm.runtime.resilience import RetryClass
 
 lazy import numpy  # shared-memory reconstruction alone touches it; the wire stays dark for PICKLE-only processes
 lazy import wasmtime  # the guest arm alone touches it; an interpreter running no sandboxed kernel stays dark
+
+# crossing tracer minted once per interpreter — the worker floor included: the API mints a fresh handle per
+# `get_tracer` call and caches none, so a per-crossing mint allocates on the offload path, while the pre-install
+# proxy this module-scope handle resolves re-reads the global at every `start_span` and upgrades with no invalidation.
+_TRACER: Final[trace.Tracer] = scoped(trace.get_tracer, SCOPES[Scope.SERVICE])
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -253,7 +258,7 @@ def traced_kernel[T](carrier: dict[str, str], kernel: Kernel[T], *args: object) 
     # `rasm.tenant` baggage the carrier promotes prices the kernel to the tenant that ran it. An uninstalled floor
     # resolves no-op providers and a null profiler window, so the gate costs exactly two process reads.
     with Signals.attach(Signals.continue_inbound(carrier)):
-        span = trace.get_tracer(SCOPES[Scope.SERVICE]).start_span(f"worker.{kernel.name}")
+        span = _TRACER.start_span(f"worker.{kernel.name}")
         with trace.use_span(span, end_on_exit=True), Profiles.phase({"kernel": kernel.name, "shipping": kernel.shipping.value}):
             before = Cost.own()
             try:
@@ -488,11 +493,11 @@ from opentelemetry.exporter.otlp.proto.http import Compression
 from opentelemetry.sdk.resources import SERVICE_INSTANCE_ID, SERVICE_NAME, SERVICE_NAMESPACE, Resource
 
 from rasm.runtime.admission import RuntimeContext, RuntimeProfile
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, async_boundary
+from rasm.runtime.faults import SCHEMA_URL, BoundaryFault, RuntimeRail, async_boundary
 from rasm.runtime.receipts import OPEN, Receipt, Signals, receipted
 from rasm.runtime.resilience import guard
 from rasm.runtime.roots import RemoteEndpoint
-from rasm.runtime.telemetry import NAMESPACE, SCHEMA_URL, SignalProfile, Telemetry
+from rasm.runtime.telemetry import NAMESPACE, SignalProfile, Telemetry
 
 # every CROSSING-region owner — the kind/trait/shipping/wire vocabulary, `Kernel`, the policy tables, the crossing gates, and their
 # imports (`cloudpickle`, `StrEnum`, `Struct` included) — resolves in this same module; one module, three regions.
@@ -627,8 +632,10 @@ def _worker_boot(boot: WorkerBoot) -> None:
     ctx = RuntimeContext.admit(boot.profile)
     if boot.otel is not None:
         atexit.register(Telemetry.shutdown)
-        Telemetry.install(ctx, boot.otel, resource=worker_resource(boot.kind), signal_profile=WORKER_SIGNAL_PROFILE)
-        Metrics.install()
+        # budget threads off the install receipt's EFFECTIVE geometry, never the requested row, so the worker enrolls
+        # against the ceiling its own pipeline fixed; an unthreaded `install()` discards the profile's own budget.
+        installed = Telemetry.install(ctx, boot.otel, resource=worker_resource(boot.kind), signal_profile=WORKER_SIGNAL_PROFILE)
+        Metrics.install(budget=installed.signal_profile.cardinality_budget)
     if boot.pyroscope is not None:
         atexit.register(Profiles.shutdown)
         Profiles.install(ctx, boot.pyroscope, tags={"worker.kind": boot.kind.value}, tenant=boot.tenant)
@@ -938,14 +945,14 @@ class WorkerPool:
 ## [04]-[LEASE]
 
 - Owner: `LeaseSession` composes one `LeasePort` with an admitted `BackendGeneration` and one existing `WorkerPool`.
-- Algebra: `LeaseOp` closes claim, heartbeat, settle, and drain behind one provider-polymorphic `apply`.
-- Claim: `LeaseDemand` carries generation, worker identity, and capability evidence; `WorkLease` returns one fenced token and payload. Generation crosses as the admission owner's `Digest128`, so the claim, the returned fence, and the drift compare read one 32-hex domain.
-- Heartbeat: a sibling task races pool execution; lease loss cancels the crossing under the kernel's declared enforcement.
-- Settlement: success carries a kernel content identity; failure carries the typed runtime fault tag; the provider fences both by token.
-- Drain: provider admission closes before pool drain, so no claim enters after local execution begins settling.
-- Boundary: adapters own PostgreSQL, broker, or service calls; this owner carries no SQL, polling protocol, or provider transaction.
-- Growth: a provider implements one port; a lease transition is one union case; worker execution and supervision remain unchanged.
+- Cases: `LeaseOp` closes claim, heartbeat, settle, and drain behind one provider-polymorphic `apply`.
+- Law: `LeaseDemand` carries generation, worker identity, and capability evidence; `WorkLease` returns one fenced token and payload. Generation crosses as the admission owner's `Digest128`, so the claim, the returned fence, and the drift compare read one 32-hex domain.
+- Law: a sibling task races pool execution; lease loss cancels the crossing under the kernel's declared enforcement.
+- Law: success carries a kernel content identity; failure carries the typed runtime fault tag; the provider fences both by token.
+- Law: provider admission closes before pool drain, so no claim enters after local execution begins settling.
 - Packages: AnyIO structured concurrency, `expression` rails, `msgspec` unions, and runtime `ContentIdentity`.
+- Growth: a provider implements one port; a lease transition is one union case; worker execution and supervision remain unchanged.
+- Boundary: adapters own PostgreSQL, broker, or service calls; this owner carries no SQL, polling protocol, or provider transaction.
 
 ```python signature
 from collections.abc import Callable
@@ -1357,8 +1364,8 @@ if __name__ == "__main__":  # fleet floor: the remote arm's session command land
 
 ## [06]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[STATUS]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [LOKY_RESOURCE_TRACKER]-[OPEN]: does the admitted loky release spawn cleanly under the final CPython 3.15 interpreter, or does the beta-observed `resource_tracker` `ValueError: unknown resource type ... semlock` noise persist and demand an upstream pin or patch; `uv run python -c` live `get_reusable_executor` submit probe on the released interpreter.
+(none)

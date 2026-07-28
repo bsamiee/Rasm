@@ -1,6 +1,6 @@
 # [FABRICATION_IDEAS]
 
-Forward concept pool for `Rasm.Fabrication`. Each idea is a card — a bracketed slug leader with a few bullets stating the capability, what it unlocks, and the gap or technique it draws on. An idea drives one or more `TASKLOG.md` tasks; a finished or dropped idea moves to `[2]-[CLOSED]` with a one-line disposition.
+Forward concept pool for `Rasm.Fabrication`. Each idea is a card — a bracketed slug leader with a few bullets stating the capability, what it unlocks, and the gap or technique it draws on. Ideas drive one or more `TASKLOG.md` tasks; a finished or dropped idea moves to `[2]-[CLOSED]` with a one-line disposition.
 
 OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with.
 
@@ -8,7 +8,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 <!-- source-only: open idea card template:
 [ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
-- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Capability: <the higher-order invariant, owner capability, or concept established — concept grain only, never a page path, row list, or member spelling>.
 - Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
 - Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
 - Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
@@ -25,19 +25,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Unlocks: Capacity-aware routing, promise intervals, and shop-floor dispatch order.
 - Anchors: QuikGraph `SourceFirstBidirectionalTopologicalSort`, `Kinematics/fleet.md`, `Process/derivation.md`, and `Verify/estimation.md`.
 - Tension: `PlannedStep` carries machine kind without a `MachineInstance` identity, so instance contention requires widening the step owner.
-
-[HATCH_BOUNDARY_INGRESS]-[BLOCKED]: Admit ACadSharp hatch boundary paths as profile contours.
-- Capability: Each boundary path lowers edge-discriminated lines, circular arcs, elliptic arcs, and polylines into one loop under the OCS frame law.
-- Shape: Arc edges preserve bulge geometry through `Arc.CreateFromBulge` rather than tessellating the filled region away.
-- Unlocks: Hatched cut regions enter as geometry instead of unsupported entities.
-- Anchors: `Ingress/profile.md` and the ACadSharp catalog's hatch and frame surfaces.
-- Arms: the `BoundaryPath.Edge` leaf rows landing in `.api/api-acadsharp.md` — `[HATCH_EDGE_SPELLING]` drains the probe.
-
-[PROFILE_ANNOTATION_MARKS]-[QUEUED]: Carry profile annotation content through ingress.
-- Capability: `ProfileMarking` admits insert attributes, text, and multiline-text content.
-- Shape: `Insert.HasAttributes` discriminates attribute capture while marking entities retain their source identity.
-- Unlocks: Part marks, heat numbers, and shop tags reach traveler and posting consumers.
-- Anchors: `Ingress/profile.md`, `Documentation/traveler.md`, and `Posting/program.md`.
 
 [MAGAZINE_CHANGE_TIME_TO_ESTIMATION]-[QUEUED]: Price magazine traverse time as typed estimate evidence.
 - Capability: `ToolChange.Elapsed` derives from layout index steps and arm swing instead of a flat dwell.
@@ -59,7 +46,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Tension: Linking must publish the overlap measure before the placement scorer can consume it without coupling owners.
 
 [FIXTURING_DISTORTION]-[QUEUED]: Fold joining thermal load, preload, and fixture release into per-member displacement evidence.
-- Capability: A closed `DistortionSource` family produces the residual field that stability and tolerance consumers require.
+- Capability: one closed `DistortionSource` family produces the residual field that stability and tolerance consumers require.
 - Shape: Assembly tolerance chains and setup datum-transfer budgets consume one displacement receipt.
 - Unlocks: Post-weld position error and fixture-release distortion planning.
 - Anchors: `Joining/sequence.md`, `Fixturing/assembly.md`, and `Fixturing/setups.md`.
@@ -73,7 +60,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 
 [STACKUP_CONTRIBUTION_ON_QUALITY_RECORDS]-[QUEUED]: Publish dominant tolerance-chain contribution on as-built quality records.
 - Capability: Quality evidence retains stack method and ranked contribution rows from `ChainReceipt`.
-- Shape: A failed characteristic names the feature variation dominating its closure.
+- Shape: each failed characteristic names the feature variation dominating its closure.
 - Unlocks: Corrective-action routing and targeted capability studies.
 - Anchors: `Spec/tolerance.md` and `Documentation/report.md`.
 
@@ -119,7 +106,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Unlocks: Parameterized stipple and engrave generation without preset constants.
 - Anchors: `Toolpath/partition.md`.
 
-
 [DIMENSIONAL_ADMISSION_ATOM]-[QUEUED]: Centralize dimensional quantity admission on the Process atoms vocabulary.
 - Capability: One caller-fault-parameterized arrow converts unit-bearing text into canonical machining scalars.
 - Shape: Folder-local length parsers collapse onto the atom owner.
@@ -127,13 +113,13 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: `Process/owner.md`, `Toolpath/wire.md`, `Toolpath/link.md`, and `Toolpath/bevel.md`.
 
 [LINK_TOUR_REFINEMENT]-[QUEUED]: Refine linked tours against realized obstacle-aware transition cost.
-- Capability: A bounded precedence-safe two-opt or Or-opt stage reorders only swaps whose graph in-degrees remain satisfied.
+- Capability: one bounded precedence-safe two-opt or Or-opt stage reorders only swaps whose graph in-degrees remain satisfied.
 - Shape: `LinkReceipt` carries improvement delta after re-entering transition routing for swapped pairs.
 - Unlocks: Tours optimized against routed geometry instead of Euclidean proxy cost.
 - Anchors: `Toolpath/link.md`.
 
 [INSPECTION_TEST_PLAN]-[QUEUED]: Own the ordered inspection hold-point plan.
-- Capability: A `HoldPoint` family over inspection stages carries release attestations for hold, witness, review, and surveillance points.
+- Capability: one `HoldPoint` family over inspection stages carries release attestations for hold, witness, review, and surveillance points.
 - Shape: Traveler step release consumes satisfied hold evidence rather than rendered plan text.
 - Unlocks: Customer and notified-body release gating before material advances.
 - Anchors: `Documentation/report.md`, `Joining/procedure.md`, and `Documentation/traveler.md`.
@@ -144,20 +130,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Unlocks: shop paperwork generates from the seam graph; the Materials realization vocabularies gain their consuming end.
 - Anchors: the `FabricationProjector` registration row, the seam `DetailSchema.Realization` bags, the Documentation traveler and report owners.
 - Ripple: `Rasm.Materials` `[FABRICATION_SCHEDULE_WIRE]`.
-
-[FABRICATION_SPAN_SPINE]-[BLOCKED]: Admit the solve-span spine only after its in-box diagnostics members enter the catalog.
-- Capability: one source-scoped bracket gates inactive listeners, stamps typed faults, and emits bounded phase events around each long solve.
-- Shape: one `EngineSpan` vocabulary and one AppHost source-roster adapter; facts remain the receipt rail.
-- Unlocks: trace exemplars and profile correlation without a no-op tracing claim.
-- Anchors: `Process/telemetry.md#[06]-[SPANS]` and `Process/telemetry.md#[09]-[RESEARCH]`.
-- Arms: exact `ActivitySource`, `Activity`, `ActivityEvent`, `ActivityKind`, and `ActivityStatusCode` rows are absent from both applicable catalogs; arm when `libs/csharp/.api/api-diagnostics-metrics.md` catalogs them and `libs/csharp/Rasm.AppHost` admits the adapter.
-
-[MACHINE_TELEMETRY_DECODE]-[BLOCKED]: Bind MTConnect observations to the provider-neutral machine ingress only after the provider rows enter its catalog.
-- Capability: one exhaustive adapter maps timestamps, categories, type ids, values, execution states, and condition levels into `MachineObservationIngress`.
-- Shape: AppHost owns provider conversion; `Kinematics/observation.md` owns typed admission and measured folds.
-- Unlocks: verified MTConnect decode without provider types crossing the package boundary.
-- Anchors: `Kinematics/observation.md#[02]-[MACHINE_OBSERVATION]` and `Kinematics/observation.md#[03]-[RESEARCH]`.
-- Arms: observation-model members are absent from both applicable catalogs; arm when `libs/csharp/Rasm.Fabrication/.api/api-mtconnect-net-common.md` catalogs them and `libs/csharp/Rasm.AppHost` lands the adapter.
 
 [SOLVER_BENCHMARK_CORPUS]-[BLOCKED]: Produce accepted benchmark claims before measured probe routes consume them.
 - Capability: each solver case emits one durable benchmark receipt whose accepted projection authorizes the matching measured route.
@@ -172,9 +144,13 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[MACHINE_TELEMETRY_DECODE]-[COMPLETE]: the decode never belonged in this folder — `libs/csharp/.api/api-mtconnect.md` splits the package into CONNECTIVITY and CUTTING-TOOL partitions under the `[LOCAL_ADMISSION]` law, `Rasm.AppHost` owns provider conversion and the `MachineObservationWire` crossing, and `Kinematics/observation.md` keeps its neutral `MachineObservationIngress` with no MTConnect type crossing the package boundary.
+[HATCH_BOUNDARY_INGRESS]-[COMPLETE]: the blocker was false and the capability already landed — `Ingress/profile.md` `HatchContours`/`HatchEdge` lowers all five `BoundaryPath` leaves under the hatch's own `Normal`/`Elevation` OCS frame, with `HatchArcSpans` emitting exact bulges signed by the extrusion direction and the ellipse and spline leaves riding the package's own `PolygonalVertexes(int)`; `.api/api-acadsharp.md` now carries the whole verified `Edge` roster it was blocked on.
+[PROFILE_ANNOTATION_MARKS]-[COMPLETE]: `ProfileMarking` widened at `Ingress/profile.md` onto a `MarkingContent` `[Union]` — glyph, text, paragraph, and tag over one `Seq<string> Lines`, so arity is the only difference a consumer reads — with `AttributeEntity`/`CadText`/`MText` lowering arms and a `Tag` projection keying the attribute read; `Insert.Explode()` yields `Block.Entities` alone and never `Insert.Attributes`, so `Insertion` concatenates both in one ordinal space and `AttributeEntity` precedes its `TextEntity` base.
 [ENGINE_COUNTER_FACTS]-[COMPLETE]: `FabricationFact.Engine` fans nest (candidates/evaluated/rejected/memo-hits/memo-misses), skeleton, setup, scan, probe ICP-iteration, and bend-search rows over settled receipts onto `rasm.fabrication.engine.steps`; brake gained `BendSequenceReceipt` so the counters ride receipt evidence.
 [FABRICATION_HOOK_RAIL]-[COMPLETE]: `FabricationHooks` five-point roster on `Process/telemetry.md` fires from the `Process/owner.md` run spine — admission veto, stage advance, egress mint veto, verify verdict replay, delivery hand-off — scoped per `FabricationRuntime` instance.
-[FABRICATION_SLO_PACK]-[COMPLETE]: `Process/telemetry.md#[08]-[SLO_ROWS]` carries five burn-rate rows, and the stale selector now matches the emitted `measured=false` tag.
+[FABRICATION_SLO_PACK]-[COMPLETE]: `Process/telemetry#BOARD_PACK` carries `FabricationDescriptors` as one kernel `BoardPack` value — five `Objective` rows and the panel roster under the pack's own `Admit` proof — so window, factor, severity, budget share, and the canonical panel widget all derive from the kernel and the shop decides only target, indicator, and a deliberate reading.
+[FABRICATION_SPAN_SPINE]-[COMPLETE]: `FabricationTrace.Scopes` projects one `TraceScope` per `FabricationEngine` row into the composing root's kernel `SpanBand`, so the listener gate, the typed fail-leg status, and source lifetime are the capsule's and the solve bracket is one `band.Traced` call with no folder-local source or AppHost adapter.
 [PROGRAM_DELIVERY_RECEIPTS]-[COMPLETE]: `ProgramDelivery` binds image and transfer keys, controller acknowledgment, records, and classified operator attestation; `TravelerAmendment.Released` requires its verified receipt, and the collision-free `Delivery.ProgramKind` fact projects onto `rasm.fabrication.delivery.programs`.
 [FABRICATION_MEASURED_FLEET]-[COMPLETE]: `MachinePerformance.Of` folds admitted observations into availability, utilization, failure spacing, and load-scaled power; unobserved performance and quality carry from the prior row or admitted `PerformanceBaseline`, and stale matching falls back to declared OEE.
 [ENGAGEMENT_FEEDBACK]-[COMPLETE]: `EngagementLimit.MeasuredLoad` row scales the radial ceiling from the `LoadWindow` observed spindle-load fraction; `EngagementSolution.Binding` names the governing bound unchanged.

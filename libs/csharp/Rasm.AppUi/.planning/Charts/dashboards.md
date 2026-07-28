@@ -323,10 +323,17 @@ flowchart LR
 - Cases: `DashboardTile.Chart` | `DashboardTile.Stat` | `DashboardTile.Gauge` | `DashboardTile.Table` | `DashboardTile.Custom`; named dashboards benchmark, activity-timeline, analytical-flow, and telemetry — the telemetry board's tile registry is `Charts/telemetry.md`'s; `WatchComparator` = above | below | outside — each row carrying its own breach predicate.
 - Entry: `public static Fin<Seq<(TilePlacement Placement, DashboardTile Tile)>> Resolve(DashboardLayout layout, HashMap<string, DashboardTile> tiles)` — `Fin<T>` aborts on the first unresolved tile key.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, DynamicData, System.Reactive, NodaTime, SkiaSharp
-- Growth: a new tile kind is one `DashboardTile` case; a new dashboard is one `DashboardLayout` row; a new statistic is one `StatFold` row carrying its aggregation delegate; a new alert is one `WatchRule` value and a new breach posture is one `WatchComparator` row; a new cross-tile brush dimension is one `FilterState.Dimensions` map key; a new dimension projection is one `DimensionIndex` column; zero new surface.
-- Boundary: layout blobs persist as opaque snapshots through the persistence port on the dock-layout law — `DashboardLayout.Version` is the sole schema discriminator, `BoardState` carries no duplicate version knob, and `Restore` returns `ChartFault.SnapshotRejected` on a decode or version mismatch so caller policy decides whether to select a named layout; a `Stat` or `Gauge` tile binds its `StatFold` row over the shaped feed — the row's delegate composes the catalogued `DynamicData.Aggregation` fold (`Count`/`Sum`/`Avg`/`Minimum`/`Maximum`/`StdDev`) through the livedata `Tile` edge, so a tile statistic is recoverable from its declaration and a bind-edge aggregate lambda is the deleted form; a `Gauge` tile's fold stream lands on the materialized `XamlGaugeSeries.GaugeValue` member with `Invalidate` refreshing the series — the catalogued gauge bind, never a re-created series per sample; board capture projects to `SKImage` and hands off to the offscreen encode rows, so export is consumed and never re-owned; the headless render hash per named dashboard row is the visual proof lane and its `RenderReceipt` sinks through the `ReceiptSinkPort` envelope, its render duration and frame bytes folding onto the one AppUi meter through the composition-bound `BoardTelemetry.Observe` projection; the `Custom` tile case places a `CustomVisual` kind in a board and its capture is the `CustomVisual.Materialize` render twin keyed through the same `(ThemeVariantRow, DensityRow)` grid as `ChartSeriesSpec.Baseline`, never a LiveCharts capture, and its render folds through the same `BoardTelemetry.Observe` projection so a custom-tile render attributes distinctly without a second meter; the `Collab/issues.md` issue lane mounts as one such `Custom` cell and pushes its status keys as brushed tags into the board's one `FilterState`, so the issue board is a brush contributor on the same `CrossFilter` fold, never a second brush protocol; benchmark and activity-timeline rows read HLC-ordered receipt envelopes, and the skew-uncertainty band arrives as a consumed series feed from the evidence join; cost and schedule rows bind the Bim `CostSchedule` and `ScheduleNetwork` planning receipts as feed rows — values only, the planning solve stays Bim-side; the analytical-flow row composes the custom-visual kinds over the residence-selected analytical feed; cross-tile linked brushing is the `CrossFilter` fold over `DashboardSurface` — a board holds one `BehaviorSubject<FilterState>` whose value carries the brushed time `(Option<Instant> From, Option<Instant> To)`, the brushed tags `Set<string>`, and the source tile `Option<string>` that raised the brush, so a `VisualElementsPointerDown` or `ZoomBorder` rectangle on one tile pushes the next `FilterState` and every other tile's `ChartStream.Connect()` re-filters through the DynamicData dynamic-predicate `Filter(IObservable<Func<TRow,bool>>)` overload built from `CrossFilter.Predicate`, never a per-tile event handler and never a shared mutable list; the source tile is excluded from its own brush by the `FilterState.Source` key so a self-filter loop is structurally impossible; the predicate composes inside the chart `SyncContext` lock on the one `Connect()` spine the multi-series feeds already share, so a brush is an incremental change-set re-filter, never a feed re-subscribe; each brush push and its re-filtered tile count fold onto the one meter through `BoardTelemetry.Observe`; multi-dimensional categorical brushing folds through `DimensionIndex<TRow,TKey>` — one word-aligned `ulong[]` bitset per `(dimension, value)` cell over the row ordinal plus one liveness bitmap, so `Ingest` first clears an ordinal's prior memberships before replacement, `Drop` clears membership and liveness, an empty brush selects only live ordinals, and reuse cannot resurrect stale categorical membership; `Selected` computes the AND of per-dimension value unions in `O(words)` and its terminal projection enumerates only set bits, so no brush path performs an `O(rows)` re-scan and the bitmap index is the absorbing owner of categorical cross-filtering; spatial cross-filtering rides the `PolygonBrush` ring whose even-odd winding `Contains` is a ray-cast fold over the ring vertices, so a lasso or map-region brush on a geo or scatter tile pushes one `BrushRegion` and every spatial tile's predicate admits a row only when its projected point lies inside the ring; the server-side filtered re-query against the analytical lane is Persistence-owned, the brush pushes the same `(time, tags, dimensions, region)` shape across the seam and AppUi never builds the SQL predicate; `CrossFilter.Dispose` completes and disposes the subject at the board activation boundary, and the cross-tile telemetry contributes a `filter.apply` span and a `filter.tiles` count through `TelemetryContributorPort`; KPI watching is `WatchFold.Arm` over the SAME `StatFold` stream a `Stat` or `Gauge` tile already binds — the comparator row carries its breach predicate, a crossing is a breach-state EDGE held through the rule's `Quiet` window, and the crossing raises the rule's `ToastIntent` through the CommandIntent table, so the alert's durable evidence is the command rail's `CommandReceipt` and the alert vocabulary is rule DATA over the one aggregate spine, never a bind-edge threshold lambda or a second alert pipeline; a dashboard layout engine is the deleted pattern — one placement fold inside the dock rail.
+- Growth: a new tile kind is one `DashboardTile` case; a new dashboard is one `DashboardLayout` row; a new statistic is one `StatFold` row carrying its aggregation delegate, weighted where its stream carries populations; a new alert is one `WatchRule` value and a new breach posture is one `WatchComparator` row; a new cross-tile brush dimension is one `FilterState.Dimensions` map key; a new dimension projection is one `DimensionIndex` column; zero new surface.
+- Boundary: layout blobs persist as opaque snapshots through the persistence port on the dock-layout law — `DashboardLayout.Version` is the sole schema discriminator, `BoardState` carries no duplicate version knob, and `Restore` returns `ChartFault.SnapshotRejected` on a decode or version mismatch so caller policy decides whether to select a named layout; a `Stat` or `Gauge` tile binds its `StatFold` row over the shaped feed — the row's delegate composes the catalogued `DynamicData.Aggregation` fold (`Count`/`Sum`/`Avg`/`Minimum`/`Maximum`/`StdDev`, and `ForAggregation` where one row reduces two accumulators) through the livedata `Tile` edge, so a tile statistic is recoverable from its declaration and a bind-edge aggregate lambda is the deleted form; a multi-accumulator row folds every accumulator inside one `ForAggregation` scan, because a second subscription over the same feed publishes each accumulator against a different revision; every folded element is a `StatSample` carrying its own population, so a feed of PRE-REDUCED rows binds `Weighted` and a feed of raw observations binds `Average` over `StatSample.One` weights — an unweighted mean over bucket means answers the mean of buckets rather than of observations wherever bucket populations differ, and the tile renders that answer under the caption of the other; a `Gauge` tile's fold stream lands on the materialized `XamlGaugeSeries.GaugeValue` member with `Invalidate` refreshing the series — the catalogued gauge bind, never a re-created series per sample; board capture projects to `SKImage` and hands off to the offscreen encode rows, so export is consumed and never re-owned; the headless render hash per named dashboard row is the visual proof lane and its `RenderReceipt` sinks through the `ReceiptSinkPort` envelope, its render duration and frame bytes folding onto the one AppUi meter through the composition-bound `BoardTelemetry.Observe` projection; the `Custom` tile case places a `CustomVisual` kind in a board and its capture is the `CustomVisual.Materialize` render twin keyed through the same `(ThemeVariantRow, DensityRow)` grid as `ChartSeriesSpec.Baseline`, never a LiveCharts capture, and its render folds through the same `BoardTelemetry.Observe` projection so a custom-tile render attributes distinctly without a second meter; the `Collab/issues.md` issue lane mounts as one such `Custom` cell and pushes its status keys as brushed tags into the board's one `FilterState`, so the issue board is a brush contributor on the same `CrossFilter` fold, never a second brush protocol; benchmark and activity-timeline rows read HLC-ordered receipt envelopes, and the skew-uncertainty band arrives as a consumed series feed from the evidence join; cost and schedule rows bind the Bim `CostSchedule` and `ScheduleNetwork` planning receipts as feed rows — values only, the planning solve stays Bim-side; the analytical-flow row composes the custom-visual kinds over the residence-selected analytical feed; cross-tile linked brushing is the `CrossFilter` fold over `DashboardSurface` — a board holds one `BehaviorSubject<FilterState>` whose value carries the brushed time `(Option<Instant> From, Option<Instant> To)`, the brushed tags `Set<string>`, and the source tile `Option<string>` that raised the brush, so a `VisualElementsPointerDown` or `ZoomBorder` rectangle on one tile pushes the next `FilterState` and every other tile's `ChartStream.Connect()` re-filters through the DynamicData dynamic-predicate `Filter(IObservable<Func<TRow,bool>>)` overload built from `CrossFilter.Predicate`, never a per-tile event handler and never a shared mutable list; the source tile is excluded from its own brush by the `FilterState.Source` key so a self-filter loop is structurally impossible; the predicate composes inside the chart `SyncContext` lock on the one `Connect()` spine the multi-series feeds already share, so a brush is an incremental change-set re-filter, never a feed re-subscribe; each brush push and its re-filtered tile count fold onto the one meter through `BoardTelemetry.Observe`; multi-dimensional categorical brushing folds through `DimensionIndex<TRow,TKey>` — one word-aligned `ulong[]` bitset per `(dimension, value)` cell over the row ordinal beside one liveness bitmap, so `Ingest` first clears an ordinal's prior memberships before replacement, `Drop` clears membership and liveness, an empty brush selects only live ordinals, and reuse cannot resurrect stale categorical membership; `Selected` computes the AND of per-dimension value unions in `O(words)` and its terminal projection enumerates only set bits, so no brush path performs an `O(rows)` re-scan and the bitmap index is the absorbing owner of categorical cross-filtering; spatial cross-filtering rides the `PolygonBrush` ring whose even-odd winding `Contains` is a ray-cast fold over the ring vertices, so a lasso or map-region brush on a geo or scatter tile pushes one `BrushRegion` and every spatial tile's predicate admits a row only when its projected point lies inside the ring; the server-side filtered re-query against the analytical lane is Persistence-owned, the brush pushes the same `(time, tags, dimensions, region)` shape across the seam and AppUi never builds the SQL predicate; `CrossFilter.Dispose` completes and disposes the subject at the board activation boundary, and the cross-tile telemetry contributes a `filter.apply` span and a `filter.tiles` count through `TelemetryContributorPort`; KPI watching is `WatchFold.Arm` over the SAME `StatFold` stream a `Stat` or `Gauge` tile already binds — the comparator row carries its breach predicate, a crossing is a breach-state EDGE held through the rule's `Quiet` window, and the crossing raises the rule's `ToastIntent` through the CommandIntent table, so the alert's durable evidence is the command rail's `CommandReceipt` and the alert vocabulary is rule DATA over the one aggregate spine, never a bind-edge threshold lambda or a second alert pipeline; a dashboard layout engine is the deleted pattern — one placement fold inside the dock rail.
 
 ```csharp signature
+// Every element a Stat or Gauge tile folds carries its own population weight, so a stream of already-reduced
+// rollup rows reduces AGAIN without lying: a bucket standing for a thousand observations outweighs one standing
+// for three. A producer with no population count contributes `One`, which makes every unweighted row exact.
+public readonly record struct StatSample(double Value, double Weight) {
+    public static StatSample One(double value) => new(value, 1d);
+}
+
 // StatFold — the aggregate vocabulary Stat and Gauge tiles bind: each row carries the DynamicData
 // aggregation fold as its delegate column, so a tile's statistic is a row value, never a bind-edge lambda.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -336,12 +343,28 @@ public sealed partial class StatFold {
     public static readonly StatFold Count = new("count", static (source, _) => source.Count().Select(static n => (double)n));
     public static readonly StatFold Sum = new("sum", static (source, value) => source.Sum(value));
     public static readonly StatFold Average = new("average", static (source, value) => source.Avg(value));
+    // Population-weighted mean: the ONE reduction a stream of pre-reduced rows admits without distortion, since an
+    // unweighted mean of bucket means answers the mean of BUCKETS wherever bucket populations differ. `ForAggregation`
+    // hands the add/remove items of ONE subscription, so numerator and mass accumulate in a single scan whose state
+    // survives every revision and emits one ratio per change set — two `Sum` folds joined by `CombineLatest` subscribe
+    // the feed twice and publish a numerator against the prior revision's mass. A zero-population window reads 0
+    // rather than dividing by nothing.
+    public static readonly StatFold Weighted = new("weighted", static (source, value) =>
+        source.ForAggregation()
+            .Scan(
+                (Numerator: 0d, Mass: 0d),
+                (fold, changes) => changes.Aggregate(
+                    fold,
+                    (state, item) => item.Type == AggregateType.Add
+                        ? (Numerator: state.Numerator + (value(item.Item) * item.Item.Weight), Mass: state.Mass + item.Item.Weight)
+                        : (Numerator: state.Numerator - (value(item.Item) * item.Item.Weight), Mass: state.Mass - item.Item.Weight)))
+            .Select(static fold => fold.Mass <= 0d ? 0d : fold.Numerator / fold.Mass));
     public static readonly StatFold Minimum = new("minimum", static (source, value) => source.Minimum(value));
     public static readonly StatFold Maximum = new("maximum", static (source, value) => source.Maximum(value));
     public static readonly StatFold Deviation = new("deviation", static (source, value) => source.StdDev(value, fallbackValue: 0d));
 
     [UseDelegateFromConstructor]
-    public partial IObservable<double> Fold(IObservable<IChangeSet<double, string>> source, Func<double, double> value);
+    public partial IObservable<double> Fold(IObservable<IChangeSet<StatSample, string>> source, Func<StatSample, double> value);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -664,35 +687,36 @@ public static class WatchFold {
 
 public static class BoardTelemetry {
     public const string RenderInstrument = "rasm.appui.chart.render.elapsed";
-    public const string FrameBytesInstrument = "rasm.appui.chart.frame.bytes";
+    // Size, never bytes: the estate name grammar carries no unit suffix and the UCUM By unit states the measure.
+    public const string FrameSizeInstrument = "rasm.appui.chart.frame.size";
     public const string OverlaySwapsInstrument = "rasm.appui.geo.overlay.swaps";
     public const string OverlayLandsInstrument = "rasm.appui.geo.overlay.lands";
     public const string FilterAppliesInstrument = "rasm.appui.filter.applies";
     public const string FilterTilesInstrument = "rasm.appui.filter.tiles";
 
-    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
-        AppUiTelemetry.Contribute(version, schemaUrl,
-            new(RenderInstrument, InstrumentKind.Distribution, "s", "board and chart render wall duration", Buckets.InteractionSeconds),
-            new(FrameBytesInstrument, InstrumentKind.Count, "By", "encoded board-frame bytes"),
-            new(OverlaySwapsInstrument, InstrumentKind.Count, "{swap}", "live geo-overlay land swaps"),
-            new(OverlayLandsInstrument, InstrumentKind.Count, "{land}", "land records folded per overlay swap"),
-            new(FilterAppliesInstrument, InstrumentKind.Count, "{brush}", "cross-filter brush applications by source tile"),
-            new(FilterTilesInstrument, InstrumentKind.Count, "{tile}", "tiles re-filtered per brush application"));
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            InstrumentSpec.Advised(RenderInstrument, "s", "board and chart render wall duration", MeasureForm.Real, Buckets.InteractionSeconds),
+            InstrumentSpec.Count(FrameSizeInstrument, "By", "encoded board-frame payload size", MeasureForm.Whole),
+            InstrumentSpec.Count(OverlaySwapsInstrument, "{swap}", "live geo-overlay land swaps", MeasureForm.Whole),
+            InstrumentSpec.Count(OverlayLandsInstrument, "{land}", "land records folded per overlay swap", MeasureForm.Whole),
+            InstrumentSpec.Count(FilterAppliesInstrument, "{brush}", "cross-filter brush applications by source tile", MeasureForm.Whole, AppUiTelemetry.SourceSlot),
+            InstrumentSpec.Count(FilterTilesInstrument, "{tile}", "tiles re-filtered per brush application", MeasureForm.Whole));
 
     // Composition binds each projection onto the fold that already holds the typed fact — the proof-lane
     // RenderReceipt, the GeoLandFold change-set fold, and the CrossFilter FilterState push.
-    public static Unit Observe(InstrumentSet set, RenderReceipt receipt) =>
-        (ignore(set.Record(RenderInstrument, receipt.Elapsed.TotalSeconds)),
-         ignore(set.Count(FrameBytesInstrument, receipt.Bytes))).Item2;
+    public static Fin<Unit> Observe(InstrumentSet set, RenderReceipt receipt) =>
+        set.Write(RenderInstrument, receipt.Elapsed.TotalSeconds)
+            .Bind(_ => set.Write(FrameSizeInstrument, receipt.Bytes));
 
-    public static Unit Observe(InstrumentSet set, int landsFolded) =>
-        (ignore(set.Count(OverlaySwapsInstrument, 1L)),
-         ignore(set.Count(OverlayLandsInstrument, landsFolded))).Item2;
+    public static Fin<Unit> Observe(InstrumentSet set, int landsFolded) =>
+        set.Write(OverlaySwapsInstrument, 1L)
+            .Bind(_ => set.Write(OverlayLandsInstrument, (long)landsFolded));
 
-    public static Unit Observe(InstrumentSet set, FilterState pushed, int tilesRefiltered) =>
-        (ignore(set.Count(FilterAppliesInstrument, 1L,
-             new KeyValuePair<string, object?>("source", pushed.Source.IfNone("none")))),
-         ignore(set.Count(FilterTilesInstrument, tilesRefiltered))).Item2;
+    public static Fin<Unit> Observe(InstrumentSet set, FilterState pushed, int tilesRefiltered) =>
+        set.Write(FilterAppliesInstrument, 1L,
+                new KeyValuePair<string, object?>(AppUiTelemetry.SourceSlot, pushed.Source.IfNone("none")))
+            .Bind(_ => set.Write(FilterTilesInstrument, (long)tilesRefiltered));
 }
 ```
 

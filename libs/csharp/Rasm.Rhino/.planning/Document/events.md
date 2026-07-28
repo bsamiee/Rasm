@@ -1,6 +1,6 @@
 # [RASM_RHINO_EVENTS]
 
-`DocumentStream` owns observation from raw host and filesystem callbacks: detached facts, nonblocking delivery, bounded loss evidence, retryable symmetric detachment. `Observation` carries source-specific admission, `EventFamily` carries host wiring as data, and `Watch` retains delivery and release outcomes under one identity. `HookPoint` names every detached stream as `rasm.rhino.<domain>.<point>` under the kernel `HookModality` rows, `MountRegistry` owns name-addressed discovery and first-mount-wins custody over the adopter mounts, and `RhinoInstruments` declares the contributed rows.
+`DocumentStream` owns observation from raw host and filesystem callbacks: detached facts, nonblocking delivery, bounded loss evidence, retryable symmetric detachment. `Observation` carries source-specific admission, `EventFamily` carries host wiring as data, and `Watch` retains delivery and release outcomes under one identity. `RhinoPoint` names every detached stream as `rasm.rhino.<domain>.<point>` under the kernel `HookModality` rows, `MountRegistry` owns name-addressed discovery and first-mount-wins custody over the adopter mounts, and `RhinoInstruments` declares the contributed rows.
 
 ## [01]-[INDEX]
 
@@ -8,7 +8,7 @@
 - [03]-[PAYLOAD_PROJECTION]: `EventPayload` and `DocEvent` carry detached callback evidence.
 - [04]-[DELIVERY_POLICY]: `Delivery` and `ReceiptPolicy` close bounded delivery and loss evidence.
 - [05]-[STREAM_OWNER]: `DocumentStream` and `Watch` own admission, attachment, delivery, and release.
-- [06]-[HOOK_REGISTRY]: `HookPoint`, `HookMount`, and `MountRegistry` close point addressing, host-truth modality over the kernel rows, mount custody, and multi-plugin arbitration.
+- [06]-[HOOK_REGISTRY]: `RhinoPoint`, `HookMount`, and `MountRegistry` close point addressing, host-truth modality over the kernel rows, mount custody, and multi-plugin arbitration.
 - [07]-[TELEMETRY_TAP]: `RhinoInstruments` declares the contributed instrument rows and the string-scoped port.
 
 ## [02]-[FAMILY]
@@ -660,7 +660,7 @@ public readonly record struct FileEdge(FileChangeKind Kind, string Path, Option<
 ## [04]-[DELIVERY_POLICY]
 
 - Owner: `Delivery` owns direct, idle-deferred, and paced modalities; `StreamLane` resolves paced channel construction from the admitted `ReceiptPolicy`.
-- Law: host callbacks never park. A paced lane either accepts immediately or emits loss evidence through the channel callback and write result.
+- Law: host callbacks never park — each paced lane either accepts immediately or emits loss evidence through the channel callback and write result.
 - Law: channel continuations never execute synchronously on a producing host callback.
 - Law: bounded lanes close every nonblocking full-buffer mode; `Coalesced` preserves the queued head and latest arrival by evicting the newest buffered predecessor.
 - Law: frame cadence admits only bounded dropping lanes; unbounded accumulation is rejected before attachment.
@@ -1536,13 +1536,13 @@ internal sealed class IdlePump : IDisposable {
 
 ## [06]-[HOOK_REGISTRY]
 
-- Owner: `HookPoint` is the closed boundary-wide point vocabulary addressed `rasm.rhino.<domain>.<point>`, its rows ruled by the kernel `HookModality` vocabulary; `HookMount` carries one owner-registered binding as data; `MountRegistry` owns name-addressed discovery, first-mount-wins custody, and typed grant binding — a different concern than the kernel's composition-frozen point mount, so it carries its own name; `PluginKey` is the plugin identity every process-global claim keys on.
+- Owner: `RhinoPoint` is the closed boundary-wide point vocabulary addressed `rasm.rhino.<domain>.<point>`, its rows ruled by the kernel `HookModality` vocabulary; `HookMount` carries one owner-registered binding as data; `MountRegistry` owns name-addressed discovery, first-mount-wins custody, and typed grant binding — a different concern than the kernel's composition-frozen point mount, so it carries its own name; `PluginKey` is the plugin identity every process-global claim keys on.
 - Law: a point name resolves in one hop — a consumer binds `MountRegistry.Bind` on the point key and receives the owning stream's own grant (a `Watch`, `PointerLease`, `WidgetHost`, `Subscription`, or `ContentStream`), so no consumer learns a per-domain stream API and no second delivery path forms beside the owner's bounded lanes.
 - Law: modality is host truth, never a registry promise — a `Veto` row exists only where the host callback admits refusal, the veto-truth census citing the exact host member; every other point is post-hoc `Observe`, and `Replay` marks only a point whose owner retains a readable latest-value ledger.
 - Law: mount custody is one seat per point — `Mount` claims the point for the registering plugin, a duplicate claim faults typed naming the point, and the mount's detacher returns the seat only while the same mount still holds it; `MountAll` releases an admitted prefix when any later row refuses; observers are unbounded because binding rides the owner's own multi-subscriber machinery.
 - Law: telemetry is a tap — the `rasm.rhino.objects.fault` point binds onto the `ObjectsTelemetry` keyed-sink fan, and the `rasm.rhino.host.exception`/`rasm.rhino.host.log` points bind the `HostUtils.OnExceptionReport` and `HostUtils.OnSendLogMessageToCloud` statics onto the same fan through the `HostTap.Mount` seat, so observability subscribes to domain facts and no emit call rides inside domain code.
 - Law: process-global custody is a closed census — every collision surface carries its collision class and arbitration row below, and a new process-global surface is one census row with its arbitration named before any fence composes it.
-- Growth: a new fact stream is one `HookPoint` row with its `HookMount` registration on its owning page; a new plugin-visible custody surface is one census row.
+- Growth: a new fact stream is one `RhinoPoint` row with its `HookMount` registration on its owning page; a new plugin-visible custody surface is one census row.
 
 Document point census — every band rides the one stream owner:
 
@@ -1620,28 +1620,28 @@ public readonly partial struct PluginKey {
 
 // Modality rows are the kernel HookModality vocabulary; a point may admit more than one row.
 [SmartEnum<string>]
-public sealed partial class HookPoint {
-    public static readonly HookPoint DocumentLifecycle = new(key: "rasm.rhino.document.lifecycle", modalities: Seq(HookModality.Observe));
-    public static readonly HookPoint DocumentStructure = new(key: "rasm.rhino.document.structure", modalities: Seq(HookModality.Observe));
-    public static readonly HookPoint DocumentSelection = new(key: "rasm.rhino.document.selection", modalities: Seq(HookModality.Observe));
-    public static readonly HookPoint DocumentTables = new(key: "rasm.rhino.document.tables", modalities: Seq(HookModality.Observe));
-    public static readonly HookPoint DocumentScreen = new(key: "rasm.rhino.document.screen", modalities: Seq(HookModality.Observe));
-    public static readonly HookPoint DocumentDraw = new(key: "rasm.rhino.document.draw", modalities: Seq(HookModality.Observe));
-    public static readonly HookPoint DocumentPanels = new(key: "rasm.rhino.document.panels", modalities: Seq(HookModality.Observe));
-    public static readonly HookPoint DocumentFile = new(key: "rasm.rhino.document.file", modalities: Seq(HookModality.Observe));
-    public static readonly HookPoint DisplayPointer = new(key: "rasm.rhino.display.pointer", modalities: Seq(HookModality.Observe));
-    public static readonly HookPoint DisplayWidget = new(key: "rasm.rhino.display.widget", modalities: Seq(HookModality.Observe));
-    public static readonly HookPoint DisplayCull = new(key: "rasm.rhino.display.cull", modalities: Seq(HookModality.Veto));
-    public static readonly HookPoint DisplayDrawObject = new(key: "rasm.rhino.display.drawobject", modalities: Seq(HookModality.Veto));
-    public static readonly HookPoint ObjectsViewable = new(key: "rasm.rhino.objects.viewable", modalities: Seq(HookModality.Veto));
-    public static readonly HookPoint ObjectsPick = new(key: "rasm.rhino.objects.pick", modalities: Seq(HookModality.Veto));
-    public static readonly HookPoint ObjectsRegrow = new(key: "rasm.rhino.objects.regrow", modalities: Seq(HookModality.Veto));
-    public static readonly HookPoint ObjectsFault = new(key: "rasm.rhino.objects.fault", modalities: Seq(HookModality.Observe));
-    public static readonly HookPoint HostException = new(key: "rasm.rhino.host.exception", modalities: Seq(HookModality.Observe));
-    public static readonly HookPoint HostCloudLog = new(key: "rasm.rhino.host.log", modalities: Seq(HookModality.Observe));
-    public static readonly HookPoint HostUiPanel = new(key: "rasm.rhino.hostui.panel", modalities: Seq(HookModality.Observe, HookModality.Replay));
-    public static readonly HookPoint HostUiSkin = new(key: "rasm.rhino.hostui.skin", modalities: Seq(HookModality.Observe));
-    public static readonly HookPoint RenderContent = new(key: "rasm.rhino.render.content", modalities: Seq(HookModality.Observe));
+public sealed partial class RhinoPoint {
+    public static readonly RhinoPoint DocumentLifecycle = new(key: "rasm.rhino.document.lifecycle", modalities: Seq(HookModality.Observe));
+    public static readonly RhinoPoint DocumentStructure = new(key: "rasm.rhino.document.structure", modalities: Seq(HookModality.Observe));
+    public static readonly RhinoPoint DocumentSelection = new(key: "rasm.rhino.document.selection", modalities: Seq(HookModality.Observe));
+    public static readonly RhinoPoint DocumentTables = new(key: "rasm.rhino.document.tables", modalities: Seq(HookModality.Observe));
+    public static readonly RhinoPoint DocumentScreen = new(key: "rasm.rhino.document.screen", modalities: Seq(HookModality.Observe));
+    public static readonly RhinoPoint DocumentDraw = new(key: "rasm.rhino.document.draw", modalities: Seq(HookModality.Observe));
+    public static readonly RhinoPoint DocumentPanels = new(key: "rasm.rhino.document.panels", modalities: Seq(HookModality.Observe));
+    public static readonly RhinoPoint DocumentFile = new(key: "rasm.rhino.document.file", modalities: Seq(HookModality.Observe));
+    public static readonly RhinoPoint DisplayPointer = new(key: "rasm.rhino.display.pointer", modalities: Seq(HookModality.Observe));
+    public static readonly RhinoPoint DisplayWidget = new(key: "rasm.rhino.display.widget", modalities: Seq(HookModality.Observe));
+    public static readonly RhinoPoint DisplayCull = new(key: "rasm.rhino.display.cull", modalities: Seq(HookModality.Veto));
+    public static readonly RhinoPoint DisplayDrawObject = new(key: "rasm.rhino.display.drawobject", modalities: Seq(HookModality.Veto));
+    public static readonly RhinoPoint ObjectsViewable = new(key: "rasm.rhino.objects.viewable", modalities: Seq(HookModality.Veto));
+    public static readonly RhinoPoint ObjectsPick = new(key: "rasm.rhino.objects.pick", modalities: Seq(HookModality.Veto));
+    public static readonly RhinoPoint ObjectsRegrow = new(key: "rasm.rhino.objects.regrow", modalities: Seq(HookModality.Veto));
+    public static readonly RhinoPoint ObjectsFault = new(key: "rasm.rhino.objects.fault", modalities: Seq(HookModality.Observe));
+    public static readonly RhinoPoint HostException = new(key: "rasm.rhino.host.exception", modalities: Seq(HookModality.Observe));
+    public static readonly RhinoPoint HostCloudLog = new(key: "rasm.rhino.host.log", modalities: Seq(HookModality.Observe));
+    public static readonly RhinoPoint HostUiPanel = new(key: "rasm.rhino.hostui.panel", modalities: Seq(HookModality.Observe, HookModality.Replay));
+    public static readonly RhinoPoint HostUiSkin = new(key: "rasm.rhino.hostui.skin", modalities: Seq(HookModality.Observe));
+    public static readonly RhinoPoint RenderContent = new(key: "rasm.rhino.render.content", modalities: Seq(HookModality.Observe));
 
     public Seq<HookModality> Modalities { get; }
 
@@ -1650,7 +1650,7 @@ public sealed partial class HookPoint {
 
 // --- [MODELS] -----------------------------------------------------------------------------
 public sealed record HookMount(
-    HookPoint Point,
+    RhinoPoint Point,
     PluginKey Plugin,
     Type Ask,
     Type Grant,
@@ -1692,7 +1692,7 @@ public static class MountRegistry {
                 .MapFail(error => Rollback(held: held, primary: error, op: op)));
     }
 
-    public static Fin<TGrant> Bind<TAsk, TGrant>(HookPoint point, TAsk ask, Op? key = null)
+    public static Fin<TGrant> Bind<TAsk, TGrant>(RhinoPoint point, TAsk ask, Op? key = null)
         where TAsk : notnull
         where TGrant : class {
         Op op = key.OrDefault();
@@ -1719,13 +1719,13 @@ public static class DocumentHooks {
     public static Fin<Seq<IDisposable>> Mount(PluginKey plugin, Op? key = null) {
         Op op = key.OrDefault();
         Seq<Func<Fin<IDisposable>>> mounts = Seq(
-                (Point: HookPoint.DocumentLifecycle, Band: EventBand.Lifecycle),
-                (Point: HookPoint.DocumentStructure, Band: EventBand.Structure),
-                (Point: HookPoint.DocumentSelection, Band: EventBand.Selection),
-                (Point: HookPoint.DocumentTables, Band: EventBand.Tables),
-                (Point: HookPoint.DocumentScreen, Band: EventBand.Screen),
-                (Point: HookPoint.DocumentDraw, Band: EventBand.Draw),
-                (Point: HookPoint.DocumentPanels, Band: EventBand.Panels))
+                (Point: RhinoPoint.DocumentLifecycle, Band: EventBand.Lifecycle),
+                (Point: RhinoPoint.DocumentStructure, Band: EventBand.Structure),
+                (Point: RhinoPoint.DocumentSelection, Band: EventBand.Selection),
+                (Point: RhinoPoint.DocumentTables, Band: EventBand.Tables),
+                (Point: RhinoPoint.DocumentScreen, Band: EventBand.Screen),
+                (Point: RhinoPoint.DocumentDraw, Band: EventBand.Draw),
+                (Point: RhinoPoint.DocumentPanels, Band: EventBand.Panels))
             .Map(row => (Func<Fin<IDisposable>>)(() => MountRegistry.Mount(
                 mount: new HookMount(
                     Point: row.Point,
@@ -1738,7 +1738,7 @@ public static class DocumentHooks {
                 key: op)))
             .Add(() => MountRegistry.Mount(
                 mount: new HookMount(
-                    Point: HookPoint.DocumentFile,
+                    Point: RhinoPoint.DocumentFile,
                     Plugin: plugin,
                     Ask: typeof(Observation.File),
                     Grant: typeof(Watch),
@@ -1751,12 +1751,12 @@ public static class DocumentHooks {
 
 ## [07]-[TELEMETRY_TAP]
 
-- Owner: `RhinoInstruments` — the boundary's contributed instrument rows in the kernel `InstrumentRow` shape and the string-scoped `TelemetryContributorPort` mint under scope `Rasm.Rhino`.
+- Owner: `RhinoInstruments` — the boundary's contributed instrument rows in the kernel `InstrumentSpec` shape and the string-scoped `TelemetryContributorPort` mint under scope `Rasm.Rhino`.
 - Cases: stream-loss counts off the `StreamReceipt.PacedLoss` journal evidence by lane and loss kind; delivered document facts by band off each mounted watch; host exception and cloud-log observations off the two `HostTap.Mount` points.
-- Entry: `RhinoInstruments.Telemetry(string version, string schemaUrl)` — the one contributor port an app composition merges by scope; the plugin root materializes the rows over its own per-ALC factory meter through `InstrumentSet.Of`, and one custody per composition holds — either the port rides an app fan or the root materializes locally, never both.
+- Entry: `RhinoInstruments.Telemetry(string version, string schemaUrl = TelemetryIdentity.SchemaUrl)` — the one contributor port an app composition merges by scope, its coordinate defaulting to the branch semconv pin; the plugin root materializes the rows over its own per-ALC factory meter through `InstrumentSet.Of`, and one custody per composition holds — either the port rides an app fan or the root materializes locally, never both.
 - Auto: writes ride observe taps composed at the plugin root — a watch's receipt journal feeds the loss counter, the delivery sink feeds the band counter, and the host-tap points feed the two observation counters — so no stream, projection, or mount fence carries a meter call.
 - Packages: `Rasm` (kernel signal capsule), BCL inbox (`System.Diagnostics.Metrics`).
-- Growth: one measured boundary concern is one `InstrumentRow` here and one observe-tap write at the plugin root.
+- Growth: one measured boundary concern is one `InstrumentSpec` factory call here and one observe-tap write at the plugin root.
 - Boundary: rows carry dotted `rasm.rhino.*` names with UCUM units and closed dimensions; instrument execution over these declarations is app-root altitude, never a second measurement truth inside the boundary, and provider custody stays with the per-ALC factory owner.
 
 ```csharp signature
@@ -1768,20 +1768,18 @@ public static class RhinoInstruments {
     public const string HostExceptions = "rasm.rhino.host.exceptions";
     public const string HostLogs = "rasm.rhino.host.logs";
 
-    public static readonly Seq<InstrumentRow> Rows = Seq(
-        new InstrumentRow(Name: StreamLoss, Unit: "{fact}", Description: "paced-lane facts shed by lane and loss kind",
-            Bind: static (meter, name, unit, text) => meter.CreateCounter<long>(name: name, unit: unit, description: text),
-            Dimensions: ["lane", "loss"]),
-        new InstrumentRow(Name: DocumentEvents, Unit: "{event}", Description: "delivered document facts by band",
-            Bind: static (meter, name, unit, text) => meter.CreateCounter<long>(name: name, unit: unit, description: text),
-            Dimensions: ["band"]),
-        new InstrumentRow(Name: HostExceptions, Unit: "{exception}", Description: "host exception reports observed through the host tap",
-            Bind: static (meter, name, unit, text) => meter.CreateCounter<long>(name: name, unit: unit, description: text)),
-        new InstrumentRow(Name: HostLogs, Unit: "{message}", Description: "host cloud-log messages observed through the host tap",
-            Bind: static (meter, name, unit, text) => meter.CreateCounter<long>(name: name, unit: unit, description: text)));
+    public const string LaneSlot = "lane";
+    public const string LossSlot = "loss";
+    public const string BandSlot = "band";
 
-    public static TelemetryContributorPort Telemetry(string version, string schemaUrl) =>
-        new(Scope: Scope, Version: version, SchemaUrl: schemaUrl, Instruments: Rows);
+    public static readonly Seq<InstrumentSpec> Rows = Seq(
+        InstrumentSpec.Count(StreamLoss, "{fact}", "paced-lane facts shed by lane and loss kind", MeasureForm.Whole, LaneSlot, LossSlot),
+        InstrumentSpec.Count(DocumentEvents, "{event}", "delivered document facts by band", MeasureForm.Whole, BandSlot),
+        InstrumentSpec.Count(HostExceptions, "{exception}", "host exception reports observed through the host tap", MeasureForm.Whole),
+        InstrumentSpec.Count(HostLogs, "{message}", "host cloud-log messages observed through the host tap", MeasureForm.Whole));
+
+    public static TelemetryContributorPort Telemetry(string version, string schemaUrl = TelemetryIdentity.SchemaUrl) =>
+        new(Scope: Scope, Version: version, Instruments: Rows, SchemaUrl: schemaUrl);
 }
 ```
 

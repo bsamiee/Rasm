@@ -12,12 +12,14 @@ Color arrives from `graphic/color/derive#DERIVE` as the `Derivation.coords` arra
 
 - Owner: `ChartSpec` collapses the `vega`/`lets_plot`/`matplotlib` cases under one total `match` over `ChartEngineTag`; `ChartSpec.of(engine, theme)` is the one composer keyed on input shape, returning `Result[ChartSpec, SpecFault]` so `to_dict` schema validation is a typed rail, not a raise. Construction is `of` alone — no per-case forwarding staticmethod, no `ChartSpec.compose` hop, no parallel `ChartEngine.compose` fold.
 - Cases: `vega` folds an altair builder or a raw Vega-family dict to the palette-themed spec dict the export axis consumes directly — a raw dict's `$schema` may name either dialect and either supported major generation (`_SCHEMAS` closes Vega-Lite v5/v6 and Vega v5/v6, the exact band the bundled converter renders), and the export half derives the converter family from that same `$schema`, so no dialect flag rides beside the spec that already carries it; `lets_plot` carries a single `PlotSpec` or a `gggrid`/`ggbunch`/`ggdeck` `SupPlotsSpec` composite root (both own the same `to_*` serializers) plus its `Palette`; `matplotlib` carries the typed `Figure` plus its `Palette` — both rendering on the worker lane beside their own annotation egress. No plotly/kaleido case — host-free posture forbids a Chrome-gated engine, and vl-convert renders no plotly.js.
-- Entry: builder roots fold through `to_dict(validate=True)` and map `SchemaValidationError` to `<invalid-spec>`; a raw `dict` crosses `VegaInput.model_validate` and maps `ValidationError` to the same closed fault before `ChartTheme.apply` promotes its root; `PlotSpec()`/`SupPlotsSpec()`/`Figure()` class patterns prove the grammar/publication cases by type, carrying `theme.palette` — a composite root's subplots arrive palette-threaded from authoring, so export passes the composite through untouched while a lone `PlotSpec` gains the manual scales at render; a non-chart object rails `<unknown-engine>` at admission. A palette-only caller constructs `ChartTheme(palette=coords)` with sibling blocks `None`, while a journal/ISO-3098 caller passes the typed `axis`/`legend`/`title` styling on the same owner.
+- Entry: builder roots fold through `to_dict(validate=True)` and map `SchemaValidationError` to `<invalid-spec>`; a raw `dict` crosses `VegaInput.model_validate` and maps `ValidationError` to the same closed fault before `ChartTheme.apply` promotes its root; `PlotSpec()`/`SupPlotsSpec()`/`Figure()` class patterns prove the grammar/publication cases by type, carrying `theme.palette` — a composite root's subplots arrive palette-threaded from authoring, so export passes the composite through untouched while a lone `PlotSpec` gains the manual scales at render; a non-chart object rails `<unknown-engine>` at admission on a module-name read that reifies nothing, and a `lets_plot` operand on a floor the distribution's marker excludes rails `<engine-unavailable>` on the memoized importability probe ahead of any class pattern reifying that proxy into a raise — the publication arm and the module-name gate both precede those patterns, so no sibling engine imports an unreachable one on its way past. Palette-only callers construct `ChartTheme(palette=coords)` with sibling blocks `None`, while a journal or ISO-3098 caller passes the typed `axis`/`legend`/`title` styling on the same owner.
 - Growth: a new host-free 2D engine is one `ChartSpec` case plus one `of` class-pattern arm plus one `visualization/chart/export#EXPORT` `_export_host_free` arm; a new altair channel, mark, transform, projection, selection, or `resolve_*` block is a builder call the Vega arm preserves through `to_dict`, never a new case; a new annotation-styling axis is one `ChartTheme` field plus one row in `ChartTheme.apply`'s block fold, and a new whole-canvas scalar is one `ChartTheme` field beside `background`/`font`.
 - Boundary: no live dashboard, UI event state, or browser runtime; no Chrome-gated engine, so plotly `graph_objects` and the kaleido headless-Chromium path are rejected; 3D scientific scenes ride `scene/render#SCENE`, not this axis; palettes arrive as `Derivation.coords`, never picked per engine and never overwriting a consumer's own `Color` encoding, since `config.range` sets scale ranges globally rather than per view; a forced `Chart.interactive()` or a forced `Color("category:N")` encode are rejected lower-capability forms, the first suppressing the consumer's named selections the HTML row renders, the second clobbering its color field. `alt.theme.register` is rejected on this axis: theming is per-spec data threaded through `ChartTheme.apply`, and the process-global theme registry would leak one caller's styling into every concurrent producer — only the registry's typed `*Kwds` vocabulary crosses in. The lets-plot/matplotlib arms carry the palette alone by design: each engine themes annotation styling through its own export egress, so the `*Kwds` blocks are Vega-only and that asymmetry is the modeled contract, not a gap. Emitted bytes hand to `composition/compose#COMPOSE`, re-rendered nowhere.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+from functools import cache
+from importlib import import_module
 from typing import Final, Literal
 
 from expression import Error, Ok, Result, case, tag, tagged_union
@@ -35,9 +37,25 @@ lazy from matplotlib.figure import Figure
 
 # --- [TYPES] ----------------------------------------------------------------------------
 type ChartEngineTag = Literal["vega", "lets_plot", "matplotlib"]
-type SpecFault = Literal["<invalid-spec>", "<unknown-engine>"]
+type SpecFault = Literal["<invalid-spec>", "<unknown-engine>", "<engine-unavailable>"]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
+# `lets-plot` carries an interpreter marker no supported floor satisfies, so its distribution stays ADMITTED and
+# UNREACHABLE. A class pattern reifies its `lazy` proxy the moment the arm is REACHED, so an unreachable engine would
+# raise out of a total match instead of railing. Reachability is the IMPORT and never discovery — `find_spec` answers
+# for a distribution whose own submodules then die on an unsatisfied marker or an absent native — so the gate imports
+# the exact modules those proxies name and memoizes the one attempt. It runs from the lets_plot arm alone, whose
+# subject already proves the package loaded, so the module-top deferral survives and no sibling engine touches it.
+@cache
+def _lets_plot() -> bool:
+    try:
+        import_module("lets_plot.plot.core")
+        import_module("lets_plot.plot.subplots")
+    except ImportError:
+        return False
+    return True
+
+
 # vl-convert bundles Vega 6.x plus the 5.8-6.4 Vega-Lite band, so both major schema generations of both dialects render.
 # canonical URLs close the allowlist whole — a suffix test would admit any authority or lookalike path ahead of the tail.
 _SCHEMAS: Final[frozenset[str]] = frozenset(
@@ -127,10 +145,17 @@ class ChartSpec:
                 return catch(exception=ValidationError)(VegaInput.model_validate)(raw).map_error(lambda _fault: "<invalid-spec>").map(
                     lambda admitted: ChartSpec(vega=theme.apply(admitted.root))
                 )
+            case Figure() as figure:
+                # publication arm precedes the lets_plot classes: a class pattern reifies the `lazy` proxy on its way
+                # PAST, so a figure dispatched behind them would import an unreachable engine it never named.
+                return Ok(ChartSpec(matplotlib=(figure, theme.palette)))
+            case _ if type(engine).__module__.partition(".")[0] != "lets_plot":
+                # module-name read touches no proxy: every non-lets_plot operand leaves here having imported nothing.
+                return Error("<unknown-engine>")
+            case _ if not _lets_plot():
+                return Error("<engine-unavailable>")
             case PlotSpec() | SupPlotsSpec() as plot:
                 return Ok(ChartSpec(lets_plot=(plot, theme.palette)))
-            case Figure() as figure:
-                return Ok(ChartSpec(matplotlib=(figure, theme.palette)))
             case _:
                 return Error("<unknown-engine>")
 ```
@@ -141,4 +166,4 @@ class ChartSpec:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [SUPPLOTS_MODULE]-[BLOCKED]: confirm `SupPlotsSpec` imports from `lets_plot.plot.subplots` (the class is catalog-attested at `.api/lets-plot.md:32`; the module path is unreflected); source-route reflection on the cp314 wheel, re-run `api resolve lets-plot` when the cp315 gate drops.
+(none)

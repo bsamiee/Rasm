@@ -20,13 +20,6 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[ENGINE_PROFILE_ADAPTERS]-[BLOCKED]: Native DuckDB and Polars profile adapters land beside the settled Daft arm.
-- Capability: every engine contributes its native operator, CPU, blocked-time, and byte detail without widening `QueryReceipt.profile`.
-- Shape: one native `ProfileHarvest` case and decoder per proven payload behind the existing profiled bracket; `EngineProfile.of` remains the only decoder.
-- Unlocks: IDEAS.md [ENGINE_PROFILE_PARITY] — every engine contributes native detail through one decoder.
-- Anchors: `.planning/tabular/columnar.md` profile research row; `.planning/tabular/query.md` Daft and DataFusion harvest arms; `.api/duckdb.md` profiling row.
-- Arms: the duckdb folder-tier catalog carries the exact return type and payload schema of `get_profiling_information()`.
-
 [COHORT_ARROW_PROJECTION]-[QUEUED]: numeric cohorts serialize to canonical Arrow through one data-owned projection.
 - Capability: a parameterized numeric-cohort projection — axes, coordinates, responses — builds the table and rides the one serialization fold, so a sibling emits canonical Arrow bytes without importing pyarrow construction members.
 - Shape: one public cohort-to-bytes projection on `libs/python/data/.planning/tabular/interop.md` beside `DoeDataset`, folding through the columnar `arrow_bytes` owner.
@@ -41,20 +34,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `graph/graph.md` `GraphPayload`/`NodeId`/`GraphResult.frame`; runtime `ContentIdentity` for the stable wire identity.
 - Tension: wire schema and codec mint in C#; the decoder lands after the wire freezes and carries only detached fact rows, never a host layer handle.
 - Ripple: `libs/.planning` `[LAYER_TOPOLOGY_GRAPH_FACTS]`.
-
-[ADBC_DRIVER_ROWS]-[QUEUED]: land the Postgres, SQLite, and Snowflake driver rows on the query remote sub-axis.
-- Capability: one row per driver on `.planning/tabular/query.md` `RemoteOp` dispatch — driver entrypoint, `db_kwargs` knob family, transient-retry classification — under the existing DBAPI bracket and receipt fold.
-- Shape: one Postgres, SQLite, and Snowflake driver row on `.planning/tabular/query.md` `RemoteOp` dispatch — driver entrypoint, `db_kwargs` knob family, transient-retry class — under the existing DBAPI bracket and receipt fold.
-- Unlocks: IDEAS.md [ADBC_DRIVER_SET] — local-file and warehouse federation with zero new query surface, and the sqlite storage arm the branch instrumentor train already covers.
-- Anchors: `.api/adbc-driver-manager.md` `dbapi.connect`; `guarded(RetryClass.REMOTE_DB)`; idea `[ADBC_DRIVER_SET]`.
-- Atomic: three dispatch rows and their knob tables, zero new query surface.
-
-[SUBSTRAIT_GATE_FENCE]-[QUEUED]: land the typed plan admission fence on the federated arms.
-- Capability: parse-validate-census over inbound plan bytes on `.planning/tabular/query.md` `Federated`/`Flight` arms — typed refusal on malformed or version-skewed plans, relation-op census onto the receipt, original bytes handed onward untouched.
-- Shape: a `substrait` parse-validate-census fence on the `Federated` and `Flight` arms of `.planning/tabular/query.md` — typed refusal on malformed or version-skewed plans, relation-op census onto the receipt, original bytes handed to `Serde.deserialize_bytes` untouched.
-- Unlocks: IDEAS.md [SUBSTRAIT_PLAN_GATE] — fail-fast federation over the C# wire and plan-structure evidence on the one `QueryReceipt` stream.
-- Anchors: `substrait` package plan model; `Serde.deserialize_bytes` hand-off; `ContentIdentity.of("query.plan", wire)`; idea `[SUBSTRAIT_PLAN_GATE]`.
-- Tension: never re-serialize — the identity law keys the original bytes.
 
 [GEOARROW_IO_ROWS]-[QUEUED]: land the GeoArrow-native reader and writer rows on the vector format axis.
 - Capability: FlatGeobuf, GeoParquet, shapefile, and GeoJSON rows over `geoarrow-rust-io` on `.planning/spatial/geospatial.md`, `geoarrow-rust-core` arrays as the typed memory model, `geoarrow-pyarrow` as the shapely bridge; pyogrio retained as the GDAL long-tail row.
@@ -140,21 +119,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Unlocks: IDEAS.md [EPD_RECORD_WIRE] — audited whole-life carbon on the C# side from evidence-dated records, one EPD sourcing plane serving every estate consumer.
 - Anchors: idea `[EPD_RECORD_WIRE]`; `openepd`/`epdx` declaration arms; the content-keyed Arrow-bytes crossing.
 
-[COST_FRAME_CONSUMER]-[QUEUED]: Settle whether the priced frame has a sibling consumer or ends at this package.
-- Capability: the cost ledger states a true egress — either a sibling realizes the priced frame or the ledger owns its own terminal projection, so no page advertises a reader that does not exist.
-- Shape: the lead sentence on `libs/python/data/.planning/tabular/cost.md` naming the renderer consumer, resolved against the artifacts corpus.
-- Unlocks: the cost seam either lands bilaterally or the claim drops, and the ledger's egress reads true either way.
-- Anchors: `CostLedger.frame` on `tabular/cost.md`; the `QualityProfile` seam as the realized precedent at `libs/python/artifacts/.planning/visualization/table.md`.
-- Tension: no artifacts design page consumes a cost ledger, frame, or receipt today, so the named renderer is either unbuilt work or a false claim — the seam edge was already removed as unsupported.
-- Atomic: one lead-sentence resolution with its card disposition.
-
-[DUCKLAKE_CHANGE_FEED_CONSUMER]-[QUEUED]: Derived refresh reads the DuckLake change feed its provider already admits.
-- Capability: incremental materialization spans every format whose change feed the lake owner reaches, so a DuckLake-backed source recomputes touched partitions instead of refusing the refresh outright.
-- Shape: the format guard and CDF read on `libs/python/data/.planning/tabular/materialize.md` gain the DuckLake `table_changes` arm beside the Delta `load_cdf` arm, both folding into the one key-sorted partition split.
-- Unlocks: the refusal narrows to the formats the lake owner's matrix rejects, and derived snapshots stop being Delta-only.
-- Anchors: the `changefeed` op and its DuckLake `table_changes` binding on `tabular/lakehouse.md`; the `LakeRefusal` matrix, which carries Iceberg and Lance change-feed rows and no DuckLake row.
-- Tension: the two feeds differ in shape and versioning vocabulary, so the split must fold both into one partition pass rather than forking the recompute path.
-
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
@@ -162,8 +126,15 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 -->
 
 [ENGINE_HARVEST]-[DROPPED]: folded into `[ENGINE_PROFILE_ADAPTERS]` — one arming trigger, one decoder; the DuckDB-only slice held no work the merged adapter card lacks.
+[ENGINE_PROFILE_ADAPTERS]-[COMPLETE]: `tabular/columnar#SCAN` `ProfileHarvest` gained the `duckdb` and `polars` cases carrying each provider's raw payload, so `EngineProfile.of` stays the one decoder — `_duck_profile`/`_duck_operators` fold the profiling JSON's root metrics beside its depth-first operator tree, `profiled()` arms `PRAGMA enable_profiling = 'no_output'` off `_PROFILING_MODE`, and `_polars_collect` reads `LazyFrame.profile` node spans; no engine widened the band.
+[COST_FRAME_CONSUMER]-[DROPPED]: no artifacts page consumes a cost ledger, frame, or receipt, so the priced frame stays a terminal egress advertising no reader.
+[DUCKLAKE_CHANGE_FEED_CONSUMER]-[DROPPED]: already on disk — `tabular/lakehouse.md` arms `(DUCKLAKE, changefeed)` through `SELECT * FROM table_changes(?, ?, ?)` against a resolved head snapshot, and `tabular/materialize.md` `_CHANGE_STATE` rows `TableFormat.DUCKLAKE` with its underscore-free `change_type` discriminant and the same post-state survivor pair, both folding into the one key-sorted split.
+[JOURNAL_LEDGER_OWNER]-[COMPLETE]: `libs/python/data/.planning/tabular/journal.md` landed as `FactJournal`, the `Ledger` implementer composing `tabular/lakehouse#LAKEHOUSE` for `landed`/`groomed`/custody writes and `tabular/columnar#SCAN` for `scanned`/`tallied`/`held` — two caller tables arming through `LakeOp.Ensure`, `_FACT_SCHEMA` transcribing the port's published `SCHEMA` component, merge-on-content-key dedup feeding an honest `Landing`, and `destroyed(stone)` emptying the custody slot alone under the port's unreadable-IS-erased law.
+[RESIDENCE_ENSURE_OP]-[COMPLETE]: `LakeOp.Ensure(layout)` landed on `tabular/lakehouse#LAKEHOUSE`, `TableLayout` carrying schema, `PartitionTransform` pairs, sort order, and properties as row data; delta arms through `DeltaTable.create(mode="ignore")`, iceberg through `create_table_if_not_exists` beside spec-empty-gated `update_spec`/`update_sort_order`, lance through a zero-row `create`, ducklake through `CREATE TABLE IF NOT EXISTS … AS SELECT` and `SET PARTITIONED BY`, parquet refusing on its own `_REFUSAL` cell so the COLD plan derives arming-free.
+[SUBSTRAIT_GATE_FENCE]-[COMPLETE]: landed on `tabular/query#QUERY` `_reach` for BOTH the `Federated` execute and `Flight` ticket legs — `_plan_refusal` parses, resolves every extension urn, and infers the output schema, each answering a typed `PlanRefusal`; `_plan_provenance` censuses the admitted plan onto the receipt and the original bytes ride onward untouched, so the plan-bytes identity law holds.
+[ADBC_DRIVER_ROWS]-[COMPLETE]: the three native driver rows landed on `tabular/query#QUERY` `_DRIVER`; `_adbc`/`_flightsql` collapsed into ONE `_dbapi` leg keyed by `DriverKind`, `Transport` gained the manager `driver`/`entrypoint`/`autocommit` coordinate and the driver-native option maps, and each catalog carries its `[CONSUMER]` anchor.
 [QUERY_BENCH_HARNESS]-[COMPLETE]: `QueryEngine.bench` landed over runtime `Bench.run` with the `_BENCH_MODE` defaults and the mutation-INGEST refusal.
 [HOOK_POINT_ROWS]-[COMPLETE]: `.planning/tabular/materialize.md` `register_data_hooks(scope)` folds `DATA_HOOK_POINTS` through `Hooks.register`; lakehouse, egress, materialize, and contract emit through that same scope.
 [COST_FACT_HARVEST]-[COMPLETE]: `.planning/tabular/cost.md` `CostFact.of` owns receipt, wire-mapping, and fact normalization; `CostLedger.of` harvests inputs before one priced slot fold.
-[DRIVER_WRAP_THREADS]-[COMPLETE]: `dbapi_seams()` rows landed on `tabular/query#QUERY` naming the duckdb/`dbapi.connect`/Flight SQL factories with the ConnectorX exclusion at the comment.
+[DRIVER_WRAP_THREADS]-[COMPLETE]: `dbapi_seams()` rows landed on `tabular/query#QUERY`, the duckdb row spelled and every driver row DERIVED from `_DRIVER` under the `_UNREACHED` floor gate — a seam row naming an unresolved distribution otherwise crashes the composition root on the import that gate forecloses; the `LOADER` kind stays excluded because `read_sql` exposes no PEP-249 connection to wrap.
 [OBSERVABILITY_DEPTH]-[COMPLETE]: every measured plane instruments. `impact`/`graph`/`profile` gained solve/kernel/interrogate spans and `domain="impact"`/`"graph"`/`"quality"` projections; `egress` projects `rasm.egress.byte_volume`; `materialize` records `rasm.materialize.rows`; `lakehouse` spans commits; the gridded plane carries per-leg spans and the `PlanReceipt` `to_builtins` projection; remote legs open `SpanKind.CLIENT`. ERROR marking stays the runtime `boundary` fence's, tenant-on-span the telemetry install's; `add_link` is ruled out — nesting and content keys already correlate.

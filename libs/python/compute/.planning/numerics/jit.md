@@ -1,6 +1,6 @@
 # [PY_COMPUTE_JIT]
 
-One polymorphic JIT owner collapses the numba LLVM loop-kernel compiler and the jax XLA array-transform compiler into a single backend-discriminated route table: `JitBackend` discriminates the compile route, `_JIT_ROUTES` carries each route's compile-and-capture closure as data, and `JitEvidence` parameterizes the captured lowered-IR output the way `JitBackend` parameterizes the input. Both compilers are admitted as study-kernel accelerators on one owner — distinct from the Array-API dispatch in `numerics/array#PAYLOAD`, where jax rides `array_namespace` as a backend rather than a wrap — and the `none` passthrough is the unconditional runtime floor, so a run without the gated packages returns `Host` evidence rather than `Error(Import)`.
+One polymorphic JIT owner collapses the numba LLVM loop-kernel compiler and the jax XLA array-transform compiler onto one backend-discriminated route table: `JitBackend` discriminates the compile route, `_JIT_ROUTES` carries each route's compile-and-capture closure as data, and `JitEvidence` parameterizes the captured output the way `JitBackend` parameterizes the input. `numerics/array#PAYLOAD` owns the separate concern of jax as an `array_namespace` backend, and `none` floors every run, so absent gated packages return `Host` evidence rather than `Error(Import)`.
 
 This owner mints the `LoweredSpec` vocabulary of the symbolic-to-jit-to-consumer lowering chain: `analysis/symbolic#DERIVATION` emits it off its `_lower` fold, and `experiments/study#STUDY` and `solvers/quadrature#QUADRATURE` compile through `JitBackend.compile` — DAG-lawful because a symbolic-derived spec crosses as a value and no consumer imports symbolic. Its `Cfunc` row compiles the C-ABI callback the quadax/scipy `LowLevelCallable` consumers bind.
 
@@ -12,22 +12,24 @@ This owner mints the `LoweredSpec` vocabulary of the symbolic-to-jit-to-consumer
 
 - Owner: `JitBackend` — each case carries its route's option payload, and the bare `_capture_*` function IS the `_JIT_ROUTES` row, so `compile` indexes one row rather than fanning the shared decorate/warm-probe/read-IR pattern across match arms; the gated `numba`/`jax` imports stay inside each capture body, so the table is an eager import-free module constant.
 - Cases: `Specimen` is the one typed warm-probe carrier every route consumes — numba forces one dispatcher specialization against it, jax traces one `make_jaxpr` over it, and the empty `Specimen()` is the unarmed probe a route ignores — so no route reads a positional `probe[0]` off an erased varargs tuple.
-- Output: `JitEvidence` gives each route its own case with a total `facts()` projection of native scalars, so an LLVM specialization never smuggles jax fields and the receipt spreads only the matched case's slots; `diagnostics_lines` is the realized parallel-region evidence, distinct from the requested `parallel` flag. `EngineProfile` is the engine-native profile band the `llvm` case carries and `solvers/receipt#RECEIPT` mounts as its optional `profile` slot — specialization count beside the `inspect_llvm`/`inspect_asm`/`inspect_types` extents and the realized `parallel_diagnostics` tally, harvested off the dispatcher the capture already holds, so a slow compile or solve explains itself from the receipt with no profiler attach; the `xla` case carries its captured-jaxpr statistics as its own profile evidence.
-- Packages: the numba dispatcher and jax trace handles are typed through `TYPE_CHECKING` `Protocol`s so every capture reads a named member rather than a phantom off `object`; `Specimen` and `Jitted` stay GC-tracked because each holds a container field — `gc=False` is reserved for container-free leaves.
+- Output: `JitEvidence` gives each route its own case with a total `facts()` projection of native scalars, so an LLVM specialization never smuggles jax fields and the receipt spreads only the matched case's slots; `diagnostics_lines` is the realized parallel-region evidence, distinct from the requested `parallel` flag. `EngineProfile` is the engine-neutral compile-extent band BOTH compiled cases carry and `solvers/receipt#RECEIPT` mounts as its optional `profile` slot — specialization count beside the engine-IR, target-code, typed-source, and diagnostics extents, each column answered from what the engine already measured, so a slow compile or solve explains itself from the receipt with no profiler attach. `llvm` fills it off the held dispatcher's `inspect_llvm`/`inspect_asm`/`inspect_types`/`parallel_diagnostics` reports, `xla` fills the identical columns off the staging ladder — `Lowered.as_text` StableHLO, `Compiled.as_text` optimized HLO, the captured jaxpr, and the `cost_analysis` entry tally — so one profile shape spans both engines and a comparison reads one receipt. `TraceEvidence` rides the `xla` case alone as its caller-armed device-timeline band.
+- Packages: the numba dispatcher, the jax trace handle, the `Wrapped`/`Lowered`/`Compiled` staging rungs, and the four-tier profile reader are typed through `TYPE_CHECKING` `Protocol`s so every capture reads a named member rather than a phantom off `object`; `Specimen` and `Jitted` stay GC-tracked because each holds a container field — `gc=False` is reserved for container-free leaves like the two profile bands.
 - Receipt: `compile` runs under the hub weave as `evidence_run(EvidenceScope.JIT, f"compile.{self.tag}", rail, facts=...)` — LLVM/XLA lowering is the canonical measured surface, the span carries the backend, kernel, and armed discriminants, and the weave harvest emits the `Jitted` receipts on the clean exit, so `contribute()` needs no page-local emit call.
-- Growth: a new compiler is one `JitBackend` case, one `_JIT_ROUTES` row, and its `JitEvidence` case — the `Cfunc` row is exactly that path realized; a new option is one column absorbed by the existing decorator call; a new lowering producer emits `LoweredSpec` values and adds zero surface here; a new profile statistic is one `EngineProfile` field and one `_profiled` read, reaching the solve receipt's mount with zero receipt edits.
+- Growth: a new compiler is one `JitBackend` case, one `_JIT_ROUTES` row, and its `JitEvidence` case — the `Cfunc` row is exactly that path realized; a new option is one column absorbed by the existing decorator call; a new lowering producer emits `LoweredSpec` values and adds zero surface here; a new compile statistic is one `EngineProfile` column every compiled route answers from its own engine, reaching the solve receipt's mount with zero receipt edits, while a statistic only one engine can measure lands on that case's own band — `TraceEvidence` being that path realized, since a host-compiled kernel has no device timeline to answer a device column with anything but a zero.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
 import io
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import redirect_stdout
+from threading import Lock
 from typing import TYPE_CHECKING, Final, Literal, Protocol, assert_never
 
 from beartype.door import is_bearable
 from expression import Error, case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct, structs
+from upath import UPath
 
 from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
 from rasm.runtime.identity import ContentIdentity, ContentKey
@@ -59,6 +61,31 @@ if TYPE_CHECKING:
         shape: tuple[int, ...]
         dtype: object
 
+    class Compiled(Protocol):  # `jax.stages.Compiled`; `as_text` is the optimized HLO and answers None off-backend
+        def as_text(self) -> str | None: ...
+        def cost_analysis(self) -> object: ...
+
+    class Lowered(Protocol):  # `jax.stages.Lowered`; `as_text` is the StableHLO the backend was handed
+        def as_text(self) -> str: ...
+        def compile(self) -> "Compiled": ...
+        def cost_analysis(self) -> object: ...
+
+    class Wrapped(Protocol):  # what `jax.jit` returns; `.lower` opens the staging ladder off the same probe
+        def __call__(self, *args: object) -> object: ...
+        def lower(self, *args: object) -> "Lowered": ...
+
+    class ProfileEvent(Protocol):  # one timed span; `duration_ns` is the device-occupancy fact the band totals
+        duration_ns: int
+
+    class ProfileLine(Protocol):
+        events: Iterable["ProfileEvent"]
+
+    class ProfilePlane(Protocol):
+        lines: Iterable["ProfileLine"]
+
+    class ProfileData(Protocol):  # an opened `.xplane.pb`; events hang off lines, so the walk is four tiers deep
+        planes: Iterable["ProfilePlane"]
+
 
 # --- [TYPES] -------------------------------------------------------------------------------
 
@@ -87,8 +114,10 @@ class Specimen(Struct, frozen=True):
 
 
 class EngineProfile(Struct, frozen=True, gc=False):
-    # engine-native profile band — what the compiler already measured, harvested off the held dispatcher:
-    # specialization count beside the lowered-IR, native-asm, typed-source, and parallel-diagnostics extents.
+    # engine-neutral compile-extent band — what the compiler already measured, never a timer: specialization count
+    # beside the engine-IR, target-code, typed-source, and diagnostics extents. Every compiled route answers every
+    # column from its own reports (numba off the dispatcher, XLA off the staging ladder), so a column one engine
+    # cannot measure belongs on that engine's case band instead of here filling with a zero nothing distinguishes.
     # Shared outward: `solvers/receipt#RECEIPT` mounts it as the optional per-case `profile` slot.
     specializations: int
     ir_lines: int
@@ -101,13 +130,26 @@ class EngineProfile(Struct, frozen=True, gc=False):
         return {f"{prefix}{name}": value for name, value in structs.asdict(self).items()}
 
 
+class TraceEvidence(Struct, frozen=True, gc=False):
+    # device-timeline band the `xla` case alone carries, since a host-compiled numba kernel has no device trace to
+    # answer these columns with anything but a zero. Armed by a caller-supplied sink and absent by default: one trace
+    # runs per process, so an always-on capture would serialize every concurrent solve at this owner's trace gate.
+    planes: int
+    events: int
+    device_ns: int
+    heap_bytes: int
+
+    def facts(self, prefix: str = "") -> dict[str, int]:
+        return {f"{prefix}{name}": value for name, value in structs.asdict(self).items()}
+
+
 @tagged_union(frozen=True)
 class JitEvidence:
     tag: Literal["llvm", "ufunc", "cabi", "xla", "host"] = tag()
     llvm: tuple[str, bool, bool, bool, EngineProfile] = case()  # signature, parallel, fastmath, cached, profile
     ufunc: tuple[str, str, str] = case()  # signature, layout, target
     cabi: tuple[str, int] = case()  # signature, address
-    xla: tuple[tuple[int, ...], tuple[int, ...], str, int] = case()  # static_argnums, out_shape, out_dtype, jaxpr_lines
+    xla: tuple[tuple[int, ...], tuple[int, ...], str, EngineProfile, TraceEvidence | None] = case()  # static_argnums, out_shape, out_dtype, profile, trace
     host: tuple[()] = case()
 
     @staticmethod
@@ -123,8 +165,10 @@ class JitEvidence:
         return JitEvidence(cabi=(signature, address))
 
     @staticmethod
-    def Xla(static_argnums: tuple[int, ...], out_shape: tuple[int, ...], out_dtype: str, jaxpr_lines: int) -> "JitEvidence":
-        return JitEvidence(xla=(static_argnums, out_shape, out_dtype, jaxpr_lines))
+    def Xla(
+        static_argnums: tuple[int, ...], out_shape: tuple[int, ...], out_dtype: str, profile: EngineProfile, trace: TraceEvidence | None = None
+    ) -> "JitEvidence":
+        return JitEvidence(xla=(static_argnums, out_shape, out_dtype, profile, trace))
 
     @staticmethod
     def Host() -> "JitEvidence":
@@ -138,8 +182,11 @@ class JitEvidence:
                 return {"mode": "gufunc" if layout else "ufunc", "signature": signature, "layout": layout or "<elementwise>", "target": target}
             case JitEvidence(tag="cabi", cabi=(signature, address)):
                 return {"mode": "cabi", "signature": signature, "address": address}
-            case JitEvidence(tag="xla", xla=(static_argnums, out_shape, out_dtype, jaxpr_lines)):
-                return {"mode": "xla", "static_argnums": static_argnums, "out_shape": out_shape, "out_dtype": out_dtype, "jaxpr_lines": jaxpr_lines}
+            case JitEvidence(tag="xla", xla=(static_argnums, out_shape, out_dtype, profile, trace)):
+                return {
+                    "mode": "xla", "static_argnums": static_argnums, "out_shape": out_shape, "out_dtype": out_dtype,
+                    **profile.facts(), **(trace.facts("trace.") if trace else {}),
+                }
             case JitEvidence(tag="host", host=()):
                 return {"mode": "none"}
             case _ as unreachable:
@@ -163,7 +210,7 @@ class JitBackend:
     njit: tuple[bool, bool, bool, bool, bool] = case()  # parallel, fastmath, cache, boundscheck, nogil
     vectorize: tuple[tuple[str, ...], Literal["cpu", "parallel"], str] = case()  # signatures, target, layout
     cfunc: tuple[str] = case()  # the numba C signature string, e.g. "float64(float64, voidptr)"
-    jax_jit: tuple[tuple[int, ...], tuple[int, ...]] = case()  # static_argnums, donate_argnums
+    jax_jit: tuple[tuple[int, ...], tuple[int, ...], str] = case()  # static_argnums, donate_argnums, trace_dir
     none: tuple[()] = case()
 
     @staticmethod
@@ -179,8 +226,9 @@ class JitBackend:
         return JitBackend(cfunc=(signature,))
 
     @staticmethod
-    def JaxJit(*, static_argnums: tuple[int, ...] = (), donate_argnums: tuple[int, ...] = ()) -> "JitBackend":
-        return JitBackend(jax_jit=(static_argnums, donate_argnums))
+    def JaxJit(*, static_argnums: tuple[int, ...] = (), donate_argnums: tuple[int, ...] = (), trace_dir: str = "") -> "JitBackend":
+        # `trace_dir` is the caller-armed device-trace sink; empty disarms it, and any fsspec-reachable URL serves.
+        return JitBackend(jax_jit=(static_argnums, donate_argnums, trace_dir))
 
     @staticmethod
     def Passthrough() -> "JitBackend":
@@ -212,7 +260,9 @@ class JitBackend:
                 row = (repr(signatures), target, layout)
             case JitBackend(tag="cfunc", cfunc=(signature,)):
                 row = (signature,)
-            case JitBackend(tag="jax_jit", jax_jit=(static_argnums, donate_argnums)):
+            case JitBackend(tag="jax_jit", jax_jit=(static_argnums, donate_argnums, _trace_dir)):
+                # `trace_dir` stays OUT of the preimage: arming a profiler shifts no compiled byte, so admitting it
+                # forks one content identity across a pure observation policy.
                 row = (repr(static_argnums), repr(donate_argnums))
             case JitBackend(tag="none", none=()):
                 row = ()
@@ -246,16 +296,21 @@ def _capture_vectorize(kernel: Kernel, _specimen: "Specimen", backend: "JitBacke
 
 
 def _capture_jax(kernel: Kernel, specimen: "Specimen", backend: "JitBackend") -> tuple[Kernel, JitEvidence]:
-    static_argnums, donate_argnums = backend.jax_jit
-    fn = jax.jit(kernel, static_argnums=static_argnums, donate_argnums=donate_argnums)
+    static_argnums, donate_argnums, trace_dir = backend.jax_jit
+    fn: "Wrapped" = jax.jit(kernel, static_argnums=static_argnums, donate_argnums=donate_argnums)
     # `make_jaxpr(return_shape=True)` stages the jaxpr AND returns the out-structure pytree in one trace — no separate `eval_shape`
     # pass; `tree_leaves` reads the leading out-spec leaf so a multi-output pytree never raises `AttributeError` on `.shape`.
     if specimen.is_armed:
         jaxpr: "Jaxpr"
         jaxpr, out_tree = jax.make_jaxpr(kernel, static_argnums=static_argnums, return_shape=True)(*specimen.args)
         out: "ShapeDtypeStruct" = jax.tree_util.tree_leaves(out_tree)[0]
-        return fn, JitEvidence.Xla(static_argnums, tuple(out.shape), str(out.dtype), _text_lines(repr(jaxpr)))
-    return fn, JitEvidence.Xla(static_argnums, (), "<unspecialized>", 0)
+        return fn, JitEvidence.Xla(
+            static_argnums, tuple(out.shape), str(out.dtype),
+            _xla_profiled(fn.lower(*specimen.args), repr(jaxpr)),
+            _traced(fn, specimen, trace_dir) if trace_dir else None,
+        )
+    # an unarmed probe stages nothing, so every extent floors to zero rather than to a fabricated single specialization.
+    return fn, JitEvidence.Xla(static_argnums, (), "<unspecialized>", EngineProfile(0, 0, 0, 0, 0))
 
 
 def _capture_cfunc(kernel: Kernel, _specimen: "Specimen", backend: "JitBackend") -> tuple[Kernel, JitEvidence]:
@@ -282,6 +337,73 @@ def _profiled(fn: "Dispatcher", parallel: bool) -> EngineProfile:
         typed_lines=_printed_lines(fn.inspect_types) if armed else 0,
         diagnostics_lines=_printed_lines(lambda: fn.parallel_diagnostics(level=1)) if parallel and armed else 0,
     )
+
+
+def _xla_profiled(lowered: "Lowered", jaxpr_text: str) -> EngineProfile:
+    # `_xla_profiled` mirrors the dispatcher harvest off the staging ladder the same probe already paid for: StableHLO
+    # answers the engine IR, optimized HLO the target code, the captured jaxpr the typed source, and cost-analysis
+    # entries the diagnostics extent. `compile()` re-reads the cache `jit` populated on the warm call, costing no
+    # second compile.
+    compiled = lowered.compile()
+    return EngineProfile(
+        specializations=1,
+        ir_lines=_text_lines(lowered.as_text()),
+        asm_lines=_text_lines(compiled.as_text() or ""),
+        typed_lines=_text_lines(jaxpr_text),
+        diagnostics_lines=_entry_count(lowered.cost_analysis()),
+    )
+
+
+def _entry_count(report: object) -> int:
+    # cost and memory reports are unstructured nested data whose keys shift across jax and jaxlib releases, so the
+    # extent is a leaf tally rather than any pinned field roster; `None` is the backend that measured nothing, distinct
+    # from an empty report, and both floor to zero because neither carries a countable estimate.
+    match report:
+        case None:
+            return 0
+        case Mapping():
+            return len(report)
+        case str() | bytes():
+            return 1
+        case Sequence():
+            return sum(_entry_count(row) for row in report)
+        case _:
+            return 1
+
+
+# ONE process-wide trace gate. `jax.profiler.trace` is a process singleton that RAISES when a capture is already
+# open, so two concurrently armed solves fault the second rather than queue it, and the run-folder selection below
+# would read a sibling capture's tree. The gate spans the bracket AND the read, so an armed solve waits for the
+# capture ahead of it and then reads the folder its own bracket wrote.
+_TRACE_GATE: Final[Lock] = Lock()
+
+
+def _traced(fn: "Wrapped", specimen: "Specimen", log_dir: str) -> TraceEvidence:
+    # `trace` brackets the warm call, and `block_until_ready` forces the async dispatch to land INSIDE that bracket —
+    # an unforced call returns a future and closes the trace over work still queued on the device. `ProfileData` then
+    # reads the emitted `.xplane.pb` in-process, with no TensorBoard hop and no Chrome-trace JSON parse.
+    root = UPath(log_dir)
+    with _TRACE_GATE:  # Exemption: the singleton bracket is the platform-forced statement kernel.
+        with jax.profiler.trace(str(root)):
+            jax.block_until_ready(fn(*specimen.args))
+        planes = tuple(_opened(root).planes)
+    events = tuple(event for plane in planes for line in plane.lines for event in line.events)
+    return TraceEvidence(
+        planes=len(planes),
+        events=len(events),
+        device_ns=sum(int(event.duration_ns) for event in events),
+        heap_bytes=len(jax.profiler.device_memory_profile()),  # already gzipped pprof; re-compressing it inflates nothing
+    )
+
+
+def _opened(root: UPath) -> "ProfileData":
+    # each capture writes one timestamp-named RUN FOLDER under `plugins/profile/`, so lexical order over that folder IS
+    # capture order and `max` selects this bracket's own trace. The xplane leaf is host-named and repeats verbatim across
+    # every run, so keying the selection on it picks whichever path the glob happened to yield last. An absent file
+    # raises inside the `boundary` the whole compile runs under, so a profiler that wrote nothing rides the typed rail
+    # rather than a sentinel band of zeros.
+    xplane = max(root.glob("plugins/profile/*/*.xplane.pb"), key=lambda path: path.parent.name)
+    return jax.profiler.ProfileData.from_file(str(xplane))
 
 
 def _text_lines(text: str) -> int:

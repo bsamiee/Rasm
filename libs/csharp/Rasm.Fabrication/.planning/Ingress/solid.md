@@ -1,41 +1,25 @@
 # [RASM_FABRICATION_SOLID_IMPORT]
 
-`SolidImport` admits one detached input `SolidMesh`, one canonical `MeshSpace`, and one evidence-bearing receipt. `SolidFormat` binds each extension to its provider read; `SolidUnitPolicy` resolves millimeters; `SolidWeld` and `SolidFacePolicy` condition triangle soup; and provider handles terminate at ingress. `SolidTopology` proves input structure before kernel admission. `Read` defers boundary work on `Eff<SolidImportReceipt>`, and `SolidProjection` parameterizes egress.
+`SolidImport` admits one detached input `SolidMesh`, one canonical `MeshSpace`, and one evidence-bearing receipt. `SolidFormat` binds each admitted extension to its provider read, `SolidPolicy` carries tessellation through reader posture as declared values, `SolidWeld` and `SolidFacePolicy` condition triangle soup ahead of measurement, `SolidTopology` proves input structure before kernel admission, and provider handles terminate at ingress. `SolidProjection` parameterizes egress over the settled receipt.
+
+`MeshSpace`, `HealPlan`, `Heal`, `HealSession`, `Context`, and `Op` arrive settled from the kernel meshing and processing owners. `ContentHash.Of` is the one kernel digest mint every fabrication egress key seeds from. `Process/faults` allocates this lane `IngressProviderUnavailable` over `SourceLocus.OcctShape`, `SourceLocus.ThreeMfObject`, and `SourceLocus.MeshFace`. Public entries defer boundary work on `Eff`.
 
 ## [01]-[INDEX]
 
-| [INDEX] | [OWNER]              | [OWNS]                                            |
-| :-----: | :------------------- | :------------------------------------------------ |
-|  [01]   | `SolidSource`        | admitted path and complete import policy          |
-|  [02]   | `SolidFormat`        | STEP/IGES/STL/3DM/3MF admission and provider read |
-|  [03]   | `SolidMesh`          | detached vertices, triangles, scale, and welding  |
-|  [04]   | `SolidTopology`      | incidence, shell, orientation, and genus evidence |
-|  [05]   | `SolidImportReceipt` | content, provider, topology, repair, and space    |
-|  [06]   | `SolidProjection`    | parameterized solid egress                        |
+- [02]-[RAW_ADMISSION]: `SolidSource` the one raw gate, `SolidPolicy` carrying tessellation through reader posture, `SolidFormat` holding each STEP/IGES/STL/3DM/3MF provider read as a constructor delegate, and provider failures lowered through typed loci.
+- [03]-[CANONICAL_OWNER]: `SolidMesh` the sole detached millimeter carrier, weld and face conditioning ahead of measurement, `SolidTopology` incidence, shell, orientation, and genus evidence, and policy-selected repair retaining its session.
+- [04]-[PROJECTION_EGRESS]: `SolidProjection` closing egress over canonical space, the detached input snapshot, topology, bounds, units, diagnostics, and repair, reopening no source file.
 
 ## [02]-[RAW_ADMISSION]
 
-`SolidSource` is the only raw solid gate. `SolidPolicy` carries tessellation, units, weld, face admission, repair, closure, kernel tolerance, evidence key, and 3MF reader posture. `SolidFormat` carries its provider read as a constructor delegate, so a new file family is one row and no reconstructable provider vocabulary survives beside the format owner.
-
-Native declarations are evidence, never implicit scale. `CModel.GetUnit` and `File3dm.Settings.ModelUnitSystem` provide declared units; OCCT wrapper formats carry no verified managed unit member and therefore require `SolidUnitPolicy.Assume` or `SolidUnitPolicy.Override`. `SolidUnitPolicy.Declared` rejects an absent or unitless declaration.
-
-Provider failures carry their native detail. `OcctException` and the lib3mf binding exception lower through `IngressProviderUnavailable` with the captured message, and a 3MF defect carries `SourceLocus.ThreeMfObject` rather than an OCCT-named locus. `CReader.ReadFromBuffer` parses the same byte snapshot `SourceDigest` identifies.
-
-## [03]-[CANONICAL_OWNER]
-
-`SolidMesh` is the sole detached carrier. Every provider lowers to millimeter vertices with triangle indices before `MeshSpace.Of`; no provider geometry escapes. 3DM BReps admit stored face meshes from `BrepFace.GetMesh(MeshType.Any)` because Rhino3dm exposes no verified tessellator; an unmeshed face fails typed.
-
-Conditioning precedes measurement because repair depends on measured defects. `SolidWeld.Within` fuses coincident vertices on its admitted grid, allowing unwelded STL triangles to reach a watertight verdict. `SolidFacePolicy` treats degenerate and duplicate triangles as data: `Drop` records typed evidence, while `Reject` names the face through `SourceLocus.MeshFace`.
-
-`SolidTopology` records incidence, shell volume and orientation, Euler characteristic, genus, and bounds for the conditioned input. Watertightness reads boundary, non-manifold, and zero-volume shell counts; unused vertices remain separate evidence. `InputMesh` and `InputTopology` bind that snapshot, while `Space` and `Repair.Session.FinalStatus` bind the possibly repaired snapshot. `SolidClosure` reads input topology or final heal status. Edge census and union-find form the bounded statement kernel.
-
-`SolidRepairPolicy` selects repair behavior as data. `HealPlan.Of` and `Heal.Repair` own repair, and `SolidRepairEvidence` retains the session. `OcctRuntime.TryGetNativeVersion` gates OCCT admission, while exact `OcctShape.BoundingBox` evidence preserves the stock envelope. `Wrapper.GetSpecificationVersion` probes 3MF extensions; `CMeshObject.IsManifoldAndOriented` records native evidence; and transforms apply before merge. Native iterator and handle scopes form the provider statement boundary.
-
-## [04]-[PROJECTION_EGRESS]
-
-`SolidProjection` closes egress over canonical space, detached input mesh, input topology, bounds, units, diagnostics, repair, and receipt. `SolidRepairEvidence.Session.FinalStatus` carries repaired topology status beside that explicit input snapshot. Projection never reopens the source file or reconstructs a BRep. Exact CAD and 3MF round-trip belongs to a representation-preserving owner, not this triangulating ingress.
-
-## [05]-[IMPLEMENTATION]
+- Owner: `SolidSource` is the one raw solid gate over a `SolidPath` and a `SolidPolicy`; `SolidFormat` binds each admitted extension to its provider read as a constructor delegate; `SolidTolerance`, `SolidUnitPolicy`, `SolidWeld`, `SolidFacePolicy`, `SolidClosure`, `SolidRepairPolicy`, and `ThreeMfReadMode` carry tessellation, unit, conditioning, closure, repair, and reader posture as declared values; `SolidDetached` is the internal carrier every provider read lands on and `SolidProviderEvidence` retains what that provider published.
+- Cases: `SolidFormat` closes step · iges · stl · 3dm · 3mf; `SolidUnitPolicy` closes declared · assume · override; `SolidWeld` closes none · within; `SolidFacePolicy` closes reject · drop; `SolidClosure` closes surface · manifold · watertight; `SolidRepairPolicy` closes never · dirty · always over its `Applies` predicate column; `ThreeMfReadMode` closes strict · recovery; `ThreeMfExtension` closes the production, beam-lattice, and slice namespaces; `SolidDiagnostic` closes reader · skipped · unsupported · part · native · degenerate.
+- Entry: `SolidFormat.Admit(SolidPath)` resolves an extension to its row, and `format.Read(SolidSource, byte[])` is the one provider leg returning `Fin<SolidDetached>` — every provider handle opens and closes inside it.
+- Auto: a native declaration is evidence, never implicit scale — `CModel.GetUnit` and `File3dm.Settings.ModelUnitSystem` publish a declared unit while the OCCT formats publish none, so `SolidUnitPolicy.Declared` refuses an absent declaration and `Assume` or `Override` is how an OCCT source admits at all; the 3MF read walks its component tree under an ancestor-keyed cycle guard and records native manifold-and-oriented evidence per mesh object; a 3DM BRep admits its stored face meshes because the read-side binding exposes no tessellator, and an unmeshed face fails typed rather than silently dropping a solid; `CReader.ReadFromBuffer` parses the same byte snapshot `SourceDigest` identifies, so the digest names exactly what was read.
+- Output: one `SolidDetached` — the merged provider-unit `SolidMesh`, the declared `LengthUnit` where the provider published one, and `SolidProviderEvidence` carrying native version, source part count, the exact provider bounds, build identity, and the diagnostic stream.
+- Packages: `OcctNet.Wrapper` owns STEP/IGES/STL B-rep read and tessellation; `lib3mf` owns 3MF model, reader, build-item, and component traversal; `Rhino3dm` under `extern alias R3` owns 3DM document and stored face-mesh read; `Thinktecture.Runtime.Extensions` owns the closed policy families; `UnitsNet` owns every declared length, angle, and area; `LanguageExt.Core` owns the rails and immutable carriers.
+- Growth: a new file family is one `SolidFormat` row carrying its extensions and its read delegate; a new provider observation is one `SolidDiagnostic` case; a new 3MF extension probe is one `ThreeMfExtension` row; a new reader posture is one `ThreeMfReadMode` row.
+- Boundary: `using` acquisition of every `OcctShape`, `CModel`, `CReader`, iterator, build item, and `File3dm` is the provider statement kernel — no provider handle, exception type, or geometry type escapes this cluster; `OcctException` and the lib3mf binding exception lower through `IngressProviderUnavailable` with the captured message, and a 3MF defect carries `SourceLocus.ThreeMfObject` rather than an OCCT-named locus; `OcctRuntime.TryGetNativeVersion` gates OCCT admission so a missing native toolkit refuses typed rather than escaping as a load failure.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -63,7 +47,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Ingress;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [RAW_ADMISSION] ----------------------------------------------------------------------
 [ValueObject<string>]
 public readonly partial struct SolidPath {
     [BoundaryAdapter]
@@ -174,8 +158,7 @@ public sealed record SolidPolicy(
     SolidRepairPolicy Repair,
     Context Context,
     Op Key,
-    ThreeMfReadMode ThreeMf,
-    Func<OcctBoundingBox, SolidBounds> OcctBounds);
+    ThreeMfReadMode ThreeMf);
 
 public sealed record SolidSource(SolidPath Path, SolidPolicy Policy);
 
@@ -200,6 +183,8 @@ public sealed partial class SolidFormat {
                 string.Equals(extension, Path.GetExtension(path.Value), StringComparison.OrdinalIgnoreCase)))
             .ToFin(SolidImport.Fault(path, "solid-format:unsupported"));
 
+    // `TryGetNativeVersion` runs BEFORE the snapshot: a missing OCCT toolkit refuses typed here, where a
+    // load failure raised inside the read would survive only as an exception message.
     static Fin<SolidDetached> ReadOcct(SolidSource source, byte[] payload, Func<string, OcctShape> import) {
         if (!OcctRuntime.TryGetNativeVersion(out string version, out string nativeError))
             return Fin.Fail<SolidDetached>(SolidImport.Fault(source.Path, nativeError));
@@ -210,6 +195,8 @@ public sealed partial class SolidFormat {
             OcctMesh mesh = shape.Triangulate(
                 source.Policy.Tolerance.LinearDeflection.Millimeters,
                 source.Policy.Tolerance.AngularDeflection.Radians);
+            // `BoundingBox` reads the exact B-rep BEFORE the triangle soup replaces it, so the stock
+            // envelope carries the solid's own extents rather than a tessellation-tightened hull.
             OcctBoundingBox exact = shape.BoundingBox;
             return new SolidDetached(
                 new SolidMesh(
@@ -217,7 +204,11 @@ public sealed partial class SolidFormat {
                     mesh.TriangleIndices.ToArr()),
                 None,
                 new SolidProviderEvidence(
-                    Some(version), 1, Some(source.Policy.OcctBounds(exact)), None, Seq<SolidDiagnostic>()));
+                    Some(version), 1,
+                    Some(new SolidBounds(
+                        new SolidVertex(exact.MinX, exact.MinY, exact.MinZ),
+                        new SolidVertex(exact.MaxX, exact.MaxY, exact.MaxZ))),
+                    None, Seq<SolidDiagnostic>()));
         })).Run().MapFail(error => SolidImport.Fault(source.Path, error.Message));
     }
 
@@ -247,6 +238,8 @@ public sealed partial class SolidFormat {
                         mesh, unit, new SolidProviderEvidence(None, parts, None, None, diagnostics))));
         })).Run().Bind(static result => result).MapFail(error => SolidImport.Fault(source.Path, error.Message));
 
+    // OCCT and 3DM read a PATH, so the admitted byte snapshot — the same bytes `SourceDigest` identifies —
+    // materializes once and deletes on every exit; 3MF takes the buffer directly and never enters here.
     static T Snapshot<T>(SolidSource source, byte[] payload, Func<string, T> read) {
         string path = Path.Combine(
             Path.GetTempPath(),
@@ -283,66 +276,26 @@ public sealed partial class SolidFormat {
                 ? Seq(item.GetObjectTransform())
                 : Seq<sTransform>();
             meshes.AddRange(SolidImport.FromThreeMf(resource, transforms, Set<uint>(), items));
+            // Lib3MF returns an EMPTY string, never null, when the production extension stamped no identity,
+            // so the `out bool` carries the only absence signal and an `Optional` wrap admits `""` as present.
+            string uuid = item.GetUUID(out bool hasUuid);
             items.Add(new SolidDiagnostic.Part(
-                resource.GetUniqueResourceID(), Optional(item.GetUUID(out bool hasUuid)).Filter(_ => hasUuid)));
+                resource.GetUniqueResourceID(), hasUuid ? Some(uuid) : None));
             parts++;
         }
         Seq<SolidDiagnostic> warnings = Range(0, checked((int)reader.GetWarningCount())).Map(index => {
             string warning = reader.GetWarning(checked((uint)index), out uint code);
             return (SolidDiagnostic)new SolidDiagnostic.Reader(Some(code), warning);
         });
+        string build = model.GetBuildUUID(out bool hasBuild);
         return new SolidDetached(
             SolidImport.Merge(toSeq(meshes)).IfNone(() => throw new InvalidDataException("solid-3mf:no-build-mesh")),
             Some(SolidImport.ThreeMfUnit(model.GetUnit())),
             new SolidProviderEvidence(
                 Some($"{major}.{minor}.{micro}"), parts, None,
-                Optional(model.GetBuildUUID(out bool hasBuild)).Filter(_ => hasBuild),
+                hasBuild ? Some(build) : None,
                 extensions.Concat(toSeq(items)).Concat(warnings)));
     }).Run().MapFail(error => SolidImport.Fault(source.Path, error.Message, Some(source.Path.Value)));
-}
-
-public readonly record struct SolidVertex(double X, double Y, double Z) {
-    public SolidVertex Scale(double factor) => new(X * factor, Y * factor, Z * factor);
-    public SolidVertex Snap(double grid) => new(
-        Math.Round(X / grid) * grid, Math.Round(Y / grid) * grid, Math.Round(Z / grid) * grid);
-}
-
-public readonly record struct SolidBounds(SolidVertex Minimum, SolidVertex Maximum) {
-    public SolidVertex Extent => new(
-        Maximum.X - Minimum.X, Maximum.Y - Minimum.Y, Maximum.Z - Minimum.Z);
-
-    public SolidBounds Scale(double factor) => new(Minimum.Scale(factor), Maximum.Scale(factor));
-
-    public Length Diagonal => Length.FromMillimeters(Math.Sqrt(
-        Math.Pow(Extent.X, 2d) + Math.Pow(Extent.Y, 2d) + Math.Pow(Extent.Z, 2d)));
-
-}
-
-public sealed partial record SolidTopology(
-    int Vertices,
-    int Triangles,
-    int Edges,
-    int BoundaryEdges,
-    int NonManifoldEdges,
-    int UnusedVertices,
-    int Shells,
-    int InwardShells,
-    int ZeroVolumeShells,
-    int EulerCharacteristic,
-    Option<int> Genus,
-    Volume SignedVolume,
-    bool Oriented,
-    bool Watertight,
-    SolidBounds Bounds);
-
-public sealed record SolidWeldEvidence(SolidWeld Policy, int Before, int After, int DroppedFaces);
-
-public sealed record SolidMesh(Arr<SolidVertex> Vertices, Arr<int> TriangleIndices) {
-    public int TriangleCount => TriangleIndices.Count / 3;
-
-    public SolidMesh Scale(double factor) => new(
-        Vertices.Map(vertex => vertex.Scale(factor)),
-        TriangleIndices);
 }
 
 public sealed record SolidProviderEvidence(
@@ -363,16 +316,190 @@ public abstract partial record SolidDiagnostic {
     public sealed record Degenerate(int Face, string Reason) : SolidDiagnostic;
 }
 
+internal sealed record SolidDetached(
+    SolidMesh Mesh,
+    Option<LengthUnit> DeclaredUnit,
+    SolidProviderEvidence Evidence);
+
+public static partial class SolidImport {
+    // Each child transform PREPENDS, so the fold applies the innermost placement first and every ancestor
+    // composes outward; appending seats a nested component in its parent's unrotated frame.
+    internal static Seq<SolidMesh> FromThreeMf(
+        CObject resource, Seq<sTransform> transforms, Set<uint> ancestors, List<SolidDiagnostic> diagnostics) {
+        uint id = resource.GetUniqueResourceID();
+        if (ancestors.Contains(id))
+            throw new InvalidDataException($"solid-3mf:component-cycle:{id}");
+        Set<uint> path = ancestors.Add(id);
+        switch (resource) {
+            case CMeshObject mesh:
+                diagnostics.Add(new SolidDiagnostic.Native(id, mesh.IsManifoldAndOriented()));
+                return Seq(Transform(FromThreeMf(mesh), transforms));
+            case CComponentsObject assembly:
+                return Range(0, checked((int)assembly.GetComponentCount())).Bind(index => {
+                    using CComponent component = assembly.GetComponent(checked((uint)index));
+                    using CObject child = component.GetObjectResource();
+                    Seq<sTransform> nested = component.HasTransform()
+                        ? Seq(component.GetTransform()).Concat(transforms)
+                        : transforms;
+                    return FromThreeMf(child, nested, path, diagnostics);
+                });
+            default:
+                diagnostics.Add(new SolidDiagnostic.Skipped(resource.GetType().Name));
+                return Seq<SolidMesh>();
+        }
+    }
+
+    static SolidMesh FromThreeMf(CMeshObject mesh) {
+        mesh.GetVertices(out sPosition[] vertices);
+        mesh.GetTriangleIndices(out sTriangle[] triangles);
+        return new SolidMesh(
+            vertices.Map(static vertex => new SolidVertex(
+                vertex.Coordinates[0], vertex.Coordinates[1], vertex.Coordinates[2])).ToArr(),
+            triangles.Bind(static triangle => triangle.Indices.Map(static index => checked((int)index))).ToArr());
+    }
+
+    static SolidMesh Transform(SolidMesh mesh, Seq<sTransform> transforms) => new(
+        mesh.Vertices.Map(vertex => transforms.Fold(vertex, static (point, transform) => Apply(transform, point))),
+        mesh.TriangleIndices);
+
+    // `sTransform.Fields` is 4x3 — three basis rows then the translation row — so a point multiplies as a
+    // row vector and `Fields[3]` is the offset; reading it as 3x4 transposes every nested placement.
+    static SolidVertex Apply(sTransform transform, SolidVertex point) => new(
+        point.X * transform.Fields[0][0] + point.Y * transform.Fields[1][0] + point.Z * transform.Fields[2][0] + transform.Fields[3][0],
+        point.X * transform.Fields[0][1] + point.Y * transform.Fields[1][1] + point.Z * transform.Fields[2][1] + transform.Fields[3][1],
+        point.X * transform.Fields[0][2] + point.Y * transform.Fields[1][2] + point.Z * transform.Fields[2][2] + transform.Fields[3][2]);
+
+    internal static SolidMesh FromThreeDm(R3Mesh mesh) => new(
+        mesh.Vertices.ToPoint3dArray().Map(static vertex => new SolidVertex(vertex.X, vertex.Y, vertex.Z)).ToArr(),
+        mesh.Faces.ToIntArray(asTriangles: true).ToArr());
+
+    // `state.Vertices` is the PRE-append immutable value, so the index rebase never shifts with tuple
+    // evaluation order; a mutable accumulator offsets the second mesh by its own vertex count.
+    internal static Option<SolidMesh> Merge(Seq<SolidMesh> meshes) {
+        if (meshes.IsEmpty)
+            return None;
+        (Arr<SolidVertex> Vertices, Arr<int> Indices) state = meshes.Fold(
+            State: (Vertices: Arr<SolidVertex>(), Indices: Arr<int>()),
+            Folder: static (state, mesh) => (
+                state.Vertices.AddRange(mesh.Vertices),
+                state.Indices.AddRange(mesh.TriangleIndices.Map(index => checked(index + state.Vertices.Count)))));
+        return Some(new SolidMesh(state.Vertices, state.Indices));
+    }
+
+    internal static Option<LengthUnit> ThreeDmUnit(R3Unit unit) => unit switch {
+        R3Unit.Angstroms => LengthUnit.Angstrom,
+        R3Unit.Nanometers => LengthUnit.Nanometer,
+        R3Unit.Microns => LengthUnit.Micrometer,
+        R3Unit.Millimeters => LengthUnit.Millimeter,
+        R3Unit.Centimeters => LengthUnit.Centimeter,
+        R3Unit.Decimeters => LengthUnit.Decimeter,
+        R3Unit.Meters => LengthUnit.Meter,
+        R3Unit.Dekameters => LengthUnit.Decameter,
+        R3Unit.Hectometers => LengthUnit.Hectometer,
+        R3Unit.Kilometers => LengthUnit.Kilometer,
+        R3Unit.Gigameters => LengthUnit.Gigameter,
+        R3Unit.Microinches => LengthUnit.Microinch,
+        R3Unit.Mils => LengthUnit.Mil,
+        R3Unit.Inches => LengthUnit.Inch,
+        R3Unit.Feet => LengthUnit.Foot,
+        R3Unit.Yards => LengthUnit.Yard,
+        R3Unit.Miles => LengthUnit.Mile,
+        R3Unit.AstronomicalUnits => LengthUnit.AstronomicalUnit,
+        R3Unit.LightYears => LengthUnit.LightYear,
+        R3Unit.Parsecs => LengthUnit.Parsec,
+        _ => None,
+    };
+
+    internal static LengthUnit ThreeMfUnit(eModelUnit unit) => unit switch {
+        eModelUnit.MicroMeter => LengthUnit.Micrometer,
+        eModelUnit.MilliMeter => LengthUnit.Millimeter,
+        eModelUnit.CentiMeter => LengthUnit.Centimeter,
+        eModelUnit.Inch => LengthUnit.Inch,
+        eModelUnit.Foot => LengthUnit.Foot,
+        eModelUnit.Meter => LengthUnit.Meter,
+        _ => throw new InvalidDataException($"solid-3mf:unit:{unit}"),
+    };
+
+    internal static Error Fault(SolidPath path, string detail, Option<string> model = default) =>
+        new FabricationFault.IngressProviderUnavailable(
+            model.Match(
+                Some: value => new SourceLocus.ThreeMfObject(Path.GetFileName(value), 0),
+                None: () => (SourceLocus)Locus(path)),
+            detail);
+
+    internal static Error Fault(int face, string reason) =>
+        new FabricationFault.IngressProviderUnavailable(new SourceLocus.MeshFace(face), reason);
+
+    // `SourceLocus.OcctShape` carries an `int` shape id the read never publishes, so the path digest folds
+    // into the non-negative int range — a stable per-file locus, never an OCCT-assigned identity.
+    static SourceLocus.OcctShape Locus(SolidPath path) =>
+        new(unchecked((int)(
+            ContentHash.Of(System.Text.Encoding.UTF8.GetBytes(path.Value)) & (UInt128)int.MaxValue)));
+}
+```
+
+## [03]-[CANONICAL_OWNER]
+
+- Owner: `SolidMesh` is the sole detached millimeter carrier; `SolidTopology` owns incidence, shell, orientation, genus, and bounds measurement; `SolidWeldEvidence` retains the conditioning fold; `SolidRepairEvidence` retains the heal session; `SolidImportReceipt` is the settled evidence carrier every projection reads.
+- Entry: `SolidImport.Read(SolidSource)` returns one deferred `Eff<SolidImportReceipt>` folding byte read, format admission, provider read, unit resolution, conditioning, measurement, kernel admission, repair, and closure on one rail.
+- Auto: measurement runs edge census and triangle union-find in one sweep, deriving boundary, non-manifold, and unused counts, per-shell signed volume against a tolerance-cubed floor, Euler characteristic per shell, and genus only where the conditioned mesh is watertight AND oriented, so an open shell reports no genus rather than a fabricated one; `SolidFacePolicy` treats a collapsed, duplicate, or sliver face as data under `Drop` and names it through `SourceLocus.MeshFace` under `Reject`; `InputMesh` and `InputTopology` bind the conditioned snapshot while `Space` and `Repair.Session.FinalStatus` bind the possibly repaired one, so a repair never overwrites the input evidence a rejection cites; `SolidClosure` reads input topology or final heal status, so a healed source satisfies a watertight demand its unhealed input fails.
+- Receipt: `SolidImportReceipt` carries the source digest minted from the file bytes through `ContentHash.Of`, the admitted format, `SolidUnitEvidence`, the conditioned input mesh with its weld evidence, input topology, the kernel `MeshSpace`, optional repair evidence, and the provider evidence with its exact bounds rescaled to millimeters.
+- Packages: `MeshSpace` owns kernel admission, `HealPlan` and `Heal` own repair and its session; `UnitsNet` carries volume, length, and area evidence; `LanguageExt.Core` owns the rails and immutable carriers.
+- Growth: a new measured property is one `SolidTopology` field derived inside the one sweep; a new conditioning rule is one reason arm in the weld fold beside its `SolidDiagnostic.Degenerate` row; a new closure demand is one `SolidClosure` case with one predicate arm.
+- Boundary: vertex fusion, face admission, and the edge-census union-find sweep are the bounded statement kernels and every other fold is expression-shaped; `SolidTopology.Measure` throws structurally on a non-finite vertex, a non-triple index count, or an out-of-range index, and that throw is captured on the rail inside its own owner rather than escaping as an exception; `Native` is the one place a kernel `Mesh` is constructed and no kernel handle travels back out.
+
+```csharp signature
+// --- [CANONICAL_OWNER] --------------------------------------------------------------------
+public readonly record struct SolidVertex(double X, double Y, double Z) {
+    public SolidVertex Scale(double factor) => new(X * factor, Y * factor, Z * factor);
+    public SolidVertex Snap(double grid) => new(
+        Math.Round(X / grid) * grid, Math.Round(Y / grid) * grid, Math.Round(Z / grid) * grid);
+}
+
+public readonly record struct SolidBounds(SolidVertex Minimum, SolidVertex Maximum) {
+    public SolidVertex Extent => new(
+        Maximum.X - Minimum.X, Maximum.Y - Minimum.Y, Maximum.Z - Minimum.Z);
+
+    public SolidBounds Scale(double factor) => new(Minimum.Scale(factor), Maximum.Scale(factor));
+
+    public Length Diagonal => Length.FromMillimeters(Math.Sqrt(
+        Math.Pow(Extent.X, 2d) + Math.Pow(Extent.Y, 2d) + Math.Pow(Extent.Z, 2d)));
+}
+
+public sealed record SolidMesh(Arr<SolidVertex> Vertices, Arr<int> TriangleIndices) {
+    public int TriangleCount => TriangleIndices.Count / 3;
+
+    public SolidMesh Scale(double factor) => new(
+        Vertices.Map(vertex => vertex.Scale(factor)),
+        TriangleIndices);
+}
+
+public sealed record SolidWeldEvidence(SolidWeld Policy, int Before, int After, int DroppedFaces);
+
+public sealed partial record SolidTopology(
+    int Vertices,
+    int Triangles,
+    int Edges,
+    int BoundaryEdges,
+    int NonManifoldEdges,
+    int UnusedVertices,
+    int Shells,
+    int InwardShells,
+    int ZeroVolumeShells,
+    int EulerCharacteristic,
+    Option<int> Genus,
+    Volume SignedVolume,
+    bool Oriented,
+    bool Watertight,
+    SolidBounds Bounds);
+
 public sealed record SolidUnitEvidence(
     Option<LengthUnit> Declared,
     SolidUnitPolicy Resolution,
     LengthUnit Canonical,
     double MillimeterScale);
 
-internal sealed record SolidDetached(
-    SolidMesh Mesh,
-    Option<LengthUnit> DeclaredUnit,
-    SolidProviderEvidence Evidence);
+public sealed record SolidRepairEvidence(SolidRepairPolicy Policy, HealSession Session);
 
 public sealed record SolidImportReceipt(
     UInt128 SourceDigest,
@@ -385,36 +512,7 @@ public sealed record SolidImportReceipt(
     Option<SolidRepairEvidence> Repair,
     SolidProviderEvidence Provider);
 
-public sealed record SolidRepairEvidence(SolidRepairPolicy Policy, HealSession Session);
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SolidProjection {
-    private SolidProjection() { }
-    public sealed record Space : SolidProjection;
-    public sealed record InputMesh : SolidProjection;
-    public sealed record InputTopology : SolidProjection;
-    public sealed record Bounds : SolidProjection;
-    public sealed record Units : SolidProjection;
-    public sealed record Diagnostics : SolidProjection;
-    public sealed record Repair : SolidProjection;
-    public sealed record Receipt : SolidProjection;
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SolidView {
-    private SolidView() { }
-    public sealed record Space(MeshSpace Value) : SolidView;
-    public sealed record InputMesh(SolidMesh Value) : SolidView;
-    public sealed record InputTopology(SolidTopology Value) : SolidView;
-    public sealed record Bounds(SolidBounds Value) : SolidView;
-    public sealed record Units(SolidUnitEvidence Value) : SolidView;
-    public sealed record Diagnostics(Seq<SolidDiagnostic> Value) : SolidView;
-    public sealed record Repair(Option<SolidRepairEvidence> Value) : SolidView;
-    public sealed record Receipt(SolidImportReceipt Value) : SolidView;
-}
-
-// --- [OPERATIONS] -------------------------------------------------------------------------
-public static class SolidImport {
+public static partial class SolidImport {
     public static Eff<SolidImportReceipt> Read(SolidSource source) => Eff.lift(() =>
         from raw in Try.lift(() => File.ReadAllBytes(source.Path.Value)).Run()
             .MapFail(error => Fault(source.Path, error.Message))
@@ -438,17 +536,6 @@ public static class SolidImport {
             admitted.Space, admitted.Repair,
             provider))
         .MapFail(error => error.IsExceptional ? Fault(source.Path, error.Message) : error);
-
-    public static SolidView Project(SolidImportReceipt receipt, SolidProjection projection) => projection.Switch(
-        state: receipt,
-        space: static value => new SolidView.Space(value.Space),
-        inputMesh: static value => new SolidView.InputMesh(value.InputMesh),
-        inputTopology: static value => new SolidView.InputTopology(value.InputTopology),
-        bounds: static value => new SolidView.Bounds(value.Provider.Exact.IfNone(value.InputTopology.Bounds)),
-        units: static value => new SolidView.Units(value.Units),
-        diagnostics: static value => new SolidView.Diagnostics(value.Provider.Diagnostics),
-        repair: static value => new SolidView.Repair(value.Repair),
-        receipt: static value => new SolidView.Receipt(value));
 
     // Vertex fusion and face admission run before measurement: an unwelded STL reports every edge as boundary,
     // so a closure demand and the repair stage it gates are both unreachable without this conditioning.
@@ -534,6 +621,8 @@ public static class SolidImport {
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(Fault(value.Path, "solid-closure:open")));
 
+    // Running a session is not closing one: the final status itself reports manifold, oriented, and zero
+    // boundary and non-manifold edges, or partial heal progress reads as a satisfied closure demand.
     static bool Healed(Option<SolidRepairEvidence> repair) => repair.Exists(
         static evidence => evidence.Session.IsValid
             && evidence.Session.FinalStatus.Exists(static status => status.IsManifold && status.IsOriented
@@ -555,112 +644,6 @@ public static class SolidImport {
             mesh.TriangleIndices[triangle * 3 + 2]));
         return native;
     }
-
-    internal static Seq<SolidMesh> FromThreeMf(
-        CObject resource, Seq<sTransform> transforms, Set<uint> ancestors, List<SolidDiagnostic> diagnostics) {
-        uint id = resource.GetUniqueResourceID();
-        if (ancestors.Contains(id))
-            throw new InvalidDataException($"solid-3mf:component-cycle:{id}");
-        Set<uint> path = ancestors.Add(id);
-        switch (resource) {
-            case CMeshObject mesh:
-                diagnostics.Add(new SolidDiagnostic.Native(id, mesh.IsManifoldAndOriented()));
-                return Seq(Transform(FromThreeMf(mesh), transforms));
-            case CComponentsObject assembly:
-                return Range(0, checked((int)assembly.GetComponentCount())).Bind(index => {
-                    using CComponent component = assembly.GetComponent(checked((uint)index));
-                    using CObject child = component.GetObjectResource();
-                    Seq<sTransform> nested = component.HasTransform()
-                        ? Seq(component.GetTransform()).Concat(transforms)
-                        : transforms;
-                    return FromThreeMf(child, nested, path, diagnostics);
-                });
-            default:
-                diagnostics.Add(new SolidDiagnostic.Skipped(resource.GetType().Name));
-                return Seq<SolidMesh>();
-        }
-    }
-
-    static SolidMesh FromThreeMf(CMeshObject mesh) {
-        mesh.GetVertices(out sPosition[] vertices);
-        mesh.GetTriangleIndices(out sTriangle[] triangles);
-        return new SolidMesh(
-            vertices.Map(static vertex => new SolidVertex(
-                vertex.Coordinates[0], vertex.Coordinates[1], vertex.Coordinates[2])).ToArr(),
-            triangles.Bind(static triangle => triangle.Indices.Map(static index => checked((int)index))).ToArr());
-    }
-
-    static SolidMesh Transform(SolidMesh mesh, Seq<sTransform> transforms) => new(
-        mesh.Vertices.Map(vertex => transforms.Fold(vertex, static (point, transform) => Apply(transform, point))),
-        mesh.TriangleIndices);
-
-    static SolidVertex Apply(sTransform transform, SolidVertex point) => new(
-        point.X * transform.Fields[0][0] + point.Y * transform.Fields[1][0] + point.Z * transform.Fields[2][0] + transform.Fields[3][0],
-        point.X * transform.Fields[0][1] + point.Y * transform.Fields[1][1] + point.Z * transform.Fields[2][1] + transform.Fields[3][1],
-        point.X * transform.Fields[0][2] + point.Y * transform.Fields[1][2] + point.Z * transform.Fields[2][2] + transform.Fields[3][2]);
-
-    internal static SolidMesh FromThreeDm(R3Mesh mesh) => new(
-        mesh.Vertices.ToPoint3dArray().Map(static vertex => new SolidVertex(vertex.X, vertex.Y, vertex.Z)).ToArr(),
-        mesh.Faces.ToIntArray(asTriangles: true).ToArr());
-
-    internal static Option<SolidMesh> Merge(Seq<SolidMesh> meshes) {
-        if (meshes.IsEmpty)
-            return None;
-        (Arr<SolidVertex> Vertices, Arr<int> Indices) state = meshes.Fold(
-            State: (Vertices: Arr<SolidVertex>(), Indices: Arr<int>()),
-            Folder: static (state, mesh) => (
-                state.Vertices.AddRange(mesh.Vertices),
-                state.Indices.AddRange(mesh.TriangleIndices.Map(index => checked(index + state.Vertices.Count)))));
-        return Some(new SolidMesh(state.Vertices, state.Indices));
-    }
-
-    internal static Option<LengthUnit> ThreeDmUnit(R3Unit unit) => unit switch {
-        R3Unit.Angstroms => LengthUnit.Angstrom,
-        R3Unit.Nanometers => LengthUnit.Nanometer,
-        R3Unit.Microns => LengthUnit.Micrometer,
-        R3Unit.Millimeters => LengthUnit.Millimeter,
-        R3Unit.Centimeters => LengthUnit.Centimeter,
-        R3Unit.Decimeters => LengthUnit.Decimeter,
-        R3Unit.Meters => LengthUnit.Meter,
-        R3Unit.Dekameters => LengthUnit.Decameter,
-        R3Unit.Hectometers => LengthUnit.Hectometer,
-        R3Unit.Kilometers => LengthUnit.Kilometer,
-        R3Unit.Gigameters => LengthUnit.Gigameter,
-        R3Unit.Microinches => LengthUnit.Microinch,
-        R3Unit.Mils => LengthUnit.Mil,
-        R3Unit.Inches => LengthUnit.Inch,
-        R3Unit.Feet => LengthUnit.Foot,
-        R3Unit.Yards => LengthUnit.Yard,
-        R3Unit.Miles => LengthUnit.Mile,
-        R3Unit.AstronomicalUnits => LengthUnit.AstronomicalUnit,
-        R3Unit.LightYears => LengthUnit.LightYear,
-        R3Unit.Parsecs => LengthUnit.Parsec,
-        _ => None,
-    };
-
-    internal static LengthUnit ThreeMfUnit(eModelUnit unit) => unit switch {
-        eModelUnit.MicroMeter => LengthUnit.Micrometer,
-        eModelUnit.MilliMeter => LengthUnit.Millimeter,
-        eModelUnit.CentiMeter => LengthUnit.Centimeter,
-        eModelUnit.Inch => LengthUnit.Inch,
-        eModelUnit.Foot => LengthUnit.Foot,
-        eModelUnit.Meter => LengthUnit.Meter,
-        _ => throw new InvalidDataException($"solid-3mf:unit:{unit}"),
-    };
-
-    internal static Error Fault(SolidPath path, string detail, Option<string> model = default) =>
-        new FabricationFault.IngressProviderUnavailable(
-            model.Match(
-                Some: value => new SourceLocus.ThreeMfObject(Path.GetFileName(value), 0),
-                None: () => (SourceLocus)Locus(path)),
-            detail);
-
-    internal static Error Fault(int face, string reason) =>
-        new FabricationFault.IngressProviderUnavailable(new SourceLocus.MeshFace(face), reason);
-
-    static SourceLocus.OcctShape Locus(SolidPath path) =>
-        new(unchecked((int)(
-            ContentHash.Of(System.Text.Encoding.UTF8.GetBytes(path.Value)) & (UInt128)int.MaxValue)));
 }
 
 public sealed partial record SolidTopology {
@@ -671,6 +654,8 @@ public sealed partial record SolidTopology {
         public int Count => Forward + Reverse;
     }
 
+    // One sweep builds the edge incidence map AND the triangle union-find: a second pass over the faces would
+    // re-derive the shell partition the edge merge already produced, and the shell keys index both results.
     public static Fin<SolidTopology> Measure(SolidMesh mesh, Context context) => Try.lift(() => {
         if (mesh.Vertices.IsEmpty || mesh.TriangleIndices.IsEmpty || mesh.TriangleIndices.Count % 3 != 0
             || mesh.Vertices.Exists(static vertex => !double.IsFinite(vertex.X) || !double.IsFinite(vertex.Y) || !double.IsFinite(vertex.Z)))
@@ -709,6 +694,8 @@ public sealed partial record SolidTopology {
                 static group => group.Count(edge => edge.Value.Count == 1));
         if (shellVolumes.Exists(static shell => !double.IsFinite(shell.Volume)))
             throw new InvalidDataException("solid-topology:non-finite-volume");
+        // Volume is signed and cubic, so the zero test rides a tolerance-cubed floor: an absolute epsilon
+        // reads a millimetre-scale sliver shell and a metre-scale solid on the same scale.
         double volumeFloor = Math.Pow(context.Absolute.Value, 3d);
         int inward = shellVolumes.Count(shell => shellBoundaries.GetValueOrDefault(shell.Root) == 0
             && shell.Volume < -volumeFloor);
@@ -759,6 +746,8 @@ public sealed partial record SolidTopology {
             new SolidVertex(Math.Min(bounds.Minimum.X, vertex.X), Math.Min(bounds.Minimum.Y, vertex.Y), Math.Min(bounds.Minimum.Z, vertex.Z)),
             new SolidVertex(Math.Max(bounds.Maximum.X, vertex.X), Math.Max(bounds.Maximum.Y, vertex.Y), Math.Max(bounds.Maximum.Z, vertex.Z))));
 
+    // Direction is per-USE, not per-edge: a manifold interior edge is traversed once forward and once reverse,
+    // so the two counters are what distinguish a consistently oriented pair from a mirrored one.
     static void Add(Dictionary<Edge, EdgeUse> edges, int[] parent, int triangle, int from, int to) {
         Edge edge = Edge.Of(from, to);
         if (edges.TryGetValue(edge, out EdgeUse use)) {
@@ -791,7 +780,62 @@ public sealed partial record SolidTopology {
 }
 ```
 
-## [06]-[RESEARCH]
+## [04]-[PROJECTION_EGRESS]
 
-- `OcctBoundingBox` component member spelling (`MinX`/`MaxX` versus a `Corner`/`Size` pair) needs `assay api query --key occtnet.wrapper --symbol OcctNet.Wrapper.OcctBoundingBox`; `SolidPolicy.OcctBounds` is the provider adapter for the uncatalogued accessor family.
-- `Lib3MF.CBuildItem.GetUUID(out bool)` and `CModel.GetBuildUUID(out bool)` return shapes are catalogued as production-extension identity but not verified for nullability; `SolidDiagnostic.Part` binds the verified return once decompiled.
+- Owner: `SolidProjection` is the closed egress family over the settled receipt and `SolidView` carries each case's result shape.
+- Cases: space · input-mesh · input-topology · bounds · units · diagnostics · repair · receipt.
+- Entry: `SolidImport.Project(SolidImportReceipt, SolidProjection)` — total, reopening no source file and reconstructing no B-rep.
+- Auto: the bounds view reads the provider's exact rescaled envelope where one exists and the measured input bounds otherwise, so a tessellated stock envelope never reads tighter than the solid it was sampled from.
+- Growth: a new egress is one `SolidProjection` case, one `SolidView` case, and one total `Switch` arm.
+- Boundary: `SolidRepairEvidence.Session.FinalStatus` carries repaired topology status beside the explicit input snapshot, so both states read off one receipt; exact CAD and 3MF round-trip belongs to a representation-preserving owner, never this triangulating ingress.
+
+```csharp signature
+// --- [PROJECTION_EGRESS] ------------------------------------------------------------------
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SolidProjection {
+    private SolidProjection() { }
+    public sealed record Space : SolidProjection;
+    public sealed record InputMesh : SolidProjection;
+    public sealed record InputTopology : SolidProjection;
+    public sealed record Bounds : SolidProjection;
+    public sealed record Units : SolidProjection;
+    public sealed record Diagnostics : SolidProjection;
+    public sealed record Repair : SolidProjection;
+    public sealed record Receipt : SolidProjection;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SolidView {
+    private SolidView() { }
+    public sealed record Space(MeshSpace Value) : SolidView;
+    public sealed record InputMesh(SolidMesh Value) : SolidView;
+    public sealed record InputTopology(SolidTopology Value) : SolidView;
+    public sealed record Bounds(SolidBounds Value) : SolidView;
+    public sealed record Units(SolidUnitEvidence Value) : SolidView;
+    public sealed record Diagnostics(Seq<SolidDiagnostic> Value) : SolidView;
+    public sealed record Repair(Option<SolidRepairEvidence> Value) : SolidView;
+    public sealed record Receipt(SolidImportReceipt Value) : SolidView;
+}
+
+public static partial class SolidImport {
+    public static SolidView Project(SolidImportReceipt receipt, SolidProjection projection) => projection.Switch(
+        state: receipt,
+        space: static value => new SolidView.Space(value.Space),
+        inputMesh: static value => new SolidView.InputMesh(value.InputMesh),
+        inputTopology: static value => new SolidView.InputTopology(value.InputTopology),
+        bounds: static value => new SolidView.Bounds(value.Provider.Exact.IfNone(value.InputTopology.Bounds)),
+        units: static value => new SolidView.Units(value.Units),
+        diagnostics: static value => new SolidView.Diagnostics(value.Provider.Diagnostics),
+        repair: static value => new SolidView.Repair(value.Repair),
+        receipt: static value => new SolidView.Receipt(value));
+}
+```
+
+## [05]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

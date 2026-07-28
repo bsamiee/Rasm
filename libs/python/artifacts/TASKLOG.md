@@ -142,25 +142,14 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `pdfplumber` `Page.debug_tablefinder`; `document/lens.md` examination ops.
 - Atomic: one projection row on one existing page.
 
-[DASH_PAGE]-[QUEUED]: Author `libs/python/artifacts/.planning/visualization/dashboard.md` — the `DashboardPlan` composed-pane owner.
-- Capability: chart, table, and diagram panes composed into one offline single-file HTML artifact, theme-graded and register-indexable.
-- Shape: one page owning the pane vocabulary, the composition fold, and the single-file emit contract.
-- Unlocks: IDEAS.md [DASHBOARD_ARTIFACT] landing surface; deepens the `visualization` direct tier.
-- Anchors: `altair` `JupyterChart`; `TablePlan` HTML arm; `DiagramDraw`; `Theme` rows.
-
-[DASH_HTML_ROW]-[QUEUED]: Land the interactive-HTML format row in `libs/python/artifacts/.planning/visualization/chart/export.md`.
-- Capability: self-contained HTML chart output beside the existing raster and vector formats, host-free.
-- Shape: one format-dispatch row naming the HTML arm and its embed policy.
-- Unlocks: IDEAS.md [DASHBOARD_ARTIFACT] pane source; exploits the unexploited `altair` member.
-- Anchors: `altair` `JupyterChart` and HTML export; `vl-convert-python`.
-- Atomic: one format row on one existing page.
-
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[DASH_PAGE]-[COMPLETE]: landed as `visualization/dashboard.md` — `DashPane` (chart/table/figure) over `PaneSlot`/`Grid`, `DashboardPlan.of` refusing `<no-panes>`/`<duplicate-slot>`/`<fenced-html>`/`<non-vega-pane>` at admission, pane producer keys riding `ArtifactWork.parents` so the plan fronts each producer, and `_document` emitting one shared runtime beside per-pane mounts.
+[DASH_HTML_ROW]-[DROPPED]: `ExportFormat.HTML` and its `VL_RENDER` row were already landed on `visualization/chart/export.md`; the carded `altair` `JupyterChart` anchor is refuted for this estate — it needs a live Jupyter comm channel the host-free charter forbids, and `Chart.to_html(inline=True)` ignores `fullhtml` so it answers only a whole document, which is why pane composition homes at `visualization/dashboard.md` instead.
 [HOOKS_PAGE]-[COMPLETE]: landed as `core/hooks.md` — `ArtifactHook` id vocabulary, closed payload Structs, `ARTIFACT_POINTS` row table, and the scope-keyed `Production` surface over the runtime registry.
 [HOOKS_SEAMS]-[COMPLETE]: fire seams live at `core/issue.md` `_issued`/`_planned`/`_driven` (admitted veto, planned, refused, front drained) and `core/receipt.md` `contribute` (`ReceiptEmitted`/`TransmittalIssued`), payloads projected from evidence in hand.
 [ATTRIB_BIND]-[COMPLETE]: landed as `core/issue.md` `_scoped` — issue scope minted per call, tenant seeded only when the parent context carries none, token-attached around the drive so the worker crossing's `propagate.inject` carries both entries.

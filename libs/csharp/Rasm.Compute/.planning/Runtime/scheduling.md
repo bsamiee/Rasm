@@ -163,9 +163,9 @@ flowchart LR
 
 ## [04]-[CPU_BUDGET]
 
-- Owner: `CpuBudget` — the one live resource-budget record lane, model, tensor, optimizer, and job runners read, including the pressure-derived memory scale; `UtilizationSample` — the typed process/container utilization snapshot the governor folds; `GovernorPolicy` — the shed/restore/spill threshold-and-hysteresis policy; `ResourceGovernor` — the utilization fold re-resolving the live budget at collection cadence, with only a landed transition carrying a `Governor` fact.
+- Owner: `CpuBudget` — the one live resource-budget record lane, model, tensor, optimizer, and job runners read, including the pressure-derived memory scale; `UtilizationSample` — the typed process/container utilization snapshot the governor folds, and `UtilizationSeries` the literal instrument-name roster the composing listener subscribes on; `GovernorPolicy` — the shed/restore/spill threshold-and-hysteresis policy; `ResourceGovernor` — the utilization fold re-resolving the live budget at collection cadence, with only a landed transition carrying a `Governor` fact.
 - Entry: `public static CpuBudget Resolve(int processors, int hostReserve, double memoryScale = 1d)` — pure clamp; every derived field is arithmetic over those inputs. `public Fin<(CpuBudget Budget, Option<ComputeReceipt.Governor> Fact)> ResourceGovernor.Steer(UtilizationSample sample, CorrelationId correlation)` — one sample advances the effective reserve and memory scale under policy hysteresis, re-resolves the record, and swaps the live cell; `Fact` is absent when neither posture changes. `JobGraph` reads `Current` at invocation, and the optimizer binds it at entry.
-- Auto: the composition root resolves the posture record once from `Environment.ProcessorCount` and the posture row, then mints one `ResourceGovernor` over it; utilization samples arrive as typed `UtilizationSample` values the AppHost composition sources from the `Microsoft.Extensions.Diagnostics.ResourceMonitoring` observable instruments (one `MeterListener` on the package meter at collection cadence — the `IResourceMonitor`/`ResourceUtilization` snapshot API is obsolete `EXTOBS0001` and never composed); lane readers clamp through `Readers`, the model lane sizes its one global ORT thread pool from `OrtIntraOp` and `OrtInterOp` with per-session threads disabled and binds `OrtThreadingOptions.GlobalSpinControl` from `SpinControl`, the tensor-lane `Partition` execution column reads `PartitionCap` for its `ParallelHelper.For` partition count behind a winning benchmark claim — this record owns the cap, Tensor/dispatch#KERNEL_DISPATCH owns the fan-out — and `Optimizer.Optimize` projects `Workers` into its executor policy at entry; spill scale admits only the strict reduction interval `(0, 1)`, memory spill enters at `SpillMemoryPercent`, holds through the hysteresis band, and restores only at `RestoreMemoryPercent`.
+- Auto: the composition root resolves the posture record once from `Environment.ProcessorCount` and the posture row, then mints one `ResourceGovernor` over it; utilization samples arrive as typed `UtilizationSample` values the AppHost composition sources from the `Microsoft.Extensions.Diagnostics.ResourceMonitoring` observable instruments (one `MeterListener` on `UtilizationSeries.Meter` at collection cadence, subscribing the roster's literal names because the package's own `ResourceUtilizationInstruments` consts are `internal` — the `IResourceMonitor`/`ResourceUtilization` snapshot API is obsolete `EXTOBS0001` and never composed); lane readers clamp through `Readers`, the model lane sizes its one global ORT thread pool from `OrtIntraOp` and `OrtInterOp` with per-session threads disabled and binds `OrtThreadingOptions.GlobalSpinControl` from `SpinControl`, the tensor-lane `Partition` execution column reads `PartitionCap` for its `ParallelHelper.For` partition count behind a winning benchmark claim — this record owns the cap, Tensor/dispatch#KERNEL_DISPATCH owns the fan-out — and `Optimizer.Optimize` projects `Workers` into its executor policy at entry; spill scale admits only the strict reduction interval `(0, 1)`, memory spill enters at `SpillMemoryPercent`, holds through the hysteresis band, and restores only at `RestoreMemoryPercent`.
 - Receipt: Governor — cpu and memory percentages, the re-resolved `Workers`/`ReaderCeiling`/`PartitionCap`, the effective memory scale, and the spill-pressure flag, process-scoped and emitted only when an adjustment or spill transition lands, so a steady host stays silent.
 - Packages: BCL inbox, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
 - Growth: one posture row per new host-profile row, one policy value per new concurrency axis, and one `GovernorPolicy` column per new pressure axis; zero new surface — a second scheduler, a `LoadShedder` sibling, or a governor mutating lane rows directly is the rejected form because every consumer already reads the one budget record.
@@ -208,6 +208,25 @@ public sealed record CpuBudget {
         double scale = double.IsFinite(memoryScale) ? Math.Clamp(memoryScale, double.Epsilon, 1d) : 1d;
         return new(total, Math.Clamp(hostReserve, 0, total - 1), scale);
     }
+}
+
+// Source names the AppHost listener subscribes on. `ResourceUtilizationInstruments` is `internal static` in the
+// package, so its consts are unreachable from a consuming assembly and every name is spelled as a literal here.
+// This roster IS the seam contract, so an upstream rename lands as a listener miss reporting a healthy zero
+// rather than a compile break. `ProcessMemory` carries the DOTTED wire name, not the const's own `ProcessMemoryUtilization`
+// identifier: reading the identifier as the series name subscribes to a stream nothing publishes. Instruments
+// are `ObservableGauge<double>` over `[0, 1]`, so the listener scales into the record's percent scale.
+public static class UtilizationSeries {
+    public const string Meter = "Microsoft.Extensions.Diagnostics.ResourceMonitoring";
+    public const string ProcessCpu = "process.cpu.utilization";
+    public const string ProcessMemory = "dotnet.process.memory.virtual.utilization";
+    public const string ContainerCpuLimit = "container.cpu.limit.utilization";
+    public const string ContainerCpuRequest = "container.cpu.request.utilization";
+    public const string ContainerMemoryLimit = "container.memory.limit.utilization";
+    public const string ContainerMemoryRequest = "container.memory.request.utilization";
+    // `ObservableUpDownCounter<long>` in bytes — the one absolute magnitude beside the four ratios, so the
+    // sample carries the byte figure a spill decision needs without re-deriving it from a limit ratio.
+    public const string ContainerMemoryBytes = "container.memory.usage";
 }
 
 public readonly record struct UtilizationSample(double CpuPercent, double MemoryPercent, ulong MemoryBytes, Instant At) {
@@ -708,4 +727,3 @@ public static class LaneDrain {
 - [LANE_EVIDENCE]-[OPEN]: does the drop-path `Backpressure` projection allocate only the receipt envelope at the sink edge under sustained `DropOldest` capture-ingest load, given the bounded-channel `itemDropped` callback runs synchronously on the writer thread; implementation-time per-drop allocation profile.
 - [WAVE_PARALLELISM]-[OPEN]: does the `ForkIO` wave overlap every admitted node's `runner` before awaiting so concurrency is the forked overlap bounded by the per-tenant `CpuBudget.Workers` slice, not the wave's await order; implementation-time wall-clock span of a fan-out-heavy frontier against the serial-await lower bound.
 - [COOPERATIVE_SPILL]-[OPEN]: does a node past its `MemoryBudgetBytes` self-report `JobSignal.Spilled` carrying the `JobCheckpoint` its runner produced at the cooperative yield point so a resume reloads exactly those bytes; implementation-time checkpoint size and resume-warm latency under preemption pressure.
-- [GOVERNOR_SERIES]-[OPEN]: which exact observable-instrument names on the `Microsoft.Extensions.Diagnostics.ResourceMonitoring` meter carry the process/container CPU and memory utilization the AppHost `MeterListener` projects into `UtilizationSample` (the `IResourceMonitor` snapshot API is obsolete `EXTOBS0001`); `tools.assay api query` over the package instrument mints and the package release notes.

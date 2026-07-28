@@ -39,26 +39,27 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Tension: principal mint and refresh are security's — this plane mounts the projection and never touches grant grammar.
 - Ripple: `security` `[WORKLOAD_IDENTITY]`.
 
-[BENCH_CLAIM_PRODUCER]-[BLOCKED]: Measured-run receipts gain the mitata deep-sampling modality.
+[BENCH_CLAIM_PRODUCER]-[BLOCKED]: Measured-run sampling rides the shipped engine that already owns the rung set.
 - Capability: benchmark claims ride one typed receipt producer whose sampling evidence carries no `Unknown` evidence bag.
 - Shape: the sampling modality row on `libs/typescript/runtime/.planning/proc/exec.md` `[05]-[MEASURED_RUN]`, gated by its `[06]-[RESEARCH]` `[TRIAL_ENGINE]` row.
 - Unlocks: package-independent benchmark claims with typed deep-sampling evidence on the measured-run rail.
-- Anchors: `proc/exec.md` `[05]-[MEASURED_RUN]` receipts; `.api/mitata.md` at the folder and branch tiers.
-- Arms: an applicable mitata catalog carries exact rows for every composed member — `measure`, `do_not_optimize`, result fields, batch and GC controls.
+- Anchors: `proc/exec.md` `[05]-[MEASURED_RUN]` receipts; the landed `libs/typescript/core/.api/mitata.md` catalog, whose entrypoint and knob rows carry every member this modality composes.
+- Arms: the mitata catalog homes at the branch substrate tier and this folder registers it — every member verified against the installed distribution and rostered, so the debt is catalog HOMING and never member truth: a folder composing a package catalogued at a sibling folder's tier has no catalog of its own to verify against.
+- Tension: `Trial.run`'s hand-bracketed sampler already re-derives the rung set the package ships, so the modality is a replacement of the local kernel rather than an enrichment beside it.
 
-[CLOUDEVENTS_ENVELOPE]-[BLOCKED]: Delivery egress and serving intake speak verified CloudEvents HTTP bindings.
+[CLOUDEVENTS_ENVELOPE]-[QUEUED]: Delivery egress and serving intake speak verified CloudEvents HTTP bindings.
 - Capability: one CloudEvents codec pair — egress preserving structured content type, binary data bytes, and W3C extension attributes; intake auto-detecting binary versus structured mode with decode evidence on the `Problem` rail.
-- Shape: the egress codec on `libs/typescript/runtime/.planning/work/deliver.md`, gated by its `[07]-[RESEARCH]` `[CLOUDEVENTS_EGRESS]` row; the intake codec on `libs/typescript/runtime/.planning/serve/route.md`, gated by its `[07]-[RESEARCH]` `[CLOUDEVENTS_INTAKE]` row.
+- Shape: the egress codec on `libs/typescript/runtime/.planning/work/deliver.md` and the intake codec on `libs/typescript/runtime/.planning/serve/route.md`, each transcribing the settled codec law its page already carries.
 - Unlocks: standards-shaped event crossings on both HTTP directions without an unverified fence.
 - Anchors: `.api/cloudevents.md` at the folder and branch tiers; `work/deliver.md` `HookPayload` signing seam; `serve/route.md` `Problem` rail.
-- Arms: an applicable CloudEvents catalog carries exact rows for both HTTP binding directions.
 
-[GRPC_LANE]-[BLOCKED]: Connect transport completes — the W3C interceptor pair and the guarded server mount.
-- Capability: immutable W3C injection and extraction ride the runtime `Propagation` owner on both Connect directions, and the server handler mounts behind `Seam.guard` with context continued before the handler.
-- Shape: the interceptor pair on `libs/typescript/runtime/.planning/net/client.md` `[06]-[CONNECT_ROW]`, gated by its `[07]-[RESEARCH]` `[CONNECT_INTERCEPTORS]` row; the guarded mount on `libs/typescript/runtime/.planning/serve/live.md`, gated by its `[08]-[RESEARCH]` `[CONNECT_MOUNT]` row.
-- Unlocks: gRPC lanes carry trace context and mount under the one guard law with no call-site header thunk.
-- Anchors: `.api/connectrpc-connect-node.md` at the folder and branch tiers; core `.api/connectrpc-connect.md` peer contract; `.api/effect-platform-node.md` host interop rows; the rpc admission boundary at `libs/typescript/runtime/RULINGS.md` `[01]-[PACKAGES]` — dial admitted, serving only through the `Mount` port.
-- Arms: the client and server interceptor members, the composite carrier setter, and the `connectNodeAdapter` handler lift all carry exact catalog rows.
+[GRPC_LANE]-[BLOCKED]: Connect transport completes — the served handler mounts behind the one guard law.
+- Capability: the served Connect handler mounts behind `Seam.guard` with context continued before the handler. Egress print is settled elsewhere — `core:interchange/invoke#DIAL_AXIS`'s per-call lift already folds `Carrier.inject("connect", ...)` onto the call headers, so a client interceptor pair is the foreclosed form.
+- Shape: the guarded mount on `libs/typescript/runtime/.planning/serve/live.md`, gated by its `[08]-[RESEARCH]` `[CONNECT_MOUNT]` row.
+- Unlocks: served gRPC surfaces mount under the one guard law with no bespoke adapter beside the rail's.
+- Arms: one published node-handler lift serves both `serve/route#LAYER_ROUTES`'s rail mount and `serve/live#MOUNT_PORT`'s `Mount.Row`.
+- Anchors: `.api/connectrpc-connect-node.md` interceptor rows; core `.api/connectrpc-connect.md` peer contract; `NodeHttpServerRequest.toIncomingMessage`/`toServerResponse`, the same accessor pair `serve/route.md`'s rail mount already drives a raw node handler through; the rpc admission boundary at `libs/typescript/runtime/RULINGS.md` `[01]-[PACKAGES]` — dial admitted, serving only through the `Mount` port.
+- Tension: the server interceptor option reaches `ConnectNodeAdapterOptions` only by inheritance from `UniversalHandlerOptions`, which the package marks internal and outside semantic versioning, so the composing fence binds it as a declared trap rather than as a stable field.
 
 ## [02]-[CLOSED]
 
@@ -67,14 +68,15 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 -->
 
 [CONSUMPTION_AXIS_SPELLING]-[COMPLETE]: the six-axis roster landed at all three branch minters with identical closed-axis vocabularies and one common open-axis descriptor shape; refusal is one axis/value/reason grammar everywhere, and the corpus entry's roster blocker is discharged.
-[WORK_METER_BRIDGE]-[COMPLETE]: work-plane meter bridge — realized as `otel/meter.md` (`Pulse`): fact→instrument projection, census gauges, log-floor wiring, tenant views.
+[WORK_METER_BRIDGE]-[COMPLETE]: work-plane meter bridge — realized as `otel/meter.md` (`Pulse`): fact-to-instrument projection over one polymorphic mount, row-projected census gauges, log-floor wiring, and the one governance view table.
 [CHANNEL_MQTT]-[COMPLETE]: `net/channel.md` `Mqtt` composes the catalog-verified v5 members (`connectAsync`, `subscribeAsync`, `publishAsync`, `endAsync`, the `userProperties` carrier frame) under scoped acquisition; the `[MQTT_V5]` research row resolved against `libs/typescript/core/.api/mqtt.md` and is deleted.
-[PROFILE_SIGNAL]-[COMPLETE]: realized as the minted `otel/profile.md` — `Profile.live` init/start/stop bracket over `@pyroscope/nodejs` with `SourceMapper.create` symbolication, `StripFilenamesMode` posture, rank-91 `Life` drain, and `Setting.otel.profile` admission.
-[NODE_VITALS]-[COMPLETE]: already landed — `emit.md` `_vitals` binds `HostMetrics` and `RuntimeNodeInstrumentation` on the raw `Hooks.Meter` provider, `meter.md` `[06]-[ENGINE]` guards `v8js.*` with `createDenyListAttributesProcessor`.
+[PROFILE_SIGNAL]-[COMPLETE]: realized as the minted `otel/profile.md` — `Profile.live` brackets init and the armed sampler roster over `@pyroscope/nodejs` with `SourceMapper.create` symbolication, the engine log bridge, `StripFilenamesMode` posture, rank-91 `Life` drain, and `Setting.otel.profile` admission.
+[NODE_VITALS]-[COMPLETE]: already landed — `emit.md` `[07]-[INSTRUMENT]`'s server node binds `HostMetrics` and `RuntimeNodeInstrumentation` on the raw `Hooks.Meter` provider inside its one `registerInstrumentations` call, and `meter.md` `[05]-[VIEWS]` guards `v8js.*` with `createDenyListAttributesProcessor`.
+[CWV_SINGLE_OWNER]-[COMPLETE]: `otel/vital.md` is the estate's one Core Web Vitals owner — `web-vitals/attribution` registrars replace the hand-rolled folds, the shipped `*Thresholds` pairs fill the budget columns, the `rating` field is the grade, the `Vital.Report` service carries both the render intake and the accounted fact stream, and the RUM context stamps `browser.*`/`device.*`/`session.*`/`network.connection.type` on the evidence span.
 [TENANT_SIGNAL]-[COMPLETE]: already landed — `emit.md` `_sdk` wires `BaggageSpanProcessor(_admitted(policy.promote))` before the shared scrub, `Propagation.ingress` carries the Effect-side promotion half, `config.md` admits `Setting.otel.promote`.
-[WIRE_PROTOBUF]-[COMPLETE]: already landed — `emit.md` `_wire` dispatches `policy.serialization` across the json/protobuf exporter trios for traces, metrics, and logs under one policy row set.
+[WIRE_PROTOBUF]-[COMPLETE]: already landed — `emit.md` `_wire` binds the json and protobuf exporter trios and each `_lanes` row fixes its own framing, so every deployed lane frames protobuf and the JSON trio survives as the `local` developer row.
 [BROKER_ENGINE_SET]-[COMPLETE]: realized — `exec.md` runtime rows carry the `nats` TCP/TLS `connect` binding `Broker.live(dial)` consumes, and `pubsub.md` `[07]-[KAFKA_ROW]` lands `Fanout.kafka` with honest guarantee-ledger degradation over the librdkafka promise surface.
-[BOARD_FEED]-[COMPLETE]: `meter.md` `[07]-[BOARD]` mints `Pulse.Board`/`Pulse.board`, and iac `operate/observe.md` admits `runtime.pulse` in `_PACKS` through the shared producer-pack ingest arm.
+[BOARD_FEED]-[COMPLETE]: `meter.md` `[06]-[BOARD]` mints `Pulse.Board`/`Pulse.board`, and iac `operate/observe.md` admits `runtime.pulse` in `_PACKS` through the shared producer-pack ingest arm.
 [HOOK_DISPATCH]-[COMPLETE]: already landed — `emit.md` `Hooks.Dispatch` executes the core `Tap` vocabulary with app-scoped rails, pure veto fold, isolated delivery fibers, and the bounded replay ring.
 [CARRIER_CODEC_BINDING]-[COMPLETE]: `emit.md` `Propagation.current` and `pubsub.md` local, tab, NATS, and Kafka rows compose core `Carrier` with matching `fanout`, `nats`, and `kafka` dialects; `core/.planning/interchange/carrier.md` owns the exact table.
 [JOURNAL_ENVELOPE_CARRIAGE]-[COMPLETE]: `pubsub.md` keeps `Envelope` opaque and preserves the projected body and band; `data/.planning/journal/append.md` owns strict CloudEvents construction and inverse carrier decode, so runtime carries the value without duplicating its codec.

@@ -14,16 +14,16 @@ Precedence is a partial order, never a serial rank: `JointPrecedence` folds `Ass
 ## [02]-[SEQUENCE_REQUEST]
 
 - Owner: `SequenceRequest` admits the aggregate correspondence between deposits, assembly nodes, thermal limits, policy, and optional compiled motion evidence.
+- Owner: `SequencePolicy` owns tack, thickness-scaled thermal, action-time, inherent-strain, feasibility-limit, candidate-generation, and multi-objective scoring values as generated invariant owners.
+- Owner: `WorkSeed` carries unresolved policy input before clock and thermal evaluation; `ScheduledWork` carries public timing and physical evidence after that fold, so their distinct payload timing keeps both shapes.
 - Cases: `DistortionOrder` is the closed traversal family; each case carries only the segment, stride, block, origin, direction, and side-barrier evidence its ordering arm consumes.
-- Policy: `SequencePolicy` owns tack, thickness-scaled thermal, action-time, inherent-strain, feasibility-limit, candidate-generation, and multi-objective scoring values as generated invariant owners.
-- Restraint: `InherentStrainLaw.RestraintStiffness` is a `PrecedenceKind`-keyed row map, so a datum constraint and a handling constraint contribute different coupling to the same solve.
-- Bound: `CandidateLaw.Ceiling` truncates the generated product deterministically, so band, stride, block, and origin breadth grows without an unbounded candidate sweep.
+- Law: `InherentStrainLaw.RestraintStiffness` is a `PrecedenceKind`-keyed row map, so a datum constraint and a handling constraint contribute different coupling to the same solve.
+- Law: `CandidateLaw.Ceiling` truncates the generated product deterministically, so band, stride, block, and origin breadth grows without an unbounded candidate sweep.
+- Exemption: generated admission and `RobotTiming.From` are boundary statements; `CandidateLaw.Generate` and `Sequence` graph, geometry, scheduling, and sparse folds are measured kernels.
 - Entry: `Sequence.Order` accepts only `SequenceRequest`; decoded or foreign material re-enters through `SequenceRequest.Validate`.
 - Packages: `Thinktecture.Runtime.Extensions` owns admission and closed dispatch; `UnitsNet` owns length, speed, temperature, energy, power, angle, and duration; `LanguageExt.Core` owns accumulated admission and immutable folds; `QuikGraph` owns precedence; `CSparse` owns sparse factorization; `Robots` owns compiled target timing.
 - Growth: a traversal primitive is one `DistortionOrder` case, while operating breadth grows through parameter ranges on `CandidateLaw` without new named strategies or entrypoints.
-- Payload: `WorkSeed` carries unresolved policy input before clock and thermal evaluation; `ScheduledWork` carries public timing and physical evidence after that fold, so their distinct payload timing keeps both shapes.
 - Boundary: weld geometry, station, and realized heat input remain `WeldPlan` evidence, assembly remains the precedence authority, and robot compilation remains a kinematics concern.
-- Exemption: generated admission and `RobotTiming.From` are boundary statements; `CandidateLaw.Generate` and `Sequence` graph, geometry, scheduling, and sparse folds are measured kernels.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -692,7 +692,6 @@ public static class Sequence {
         Energy heat = UnitMath.Max(
             new Energy(tack.Segment.Pass.HeatInputKjMm * tack.Length.Millimeters, EnergyUnit.Kilojoule),
             tack.Band.MinimumEnergy);
-        // A band-floored tack energy is delivered at the admitted arc power, so the floor lengthens the dwell.
         Duration run = UnitMath.Max(
             Duration.FromSeconds(60.0 * tack.Length.Millimeters / tack.Segment.Pass.TravelMmMin),
             Duration.FromSeconds(heat.Joules / (request.Budget.CurrentA * request.Budget.VoltageV)));
@@ -1100,13 +1099,13 @@ public static class Sequence {
 ## [03]-[SCHEDULE_FOLD]
 
 - Owner: `Sequence` derives the joint precedence depth, candidate schedules, inherent-strain evidence, and selected receipt through one ordered algebra.
-- Graph: `BidirectionalGraph` admits the joint projection of `AssemblyPlan.Precedence`, `IsDirectedAcyclicGraph` gates the fold, and `SourceFirstBidirectionalTopologicalSort` supplies the order the `InEdges` longest-path fold turns into a depth per joint.
-- Interleave: `Seeds` walks the arrangement itself, so joints at one depth alternate under the traversal arm; `PrepareGroove` and `InstallBacking` open a joint, `Backgouge` and its root inspection gate the side `BeforeSide` names, and `RemoveBacking` closes the joint after its last deposit.
-- Station: `TorchFrame.StationMm` supplies segment station and length, so ordering, subdivision, and the distortion moment arm read the admitted seam position rather than a chord between move targets.
-- Thermal: each deposit advances one immutable `ScheduleState`; work on other joints credits thickness- and position-scaled cooling, reheat occupies the clock, and each start, peak, ceiling, and maximum interpass temperature remains dimensioned. A band-floored tack dwells for the time its energy needs at `ProcessBudget.Joining` arc power.
-- Motion: `RobotTiming` reads `Program.Targets`, `SystemTarget.DeltaTime`, `Program.Duration`, `Program.Warnings`, and `Program.Errors`; a compiled pass missing a span falls back to its planned cycle, and nominal travel duration remains the non-robot timing row.
-- Distortion: policy-scaled longitudinal, transverse, twist, and angular sources couple through `PrecedenceKind`-weighted assembly restraints and decay by candidate chronology; one COO assembly finalizes to CSC and one `SparseCholesky` factor serves every candidate solve, while factor fill and every predicted mode ride each candidate.
+- Law: `Seeds` walks the arrangement itself, so joints at one depth alternate under the traversal arm; `PrepareGroove` and `InstallBacking` open a joint, `Backgouge` and its root inspection gate the side `BeforeSide` names, and `RemoveBacking` closes the joint after its last deposit.
+- Law: `TorchFrame.StationMm` supplies segment station and length, so ordering, subdivision, and the distortion moment arm read the admitted seam position rather than a chord between move targets.
+- Law: each deposit advances one immutable `ScheduleState`; work on other joints credits thickness- and position-scaled cooling, reheat occupies the clock, and each start, peak, ceiling, and maximum interpass temperature remains dimensioned. Band-floored tacks dwell for the time their energy needs at `ProcessBudget.Joining` arc power.
+- Law: `RobotTiming` reads `Program.Targets`, `SystemTarget.DeltaTime`, `Program.Duration`, `Program.Warnings`, and `Program.Errors`; a compiled pass missing a span falls back to its planned cycle, and nominal travel duration remains the non-robot timing row.
+- Law: policy-scaled longitudinal, transverse, twist, and angular sources couple through `PrecedenceKind`-weighted assembly restraints and decay by candidate chronology; one COO assembly finalizes to CSC and one `SparseCholesky` factor serves every candidate solve, while factor fill and every predicted mode ride each candidate.
 - Receipt: `WeldSchedule` carries selected work, dimensional total, the frozen `TotalS` projection, interpass ceiling, distortion evidence, candidate ranking, and warnings.
+- Packages: `BidirectionalGraph` admits the joint projection of `AssemblyPlan.Precedence`, `IsDirectedAcyclicGraph` gates the fold, and `SourceFirstBidirectionalTopologicalSort` supplies the order the `InEdges` longest-path fold turns into a depth per joint.
 - Boundary: typed infeasibility terminates before scheduling, and a fully infeasible space fails carrying the nearest-miss candidate's rejections; a feasible but inferior candidate remains evidence rather than disappearing from the result.
 
 ## [04]-[RESEARCH]

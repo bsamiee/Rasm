@@ -1,6 +1,6 @@
 # [DATA_RETAIN]
 
-Lawful data aging without rewriting: the log is append-only forever, so this page owns the three ways data ages — retention-class windows (one policy table driving ledger expiry, outbox grooming, fact grooming, and partition drop behind the causal frontier), crypto-shredding (subject-bearing payload fields sealed under a per-subject data key whose wrapped form is the ONLY thing this folder stores; erasure is destroying the `WrappedKey`, after which unwrap fails, open becomes impossible, and every sealed read folds to a redaction marker, totally), and the per-subject DSAR export fold (one portability read over journal events and object references riding the same subject spine erasure uses). The stability frontier arrives from the core causality owner as a value; partitions at or below a snapshotted frontier drop through the `partition` grant — compaction is a capability, never a default.
+Aging stays lawful without rewriting: the log is append-only forever, so this page owns the three ways data ages — retention-class windows driving ledger expiry, outbox and fact grooming, and partition drop behind the causal frontier; crypto-shredding, where subject-bearing fields seal under a per-subject data key whose wrapped form is the ONLY thing this folder stores, so destroying it makes every sealed read fold to a redaction marker, totally; and the per-subject DSAR export fold, one portability read over journal events, audit facts, and object references riding the same subject spine erasure uses. Core causality supplies the stability frontier as a value, partitions at or below a snapshotted frontier drop through the `partition` grant, and compaction is a capability, never a default.
 
 ## [01]-[INDEX]
 
@@ -12,7 +12,7 @@ Lawful data aging without rewriting: the log is append-only forever, so this pag
 
 ## [02]-[RETENTION_ROWS]
 
-- Owner: the `Retain.Class` vocabulary — one `as const` key tuple feeding `Schema.Literal` plus the window-row table, so wire admission and the type derive from one anchor pair — plus the frontier ledger recording the causal handoff and the partition rows that realize aging on the spine.
+- Owner: the `Retain.Class` vocabulary — one `as const` key tuple feeding `Schema.Literal` and the window-row table, so wire admission and the type derive from one anchor pair — with the frontier ledger recording the causal handoff and the partition rows that realize aging on the spine.
 - Packages: `effect` (`Duration`, `Schema`); `@effect/sql`; `@rasm/ts/core` (`Causal.Retention` — the `{floor, stamp}` compaction coordinate); the `partition` and `cron` grants gate execution.
 - Entry: every aging consumer reads one vocabulary — object references store a class key, ledger and outbox grooming read `Retain.Policy[clazz].window`, `journal/fact.md` keys its fact streams by the same classes, and the scheduled maintenance rows execute the drops; no window literal exists outside this table.
 - Growth: a new class is one row — every sweep, groom, and lifecycle rule inherits it; a new aging surface reads the table, never mints a window.
@@ -224,11 +224,12 @@ const _erase = (key: SubjectKey) =>
 
 ## [04]-[DSAR_EXPORT]
 
-- Owner: `Retain.dsar` — the one portability fold: every journal event indexed to the tenant-scoped `SubjectKey`, lifted through the journal family's own upcast plan into the live member, joined with the key's object references, streamed as one export document; sealed fields inside payloads stay sealed here — the exporting consumer composes `Retain.open` per field it knows the shape of, because field shapes are app material; plus the subject-index slot this page publishes to the write transaction.
+- Owner: `Retain.dsar` — the one portability fold: every journal event indexed to the tenant-scoped `SubjectKey`, lifted through the journal family's own upcast plan into the live member, joined with the key's object references AND the fact stream's own subject-indexed audit rows, streamed as one export document; sealed fields inside payloads stay sealed here — the exporting consumer composes `Retain.open` per field it knows the shape of, because field shapes are app material — and the subject-index slot this page publishes to the write transaction.
 - Packages: `effect` (`Stream`, `Array`); `journal/evolve.md` (`Upcast.Plan` — the one read-lift road); `journal/append.md` (the read stream and the `Slot` contract); `read/live.md` (`Live.merged` — the slot's empty coordinate); the object plane's reference rows arrive by relation name.
 - Entry: the subject index is written at publish time — `Retain.slot(subjects)` mints the `Journal.Slot` an app carries in its publish intent: the caller's `subjects` projection names each event's subject keys, the slot stamps `(subject, sequence)` rows inside the commit, and the DSAR read is therefore an index scan, never a full-log crawl; the caller hands `dsar` the same folded `Upcast.Plan` its journal binding holds, so export and replay lift through one anchor.
 - Growth: a new export surface (object bytes bundled, format variants) is a projection of the same fold — the subject spine never changes.
 - Law: the export and the erasure share one spine — the same `subject_journal` index that finds events to export finds nothing to rewrite on erasure, proving the two rights compose: export reads what remains readable, erasure makes fields unreadable, and both leave the log bytes untouched.
+- Law: every subject-bearing plane answers the SAME custody coordinate — the event index, the object-reference owner, and the fact stream's own subject column each key on `(app, tenant, subject)`, so one erase destroys one data key and redacts all three at once; a plane reachable by subject but absent from this fold exports nothing and proves nothing, which is the portability hole the shared coordinate forecloses.
 - Law: the fold is streaming and decoded to the live family — each row admits through the `_EntryRow` schema (`payload` through `Upcast.Column`), then lifts through `plan.decode` so historical event versions upcast and the export carries admitted members, never a raw tag/version/payload envelope; a malformed or unplanned historical row quarantines as `ParseError` on the stream, and the `subject_journal.sequence` join runs engine-side against the BIGINT column, so no sequence value crosses the process untyped.
 - Law: sensitive projection columns never enter the export — the `Model.Sensitive` field class strips them from every JSON variant by construction; sealed payload fields export opened only where the consuming exporter composes `Retain.open` against a live key, and an erased subject's fields export as the redaction marker the `Option.none` fold names.
 
@@ -245,6 +246,11 @@ declare namespace Retain {
   type Export<A> = {
     readonly subject: SubjectKey
     readonly events: Stream.Stream<Entry<A>, SqlError.SqlError | ParseResult.ParseError, SqlClient.SqlClient>
+    readonly facts: Effect.Effect<
+      ReadonlyArray<{ readonly stream: string; readonly retention: Class; readonly payload: string; readonly recorded_at: string }>,
+      SqlError.SqlError | ParseResult.ParseError,
+      SqlClient.SqlClient
+    >
     readonly objects: Effect.Effect<
       ReadonlyArray<{ readonly key: string; readonly retention: Class }>,
       SqlError.SqlError | ParseResult.ParseError,
@@ -289,6 +295,13 @@ const _EntryRow = Schema.Struct({
 
 const _RefRow = Schema.Struct({ key: Schema.String, retention: _Class })
 
+const _FactRow = Schema.Struct({
+  stream: Schema.String,
+  retention: _Class,
+  payload: Schema.String,
+  recorded_at: Schema.String,
+})
+
 const _admitEntry = Schema.decodeUnknown(_EntryRow)
 
 const _dsar = <A>(subject: SubjectKey, plan: Upcast.Plan<A>): Retain.Export<A> => ({
@@ -302,12 +315,28 @@ const _dsar = <A>(subject: SubjectKey, plan: Upcast.Plan<A>): Retain.Export<A> =
         Stream.mapEffect((raw) =>
           Effect.gen(function* () {
             const row = yield* _admitEntry(raw)
-            // the read-lift road: historical versions upcast, the live family proves the landing, malformed history quarantines as ParseError
+            // Read-lift road: historical versions upcast, the live family proves the landing, malformed history quarantines as ParseError
             const event = yield* plan.decode({ tag: row.tag, version: row.event_version, payload: row.payload })
             return { event, recordedAt: row.recorded_at } satisfies Retain.Entry<A>
           })),
       )),
   ),
+  // Fact rows are the SECOND indexed plane a subject spans: their own `subject` column carries the same custody
+  // coordinate this key ledger keys on, so portability reads audit evidence off that partial index rather than crawling
+  // its log, and a sealed identifier exports through the consumer's own `open` exactly as a sealed event field does.
+  facts: Effect.flatMap(SqlClient.SqlClient, (sql) =>
+    SqlSchema.findAll({
+      Request: SubjectKey,
+      Result: _FactRow,
+      // `payload` casts for the same reason `recorded_at` does: the spine stores it as a json column the driver hands
+      // back as a live object where the sqlite profiles hand back TEXT, so the export's own string type only holds
+      // on both engines once the statement states the crossing. The band exports as the stored document verbatim —
+      // decoding it to the live fact family would import the fact owner this page already publishes `Retain` to.
+      execute: (who) =>
+        sql`SELECT stream, retention, CAST(payload AS TEXT) AS payload, CAST(recorded_at AS TEXT) AS recorded_at FROM fact_journal
+            WHERE app = ${who.app} AND tenant = ${who.tenant} AND subject = ${who.subject}
+            ORDER BY sequence`,
+    })(subject)),
   objects: Effect.flatMap(SqlClient.SqlClient, (sql) =>
     SqlSchema.findAll({
       Request: SubjectKey,

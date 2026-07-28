@@ -2,20 +2,20 @@
 
 `GraphForge` owns deterministic synthetic models and the graded roster shared by benchmarks, property specifications, and cross-runtime parity. `CorpusProfile` closes occurrence count, edge density, bag width, discipline mix, composition depth, and seed. `GraphForge.Mint` admits every forged node and edge through `GraphDelta.AdmitOnto` over `Genesis`, exercising `LegalLink`, freeze, and incidence construction.
 
-Occurrence ids derive from kernel `ContentHash` over `(seed, lane, ordinal)` and carry the Guid-v7 layout. Type ids use `NodeId.RootedType`; non-rooted ids use `NodeId.Content`. A grade therefore reproduces one snapshot fingerprint on every runtime sharing the seed-zero content rail.
+Occurrence ids derive from kernel `ContentHash` over `(seed, lane, ordinal)` and carry the Guid-v7 layout. Type ids use `NodeId.RootedType`; non-rooted ids use `NodeId.Content`. Each grade therefore reproduces one snapshot fingerprint on every runtime sharing the seed-zero content rail.
 
 `GraphForge` composes the existing `ElementGraph`, `GraphDelta`, `ContentAddress`, `CanonicalWriter`, and `ElementWire` owners. Forged payloads re-enter `Classification.Of`, `PropertyValue.Of`, `MeasureValue.OfSi`, `AssessmentPayload.Computed`, and `AnalysisRoute.Of`; every refusal carries `ElementFault`.
 
 ## [01]-[INDEX]
 
-- [02]-[GRAPH_FORGE]: the `CorpusProfile` closed parameter record and the `GraphForge` deterministic mint — the seeded id stream, the payload kernels, and the one `AdmitOnto` realization every forged model crosses.
+- [02]-[GRAPH_FORGE]: `CorpusProfile` closes the parameter record and `GraphForge` mints deterministically — the seeded id stream, the payload kernels, and the one `AdmitOnto` realization every forged model crosses.
 - [03]-[CORPUS_ROSTER]: `CorpusGrade` size rows, the `CorpusOp` hot-path vocabulary, `CorpusModel` and `CorpusWitness`, and the `CorpusGate` mint/determinism entries consumed by tests-estate benchmark and property lanes.
 
 ## [02]-[GRAPH_FORGE]
 
 - Owner: `CorpusProfile` the closed generation-parameter record — occurrence count, `[0,1]` edge density, bag width, discipline mix, composition depth, seed — railed through `Of`; `GraphForge` the deterministic realization fold.
 - Entry: `CorpusProfile.Of(nodes, density, bagWidth, disciplines, depth, seed, key)` admits positive counts, a unit-interval density, a non-empty discipline mix, and a depth of at least one, railing `ElementFault.ValueRejected` otherwise; `GraphForge.Mint(profile, key)` realizes the profile into `Fin<(ElementGraph Graph, GraphDelta Delta)>` — the frozen snapshot a benchmark folds and the normal-form event body the delta legs decode.
-- Auto: `Mint` builds one shared corpus header (`Header.Default` over the fixed corpus instant, so header bytes never fork a grade), one `Node.Material` per type slot, one deterministic Type `Object` per slot (id through the production `NodeId.RootedType` over `ToTypeSeedBytes`), then per occurrence one seeded Guid-v7 `Object`, one property bag of `BagWidth` seed-derived `Number` rows, one quantity bag row through `MeasureValue.OfSi`, and one `Computed` assessment cycling the discipline mix; edges land as the `Aggregate` fanout spine (depth-derived fanout), the `PropertyDefinition`/`Assessment`/`TypeDefinition` assigns, the material `Associate`, and `⌊density·nodes⌋` seeded `Connect` adjacencies; the assembled normal-form delta admits through `AdmitOnto(Genesis(header))` so `LegalLink` runs per forged edge.
+- Auto: `Mint` builds one shared corpus header (`Header.Default` over the fixed corpus instant, so header bytes never fork a grade), one `Node.Material` per type slot, one deterministic Type `Object` per slot (id through the production `NodeId.RootedType` over `ToTypeSeedBytes`), then per occurrence one seeded Guid-v7 `Object`, one property bag of `BagWidth` seed-derived `Number` rows, one quantity bag row through `MeasureValue.OfSi`, one `Computed` assessment cycling the discipline mix, and — every `ObservationStride`-th occurrence — one `ObservationSeries` opened at the corpus instant and grown by one `Encode`-minted chunk under a `From`-derived summary; edges land as the `Aggregate` fanout spine (depth-derived fanout), the `PropertyDefinition`/`Assessment`/`TypeDefinition`/`Observation` assigns, the material `Associate`, and `⌊density·nodes⌋` seeded `Connect` adjacencies; the assembled normal-form delta admits through `AdmitOnto(Genesis(header))` so `LegalLink` runs per forged edge.
 - Receipt: the mint result carries the frozen graph and normal-form delta; `ContentAddress.OfGraph` supplies its reproducibility fingerprint.
 - Packages: LanguageExt.Core (`Fin`/`Seq`/`Map`/`TraverseM`), Thinktecture.Runtime.Extensions (generated owners), NodaTime (`Instant.FromUnixTimeTicks`/`Duration.Zero` fixed provenance), `Rasm` (`ContentHash`/`Op`), and System.Buffers.Binary (`BinaryPrimitives` Guid shaping).
 - Growth: a new payload family in the forge is one kernel arm beside the existing node kernels; a new generation axis is one `CorpusProfile` column threaded into the kernels — never a sibling forge, and never a parameter whose value the seed cannot replay.
@@ -70,7 +70,13 @@ public sealed record CorpusProfile {
 // Generation loops are the named measured-kernel statement seam.
 public static class GraphForge {
  const long CorpusUnixTicks = 17_672_256_000_000_000L;
+ // Every ObservationStride-th occurrence carries a measured series of ObservationSamples readings, so the eighth
+ // node case, its ordinal-7 canonical arm, the wire oneof arm, the occurrence-only assign legality, and the chunk
+ // blob codec all cross every parity gate instead of riding untested behind arms no witness reaches.
+ const int ObservationStride = 4;
+ const int ObservationSamples = 16;
  static readonly Instant CorpusInstant = Instant.FromUnixTimeTicks(CorpusUnixTicks);
+ static readonly Duration CorpusCadence = Duration.FromMinutes(15);
 
  public static Fin<(ElementGraph Graph, GraphDelta Delta)> Mint(CorpusProfile profile, Op key) {
   Header header = Header.Default(CorpusInstant);
@@ -80,8 +86,44 @@ public static class GraphForge {
    Classification.Of("corpus", "occurrence", key).Bind(occClass =>
     AnalysisRoute.Of("corpus.forge", key).Bind(route =>
      Assessments(profile, route, key).Bind(payloads =>
-      Bags(profile, key).Map(bags => Assembled(profile, header, tol, typeCount, typeClass, occClass, payloads, bags))
+      Bags(profile, key).Bind(bags =>
+       Series(profile, key).Map(series => Assembled(profile, header, tol, typeCount, typeClass, occClass, payloads, bags, series)))
        .Bind(delta => delta.AdmitOnto(ElementGraph.Genesis(header), key))))));
+ }
+
+ // One measured series per strided occurrence, each opened at the corpus instant and grown by ONE real encoded
+ // chunk — the forge crosses Open, Encode, From, and Append exactly as a live producer does, so a codec or
+ // admission regression surfaces at the parity gate rather than at the first metered deployment. ONE chunk is
+ // what makes the per-block summary exact: Append proves the census total against the WHOLE grown run, and a
+ // fresh Open carries zero prior samples, so this block's From result IS that total. A second chunk on one
+ // series therefore recomputes From over the concatenated run — a per-chunk summary appended second refuses at
+ // the census gate rather than landing a series whose statistics describe its tail alone.
+ static Fin<Seq<(int Index, ObservationSeries Series)>> Series(CorpusProfile profile, Op key) =>
+  toSeq(Enumerable.Range(0, profile.Nodes)).Filter(static i => i % ObservationStride == 0).TraverseM(i =>
+   SensorId.Of($"corpus-sensor-{i}", key).Bind(sensor =>
+    ObservationSeries.Open(
+      sensor, PropertyName.Create("corpus-aspect"), QuantityType.Create("Temperature"),
+      Dimension.Create(0, 0, 0, 0, 1, 0, 0), "K", SamplingKind.Averaged, Some(CorpusCadence),
+      CorpusInstant, new SensorProvenance("corpus", "GraphForge", $"{i}"), key)
+     .Bind(opened => Chunked(profile, i, key).Bind(block =>
+      SeriesStatistics
+       .From(block.Run, SamplingKind.Averaged, QuantityType.Create("Temperature"), Dimension.Create(0, 0, 0, 0, 1, 0, 0), "K", key)
+       .Bind(summary => opened.Append(block.Chunk, summary, key))))
+     .Map(grown => (i, grown)))).As();
+
+ // Seeded sample run: instants advance by the declared cadence off the corpus instant and each magnitude derives
+ // from the one seed fold, so bytes, content key, and summary replay identically on every runtime sharing the seed.
+ // A positive cadence multiplied by a strictly rising ordinal is what carries Encode's strict-adjacency gate: the
+ // run never repeats or reverses an instant, so the gate holds by construction rather than by a sorted fixture.
+ // Every eighth reading grades Suspect, so the completeness screen reads a real consumable share rather than 1.0.
+ static Fin<(ObservationChunk Chunk, Seq<(Instant At, double Si, ObservationGrade Grade)> Run)> Chunked(
+  CorpusProfile profile, int index, Op key) {
+  Seq<(Instant At, double Si, ObservationGrade Grade)> run =
+   toSeq(Enumerable.Range(0, ObservationSamples)).Map(s => (
+    CorpusInstant + (CorpusCadence * s),
+    290.0 + ((double)(ulong)(Seed(profile.Seed, lane: 6, (index * ObservationSamples) + s) % 1000) / 100.0),
+    s % 8 == 7 ? ObservationGrade.Suspect : ObservationGrade.Measured));
+  return ObservationChunk.Encode(run, key).Map(block => (block.Chunk, run));
  }
 
  // Seed-derived rooted id: kernel ContentHash over (seed, lane, ordinal) shaped into the Guid-v7 layout
@@ -131,7 +173,8 @@ public static class GraphForge {
  // construction and AdmitOnto supplies the structural proof.
  static GraphDelta Assembled(
   CorpusProfile profile, Header header, double tol, int typeCount, Classification typeClass, Classification occClass,
-  Seq<AssessmentPayload> payloads, Seq<(PropertyBag Props, QuantityBag Qty)> bags) {
+  Seq<AssessmentPayload> payloads, Seq<(PropertyBag Props, QuantityBag Qty)> bags,
+  Seq<(int Index, ObservationSeries Series)> series) {
   Seq<Node> materials = toSeq(Enumerable.Range(0, typeCount)).Map(t => {
    MaterialId material = MaterialId.Of($"corpus-material-{t}");
    return Contented(new Node.Material(
@@ -151,6 +194,10 @@ public static class GraphForge {
   Seq<Node> propertySets = bags.Map(pair => Contented(new Node.PropertySet(Seeded(0, 0, 0), pair.Props), tol));
   Seq<Node> quantitySets = bags.Map(pair => Contented(new Node.QuantitySet(Seeded(0, 0, 0), pair.Qty), tol));
   Seq<Node> assessments = payloads.Map(payload => Contented(new Node.Assessment(Seeded(0, 0, 0), payload), tol));
+  // Observation nodes content-key off the STREAM identity exactly as a live one does, so a re-mint of the same
+  // profile addresses the same node and the strided share stays a stable fraction of every grade.
+  Seq<(int Index, Node Node)> observations = series.Map(row =>
+   (row.Index, Contented(new Node.Observation(Seeded(0, 0, 0), row.Series), tol)));
   Seq<Relationship> edges = toSeq(Enumerable.Range(0, profile.Nodes)).Bind(i => {
    NodeId occ = occurrences[i].Id;
    Seq<Relationship> spine = i == 0 ? Seq<Relationship>() : Seq<Relationship>(
@@ -163,6 +210,10 @@ public static class GraphForge {
      new Relationship.Assign(occ, types[i % typeCount].Id, AssignKind.TypeDefinition),
      new Relationship.Associate(occ, materials[i % typeCount].Id, new MaterialUsage.None()));
   });
+  // Observation assigns ride the OCCURRENCE alone, which is exactly the legality arm LegalAssign enforces — a type
+  // slot never receives one, so the forge exercises the refusal boundary by construction rather than by a fixture.
+  Seq<Relationship> measured = observations.Map(row =>
+   (Relationship)new Relationship.Assign(occurrences[row.Index].Id, row.Node.Id, AssignKind.Observation));
   Seq<Relationship> adjacencies = toSeq(Enumerable.Range(0, (int)(profile.Density * profile.Nodes)))
    .Choose(c => {
     int from = (int)(Seed(profile.Seed, lane: 4, c) % (ulong)profile.Nodes);
@@ -171,8 +222,9 @@ public static class GraphForge {
    })
    .Distinct();
   return new GraphDelta(
-   materials + types.Map(static t => (Node)t) + occurrences.Map(static o => (Node)o) + propertySets + quantitySets + assessments,
-   Seq<NodeId>(), Seq<(Node, Node)>(), edges + adjacencies, Seq<Relationship>(), Some(header));
+   materials + types.Map(static t => (Node)t) + occurrences.Map(static o => (Node)o)
+    + propertySets + quantitySets + assessments + observations.Map(static row => row.Node),
+   Seq<NodeId>(), Seq<(Node, Node)>(), edges + adjacencies + measured, Seq<Relationship>(), Some(header));
  }
 }
 ```
@@ -286,4 +338,4 @@ public static class CorpusGate {
 
 ## [04]-[RESEARCH]
 
-- [CORPUS_SNAPSHOT_PINS]-[OPEN]: what exact `S`/`M`/`L`/`XL` `ContentAddress` values does current `GraphForge.Mint` produce; route `tests/csharp` to execute every grade, commit the four literal pins here, and mirror them in `libs/python` and `libs/typescript/core`. Arming trigger: the tests-estate corpus harness can execute the settled forge against current source owners.
+- [CORPUS_SNAPSHOT_PINS]-[BLOCKED]: what exact `S`/`M`/`L`/`XL` `ContentAddress` values does `GraphForge.Mint` produce; execute every grade from `tests/csharp`, commit the four literal pins here, and mirror them in `libs/python` and `libs/typescript/core`. Blocked on execution, not on knowledge: no source tree exists to run, `libs/.planning/ARCHITECTURE.md` `[05]-[PLANNING_LIFECYCLE]` authoring it only once code is written, and every forge edit re-derives the four values, so a pin committed ahead of a settled forge is a value nothing produced.

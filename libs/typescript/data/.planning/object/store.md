@@ -126,13 +126,14 @@ const _foldedRead = (key: string) => (caught: unknown): ObjectFault =>
 - Packages: `@aws-sdk/client-s3` (`PutObjectCommand`, `GetObjectCommand`, `HeadObjectCommand`, `GetObjectAttributesCommand`, `CopyObjectCommand`, `CreateMultipartUploadCommand`, `UploadPartCommand`, `CompleteMultipartUploadCommand`, `AbortMultipartUploadCommand`, `waitUntilObjectExists`); `@aws-sdk/lib-storage` (`Upload` — the streaming leg); `effect` (`Array`, `Stream`, `Exit`, `Option`); `@rasm/ts/core` (`ContentKey`, `Digest` — the delegating mint).
 - Entry: `store.put(bytes)` mints the key from the bytes through the core digest and writes conditionally — the caller never supplies a key because identity is derived, not asserted; a streaming body whose key is already proven (the stream rail's finalize) enters through `store.putKeyed(key, body)` on the same conditional legs.
 - Receipt: `ObjectStore.Receipt` — `{ key, bytes, written }` — `written: false` is the 412 idempotent noop, a success by law; the multipart and streaming legs land the same receipt because the conditional evaluates atomically at completion.
-- Growth: a write posture (storage class, SSE) is a field threaded into the command mints, arriving as one policy row on the service construction; a read shape (range, part, attributes) is a command field, never a sibling get.
+- Growth: a write posture (storage class, SSE) is a field threaded into the command mints, arriving as one policy row on the service construction; a read shape (range, part, attributes) is a command field, never a sibling get; a new producer is one entry on the producer law and its own reference row, never a leg here.
 - Law: the conditional rides every leg — `IfNoneMatch: "*"` on the plain put, on the hand-composed `CompleteMultipartUpload`, and on the `Upload` params whose spread carries it onto both its paths; first-writer-wins lands at the moment the object materializes, and a 409 concurrent race retries into the 412 noop under the `io` policy row.
 - Law: body shape selects the leg — bounded bytes below the threshold ride the plain put, bounded bytes above it ride the hand-composed part fold under `Effect.acquireRelease` with `AbortMultipartUpload` on failure, and a streaming or unknown-length body rides `Upload` with the abort bridged to fiber interruption; the caller sees one `put`.
 - Law: `get` verifies identity — the returned bytes re-mint through `Digest.mint("content", bytes)` and disagreement is `integrity`; `ChecksumMode: "ENABLED"` rides the read so the provider's transport verification runs too; `head` answers the `Descriptor` request family through one `HeadObjectCommand` send as `ObjectStore.Stat` — the schema-owned evidence row whose `etag`, `contentType`, and `modified` fields are `Option`-carried with encodable twins, so the batch engine's durable band persists the same row `head` mints, a reply without `ContentLength` is the `io` fault, never a sentinel-zero forgery, and the HEAD windows and a singular probe share one member; `attributes` is the deep-evidence twin — `GetObjectAttributesCommand` yields `ObjectParts` and `Checksum` for multipart integrity audits a plain HEAD cannot carry.
 - Law: every receipt is honest — `putKeyed` takes the proven span from the caller's identity fold, while `rekey(source, target)` probes the source once and carries its `Stat.bytes` into either copy outcome; the server-side copy derives `CopySourceIfMatch` from the same typed probe, so neither caller-provided ETags nor zero-byte receipt guesses are spellable.
 - Boundary: `_putStreaming` is the one lib-storage seam — the `Upload` construction and the abort-signal listener are statement flow inside the `tryPromise` lambda, and fiber interruption reaches the in-flight multipart through `upload.abort()`.
 - Law: consistency after a sweep race is a waiter, never a sleep — `settled(key)` runs `waitUntilObjectExists({ client, maxWaitTime: setting.settleSeconds, abortSignal }, { Bucket, Key })` to close the write-then-serve window where an engine's read-after-write posture demands it; the budget is construction policy shared with delete settlement, never a call-site knob.
+- Law: producers reach ONE of the two put legs and mint no byte plane of their own — `object/file.md`'s derivative persist and `runtime/net/pubsub.md`'s oversize-payload stash hand bounded bytes to `put`, while `object/stream.md`'s tus finalize, `object/remote.md`'s remote ingest, and `lane/olap.md`'s `Olap.lake.write`/`.sink` Parquet egress carry a proven span into `putKeyed`; each records its reference row in the same unit of work, so the cold-tail residence and every other landed object share one identity, one conditional, and one GC ledger rather than a second addressing scheme per producer.
 
 ```typescript signature
 import { Array, DateTime, Exit, Option, Schema, Stream } from "effect"
@@ -536,20 +537,9 @@ const _sweep = (client: S3Client, bucket: string, settleSeconds: number) =>
 import { Metric } from "effect"
 import { Convention } from "@rasm/ts/core"
 
-const _written = Metric.counter(Convention.instrument.objectWritten.name, {
-  description: Convention.instrument.objectWritten.description,
-  incremental: true,
-})
-
-const _weight = Metric.counter(Convention.instrument.objectBytes.name, {
-  description: Convention.instrument.objectBytes.description,
-  incremental: true,
-})
-
-const _reclaimed = Metric.counter(Convention.instrument.objectReclaimed.name, {
-  description: Convention.instrument.objectReclaimed.description,
-  incremental: true,
-})
+const _reclaimed = Convention.mount(Convention.metric.objectReclaimed)
+const _weight = Convention.mount(Convention.metric.objectSize)
+const _written = Convention.mount(Convention.metric.objectWritten)
 
 const _measured = (receipt: ObjectStore.Receipt): Effect.Effect<void> =>
   Effect.zipRight(

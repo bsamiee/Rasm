@@ -19,12 +19,6 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-[METRIC_DOMAIN_VOCABULARY]-[QUEUED]: metric domains close into one typed vocabulary with coverage proof.
-- Capability: every metric domain is a member of one closed vocabulary and every recorded measure provably owns an instrument row, so a dangling record is a boot-time gate failure instead of a runtime fault.
-- Shape: a `Domain` StrEnum on `libs/python/runtime/.planning/observability/metrics.md` typing `InstrumentSpec.domain` and the `Metrics.record` parameter, and a coverage proof over the recorded-measure roster at composition.
-- Unlocks: a record site without its `INSTRUMENTS` row becomes unrepresentable; sibling record sites import the member, never a bare string.
-- Anchors: `InstrumentSpec` and the `_DOMAIN_SLOT` derivation; the record-and-row same-pass law at `libs/python/runtime/RULINGS.md`; the `HOOK_ID` registration refusal as the guard pattern.
-
 [SECRET_BACKEND_FAMILY]-[QUEUED]: the cloud secret tier closes as a multi-provider family.
 - Capability: set completion on the secret ladder — Vault (`hvac`) and Azure Key Vault (`azure-keyvault-secrets`) rows land beside the GCP arm so the cloud tier is a closed provider family, each row behind its `Feature` gate and the `RetryClass.SECRET` row.
 - Shape: `SecretTier` gains provider discrimination and `SECRET_LADDER` gains two rows on `libs/python/runtime/.planning/execution/admission.md`; lazy provider imports defer to the gated arm's first fire; `NestedSecretsSettingsSource` mounts nested secret trees on the settings source order.
@@ -49,14 +43,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Unlocks: evidence closes at four sibling pages and the folder census carries no unearned sub-folder.
 - Anchors: the no-eponymous-folder law; ARCHITECTURE's S1–S3 identity band.
 
-[PRODUCER_DISTRIBUTIONS]-[QUEUED]: geometry distribution rows on the one `INSTRUMENTS` table.
-- Capability: deviation magnitude, mesh genus/aspect, and EUI land as `rasm.geometry.<measure>` histogram rows beside `rasm.geometry.evidence.duration`.
-- Shape: one `InstrumentSpec` row with one `SyncInstruments` field per charter-named measure on `libs/python/runtime/.planning/observability/metrics.md`, reaching `record`'s mapping arm through `_DOMAIN_SLOT` with zero entrypoint edits.
-- Unlocks: geometry-domain dashboards aggregate distributions without receipt post-processing.
-- Anchors: the `INSTRUMENTS` growth law and the `record` mapping arm on `observability/metrics#METRIC`; the landed geometry charter table on `libs/python/geometry/.planning/graduation.md` spelling exact measure names, units, and aggregations.
-- Tension: receipts stay the data plane by ruling — a row lands only for a measure the charter table spells, nothing beyond its roster.
-- Ripple: `geometry` `[PRODUCER_DISTRIBUTIONS]`.
-
 [GENERATION_RECOVERY_CONTRACT]-[QUEUED]: this branch's backend generation carries its own recovery verdict.
 - Capability: a restored store admits on evidence — the observed generation proves contract identity while the measured data frontier proves recency — so a Python-only application verdicts a point-in-time restore, a promoted replica, and a rebuilt embedded store on one rail with no peer branch present.
 - Shape: recovery columns on the contract owner at `libs/python/runtime/.planning/execution/admission.md` `[03]-[BACKEND_CONTRACT]` — the declared recovery objective admission reads, and the measured-window comparison `admit` folds beside its realized-observation evidence.
@@ -65,21 +51,17 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Tension: recovery evidence is time-shaped where the generation is content-shaped — the verdict separates contract identity from data recency without minting a second generation notion.
 - Ripple: `libs/.planning` `[GENERATION_RECOVERY_CONTRACT]`.
 
-[SUPPORT_BUNDLE_CAPSULE]-[BLOCKED]: support-bundle capture completes over the neutral diagnostic contract.
-- Capability: capsule capture and the diagnostic `Route` — already landed — gain their wire vocabulary, closing the bundle capture loop across the runtime/Compute channel.
-- Shape: the two restored `PROTO_VOCABULARY` rows on `libs/python/runtime/.planning/transport/shapes.md`.
-- Unlocks: end-to-end support-bundle capture across the runtime/Compute wire.
-- Anchors: the landed capsule capture and diagnostic `Route`; `rasm.runtime._pb2.channels_pb2`.
-- Arms: `SupportBundleRequest`, `SupportBundleReply`, and `CaptureBundle` minted at `libs/csharp/Rasm.Compute/.planning/Runtime/wire.md`, then `rasm.runtime._pb2.channels_pb2` regenerated.
-
 ## [02]-[CLOSED]
 
 <!-- source-only: closed idea card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-[CONSUMPTION_AXIS_SPELLING]-[COMPLETE]: the six-axis roster landed at all three branch minters with identical closed-axis vocabularies and one common open-axis descriptor shape; refusal is one axis/value/reason grammar everywhere, and the corpus entry's roster blocker is discharged.
-
+[BOUNDED_OCCUPANCY_ROSTER]-[COMPLETE]: landed as the band-keyed probe registry — `Metrics.occupied` takes a required `band`, `MetricState.occupancy` keys `Map[str, Block[Occupancy]]`, `_inflight` emits one observation per band under `Dimension.BAND`, and `rasm.lane.in_flight` collapsed into `rasm.band.in_flight` beside a `band` `DOMAINS` row. Sibling rows folding one block stayed refused: they publish one number once per bound, where a band dimension makes every future bound a VALUE. Registration for the two process-wide bands rides `[BAND_PROBE_REGISTRATION]`, a module-scope limiter carrying no lifetime a context manager can bracket.
+[SUPPORT_BUNDLE_CAPSULE]-[COMPLETE]: recorded blocker refuted on disk — `libs/csharp/Rasm.Compute/.planning/Runtime/wire.md` already carries the `Diagnostic`/`CaptureBundle` method row and binds `SupportBundleRequest`/`SupportBundleReply` onto the Python vocabulary, so the two `PROTO_VOCABULARY` rows landed on `transport/shapes` and the capsule closes end to end.
+[METRIC_DOMAIN_VOCABULARY]-[COMPLETE]: `DOMAINS` closes the segment vocabulary as capability subject beside charter, `MEASURES` reads `DOMAINS[spec.domain]` totally across the instrument table so an unrostered segment refuses at IMPORT, and each cross-folder producer's composition leg proves its own `(domain, measure)` pairs against that one public map. `Domain` as a StrEnum stays refused: `InstrumentSpec.domain` derives from `name`, an enum member drops the subject charter peer rosters compare byte-identical, and a vocabulary declared beside that `Map` lags it on the next row.
+[CONSUMPTION_AXIS_SPELLING]-[COMPLETE]: the axis roster `libs/.planning/ARCHITECTURE.md` `[10]-[CONSUMPTION_MODEL]` fixes landed at every branch minter with identical closed-axis vocabularies and one common open-axis descriptor shape; refusal is one axis/value/reason grammar everywhere, and the corpus entry's roster blocker is discharged.
+[PRODUCER_DISTRIBUTIONS]-[COMPLETE]: the census closed over every producer domain the `DOMAINS` roster holds — the geometry charter rows, the compute evidence rows, and the runtime pulse rows — with the instrument kind selected by each producer's declared aggregation intent rather than forced onto one histogram family.
 [WORKER_TELEMETRY_PARENTING]-[COMPLETE]: landed as the `WorkerBoot` capture + one `_worker_boot` initializer on `.planning/execution/workers.md` — parented `worker.<name>` span in `traced_kernel`, `WORKER_SIGNAL_PROFILE` geometry through the telemetry injection seams, seal-carried remote-floor boot, daemon spawn-env forwarding, and the exit-owned flush law.
 [WORKER_PROFILER_ATTACH]-[COMPLETE]: landed as `_worker_boot`'s profiler arm with the `worker.kind` install tag and kernel-subject `phase` window in `traced_kernel`; `Profiles.install` samples on-CPU Python and GIL-releasing native kernels, `Profiles.phase` supplies the null-window no-op, and `Profiles.receipt` supplies the boot-capture read on `.planning/observability/profiles.md`.
 [CROSSING_COST_ATTRIBUTION]-[COMPLETE]: landed as the receipts-minted `Cost` evidence (`sampled`/`delta`/`combined`/`measures`), including signed RSS change without a false peak claim, the two-read `traced_kernel` bracket, the lane drain-window envelope on `DrainReceipt.cost`, and four `rasm.cost.<measure>` rows under `domain="cost"` on `.planning/observability/metrics.md` with the tenant fold riding `_attributed`.
@@ -87,6 +69,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [HISTOGRAM_WIRE_PARITY]-[COMPLETE]: already realized on disk — telemetry `WIRE_AGGREGATION` sets `ExponentialBucketHistogramAggregation` on both metric exporter rows, advisory rows staying the deployment-`View` fallback.
 [EGRESS_TRANSPORT_ROW]-[COMPLETE]: already realized on disk — `EgressTransport`, the `SignalProfile.transport` column, SIDECAR-only `GRPC_ELIGIBLE`, per-transport `EGRESS` factory triples, and the HTTP path derivation on telemetry.
 [DBAPI_TRAIN_ROW]-[COMPLETE]: already realized on disk — `DbapiSeam`, `_DBAPI_POSTURE`, and the polymorphic `Instrumentation.dbapi` wrap-or-retrofit entry beside `TRAIN` on metrics.
-[OBSERVABILITY_SPINE_WAVE]-[COMPLETE]: landed as three observability owners and the metrics deepening — `observability/logging` chain owner under the stdout ship law with the in-process OTLP escape hatch gated by `LogShip`; `observability/hooks` scoped registry (`rasm.<pkg>.<domain>.<point>` ids, veto/observe/replay modalities, telemetry taps); `observability/profiles` pyroscope push, benchmark-receipt family, and the offline-job flush envelope; metrics gained `rasm.<domain>.<measure>` wire naming, the tenant baggage dimension, and the composition-root instrumentor train.
+[OBSERVABILITY_SPINE_WAVE]-[COMPLETE]: landed as three observability owners and the metrics deepening — `observability/logging` chain owner, since rebuilt onto the OTLP wire projection with scope-keyed configure custody and a `LogReceipt`, so the stdout ship law that clause named no longer stands; `observability/hooks` scoped registry (`rasm.<pkg>.<domain>.<point>` ids, veto/observe/replay modalities, telemetry taps); `observability/profiles` pyroscope push, benchmark-receipt family, and the offline-job flush envelope; metrics gained `rasm.<domain>.<measure>` wire naming, the tenant baggage dimension, and the composition-root instrumentor train.
 [REMOTE_WORKER_DISPATCH]-[COMPLETE]: landed as `WorkerKind.REMOTE` on `execution/workers` — `KIND_POLICY(fidelity=True, restart=RetryClass.SSH)`, the `WorkerPool` remote arm over one `transport/roots` `RemoteEndpoint` channel with `remote_floor` far-side, shm-wire refusal, channel-liveness supervision; roots scope law widened one seam.
 [SHARED_MEMORY_CHANNEL]-[COMPLETE]: landed as the `Wire.SHARED_MEMORY` span channel on `execution/workers#CROSSING` — `ShmSpan` named blocks, exporter-owned unlink, worker-side `numpy.frombuffer` reconstruction, ingress-only law.

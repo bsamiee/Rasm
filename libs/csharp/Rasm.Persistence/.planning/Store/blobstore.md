@@ -6,9 +6,9 @@ Rasm.Persistence stores geometry and coverage-raster bytes as a content-keyed ob
 
 ## [01]-[INDEX]
 
-- [01]-[OBJECT_STORE]: the five-provider axis (four credentialed + the presigned-grant row) projecting `BlobRemote`, the write-once seal, the per-row checksum-honesty stance, the SSE + WORM/object-lock/legal-hold + client-sealed write stances, the issuer-side grant mint, the content-lineage catalog, and the closed fault rail.
-- [02]-[MULTIPART_TRANSFER]: the content-defined-chunk upload packing whole chunks into provider parts, exact-object conditional dedup, durable session resume, and explicit abandon.
-- [03]-[BLOB_GC]: the content-lineage retention row (with its WORM `WormUntil` window) projecting to the `Version/retention` `RetentionFact`, the write-blob-first protocol + the in-flight + WORM fence, and the reclaim routed through the ONE `RetentionSweep` deletion executor with a typed `WormEvict` arrow (never a blob-lane-local sweeper).
+- [02]-[OBJECT_STORE]: the five-provider axis (four credentialed + the presigned-grant row) projecting `BlobRemote`, the write-once seal, the per-row checksum-honesty stance, the SSE + WORM/object-lock/legal-hold + client-sealed write stances, the issuer-side grant mint, the content-lineage catalog, and the closed fault rail.
+- [03]-[MULTIPART_TRANSFER]: the content-defined-chunk upload packing whole chunks into provider parts, exact-object conditional dedup, durable session resume, and explicit abandon.
+- [04]-[BLOB_GC]: the content-lineage retention row (with its WORM `WormUntil` window) projecting to the `Version/retention` `RetentionFact`, the write-blob-first protocol + the in-flight + WORM fence, and the reclaim routed through the ONE `RetentionSweep` deletion executor with a typed `WormEvict` arrow (never a blob-lane-local sweeper).
 
 ## [02]-[OBJECT_STORE]
 
@@ -27,6 +27,7 @@ Rasm.Persistence stores geometry and coverage-raster bytes as a content-keyed ob
 // (parameterless protected ctor + `Category` virtual) and NEVER the `LanguageExt.Common.Expected` whose
 // `(string,int,Option)` ctor is the deleted form. `FaultBand` (the graph#FAULT_TABLES registry) and the
 // `EnvelopeKeyring`/`EnvelopeAad`/`WrappedKey` envelope surface arrive from the Element tier.
+using Rasm.Domain;                                  // CorrelationId/TenantId — the S0 causal pair the frame seats
 using Rasm.Persistence.Element;
 using Expected = Rasm.Domain.Expected;
 
@@ -279,7 +280,7 @@ public abstract partial record ObjectClient {
     // The tenant partition this dialed client serves — minted at the composition root FROM the injected [A.1]
     // frame tenant, so the per-tenant object-name prefix and the `BlobCatalogRow.Tenant` column trace to ONE
     // source; `BlobGc.WriteBlobFirst` refuses a frame/client mismatch, never a silent name/row split-brain.
-    public required UInt128 Tenant { get; init; }
+    public required TenantId Tenant { get; init; }
     public sealed record S3(IAmazonS3 Client, string Bucket) : ObjectClient;
     public sealed record Azure(BlobContainerClient Container) : ObjectClient;
     // `Signer` is the credential-bound V4 `UrlSigner` the host dials beside the client — `StorageClient`
@@ -293,10 +294,11 @@ public abstract partial record ObjectClient {
 }
 
 // `Correlation` is THREADED from the write op's `ProjectionContext.Correlation` by the one receipt path
-// (`MultipartTransfer.Upload`) — a read-leg `From` mints `Guid.Empty` and the write path stamps the frame's
-// correlation, so the residence a write yields is traceable to its causing op, never a permanent `None`.
-public readonly record struct BlobResidence(ContentAddress Key, long Length, StorageTier Tier, int Parts, int ResumedParts, Option<string> ConditionToken, Guid Correlation) {
-    public static BlobResidence From(ContentAddress key, long length, ObjectStore store) => new(key, length, store.Tier, 0, 0, None, Guid.Empty);
+// (`MultipartTransfer.Upload`) — a read-leg `From` mints the kernel `CorrelationId.None` and the write path
+// stamps the frame's correlation, so the residence a write yields is traceable to its causing op. `None` is
+// the kernel's declared absent row, never a hand-spelled empty key the conversion policy refuses anyway.
+public readonly record struct BlobResidence(ContentAddress Key, long Length, StorageTier Tier, int Parts, int ResumedParts, Option<string> ConditionToken, CorrelationId Correlation) {
+    public static BlobResidence From(ContentAddress key, long length, ObjectStore store) => new(key, length, store.Tier, 0, 0, None, CorrelationId.None);
 }
 
 public readonly record struct BlobTransferFact(string Kind, ContentAddress Key, long Bytes, int Part, Option<string> Session);
@@ -310,7 +312,7 @@ public readonly record struct BlobTransferFact(string Kind, ContentAddress Key, 
 // derives `Code => FaultBand.RemoteStore + n` through the registry pointer (a bare 540x literal beside the registry
 // row is the decoupled form the siblings already reject), `Message`/`Category` projecting through the generated `Switch`, so a typed case
 // lifts BARE onto `Fin<T>`/`IO<T>` with no `.ToError()` hop and a recovery reads `error.IsType<RemoteStoreFault.Conflict>()`
-// / `error.HasCode(5402)` / `error.Category()`, never a message substring. No `[GenerateUnionOps]` — the kernel
+// / `error.HasCode(5402)` / `error.Category`, never a message substring. No `[GenerateUnionOps]` — the kernel
 // union-ops generator is strictly opt-in, so the band carries no generated per-case `SelfOp`. `IsTransient` stays an
 // `abstract` discriminant with one override per case (orthogonal to the base-ctor change) so `Transport.IsTransient`
 // remains the sole `Schedule`-retry gate. `Create` is the IValidationError admission the generated converter bridge
@@ -501,7 +503,7 @@ public readonly record struct TransferPart(int Number, long Offset, int Length, 
 public readonly record struct CommittedPart(int Number, string ETag);
 // `WormUntil` carries the ONE lock deadline the upload's single sampled instant derived — the catalog column
 // commits THIS value, so provider window and catalog window can never diverge (the two-clock split-brain form).
-public readonly record struct BlobTransferReceipt(string Provider, ContentAddress Key, long Bytes, int Parts, int ResumedParts, bool Aborted, Option<Instant> WormUntil, Duration Elapsed, Instant At, Guid Correlation);
+public readonly record struct BlobTransferReceipt(string Provider, ContentAddress Key, long Bytes, int Parts, int ResumedParts, bool Aborted, Option<Instant> WormUntil, Duration Elapsed, Instant At, CorrelationId Correlation);
 
 // The per-provider leg carrier: each provider fills these TEN delegates ONCE (the only per-provider variance), so the
 // transfer ceremony AND the read/head/delete/list bodies are written ONCE over the leg row, never four parallel
@@ -533,14 +535,15 @@ public readonly record struct ObjectLeg(
     Func<GrantDemand, Instant, IO<ObjectGrant>> Issue);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
-// The Persistence-local object-name projection of the seam content key — the `x32` lowercase hex of the `UInt128` under
-// the per-tenant prefix the `#BLOB_GC` envelope partitions by, so two tenants never collide on one content key and the
-// object store mints NO second identity; the tenant is the INJECTED `ObjectClient.Tenant` value (the [A.1] frame law —
-// an ambient `TenantContext.Current` read here is the named inversion, the deleted form), so name prefix and catalog
-// row trace to one source; `OfName` is the inverse a `List` row reads back. NOT a seam member (the seam owns the
+// The Persistence-local object-name projection of the seam content key — the kernel `TenantId.Text` prefix the
+// `#BLOB_GC` envelope partitions by, joined to the `x32` lowercase hex of the content `UInt128`, so two tenants never
+// collide on one content key and the object store mints NO second identity; the tenant is the INJECTED
+// `ObjectClient.Tenant` value (the [A.1] frame law — an ambient `TenantContext.Current` read here is the named
+// inversion, the deleted form) and its render is the kernel's one spelling, so the object prefix, the catalog row's
+// RLS text, and the meter tag are byte-identical; `OfName` is the inverse a `List` row reads back. NOT a seam member (the seam owns the
 // `ContentAddress` value, this page owns its provider-name spelling), so a free-string blob name is the deleted form.
 file static class BlobName {
-    public static string Name(this ContentAddress key, UInt128 tenant) => $"{tenant:x32}/{key.Value:x32}";
+    public static string Name(this ContentAddress key, TenantId tenant) => $"{tenant.Text}/{key.Value:x32}";
     public static ContentAddress OfName(string name) => ContentAddress.Of(UInt128.Parse(name.AsSpan(name.LastIndexOf('/') + 1), NumberStyles.HexNumber, CultureInfo.InvariantCulture));
 }
 
@@ -833,7 +836,7 @@ public static class ObjectIo {
     static HttpVerb VerbOf(GrantRequest request) => request.Switch(
         write: static _ => HttpVerb.PUT, read: static _ => HttpVerb.GET, erase: static _ => HttpVerb.DELETE);
 
-    static async Task<HttpResponseMessage> Posted(HttpClient http, ObjectGrant.FormPost post, ContentAddress key, UInt128 tenant, ReadOnlyMemory<byte> source) {
+    static async Task<HttpResponseMessage> Posted(HttpClient http, ObjectGrant.FormPost post, ContentAddress key, TenantId tenant, ReadOnlyMemory<byte> source) {
         using MultipartFormDataContent form = new();
         foreach ((string field, string value) in post.Fields)
             form.Add(new StringContent(value), field); // Exemption: minted fields precede the S3 form payload
@@ -873,7 +876,7 @@ public static class ObjectIo {
 // column that makes `RemoteStoreFault.Locked` genuinely reachable, the sweep's `evict` arrow refusing a key still under it.
 // `Dek` is the `ClientSealed` residence's persisted envelope (`Element/identity#KMS_CUSTODY` `WrappedKey`) —
 // `None` on every SSE/provider-managed row; the read path unwraps it through `ObjectEncryption.OpenSource`.
-public sealed record BlobCatalogRow(ContentAddress Key, RetentionClass Class, long Bytes, StorageTier Tier, Option<ContentAddress> Lineage, UInt128 Tenant, DataClassification Classification, Option<Instant> WormUntil, Option<WrappedKey> Dek, Instant At);
+public sealed record BlobCatalogRow(ContentAddress Key, RetentionClass Class, long Bytes, StorageTier Tier, Option<ContentAddress> Lineage, TenantId Tenant, DataClassification Classification, Option<Instant> WormUntil, Option<WrappedKey> Dek, Instant At);
 public readonly record struct PendingWrite(ContentAddress Key, long Bytes, Instant Started, Option<string> Session);
 
 public static class BlobGc {
@@ -890,14 +893,14 @@ public static class BlobGc {
     // instant `Upload` sampled derived the provider retention date AND this column, so catalog and provider agree by
     // construction (a second `frame.Now()` sample here was the two-clock divergence, deleted); `frame.Tenant` stamps
     // the catalog row's RLS partition — the [A.1] frame, never an AppHost type crossing down — and the FIRST step
-    // refuses a `frame.Tenant`/`client.Tenant` mismatch (`Denied`, "tenant-mismatch"), so the name prefix the legs
+    // refuses a `frame.Tenant.TenantId`/`client.Tenant` mismatch (`Denied`, "tenant-mismatch"), so the name prefix the legs
     // write and the catalog row the sweep reads can never diverge: one injected tenant, structurally.
     public static IO<BlobResidence> WriteBlobFirst(ObjectStore store, ObjectClient client, ContentAddress key, ReadOnlyMemory<byte> source, Option<string> session, Func<PendingWrite, IO<Unit>> open, Func<BlobCatalogRow, IO<Unit>> catalog, Func<ContentAddress, IO<Unit>> close, Func<BlobTransferFact, IO<Unit>> sink, ProjectionContext frame) =>
-        from _t in frame.Tenant == client.Tenant ? IO.pure(unit) : IO.fail<Unit>(new RemoteStoreFault.Denied(key, store.Key, "tenant-mismatch"))
+        from _t in frame.Tenant.TenantId == client.Tenant ? IO.pure(unit) : IO.fail<Unit>(new RemoteStoreFault.Denied(key, store.Key, "tenant-mismatch"))
         from _o in open(new PendingWrite(key, source.Length, frame.Now(), session))
         from sealed_ in store.Encryption.SealSource(key, source)
         from receipt in MultipartTransfer.Upload(store, client, BlobResidence.From(key, sealed_.Bytes.Length, store) with { ConditionToken = session }, ContentChunker.Chunk(store.Chunking, sealed_.Bytes), sealed_.Bytes, sink, frame, None)
-        from _c in catalog(new BlobCatalogRow(key, RetentionClass.Blob, sealed_.Bytes.Length, store.Tier, None, frame.Tenant, DataClassification.Internal, receipt.WormUntil, sealed_.Dek, frame.Now()))
+        from _c in catalog(new BlobCatalogRow(key, RetentionClass.Blob, sealed_.Bytes.Length, store.Tier, None, frame.Tenant.TenantId, DataClassification.Internal, receipt.WormUntil, sealed_.Dek, frame.Now()))
         from _x in close(key)
         select new BlobResidence(receipt.Key, receipt.Bytes, store.Tier, receipt.Parts, receipt.ResumedParts, None, receipt.Correlation);
 

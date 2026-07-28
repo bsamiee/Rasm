@@ -20,13 +20,6 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[FLIGHT_SQL_INGRESS_ROW]-[QUEUED]: Flight SQL lands as an analytical ingress row.
-- Capability: `FlightSqlClient` queries remote columnar engines and decodes straight to Arrow tables, joining the analytical matrix as an engine-blind wire row beside the ClickHouse and DuckDB rows.
-- Shape: a `lane/olap.md` row — `createFlightSqlClient` construction off lane config, `decodeFlightDataToTable` landing on the same Arrow plane `Olap.ingest` rides.
-- Unlocks: any Flight SQL server joins the analytical matrix as an engine-blind ingress row, decoding straight to Arrow tables beside the ClickHouse and DuckDB rows with no per-engine driver.
-- Anchors: `.api/qualithm-arrow-flight-client.md`; `lane/olap.md` `_engines` and `Olap.ingest`; the `@connectrpc/connect` transport substrate.
-- Tension: the flight row is a read and ingest wire, never a record of truth — journal law holds.
-
 [LAYER_TOPOLOGY_READ_ROWS]-[QUEUED]: Layer-topology relations land on the read side — the decoded query-store half of `[LAYER_TOPOLOGY_GRAPH_FACTS]`.
 - Capability: `Model.Class` relations for layer identity, layer-path nesting, membership, and per-viewport overrides; `SqlSchema` typed reads and `SqlResolver` batched loaders bound through `Query.table`; a `Lane.Spec` projection binding keeps the relations fold-maintained from journal facts.
 - Shape: relation models and resolver rows on `libs/typescript/data/.planning/read/query.md`; the projection lane binding on `libs/typescript/data/.planning/read/fold.md`.
@@ -47,13 +40,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Unlocks: IDEAS.md [FOREIGN_RELATIONAL_READS].
 - Anchors: Existing SQL package catalogs and `read/query.md`.
 - Tension: Foreign clients remain read ingress, preserve journal authority, and never impersonate PostgreSQL grants.
-
-[FACT_JOURNAL_RLS_ROW]-[QUEUED]: `fact_journal` registers under the tenancy law like every journal relation.
-- Capability: the fact table's DDL carries the RLS registration its own law line asserts, so the tenant write path's every-relation-registers demand is structural, never prose.
-- Shape: one `Tenancy.rls("fact_journal")` interpolation in `_factDdl.pg` in `libs/typescript/data/.planning/journal/fact.md`, matching the three journal-table DDLs.
-- Unlocks: every tenant-carrying relation provably registers — the tenancy registration law holds with zero exceptions.
-- Anchors: `fact.md` law line asserting `Tenancy.rls("fact_journal")`; `journal/append.md` `${Tenancy.rls("journal_event")}`/`idempotency_ledger`/`outbox` DDL interpolations; `lane/tenant.md` `Tenancy.rls(relation)` ensure.
-- Atomic: one DDL interpolation.
 
 [OBJECT_REF_READ_CONTRACT]-[QUEUED]: DSAR export composes a published reference-read contract, never raw cross-strata SQL.
 - Capability: the object store publishes its owner-keyed reference read as a seam contract and the retention plane composes it, so the strata direction holds and the reference relation has one reader surface.
@@ -83,20 +69,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Tension: encode here, route and connection lifecycle in runtime.
 - Atomic: one modality row over the existing bound.
 
-[PARQUET_CODEC_ROW]-[QUEUED]: Parquet codec row joins the Arrow wire — Table-to-Parquet both directions without an engine.
-- Capability: `parquet-wasm` round-trips `apache-arrow` Tables to Parquet bytes in node and browser, so the wasm arm writes lake-format objects straight to the object plane and a Parquet object decodes to a Table without instantiating DuckDB.
-- Shape: a codec row on `libs/typescript/data/.planning/lane/olap.md` `ARROW_WIRE` beside `_wire.decode`/`_wire.encode`, egress landing through the object plane's conditional put.
-- Unlocks: Tables round-trip to lake-format Parquet objects in node and browser with no engine, so the object plane writes and reads Parquet without instantiating DuckDB.
-- Anchors: `lane/olap.md` one-wire law and `_wire` family; `object/store.md` content-addressed put; `.api/apache-arrow.md` Table interchange.
-- Tension: the codec is interchange, never a query engine — querying stays with the engine rows; `parquet-wasm` admission rides the serialized admission lane.
-
-[AUDIT_SATISFACTION_ROWS]-[QUEUED]: AuditJournal satisfaction rows land on the journal and retain pages — realizes `[AUDIT_JOURNAL_SATISFACTION]`.
-- Capability: a port-satisfaction row mapping `AuditJournal.append` onto the one atomic write, the audit retention class joining the policy table, sealed subject-field wiring through the `Shredder` algebra, and the DSAR fold widened over audit facts.
-- Shape: rows on `libs/typescript/data/.planning/journal/append.md` and `libs/typescript/data/.planning/journal/retain.md`.
-- Unlocks: IDEAS.md [AUDIT_JOURNAL_SATISFACTION] — compliance export, session forensics, and the security board pack read one durable audit plane, subject erasure shredding audit payloads without breaking the append-only log.
-- Anchors: security `access/audit.md` port shape (carded); `retain.md` `SubjectKey`/`WrappedKey` folds; `append.md` publish transaction.
-- Tension: append-only law holds — no update or delete verb enters the satisfaction; erasure is key destruction, never row mutation.
-
 [BUDGET_SCHEDULE_COMPOSE]-[QUEUED]: Lane retries compose the core budget owner — four hand-spelled schedule chains collapse.
 - Capability: retry cadence is a core-compiled budget schedule at every data site, so transient-fault policy is one vocabulary and a cadence change is a row edit, never four page edits.
 - Shape: the `_RETRY` chains in `libs/typescript/data/.planning/journal/fact.md`, `read/fold.md`, and `object/store.md` and the `_GOVERNOR.retry` row in `lane/olap.md` swap to composed `Budget` schedules.
@@ -117,12 +89,13 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Unlocks: the branch fault ruling holds with zero exceptions; the serve `Problem` ladder reads data faults off the structural field.
 - Anchors: `libs/typescript/.planning/RULINGS.md` `[01]-[SHAPE]` fault row; the runtime folder families' class-derivation pattern; `append.md` `JournalFault` (reason/stream/detail, no class field).
 
-[CACHE_CENSUS_SAMPLING]-[BLOCKED]: Pool, OLAP, and relay instruments landed; cache sampling awaits a catalog-proven census member.
-- Capability: `poolHeld`, `olapWait`, `olapRetried`, `olapDeferred`, and `Journal.census` remain settled on their owner brackets.
-- Shape: `lane/cache.md` terminal `[RESEARCH]` excludes the former `_observed` fence until hit, miss, and size evidence has an exact substrate declaration.
-- Unlocks: `IDEAS.md` `[LANE_INSTRUMENT_PROJECTION]` — cache sampling completes the lane instrument plane.
-- Anchors: `lane/cache.md` `[05]-[POOLS]`; `lane/olap.md` governor and quota brackets; `journal/append.md` `Journal.census`.
-- Arms: `libs/typescript/.api/effect.md` declares the exact `Cache.Cache` census member and return type.
+[RESIDENCE_DISTRIBUTION_FOLD]-[QUEUED]: Bucket relations answer the quantile and fraction cases from their own bucket columns.
+- Capability: a metric residence relating histograms as bucket columns renders the distribution cases off `ExplicitBounds` and `BucketCounts`, so a latency objective reads the same value on the residence plane it reads on the metrics store rather than degrading to a scalar the relation only approximates.
+- Shape: two row functions on the metric record in `libs/typescript/data/.planning/lane/olap.md` `[04]-[RESIDENCE_ROWS]`, projected onto `Query.Residence` and read by the `Quantile` and `Fraction` arms of `libs/typescript/core/.planning/observe/board.md` `_leaf`.
+- Unlocks: the burn panel and the objective query render identically against a store and a residence, closing the last case where a target swap changes the number an operator reads.
+- Anchors: `olap.md` `_POINTS.histogram` columns and the `series`/`access` row-function precedent; `board.md` `_leaf` `Quantile`/`Fraction` arms and the `_ENGINES.quantile`/`.share` scalar folds.
+- Tension: bucket interpolation is the residence engine's dialect where the scalar fold is the engine roster's, so the interpolation rides the residence row and the arm selects between them on the metric kind alone.
+- Ripple: `core` `[RESIDENCE_KIND_SCALAR]` landed the per-kind scalar this case narrows.
 
 ## [02]-[CLOSED]
 
@@ -130,9 +103,16 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[LAKE_RELATION_DDL]-[COMPLETE]: `lane/olap.md` `[04]` landed the lake DDL — `_D`/`_METRIC_HEAD`/`_POINTS`/`_WIDE` carry every column, `Olap.mount` attaches and creates the two wide-event and five metric relations in one idempotent statement, `plant` sits beside `absorb`, and `Olap.recorded` folds `DashboardModel.snapshot` into the point relations. All three arms proved false: `Olap.lake.sink` already mints the Parquet, the metric roster is the OTLP point model this page owns, and the demanded type map translates ClickHouse INTO DuckDB.
+[FACT_JOURNAL_RLS_ROW]-[COMPLETE]: `journal/fact.md` `_factDdl.pg` interpolates `${Tenancy.rls("fact_journal")}` beside its indices, so every tenant-carrying relation registers structurally and the law line states the registration rather than gating it on scope.
+[AUDIT_SATISFACTION_ROWS]-[COMPLETE]: satisfaction landed at `journal/fact.md`, not `append.md` — the fact plane already owns the append-only `AuditFact` stream with its retention class, so `Fact.audits` maps `AuditJournal.append` onto the one rail, `AuditFact` gained the `subject`/`sealed` erasure pair with its partial index, and `retain.md` `_dsar` gained the fact leg.
+[CACHE_CENSUS_SAMPLING]-[COMPLETE]: `Cache.ConsumerCache.cacheStats` proved on the rail as the substrate's own cumulative `{ hits, misses, size }` snapshot, so `lane/cache.md` landed `CacheLane.census(name, cache)` — one scoped repeating probe SETTING the `cacheHits`/`cacheMisses` levels tagged by the caller's cache name, instrumenting no lookup and keeping no tally beside the cache; the `board#PACKS` `lake` hit-share tile now reads a series a producer genuinely mints, and the lane instrument plane closes.
 [SIGNAL_SITE_CONFORMANCE]-[COMPLETE]: signal-site conformance — `read/fold.md` checkpoint gauge re-keyed to `Convention.metric.laneCheckpoint` tagged `rasm.lane.name`; `read/batch.md` gained the `rasm.batch.duration` histogram on the timing bracket; `journal/append.md` gained `Journal.census`, the outbox probe the runtime meter bridge samples.
-[OLAP_PROFILE_PERMIT]-[COMPLETE]: `lane/olap.md` `[06]-[PROFILE]` `_profile` holds one session permit across enable, `EXPLAIN ANALYZE`, and teardown, requires root latency and rows, projects `Pg.Profile`, and taps `profileDuration`.
-[OLAP_ESCALATION_PROBE]-[COMPLETE]: `lane/olap.md` `_probe`/`_armed` — bounded serial runs fold into `Olap.Evidence`; the p50 ratio arms `Olap.Escalation` against `_engines[engine].trigger`, and the verdict fans `laneEscalate` at the maintenance seam.
+[PARQUET_CODEC_ROW]-[COMPLETE]: `lane/olap.md` `[08]-[ARROW_WIRE]` landed `Olap.lake` — `read`/`schema` decode through `intoIPCStream`, `batches` streams `ParquetFile` range reads, `write` folds one `_PARQUET` policy row through `writeParquet`, and `sink` weights an Arrow batch feed by rows into one object per row group for `object/store.md`'s conditional put; every composed member consumes its own handle, so `ParquetFile` alone brackets.
+[EMBEDDED_SESSION_COLLAPSE]-[COMPLETE]: `lane/olap.md` `[03]-[EMBEDDED]` collapsed both DuckDB drivers onto one `_DRIVERS` row family — `Olap.wasm` mints the same `Olap.Handle` `Olap.node` does, so the browser lane leases, gates, budgets, replays, and meters exactly like the node lane, binds through `prepare` instead of splicing, and `_wire.pull` retired into the `Drain` case.
+[FLIGHT_SQL_INGRESS_ROW]-[COMPLETE]: `lane/olap.md` `[06]-[FLIGHT]` landed the engine-blind wire — scoped `createFlightSqlClient` off `Olap.Flight` with `Redacted` auth custody, `Olap.flown` dispatching one closed intent family across two mapped halves, the endpoint fan `FlightInfo.ordered` widths, `doPut` over the server-echoed descriptor, and the `FlightError` family folded onto the existing `OlapFault` reasons; every codec sits at `Olap.wire.flight`.
+[OLAP_PROFILE_PERMIT]-[COMPLETE]: `lane/olap.md` `[07]-[PROFILE]` `_profile` holds one session permit across enable, `EXPLAIN ANALYZE`, and teardown, requires root latency and rows, projects `Pg.Profile`, and taps `profileDuration`.
+[OLAP_ESCALATION_PROBE]-[COMPLETE]: `lane/olap.md` `_probe`/`_armed` — bounded serial runs fold into `Olap.Evidence` off the handle's own engine; the p50 ratio arms `Olap.Escalation` against the CANDIDATE row's trigger, and the verdict fans `laneEscalate` at the maintenance seam.
 [OBJECT_INSTRUMENT_ROWS]-[COMPLETE]: `object/store.md` `[05]-[INSTRUMENT_ROWS]` `_measured`/`_reclaimed` and `object/stream.md` `_streamed` landed over receipt owners; core `convention.md` `[03]-[RASM_ROWS]` owns the exact vocabulary.
 [PG_PROFILE_HARVEST]-[COMPLETE]: `lane/postgres.md` `[06]-[PROFILE_HARVEST]` — the `pg_stat_statements` core row in `_rows`, `_statements`/`_delta` window-delta receipts keyed by `queryid`, and the `_explain` json harvest over a spliced `Fragment`.
 [SQLITE_PROFILE_HARVEST]-[COMPLETE]: `lane/sqlite.md` `[05]-[PROFILE_HARVEST]` — `_harvest` availability rows, timed `_profiled` with plan, page, and probed `dbstat` counters; `stmtStatus` recorded `none` on every profile (no admitted driver reaches the `sqlite3_stmt_status` C counters), superseding the card's counter claim.

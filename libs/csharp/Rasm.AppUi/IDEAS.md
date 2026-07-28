@@ -8,7 +8,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 <!-- source-only: open idea card template:
 [ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
-- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Capability: <the higher-order invariant, owner capability, or concept established — concept grain only, never a page path, row list, or member spelling>.
 - Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
 - Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
 - Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
@@ -38,7 +38,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Unlocks: cross-surface motion-consistency proofs comparing host and shell spring envelopes as values.
 - Anchors: `libs/csharp/Rasm.AppUi/.planning/Theme/motion.md` `[02]` boundary parity clause; `SpringValue` `[ComplexValueObject]`.
 
-[MATH_TYPESET_OWNER]-[QUEUED]: A math-layout owner renders the typography `MarkdownRow.Math`/`InlineRun.Math` arms so calc reports and notebooks display engineering notation.
+[MATH_TYPESET_OWNER]-[QUEUED]: Math layout owns the typography `MarkdownRow.Math`/`InlineRun.Math` arms, so calc reports and notebooks display engineering notation.
 - Capability: TeX-subset typesetting rendered Skia-side, composing the one shaping rail and the offscreen capture capsule.
 - Shape: the `Math` materialization row on `libs/csharp/Rasm.AppUi/.planning/Document/media.md` `MarkdownInlineRenderer` and the `libs/csharp/Rasm.AppUi/.planning/Theme/typography.md` `[05]` `Math` arm over the admitted `CSharpMath.SkiaSharp` engine; the typography projection stays typeset-free.
 - Unlocks: Mathcad-class calc deliverables across notebook cells, media panels, and paginated PDF exports.
@@ -59,28 +59,16 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: `libs/csharp/Rasm.AppUi/.planning/Document/export.md` `[02]-[EXPORT_DESTINATIONS]`; `libs/csharp/Rasm.AppUi/.planning/Diagnostics/proof.md` `[04]-[PROOF_LAW]`; `BundleMember`/`SupportBundle.Contribute`/`ProofLaw.BundleShape`; the AppHost `SupportManifest.Entry` archive manifest.
 - Tension: arming trigger — add the post-redaction, post-cap content key to `SupportManifest.Entry` and every `Written`/`Faulted` construction in `libs/csharp/Rasm.AppHost/.planning/Observability/bundles.md`, then include it in the manifest golden.
 
-[TELEMETRY_BOARD_PAGE]-[BLOCKED]: AppUi board composition is landed, but the store-profile feed has no typed producer projection.
-- Capability: `TelemetryBoard`, `SloTiles`, and `EvidenceTrack` compose the instrument, burn-rate, evidence, and tenant-usage tracks; store tiles remain bound but empty.
-- Shape: `libs/csharp/Rasm.AppUi/.planning/Charts/telemetry.md` owns the wrapping layout, tile rows, watches, and store-profile feed binding.
-- Unlocks: one live telemetry board reading instrument, burn-rate, evidence, and tenant-usage tracks beside store-profile tiles — the store feed lights the bound-but-empty tiles once its producer projection lands.
-- Anchors: `libs/csharp/Rasm.AppUi/.planning/Charts/telemetry.md` `TelemetryBoard`/`SloTiles`/`EvidenceTrack`; the Persistence `persistence-analytical` store-profile feed.
-- Tension: arming trigger — project `DuckProfileReceipt`, pg-stat receipt slots, and store operator rows onto the `persistence-analytical` feed in `libs/csharp/Rasm.Persistence/.planning/Store/observability.md`.
-
-[PROFILE_FLAME_JOIN]-[BLOCKED]: AppUi consumes the AppHost sample shape, but no AppHost capture path publishes a sample.
-- Capability: `ProfileSampleSource` reads the AppHost `UiSchedulerPort.ProfileSamples` feed by correlation, and `FlameNode.Of` prefix-merges its AppHost-owned `ProfileSample` values.
-- Shape: `libs/csharp/Rasm.AppUi/.planning/Diagnostics/devloop.md` uses the settled `(Correlation, Frames, WeightMillis, At)` row without duplicating it.
-- Unlocks: correlation-joined flame graphs in the dev loop — `FlameNode.Of` prefix-merges AppHost `ProfileSample` values into per-correlation call trees once a capture path publishes samples.
-- Anchors: `libs/csharp/Rasm.AppUi/.planning/Diagnostics/devloop.md` `ProfileSampleSource`/`FlameNode.Of`; the AppHost `UiSchedulerPort.ProfileSamples` feed and `(Correlation, Frames, WeightMillis, At)` sample row.
-- Tension: arming trigger — land the Pyroscope/EventPipe capture fold that constructs `ProfileSample` and calls `ProfileFeed.Publish` in `libs/csharp/Rasm.AppHost/.planning/Observability/benchmarks.md` `[04]-[PROFILE_CORRELATION]`; current disk declares the feed and publisher but contains no producer call.
-
 ## [02]-[CLOSED]
 
 <!-- source-only: closed idea card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-[MULTI_MEASUREMENT_LEVELS]-[COMPLETE]: landed as the `InstrumentKind.Levels` row with kernel `LevelCells` keyed families and `LevelCells.Reader` in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md` `[03]-[TELEMETRY_SPINE]`.
+[PROFILE_FLAME_JOIN]-[COMPLETE]: the AppHost `ProfileCapture.Bind` producer landed at `Observability/benchmarks.md` `[04]-[PROFILE_CORRELATION]`, so `FlameNode.Of` now folds published `ProfileSample` values; the row widened with `ThreadId`, `Kind`, and the `ProfileFrameForm` posture, and `FromSamples` lane-groups by thread with the posture on the lane name.
+[TELEMETRY_BOARD_PAGE]-[COMPLETE]: store-profile tiles read the landed `SeriesKind.Telemetry` projection through `StoreProfileTrack`'s `(domain, slot, measure)` facets and one injected read arrow, so every board tile binds a producer.
+[MULTI_MEASUREMENT_LEVELS]-[COMPLETE]: keyed level families ride the kernel `InstrumentSpec.Levels` declaration over `LevelCells.Reader`, declared beside each producer and swapped by the `libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md` `[03]-[TELEMETRY_SPINE]` fan arms.
 [COLLAB_FORENSICS]-[COMPLETE]: landed as `LiveWire.TapPreCommit`/`ExportJson` with the devloop `CollabPreCommit`/`CollabJson` verbs sealing `PreCommitFact` evidence in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/devloop.md`.
 [FRAME_BENCH_LANE]-[COMPLETE]: landed as `BenchLane`/`ProofEngine.Bench` with `ProofLaw.FrameBench`/`Divergence` gating through the AppHost `BenchmarkGate` in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/proof.md`.
 [TENANT_USAGE_FOLD]-[COMPLETE]: landed as `TenantUsage`/`TenantUsageFold.Fold` beside `EvidenceJoin` with the `TenantUsageWire` crossing in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md` `[04]-[CORRELATION_JOIN]`.
-[FRAME_SLO_FEED]-[COMPLETE]: landed as the `SloCoordinate.Viewport` burn rows in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md` `[06]-[TS_PROJECTION]` consumed by `SloTiles`/`BurnFeed`.
+[FRAME_SLO_FEED]-[COMPLETE]: landed as the `ViewportObjectives` latency indicators in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md` `[03]-[TELEMETRY_SPINE]`, consumed by `SloTiles`/`BurnFeed` over the kernel burn table.

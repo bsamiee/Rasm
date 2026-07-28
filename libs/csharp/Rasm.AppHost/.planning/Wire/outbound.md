@@ -4,13 +4,13 @@ Outbound boundary ownership for the runtime spine: seven `OutboundHop` cases bin
 
 ## [01]-[INDEX]
 
-- [01]-[HOP_AXIS]: Seven hop cases bound to frozen policy rows with total dispatch.
-- [02]-[HTTP_PIPELINES]: Standard and hedging handlers for `SocketsHttpHandler`-borne rows.
-- [03]-[KEYED_PIPELINES]: One keyed Polly registry and channel policy for non-HTTP hops.
-- [04]-[OWNERSHIP_LAW]: One retry owner per hop with conflict evidence and receipts.
-- [05]-[DISCOVERY_ATTACH]: Manifest law, UDS attach, checksum gate, and companion child lifecycle.
-- [06]-[DELIVERY_FANOUT]: Multi-channel notification fan-out, delivery receipts, and dedupe.
-- [07]-[TS_PROJECTION]: Hop and delivery wire-evidence shapes the dashboard and the instrument fan consume.
+- [02]-[HOP_AXIS]: Seven hop cases bound to frozen policy rows with total dispatch.
+- [03]-[HTTP_PIPELINES]: Standard and hedging handlers for `SocketsHttpHandler`-borne rows.
+- [04]-[KEYED_PIPELINES]: One keyed Polly registry and channel policy for non-HTTP hops.
+- [05]-[OWNERSHIP_LAW]: One retry owner per hop with conflict evidence and receipts.
+- [06]-[DISCOVERY_ATTACH]: Manifest law, UDS attach, checksum gate, and companion child lifecycle.
+- [07]-[DELIVERY_FANOUT]: Multi-channel notification fan-out, delivery receipts, and dedupe.
+- [08]-[TS_PROJECTION]: Hop and delivery wire-evidence shapes the dashboard and the instrument fan consume.
 
 ## [02]-[HOP_AXIS]
 
@@ -281,12 +281,19 @@ public readonly record struct HopReceipt(
     DeadlineClass Consumed,
     CircuitState Breaker);
 
+// One spelling per wire key: the projection below and every reliability objective partitioning the hop and
+// delivery counters on their outcome dimension read the same const, so a renamed case cannot leave an
+// objective selecting a value no receipt ever writes.
 public static class HopOutcomeWire {
+    public const string Delivered = "delivered";
+    public const string Refused = "refused";
+    public const string Faulted = "faulted";
+
     extension(HopOutcome outcome) {
         public string OutcomeKey => outcome.Switch(
-            delivered: static _ => "delivered",
-            refused: static _ => "refused",
-            faulted: static _ => "faulted");
+            delivered: static _ => Delivered,
+            refused: static _ => Refused,
+            faulted: static _ => Faulted);
     }
 }
 
@@ -489,7 +496,7 @@ public static class Discovery {
 - Owner: `DeliveryTarget` `[Union]` the channel-target carrier (endpoint `Uri` versus discovered peer manifest); `DeliveryChannel` `[SmartEnum<string>]` the outbound notification-channel axis under the hop key policy; `DeliveryMessage` the channel-agnostic notification payload; `DeliveryReceipt` the per-channel delivery evidence; `DeliveryFanout` the static multi-channel fan surface with the dedupe cell.
 - Cases: 2 target cases — `Endpoint(Uri)` for the network-borne channels, `Peer(DiscoveryManifest)` for the in-app companion channel; 4 channel rows — push, webhook, email, in-app — each binding the `OutboundHop` its bytes ride through a target-discriminating `Hop(DeliveryTarget)` returning `Fin<OutboundHop>`: push and webhook on `WebhookPost` over an `Endpoint`, email on `HttpApi` over an `Endpoint` (the transactional-mail API), in-app on `LocalIpc` over a `Peer` manifest; a channel fed the wrong target shape returns `HopFault.Excluded` so the in-app channel can never forge a null manifest and a network channel can never dial a peer; delivery dispositions ride `HopOutcome`.
 - Entry: `Fan(DeliveryRuntime runtime, DeliveryMessage message, params ReadOnlySpan<DeliveryChannel> channels)` returns `IO<Seq<DeliveryReceipt>>` — deduplicates the message by its idempotency key, then fans it to each channel through the channel's `OutboundHop` so one notification reaches every configured channel under one dedupe guard.
-- Auto: every channel rides its `OutboundHop` so delivery inherits the hop's retry, breaker, rate-limit, and deadline — a flapping webhook endpoint breaks on the existing circuit breaker and a rate-capped push channel admits through the existing sliding-window limiter, never a per-channel retry loop; the dedupe fold is read-modify-write INSIDE `Swap(current => ...)` — the prune and the add fold over the LIVE cell value and the verdict derives from the swap itself (first sight within the window delivers, a re-fanned identical message folds every channel to a `DeliveryReceipt` carrying the deduped flag), so concurrent fans never lose each other's records — a stale-read `.Value` snapshot beside the swap is the deleted form; each channel's delivery mints one `DeliveryReceipt` carrying the channel, the `HopReceipt`, and the delivery disposition so a partial fan (push delivered, email faulted) records every channel's outcome independently; the fan runs the channels concurrently under one `CancelScope` so a slow channel does not block the others.
+- Auto: every channel rides its `OutboundHop` so delivery inherits the hop's retry, breaker, rate-limit, and deadline — a flapping webhook endpoint breaks on the existing circuit breaker and a rate-capped push channel admits through the existing sliding-window limiter, never a per-channel retry loop; the dedupe fold is read-modify-write INSIDE `Swap(current => ...)` — the prune and the add fold over the LIVE cell value and the verdict derives from the swap itself (first sight within the window delivers, a re-fanned identical message folds every channel to a `DeliveryReceipt` carrying the deduped flag), so concurrent fans never lose each other's records — a stale-read `.Value` snapshot beside the swap is the deleted form; each channel's delivery mints one `DeliveryReceipt` carrying the channel, the `HopReceipt`, and the delivery disposition so a partial fan (push delivered, email faulted) records every channel's outcome independently; the fan SCHEDULES every channel leg through `IO.Fork` before it awaits any of them, so the channels genuinely overlap and one slow channel never holds the others, while the evidence leg stays sequential after the join because the receipt stream is the one ordered record of what the fan did; a bare traverse over the deliveries is the deleted form that would leave the partial-fan claim as prose over a serial loop; the evidence leg fires the `Observability/hooks#HOOK_RAIL` `Delivery` row through the rail's own `Settled` member, so a per-channel subscriber reads the typed receipt while the envelope keeps carrying the instrument projection.
 - Receipt: `DeliveryReceipt` — channel key, idempotency key, `HopOutcome`, deduped flag, attempt count, elapsed `Duration`, the advanced watermark (`Some` only on a fenced outbox-relay advance — the fan-out legs answer `None`), correlation id; every fanned receipt sends one `DeliveryReceiptWire` envelope under `InstrumentFan.DeliveryKind` through the runtime `Sink`, so per-channel outcomes project off the receipt fan.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one channel row absorbs a new delivery medium — a new SMS or chat channel is one `DeliveryChannel` row binding its `OutboundHop` over the matching `DeliveryTarget` case, never a parallel sender; a new target shape is one `DeliveryTarget` case breaking every channel's `Hop` switch; a new delivery disposition rides the existing `HopOutcome`; zero new surface.
@@ -553,6 +560,7 @@ public sealed record DeliveryRuntime(
     Duration DedupeWindow,
     ClockPolicy Clocks,
     ReceiptSinkPort Sink,
+    HookRail Rail,
     JsonSerializerOptions Wire);
 
 public static class DeliveryFanout {
@@ -568,18 +576,26 @@ public static class DeliveryFanout {
                 deduped = pruned.ContainsKey(message.IdempotencyKey);
                 return pruned.AddOrUpdate(message.IdempotencyKey, now, now);
             }));
+            // Fork-before-await fan-out: every channel's leg SCHEDULES before any await, so a slow webhook never
+            // holds the push leg and each channel settles its own outcome — a bare traverse over the deliveries
+            // sequences them and makes the partial-fan claim prose over a serial loop. Evidence stays sequential
+            // after the join, because the receipt stream is the one ordered record of what the fan did.
             return channels.ToArray().ToSeq()
-                .TraverseM(channel => deduped
+                .TraverseM(channel => (deduped
                     ? IO.pure(new DeliveryReceipt(channel.Key, message.IdempotencyKey, new HopOutcome.Delivered(), Deduped: true, 0, Duration.Zero, None, correlation))
-                    : Deliver(runtime, channel, message, correlation))
+                    : Deliver(runtime, channel, message, correlation)).Fork())
                 .As()
+                .Bind(handles => handles.TraverseM(static handle => handle.Await).As())
                 .Bind(receipts => receipts.TraverseM(receipt => Evidence(runtime, receipt)).As());
         });
 
-    // Every leg — delivered, refused, deduped — fans its evidence envelope; the arm counts outcomes.
+    // Every leg — delivered, refused, deduped — fans its evidence envelope; the arm counts outcomes. The typed
+    // Delivery row fires beside that envelope because a subscriber reading channel, outcome, and attempt count
+    // off the serialized wire re-derives what the receipt already carries.
     static IO<DeliveryReceipt> Evidence(DeliveryRuntime runtime, DeliveryReceipt receipt) =>
-        runtime.Sink.Send(receipt.Correlation, TenantContext.Current, TelemetrySource.AppHost.Key, InstrumentFan.DeliveryKind,
-            JsonSerializer.SerializeToElement(DeliveryReceiptWire.From(receipt), runtime.Wire)).Map(_ => receipt);
+        IO.lift(() => runtime.Rail.Settled(receipt)).Bind(_ =>
+            runtime.Sink.Send(receipt.Correlation, TenantContext.Current, TelemetrySource.AppHost.Key, InstrumentFan.DeliveryKind,
+                JsonSerializer.SerializeToElement(DeliveryReceiptWire.From(receipt), runtime.Wire))).Map(_ => receipt);
 
     static IO<DeliveryReceipt> Deliver(DeliveryRuntime runtime, DeliveryChannel channel, DeliveryMessage message, CorrelationId correlation) =>
         (from target in message.Targets.Find(channel).ToFin(new HopFault.Text($"no-target:{channel.Key}"))
@@ -598,7 +614,7 @@ public static class DeliveryFanout {
 - Growth: one wire-member row per new hop or delivery evidence field; the outcome crosses as its case key; zero new surface.
 - Boundary: elapsed time crosses as seconds so the instrument arm reads a number, never a parsed duration; the watermark crosses `null` on every fan-out leg and carries the fenced cursor only on an outbox-relay advance; the envelope kind is the `InstrumentFan` constant the emitting fence passes.
 
-```ts contract
+```ts signature
 type HopOutcomeKey = "delivered" | "refused" | "faulted";
 
 interface HopReceiptWire {

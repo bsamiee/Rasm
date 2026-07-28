@@ -1,22 +1,24 @@
 # [APPHOST_CAPABILITY_REGISTRY]
 
-One self-describing operation catalog for the whole suite: every canonical op surface contributes a typed `CapabilityDescriptor` carrying its effect class, idempotency, cost model, and permission shape, the registry folds those rows into a discovery surface answering shape-discriminated queries, a command algebra wraps any descriptor invocation in a commit-or-rollback intent over the Compute `ComputeIntent` rail, a scoped grant broker meters every admission against an object-set × op-class × classification × cost-ceiling × time-window algebra with consent and dry-run simulation, and one codegen surface emits identical command shapes for C#, TypeScript, and Python off the same descriptor rows. The page owns the descriptor vocabulary, the discovery fold, the command-algebra transaction, the grant-and-cost broker, and the polyglot SDK codegen; it consumes `ComputeIntent`/`AdmittedIntent.Admit`, `WorkLane`, `CostModel` cousins, `TenantContext`, `DegradationLevel`, `ReceiptSinkPort`, and `DataClassification` as settled vocabulary and mints no eighth port.
+Rasm.AppHost mints one self-describing operation catalog for the suite: every canonical op surface contributes a typed `CapabilityDescriptor` carrying effect class, idempotency, cost model, and permission shape, the registry folds those rows into a shape-discriminated discovery surface, a command algebra wraps any invocation in commit-or-rollback over the Compute `ComputeIntent` rail, a scoped grant broker meters admission against an object-set x op-class x classification x ceiling x window algebra, and one codegen surface emits identical command shapes for C#, TypeScript, and Python.
+
+`ComputeIntent`/`AdmittedIntent.Admit`, `WorkLane`, the `CostModel` cousins, `TenantContext`, `DegradationLevel`, `ReceiptSinkPort`, `InstrumentSet`, and `DataClassification` arrive settled, and no eighth port is minted.
 
 ## [01]-[INDEX]
 
-- [01]-[DESCRIPTOR_AXIS]: Self-describing op rows encoding effect class, idempotency, cost, and permission shape.
-- [02]-[DISCOVERY_FOLD]: Frozen registry with shape-discriminated discovery queries over descriptor rows.
-- [03]-[COMMAND_ALGEBRA]: Commit-or-rollback intent transaction over the `Compute` dispatch rail.
-- [04]-[GRANT_BROKER]: Scoped grant algebra covering consent, elevation, cost metering, and dry-run policy simulation.
-- [05]-[SDK_CODEGEN]: C#/TS/Python command-shape emission off one descriptor source.
-- [06]-[TS_PROJECTION]: Descriptor catalog and command-envelope wire shapes the dashboard consumes.
+- [02]-[DESCRIPTOR_AXIS]: Self-describing op rows encoding effect class, idempotency, cost, and permission shape.
+- [03]-[DISCOVERY_FOLD]: Frozen registry with shape-discriminated discovery queries over descriptor rows.
+- [04]-[COMMAND_ALGEBRA]: Commit-or-rollback intent transaction over the `Compute` dispatch rail.
+- [05]-[GRANT_BROKER]: Scoped grant algebra covering consent, elevation, cost metering, and dry-run policy simulation.
+- [06]-[SDK_CODEGEN]: C#/TS/Python command-shape emission off one descriptor source.
+- [07]-[TS_PROJECTION]: Descriptor catalog and command-envelope wire shapes the dashboard consumes.
 
 ## [02]-[DESCRIPTOR_AXIS]
 
 - Owner: `EffectClass` `[SmartEnum<string>]` five-row effect taxonomy under the `ComparerAccessors.StringOrdinal` accessor; `Idempotency` `[SmartEnum<string>]` four-row repeat-safety vocabulary; `CostUnit` `[SmartEnum<string>]` the metered-resource axis; `CostModel` per-descriptor cost record; `PermissionShape` the object-set × op-class scope record; `CapabilityDescriptor` the self-describing op row; `DescriptorReceipt` the per-registration projection.
 - Cases: 5 effect rows — pure, read, write, external, irreversible — in escalating side-effect severity; 4 idempotency rows — idempotent, keyed, single-shot, non-idempotent; each cost-unit row carries its metering key and UCUM code.
-- Entry: `CapabilityDescriptor.Of(string surface, string op, EffectClass effect, Idempotency idempotency, CostModel cost, PermissionShape permission, Func<CommandArguments, Fin<ComputeIntent>> compile)` materializes one row whose id is the `{surface}.{op}` join, binding the descriptor to the `ComputeIntent` it compiles to; `Describe(IServiceCollection services, LevelCells cells, string surface, params ReadOnlySpan<CapabilityDescriptor> rows)` admits one surface's complete descriptor snapshot through the `Contributors` fan-in registration, the composition's threaded cells carrying the roster census.
-- Auto: each canonical op surface — `TensorOpFamily`, `ModelIdentity`, `ComputeEndpoint`, `QuantityFamily`, `SolverPluginContract` — projects its rows into descriptors at composition through one `Project` fold per surface so the catalog is generated from the op surfaces, never hand-listed, and a hand-authored op divorced from a descriptor (a free command method, a per-op MCP tool definition, a hand-written SDK client method) is the deleted form — the worked `TensorProjection.Project` fence is the one shape every surface follows, the worked `ModelProjection.Project` fence the model-draw instance whose `CostModel.Variable` closes over the composition-built `TiktokenTokenizer` and prices the prompt in `CostUnit.ModelTokens` through `CountTokens(prompt)` so a model draw is grant-priced and ceiling-gated before the provider sees a token (the per-call post-hoc `ChatResponse.Usage` charge at `#REASONING_LOOP` reconciles against this same `ModelTokens` axis the descriptor pre-prices), the sandbox `SolverPluginContract.Descriptors` projection the plugin-contract instance; the `Permission.Classification` field rides the `DataClassification` taxonomy so an op touching classified state declares it on the descriptor and the broker reads it before admission; `Cost.Estimate` projects a static pre-flight cost from the argument shape so a dry run prices the command before any byte moves — a `CpuMillis` tensor draw prices off the payload element count, a `ModelTokens` model draw off the air-gapped embedded-vocab token count, never a `chars/4` heuristic; observability spend rows derive their instrument units from `CostUnit.Ucum`; `Describe` sets the admitted per-surface counts on the composition-threaded `LevelCells` keyed roster family, so the Observability/instruments `rasm.apphost.capability.roster` gauge reads the live census partitioned by descriptor surface at every admission, native boot rows and federated attach rows alike.
+- Entry: `CapabilityDescriptor.Of(string surface, string op, EffectClass effect, Idempotency idempotency, CostModel cost, PermissionShape permission, Func<CommandArguments, Fin<ComputeIntent>> compile)` materializes one row whose id is the `{surface}.{op}` join, binding the descriptor to the `ComputeIntent` it compiles to; `Describe(IServiceCollection services, Seq<string> surfaces, params ReadOnlySpan<CapabilityDescriptor> rows)` admits one complete descriptor snapshot across every surface it names through the `Contributors` fan-in registration, so a peer spanning four surface keys replaces all four in one call and a surface named with no row retires whole.
+- Auto: each canonical op surface — `TensorOpFamily`, `ModelIdentity`, `ComputeEndpoint`, `QuantityFamily`, `SolverPluginContract` — projects its rows into descriptors at composition through one `Project` fold per surface so the catalog is generated from the op surfaces, never hand-listed, and a hand-authored op divorced from a descriptor (a free command method, a per-op MCP tool definition, a hand-written SDK client method) is the deleted form — the worked `TensorProjection.Project` fence is the one shape every surface follows, the worked `ModelProjection.Project` fence the model-draw instance whose `CostModel.Variable` closes over the composition-built `TiktokenTokenizer` and prices the prompt in `CostUnit.ModelTokens` through `CountTokens(prompt)` so a model draw is grant-priced and ceiling-gated before the provider sees a token (the per-call post-hoc `ChatResponse.Usage` charge at `#REASONING_LOOP` reconciles against this same `ModelTokens` axis the descriptor pre-prices), the sandbox `SolverPluginContract.Descriptors` projection the plugin-contract instance; the `Permission.Classification` field rides the `DataClassification` taxonomy so an op touching classified state declares it on the descriptor and the broker reads it before admission; `Cost.Estimate` projects a static pre-flight cost from the argument shape so a dry run prices the command before any byte moves — a `CpuMillis` tensor draw prices off the payload element count, a `ModelTokens` model draw off the air-gapped embedded-vocab token count, never a `chars/4` heuristic; observability spend rows derive their instrument units from `CostUnit.Ucum`; the `rasm.apphost.capability.roster` census projects off the frozen catalog's own surface index at `#DISCOVERY_FOLD` `CapabilityRegistry.Mount`, so `Describe` stays a registration fold carrying no measurement rail outward and a mid-composition snapshot never publishes a partial count.
 - Receipt: `DescriptorReceipt` — descriptor id, effect key, idempotency key, estimated cost vector, permission scope hash, `Instant`.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Microsoft.ML.Tokenizers, BCL inbox
 - Growth: one descriptor row absorbs a new op — the effect, idempotency, cost, and permission are column values on the row, never a parallel op-metadata table; a new effect class is one `EffectClass` row, a new metered resource one `CostUnit` row carrying its UCUM code, a new cost shape one `CostModel` field; zero new surface.
@@ -107,27 +109,23 @@ public readonly record struct DescriptorReceipt(
     Instant At);
 
 public static class DescriptorSurface {
-    public const string RosterFamily = "rasm.apphost.capability.roster";
-
-    public static IServiceCollection Describe(IServiceCollection services, LevelCells cells, string surface, params ReadOnlySpan<CapabilityDescriptor> rows) {
-        // Replacement is structural, not claimed: the surface's prior descriptor rows sweep out before
-        // the new snapshot lands, so a re-described surface atomically replaces its whole census —
-        // including the empty snapshot — and discovery never serves a stale row beside live siblings.
-        // Plain instance registration carries the rows: TryAddEnumerable dedups by implementation type,
-        // which is CapabilityDescriptor for every instance row, and would silently drop all but the first.
-        var admitted = Iterable<CapabilityDescriptor>.FromSpan(rows).ToSeq();
-        ignore(cells.Level(RosterFamily, surface, admitted.Count));
-        var swept = toSeq(services.Where(prior => prior.ImplementationInstance is CapabilityDescriptor stale && stale.Surface == surface).ToArray())
+    // Sweeping the caller's key set rather than the rows' own surfaces is what makes the empty snapshot
+    // expressible: rows alone cannot name a surface that retired to nothing. Plain instance registration
+    // carries the rows because TryAddEnumerable dedups by implementation type, which is CapabilityDescriptor
+    // for every instance row, and would silently drop all but the first.
+    public static IServiceCollection Describe(IServiceCollection services, Seq<string> surfaces, params ReadOnlySpan<CapabilityDescriptor> rows) {
+        var replaced = surfaces.ToFrozenSet(StringComparer.Ordinal);
+        var swept = toSeq(services.Where(prior => prior.ImplementationInstance is CapabilityDescriptor stale && replaced.Contains(stale.Surface)).ToArray())
             .Fold(services, static (current, dead) => (current.Remove(dead), current).Item2);
-        return admitted.Fold(swept, static (current, row) =>
-            (current.AddSingleton(typeof(CapabilityDescriptor), row), current).Item2);
+        return Iterable<CapabilityDescriptor>.FromSpan(rows).ToSeq()
+            .Fold(swept, static (current, row) => (current.AddSingleton(typeof(CapabilityDescriptor), row), current).Item2);
     }
 }
 
 public static class TensorProjection {
-    // One Describe call carries the whole surface roster, so the keyed census is complete per admission.
-    public static IServiceCollection Project(IServiceCollection services, LevelCells cells, Func<TensorOpFamily, JsonElement, Fin<ComputeIntent>> compileOf) =>
-        DescriptorSurface.Describe(services, cells, nameof(TensorOpFamily), [.. TensorOpFamily.Items.AsIterable().Map(family => Row(family, compileOf))]);
+    // One Describe call carries the whole surface roster, so the snapshot replacement is complete per admission.
+    public static IServiceCollection Project(IServiceCollection services, Func<TensorOpFamily, JsonElement, Fin<ComputeIntent>> compileOf) =>
+        DescriptorSurface.Describe(services, Seq(nameof(TensorOpFamily)), [.. TensorOpFamily.Items.AsIterable().Map(family => Row(family, compileOf))]);
 
     static CapabilityDescriptor Row(TensorOpFamily family, Func<TensorOpFamily, JsonElement, Fin<ComputeIntent>> compileOf) =>
         CapabilityDescriptor.Of(
@@ -144,14 +142,14 @@ public static class TensorProjection {
 }
 
 public static class ModelProjection {
-    // The CostUnit.ModelTokens integration site: a model-draw descriptor whose CostModel.Variable closes over
-    // the one composition-built TiktokenTokenizer and prices the prompt in tokens, so CostModel.Estimate
-    // (which GrantBroker.Admit and Simulate both call) grant-prices and ceiling-gates a model draw BEFORE the
-    // provider sees a token. One descriptor per admitted model name on the ModelIdentity op surface; the
-    // tokenizer is the air-gapped CreateForModel/CreateForEncoding embedded-vocab instance — one shared
-    // thread-safe instance per encoding, built once at composition, never per-request, never a chars/4 heuristic.
-    public static IServiceCollection Project(IServiceCollection services, LevelCells cells, Seq<string> models, TiktokenTokenizer tokenizer, Func<string, JsonElement, Fin<ComputeIntent>> compileOf) =>
-        DescriptorSurface.Describe(services, cells, nameof(ModelIdentity), [.. models.Map(model => Row(model, tokenizer, compileOf))]);
+    // CostUnit.ModelTokens integrates here: a model-draw descriptor's CostModel.Variable closes over the
+    // one composition-built TiktokenTokenizer and prices the prompt in tokens, so CostModel.Estimate (which
+    // GrantBroker.Admit and Simulate both call) grant-prices and ceiling-gates a model draw BEFORE the provider
+    // sees a token. ModelIdentity carries one descriptor per admitted model name, and composition builds the
+    // air-gapped CreateForModel/CreateForEncoding embedded-vocab tokenizer once per encoding as one shared
+    // thread-safe instance — never per-request, never a chars/4 heuristic.
+    public static IServiceCollection Project(IServiceCollection services, Seq<string> models, TiktokenTokenizer tokenizer, Func<string, JsonElement, Fin<ComputeIntent>> compileOf) =>
+        DescriptorSurface.Describe(services, Seq(nameof(ModelIdentity)), [.. models.Map(model => Row(model, tokenizer, compileOf))]);
 
     static CapabilityDescriptor Row(string model, TiktokenTokenizer tokenizer, Func<string, JsonElement, Fin<ComputeIntent>> compileOf) =>
         CapabilityDescriptor.Of(
@@ -177,14 +175,14 @@ public static class ModelProjection {
 
 ## [03]-[DISCOVERY_FOLD]
 
-- Owner: `CapabilityRegistry` the frozen descriptor catalog with the alternate-lookup probe; `DiscoveryQuery` `[Union]` the shape-discriminated query family; `DiscoveryResult` the matched-descriptor projection.
+- Owner: `CapabilityRegistry` the frozen descriptor catalog with the alternate-lookup probe and the roster-census mount; `DiscoveryQuery` `[Union]` the shape-discriminated query family; `DiscoveryResult` the matched-descriptor projection.
 - Cases: `ById(string Id)`, `BySurface(string Surface)`, `ByEffect(EffectClass Effect)`, `Permitting(DegradationLevel Level)`, `ByIntent(string Intent)`, `All` — one polymorphic discovery entrypoint discriminates on the query value, never a `GetById`/`GetBySurface`/`List` proliferation; `ByIntent` is the semantic arm — the embedding-rank delegate `Agent/reasoning#SEMANTIC_DISCOVERY` binds at composition ranks descriptors by intent similarity, and an unbound index answers empty rather than faulting.
-- Entry: `Discover(DiscoveryQuery query)` returns `Seq<DiscoveryResult>` — the single discovery operation folds the query case over the frozen catalog; `Resolve(string id)` returns `Option<CapabilityDescriptor>` through the ordinal alternate-lookup.
-- Auto: the registry freezes the descriptor fan-in into one `FrozenDictionary<string, CapabilityDescriptor>` at composition and a `Lookup<string, CapabilityDescriptor>` index by surface so a surface query reads one bucket; `Permitting` folds the level's retained capability set against each descriptor's `EffectClass` so a degraded host advertises only the ops it can still serve, deleting a parallel per-level command list.
+- Entry: `Discover(DiscoveryQuery query)` returns `Seq<DiscoveryResult>` — the single discovery operation folds the query case over the frozen catalog; `Resolve(string id)` returns `Option<CapabilityDescriptor>` through the ordinal alternate-lookup; `Mount(InstrumentSet set)` returns `Fin<Unit>` — the composition's roster proof, folding the frozen surface index onto the keyed `rasm.apphost.capability.roster` family after `InstrumentFan.Mount` has already proved every contributed board pack against that same set, so this leg carries the one descriptor claim a port cannot: a registry fan-in the mount fold never sees.
+- Auto: the registry freezes the descriptor fan-in into one `FrozenDictionary<string, CapabilityDescriptor>` at composition and a `Lookup<string, CapabilityDescriptor>` index by surface so a surface query reads one bucket; `Permitting` folds the level's retained capability set against each descriptor's `EffectClass` so a degraded host advertises only the ops it can still serve, deleting a parallel per-level command list; the roster census IS that surface index counted, so `Mount` writes the whole live truth in one traversal and the pulled-gate refusal — an unmounted or scalar-mounted family — lands on the composition root while the descriptor set is still editable.
 - Receipt: `DiscoveryResult` — descriptor id, surface, effect key, idempotency key, estimated cost vector for the empty argument shape, permission scope hash.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: one query case absorbs a new discovery axis; a new index is one frozen projection over the catalog, never a second registry; zero new surface.
-- Boundary: the registry is read-only after the composition freeze — a runtime descriptor mutation is the deleted form, mirroring the composition-root `MakeReadOnly` law; `Permitting` reads `DegradationLevel.Retains` as settled vocabulary and maps each `EffectClass` to its gating `Capability` (write maps to `StoreWrite`, external to `RemoteCompute`, read to `StoreRead`) so discovery and the runtime degradation rail share one capability semantic; the discovery surface is the projection the MCP `tools/list`, the SDK codegen, and the dashboard command palette all read, so a new consumer reads the same fold and never re-enumerates the descriptor fan-in.
+- Packages: Rasm (kernel `InstrumentSet`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
+- Growth: one query case absorbs a new discovery axis; a new index is one frozen projection over the catalog, never a second registry; a new roster dimension is one column on the census projection the one `Mount` write carries; zero new surface.
+- Boundary: the registry is read-only after the composition freeze — a runtime descriptor mutation is the deleted form, mirroring the composition-root `MakeReadOnly` law; the census homes here rather than at the admission fold because the count is a projection of the frozen catalog and never an accumulated cell — a per-`Describe` push publishes a mid-composition partial, forks the truth across the native and federated snapshot sites, and manufactures a measurement rail a registration fold structurally cannot carry outward; `Permitting` reads `DegradationLevel.Retains` as settled vocabulary and maps each `EffectClass` to its gating `Capability` (write maps to `StoreWrite`, external to `RemoteCompute`, read to `StoreRead`) so discovery and the runtime degradation rail share one capability semantic; the discovery surface is the projection the MCP `tools/list`, the SDK codegen, and the dashboard command palette all read, so a new consumer reads the same fold and never re-enumerates the descriptor fan-in.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -211,8 +209,8 @@ public sealed class CapabilityRegistry {
     readonly ILookup<string, CapabilityDescriptor> bySurface;
     readonly FrozenDictionary<string, CapabilityDescriptor>.AlternateLookup<ReadOnlySpan<char>> probe;
 
-    // The semantic index is a composition-bound delegate (reasoning's embedding rank over the frozen
-    // catalog): intent text -> ranked descriptor ids. Unbound answers empty — discovery never faults on intent.
+    // Composition binds the semantic index as a delegate — reasoning's embedding rank over the frozen
+    // catalog, intent text to ranked descriptor ids. Unbound answers empty; discovery never faults on intent.
     readonly Option<Func<string, Seq<string>>> byIntent;
 
     public CapabilityRegistry(IEnumerable<CapabilityDescriptor> rows, Option<Func<string, Seq<string>>> intentRank = default) {
@@ -225,6 +223,15 @@ public sealed class CapabilityRegistry {
 
     public Option<CapabilityDescriptor> Resolve(string id) =>
         probe.TryGetValue(id, out var row) ? Optional(row) : None;
+
+    // TraverseM aborts on the first refusal by design: every surface writes one keyed family, so a refusal
+    // is that ONE family unmounted or mounted scalar, and accumulating the same defect once per surface
+    // buries the fact under its own repetition.
+    public Fin<Unit> Mount(InstrumentSet set) =>
+        toSeq(bySurface)
+            .TraverseM(group => set.Level(HostInstruments.CapabilityRoster, group.Key, (long)group.Count()))
+            .As()
+            .Map(static _ => unit);
 
     public Seq<DiscoveryResult> Discover(DiscoveryQuery query) =>
         Project(query.Switch(
@@ -244,8 +251,8 @@ public sealed class CapabilityRegistry {
         external: static () => Capability.RemoteCompute,
         irreversible: static () => Capability.StoreWrite);
 
-    // The empty-argument-shape price IS the Fixed component: running Variable over a default
-    // JsonElement throws on every payload-reading estimator, and discovery mints no ambient identity.
+    // Fixed alone prices an empty argument shape: Variable over a default JsonElement throws on every
+    // payload-reading estimator, and discovery mints no ambient identity to feed one.
     static Seq<DiscoveryResult> Project(Seq<CapabilityDescriptor> rows) =>
         rows.Map(static row => new DiscoveryResult(
             row.Id, row.Surface, row.Effect.Key, row.Idempotency.Key,
@@ -379,7 +386,16 @@ public static class CommandAlgebra {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
+    accTitle: Brokered command lifecycle
+    accDescr: One resolved descriptor passes grant admission, compiles to a compute intent, dispatches, and settles as committed, rolled back, or compensated.
     Resolve[Resolve descriptor] --> Broker[Grant broker admit]
     Broker -->|denied| Refused[Refused]
     Broker -->|charged| Compile[Compile ComputeIntent]
@@ -395,11 +411,11 @@ flowchart LR
 - Owner: `GrantScope` the object-set × op-class × classification × cost-ceiling × time-window scope record; `Consent` `[Union]` the elevation-request disposition; `Budget` the per-scope live-metering cell; `DistributedBudget` the cross-process fenced-store seam the broker debits a durable per-tenant budget through; `GrantFault` `[Union]` fault family deriving its codes through `FaultBand.Grant`; `GrantBroker` the static admission-and-metering surface.
 - Cases: consent dispositions Granted | Elevated | Denied | Expired; `GrantFault` = Text | OutOfScope | CeilingExceeded | WindowClosed | ConsentRequired | Fenced.
 - Entry: `Admit(CapabilityDescriptor descriptor, CommandArguments arguments, bool dryRun)` returns `Fin<CostVector>` — the broker resolves the holder's `GrantScope`, evaluates the descriptor's `PermissionShape` against it through the typed `GrantScope.Covers` value-object predicate, prices the command through `CostModel.Estimate`, charges the budget under the cost ceiling, and returns the charged vector or the typed denial; `Simulate(CapabilityDescriptor descriptor, Seq<(string Id, CommandArguments Args)> plan)` returns `Seq<(string Id, Fin<CostVector>)>` — the dry-run simulation runs the identical decision-and-pricing fold priced against the live budget without charging it.
-- Auto: the permission decision is the deterministic `GrantScope.Covers` fold — the object-set × op-class × classification predicate is a typed value-object method, never an ambient role flag or a scattered per-op check; a `dryRun: true` admission decides and prices but never mutates the budget, so the dry-run sim and the live charge share one decision-and-pricing fold and differ only by the charge step; the cost ceiling is a `CostVector` so each metered resource caps independently — a command under the call ceiling but over the bytes-egress ceiling is denied on bytes-egress with the offending unit named; the time window is two NodaTime `Instant` bounds the `Interval` carries so a grant outside its window resolves `Expired` and re-admits only on renewal, never a silent extension; when a `DistributedBudget` seam is bound a live charge debits through `Debit` carrying the cost AND the scope `Ceiling` as per-`CostUnit` primitives under the store's VECTOR fenced compare-and-decrement (`WHERE token >= held AND balance_i >= debit_i ∀i`), so every unit's ceiling check executes INSIDE the one atomic store write and a tenant's cost ceiling is enforced fleet-wide per unit because two nodes presenting fresh tokens cannot both overshoot any unit (the store serializes the debits and rejects the second), rather than per-process; the AppHost gates the ceiling outside the fenced write ONLY for a `dryRun` pre-flight pricing off `Spent` (which never touches the store), so the live gate is always the atomic store-side check, foreclosing the read-then-write TOCTOU a multi-node per-process gate would open, and a stale-token debit fails `Fenced`; with no seam bound the broker debits the per-process `Cell` exactly as before, so the durable quota is an opt-in backing the one broker entry consumes, never a parallel meter.
+- Auto: the permission decision is the deterministic `GrantScope.Covers` fold — the object-set × op-class × classification predicate is a typed value-object method, never an ambient role flag or a scattered per-op check; a `dryRun: true` admission decides and prices but never mutates the budget, so the dry-run sim and the live charge share one decision-and-pricing fold and differ only by the charge step; the cost ceiling is a `CostVector` so each metered resource caps independently — a command under the call ceiling but over the bytes-egress ceiling is denied on bytes-egress with the offending unit named; the time window is two NodaTime `Instant` bounds the `Interval` carries so a grant outside its window resolves `Expired` and re-admits only on renewal, never a silent extension; when a `DistributedBudget` seam is bound a live charge debits through `Debit` carrying the cost AND the scope `Ceiling` as per-`CostUnit` primitives under the store's VECTOR fenced compare-and-decrement (`WHERE token >= held AND balance_i >= debit_i ∀i`), so every unit's ceiling check executes INSIDE the one atomic store write and a tenant's cost ceiling is enforced fleet-wide per unit because two nodes presenting fresh tokens cannot both overshoot any unit (the store serializes the debits and rejects the second), rather than per-process; the AppHost gates the ceiling outside the fenced write ONLY for a `dryRun` pre-flight pricing off `Spent` (which never touches the store), so the live gate is always the atomic store-side check, foreclosing the read-then-write TOCTOU a multi-node per-process gate opens, and a stale-token debit fails `Fenced`; with no seam bound the broker debits the per-process `Cell` exactly as before, so the durable quota is an opt-in backing the one broker entry consumes, never a parallel meter.
 - Receipt: the broker's charge is the `CommandReceipt.Charged` vector the command algebra carries; the decision rides the consent transition's one `SpineLog` event in the 1000-1099 EVENT stride (`FaultBand.SpineEvents`) — no parallel grant receipt.
 - Packages: Rasm (kernel `ContentHash.Of`), LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
-- Growth: one consent disposition is one `Consent` case; one scope dimension is one `GrantScope` column plus one `PermissionShape` field the `Covers` fold reads; a new metered resource rides the `CostUnit` axis already; cross-process metering is the one `DistributedBudget` seam, never a second meter; zero new surface.
-- Boundary: the broker is the suite's only permission-and-cost owner — a per-op permission check, an ambient role flag, a second cost meter, and a quota service beside `GrantBroker` are the deleted forms; the broker owns permission, cost, consent, budget, and window as one fold, reading the descriptor's declared `PermissionShape` and never re-deriving the op's effect; the `GrantScope` keys by `TenantContext.TenantId` so a multi-tenant host meters each tenant's budget independently against one broker, never a per-tenant broker instance; the cross-process quota is a Persistence ripple, not an AppHost owner — the `DistributedBudget` seam debits under the STORE-validated fence — the decoded `Runtime/time#FENCING_TOKEN` carrier presents the store-issued generation and the store's row-CAS predicate is the authoritative reject-lower — so two nodes racing a debit cannot double-spend, and the durable per-tenant `Budget` cell plus the fenced debit ledger land under the `TenantId` RLS predicate as the branch `ONE_FENCED_LEASE_STORE` Persistence leg, consumed at the seam and landing in parallel; the model-governance `Charge`, the plugin `GrantHandle` charge, and the operator call all debit against this one durable budget so a multi-node identity plane cannot let a tenant exceed its ceiling N-fold; `Consent.Elevated` is the consent-elevation path — a command the standing scope denies raises an elevation request the operator approves, landing a wider transient `GrantScope` with its own window, never a standing privilege grant; the cost model integrates the live-metering identity-versus-quota seam at health-and-degradation, so a budget-exhausted tenant degrades to `ReadOnly` through the same degradation rail rather than a parallel throttle.
+- Growth: one consent disposition is one `Consent` case; one scope dimension is one `GrantScope` column beside one `PermissionShape` field the `Covers` fold reads; a new metered resource rides the `CostUnit` axis already; cross-process metering is the one `DistributedBudget` seam, never a second meter; zero new surface.
+- Boundary: the broker is the suite's only permission-and-cost owner — a per-op permission check, an ambient role flag, a second cost meter, and a quota service beside `GrantBroker` are the deleted forms; the broker owns permission, cost, consent, budget, and window as one fold, reading the descriptor's declared `PermissionShape` and never re-deriving the op's effect; the `GrantScope` keys by `TenantContext.TenantId` so a multi-tenant host meters each tenant's budget independently against one broker, never a per-tenant broker instance; the cross-process quota is a Persistence ripple, not an AppHost owner — the `DistributedBudget` seam debits under the STORE-validated fence — the decoded `Runtime/time#FENCING_TOKEN` carrier presents the store-issued generation and the store's row-CAS predicate is the authoritative reject-lower — so two nodes racing a debit cannot double-spend, and the durable per-tenant `Budget` cell and the fenced debit ledger land under the `TenantId` RLS predicate as the branch `ONE_FENCED_LEASE_STORE` Persistence leg, consumed at the seam and landing in parallel; the model-governance `Charge`, the plugin `GrantHandle` charge, and the operator call all debit against this one durable budget so a multi-node identity plane cannot let a tenant exceed its ceiling N-fold; `Consent.Elevated` is the consent-elevation path — a command the standing scope denies raises an elevation request the operator approves, landing a wider transient `GrantScope` with its own window, never a standing privilege grant; the cost model integrates the live-metering identity-versus-quota seam at health-and-degradation, so a budget-exhausted tenant degrades to `ReadOnly` through the same degradation rail rather than a parallel throttle.
 
 ```csharp signature
 public sealed record GrantScope(
@@ -437,8 +453,8 @@ public abstract partial record GrantFault : Expected, IValidationError<GrantFaul
     public sealed record Fenced : GrantFault { public Fenced(string detail) : base(detail, FaultBand.Grant.Code(5)) { } }
 }
 
-// The decode-only Persistence PORT for the fleet-wide budget (ONE_FENCED_LEASE_STORE, TenantId RLS):
-// the debit crosses DOWN as per-CostUnit PRIMITIVES — unit STRING key -> long amount, the smart-enum
+// Persistence owns the fleet-wide budget behind this decode-only PORT (ONE_FENCED_LEASE_STORE, TenantId
+// RLS): each debit crosses DOWN as per-CostUnit PRIMITIVES — unit STRING key to long amount, the smart-enum
 // mapped at this boundary — riding the store's VECTOR fenced compare-and-decrement
 // (WHERE token >= held AND balance_i >= debit_i FOR EVERY unit i), so every metered unit's ceiling is
 // enforced INSIDE the one atomic store write and two nodes with fresh tokens cannot both overshoot ANY
@@ -497,7 +513,7 @@ public sealed record GrantBroker(
                 .Bind(held => store.Debit(tenant, held, Wire(cost), Wire(scope.Ceiling)))
                 .Map(_ => cost);
 
-    // The smart-enum maps at the boundary: CostVector -> unit STRING key + long amount primitives.
+    // Boundary mapping flattens the smart enum: CostVector becomes unit STRING keys over long amounts.
     static HashMap<string, long> Wire(CostVector vector) =>
         vector.Units.AsIterable().Fold(HashMap<string, long>(), static (map, row) => map.Add(row.Key.Key, row.Value));
 
@@ -572,7 +588,7 @@ public static class SdkCodegen {
 - Growth: one wire-member row per new descriptor or receipt field; the transaction disposition crosses as a literal-discriminated union; zero new surface.
 - Boundary: effect, idempotency, and cost-unit keys cross as their smart-enum string keys; the cost vector crosses as a record of unit-keyed numbers; the transaction disposition reconstructs in TS as a literal-discriminated union on the disposition kind, mirroring the `CommandTxn` union cases; `scopeHash` crosses as the deterministic permission-scope string so the dashboard groups commands by scope without re-deriving the permission shape.
 
-```ts contract
+```ts signature
 type EffectClassKey = "pure" | "read" | "write" | "external" | "irreversible";
 type IdempotencyKey = "idempotent" | "keyed" | "single-shot" | "non-idempotent";
 type CostUnitKey = "cpu-millis" | "wall-millis" | "bytes-egress" | "model-tokens" | "calls";
@@ -603,7 +619,9 @@ interface CapabilityCommandReceiptWire {
 
 ## [08]-[RESEARCH]
 
-- [INTENT_SPEC]: the `ComputeIntent.Spec` field arity (`WorkLane.Interactive`, `AllocationClass.Pooled`, `CachePolicy.None`) the command algebra constructs for a brokered command resolves against the finalized `Rasm.Compute/Runtime/admission#INTENT_FAMILY` surface; the `SelectionReceipt.None` sentinel for a compensation forward leg confirms against the Compute dispatch-spine receipt shape. Build-order prerequisite: `capability/Registry.cs` cannot compile until the `Rasm.Compute/Runtime/admission` contract (`ComputeIntent`/`AdmittedIntent` (with its `Admit` factory)/`SelectionReceipt`) and the sibling AppHost settled vocabulary (`ports`/`time`/`hosting`: `CancelScope`/`ClockPolicy`/`ReceiptSinkPort`/`TenantContext`/`DegradationLevel`/`Capability`/`Interval`) land — these are consumed by type on `CommandRuntime`/`CommandReceipt`, so the page is the downstream of that vocabulary, and `Agent/mcp.md` is in turn downstream of this page.
-- [SCHEMA_DIGEST]: the `JsonSchemaExporter` schema the SDK codegen reads per descriptor `CommandArguments` derives through `SuiteContracts.Schema`, and the cross-language shape-identity proof — the C#, TS, and Python emitted methods bind one schema — confirms against the live schema export at SDK-bootstrap.
-- [GRANT_ATTESTATION]: the detached-signature primitive (BCL `System.Security.Cryptography`) the broker mints over the canonical `GrantAttestation` bytes, the kernel `ContentHash.Of` content digest the attestation shares with the determinism chain, and the `EventLog` chaining seat the attestation rides confirm against Runtime/determinism#EVENT_LOG; the cross-process verify predicate the sidecar write-forward and the plugin host call resolves against the `companion`/`sandbox` consumer shapes at integration.
-- [TOKEN_PRICING]: the `ModelProjection.Project` model-draw `CostModel.Variable` members verify against the folder `.api/api-ml-tokenizers.md` (`Microsoft.ML.Tokenizers` 2.0.0, `lib/net8.0` bound) — `TiktokenTokenizer.CreateForModel(string modelName, ...)` and `CreateForEncoding(string encodingName, ...)` are the air-gapped no-stream embedded-vocab factories (entrypoint construction `[01]`/`[02]`), `Tokenizer.CountTokens(string text, bool = true, bool = true)` returns the `int` per-prompt token count (count entry `[01]`), and `GetIndexByTokenCount` is the context-window prefix-trim (count entry `[03]`); the o200k/cl100k vocab ship as the referenced `*.Data.*` assemblies (`api-ml-tokenizers-o200k.md`/`-cl100k.md`) so the dry-run price is offline. The `ModelTokens` pre-price the descriptor charges reconciles against the post-hoc `ChatResponse.Usage` `ModelTokens` charge at `Agent/reasoning#MODEL_GOVERNANCE` — the descriptor grant-prices the draw before spend, the governance middleware charges the realized usage after, both against the one broker `CostUnit.ModelTokens` axis, never a parallel model meter.
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

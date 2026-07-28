@@ -21,9 +21,9 @@ libs/typescript/
 - S2 `data` — composes core (`ContentKey`) and security (`Shredder`, `TenantScope`); a backend is a semantic-guarantee row.
 - S3 `runtime` — composes core (`Budget`), security (`CookieSpec`), and data (`Embedder`); the browser condition rides the same package.
 - S4 `ui` — imports core alone (`Feed.Document`); reaches runtime only through the `GlbViewport` port and the atom-bridge bindings.
-- S4 `iac` — composes core, data, and runtime as type/value reads (`DashboardModel`, `Pg`, `Consumption`), plane-distinct outside the runtime graph.
+- S4 `iac` — composes core, data, and runtime as reads and decodes `security`'s `LeaseSpec` as data, plane-distinct outside the runtime graph.
 
-Port satisfaction happens at app composition, never as an import: every port Tag a folder declares binds to another folder's Layer at the composition root — `security` ports fill from `data`, `ui`'s `GlbViewport` fills from runtime `Depot` arrivals — so no folder reaches across for its dependency. One value crosses back: typed `StackOutputs.sharding` read by `runtime` `ShardingConfig.layerFromEnv` — an env fact, never an import.
+Port satisfaction happens at app composition, never as an import: every port Tag a folder declares binds to another folder's Layer at the composition root — `security` ports fill from `data`, `ui`'s `GlbViewport` fills from runtime `Depot` arrivals. Values cross back where an import may not, each a datum the lower stratum consumes: `iac` hands `runtime` typed `StackOutputs.sharding` and publishes the analytics-residence door `data` binds, and `data` hands the core board renderer a `Query.Target` minted off the core-owned type.
 
 ```mermaid
 ---
@@ -35,7 +35,7 @@ config:
 ---
 flowchart TB
     accTitle: TypeScript branch import strata
-    accDescr: Five import strata onto the core foundation; imports point downward, and ui reaches runtime only through its GlbViewport port binding.
+    accDescr: Five import strata onto the core foundation; imports point downward as solid edges, and every non-import crossing rides a dashed edge — ui reaching runtime through its GlbViewport port, iac decoding the security LeaseSpec boundary, and each counter-edge handing a value down a stratum.
     subgraph S4["S4 APP + DEPLOY"]
         Ui[ui]
         Iac[iac]
@@ -53,6 +53,10 @@ flowchart TB
         Core[core]
     end
     Ui e1@-.->|"[PORT]: GlbViewport"| Runtime
+    Iac e12@-.->|"[BOUNDARY]: LeaseSpec"| Security
+    Iac e13@-.->|"[PORT]: StackOutputs"| Runtime
+    Iac e14@-.->|"[PORT]: analytics residence"| Data
+    Data e15@-.->|"[SHAPE]: Query.Target"| Core
     Iac e2@-->|"[IMPORT]: Pg.rows"| Data
     Runtime e3@-->|"[IMPORT]: CookieSpec"| Security
     Runtime e4@-->|"[IMPORT]: Embedder"| Data
@@ -78,9 +82,10 @@ config:
 ---
 flowchart LR
     accTitle: TypeScript branch C# seam registry
-    accDescr: Core, runtime, and ui exchanging kinded wires with the C# packages; node shapes carry seam direction.
+    accDescr: Core, data, runtime, and ui exchanging kinded wires and the bidirectional backend contract with the C# packages; node shapes carry seam direction.
     subgraph ts[LIBS/TYPESCRIPT]
         Core[core]
+        Data[data]
         Runtime[runtime]
         Ui[ui]
     end
@@ -96,6 +101,7 @@ flowchart LR
     Element e2@<-->|"[WIRE]: rasm.element.v1"| Core
     Compute e3@<-->|"[WIRE]: QuantityFamily"| Core
     Persistence e4@-->|"[WIRE]: CrdtOpWire"| Core
+    Persistence e14@<-->|"[CONTRACT]: BackendContract"| Data
     Bim e6@-->|"[WIRE]: IfcWire"| Core
     Materials e7@-->|"[WIRE]: MaterialWire"| Core
     AppUi e8@-->|"[WIRE]: CommandPayloadWire"| Core
@@ -107,7 +113,7 @@ flowchart LR
     AppHost e9@-->|"[TRANSPORT]: OtelExport"| Runtime
 ```
 
-Each contract family decodes once through the core interchange codec registry: `core` edges freeze the wire spelling verbatim from the owning endpoint file, and `ui` edges name the decoded landing materializing there. Schema drift across these endpoints is a graded boot verdict at the core interchange contract gate — an additive change admits decode, a breaking change refuses as typed evidence — never a runtime decode failure. TypeScript consumes the GLB tessellation rail through that contract; no TS↔Python seam exists, both branches binding the same corpus contracts.
+Each contract family decodes once through the core interchange codec registry: `core` edges freeze the wire spelling verbatim from the owning endpoint file, `ui` edges name the landing decoded there, and the one `data` edge names a contract both ends mint, so nothing decodes at it. Schema drift is a graded boot verdict at that gate — an additive change admits decode, a breaking change refuses as typed evidence — never a runtime decode failure. TypeScript consumes the GLB tessellation rail through that contract; no TS↔Python seam exists, both branches binding the same corpus contracts.
 
 Contract families beyond the diagrammed set fold to the folder `[03]-[SEAMS]` registries, mirrored verbatim under their folder-registered kinds; a new family lands as one folder seam row, never a branch edge.
 
@@ -153,45 +159,61 @@ config:
 ---
 flowchart LR
     accTitle: TypeScript branch observability spine
-    accDescr: Folders mint instruments under core convention names; runtime otel laces the OTLP egress toward the deploy collector and boards.
+    accDescr: Folders fire typed domain facts at the core tap registry and mint their instruments as observe subscriptions under core convention names; runtime otel laces the OTLP egress toward the deploy collector and boards, the deploy plane arms the analytics residence data custodies, the journal fact stream settles spend and rebuilds that derived residence, and the residence hands the core board owner its query render target.
+    Facts[branch folders · typed domain facts]
+    Tap[core observe · tap registry]
     Names[core observe · convention names]
-    Mint[branch folders · mint instruments]
+    Board[core observe · board query owner]
+    Mint[branch folders · instrument mints]
     Egress[runtime otel · OTLP egress]
     Deploy[iac observe · collector + store + boards]
     Fact[(data journal fact · settlement truth)]
+    Residence[(data olap · analytics residence)]
+    Facts e8@-->|"fire: domain fact"| Tap
+    Tap e9@-->|"observe: subscription"| Mint
     Names e1@-->|"name: rasm series"| Mint
     Mint e2@-->|"emit: scoped series"| Egress
     Egress e3@-->|"TRANSPORT: OtelExport"| Deploy
     Fact e4@-->|"settle: spend + usage"| Deploy
+    Deploy e5@-->|"[PORT]: analytics residence"| Residence
+    Fact e6@-.->|"rebuild: derived plane"| Residence
+    Residence e7@-->|"[SHAPE]: Query.Target"| Board
 ```
 
-Each folder mints its own instruments against the core observe convention — the JS-side name source holding name-level parity with the OpenTelemetry spec, never a shared artifact — and the runtime otel plane alone laces the egress, so telemetry leaves the branch opaque on the `[TRANSPORT]` seam. Boards and retention are deploy-plane facts `iac` realizes from the core-encoded models; the data journal fact stream settles spend and usage, and the OTel series stay its lossy health projection keyed by the same identity.
+Domain code fires typed facts at the core tap registry and a signal emitter is an observe subscription over those facts, never an emit inside a domain fold, so the zero-exporter boundary holds by construction at every folder outside the runtime otel plane. Runtime otel alone laces the egress and telemetry leaves the branch opaque on the `[TRANSPORT]` seam, while each folder mints its own instruments against the core observe convention — the JS-side name source holding name-level parity with the OpenTelemetry spec, never a shared artifact.
+
+One folder owns each signal concept two folders both spell — whichever holds the platform surface producing it — and publishes the intake its peer taps rather than capturing a second time: two registrars over one platform buffer double-account a single measurement, and a per-folder grade table forks the budget every panel renders against. Peer evidence rows carry whatever that platform surface leaves unmeasured.
+
+Boards and retention are deploy-plane facts `iac` realizes from the core-encoded models; the data journal fact stream settles spend and usage, and the OTel series stay its lossy health projection keyed by the same identity. Evidence outliving a store's series window lands in an analytics residence `data` custodies and `iac` arms as one spec axis, derived and rebuildable from the journal, and the one core `Query` owner renders it under a target parameter.
 
 ## [05]-[ROUTING]
 
-| [INDEX] | [CHANGE]             | [OWNER_SURFACE]                                     | [SHAPE_OF_THE_EDIT]                                       |
-| :-----: | :------------------- | :-------------------------------------------------- | :-------------------------------------------------------- |
-|  [01]   | event type           | the app's `Schema.TaggedClass` family               | one tagged case + its upcast step                         |
-|  [02]   | event version        | `data/journal/evolve` upcast chains                 | one version step; the log is never rewritten              |
-|  [03]   | wire family          | `core/interchange/codec` registry                   | one census row + one landing row                          |
-|  [04]   | projection           | `data/read/fold` lane rows                          | one lane row at its staleness budget                      |
-|  [05]   | retrieval lane       | `data/read/search` roster                           | one lane row                                              |
-|  [06]   | pg capability        | `data/lane/postgres` matrix + `iac/kube` image      | one probe row + one image fact                            |
-|  [07]   | retention class      | `data/journal/retain` policy table                  | one class row                                             |
-|  [08]   | fold consumer        | `core/state/fold` plan instances                    | one op-vocabulary instance                                |
-|  [09]   | tenancy shape        | `data/lane/tenant` cases                            | one scope case; isolation stays a scope value             |
-|  [10]   | fanout engine        | `runtime/net/pubsub` engine rows                    | one engine row; the port stays engine-blind               |
-|  [11]   | coordination engine  | `runtime/net/coordinate` engine rows                | one engine row on the `Accord` port; reads stay versioned |
-|  [12]   | metric or instrument | owning folder mint site + `core/observe/convention` | one instrument row under one convention name              |
-|  [13]   | dashboard pack       | `core/observe/board` pack rows                      | one pack row realized by `iac/operate/observe`            |
-|  [14]   | hook point           | `core/observe/tap` rows + owning registry           | one name row + one registry row; a modality widens a row  |
+| [INDEX] | [CHANGE]              | [OWNER_SURFACE]                                     | [SHAPE_OF_THE_EDIT]                                       |
+| :-----: | :-------------------- | :-------------------------------------------------- | :-------------------------------------------------------- |
+|  [01]   | event type            | the app's `Schema.TaggedClass` family               | one tagged case + its upcast step                         |
+|  [02]   | event version         | `data/journal/evolve` upcast chains                 | one version step; the log is never rewritten              |
+|  [03]   | wire family           | `core/interchange/codec` registry                   | one census row + one landing row                          |
+|  [04]   | projection            | `data/read/fold` lane rows                          | one lane row at its staleness budget                      |
+|  [05]   | retrieval lane        | `data/read/search` roster                           | one lane row                                              |
+|  [06]   | pg capability         | `data/lane/postgres` matrix + `iac/kube` image      | one probe row + one image fact                            |
+|  [07]   | retention class       | `data/journal/retain` policy table                  | one class row                                             |
+|  [08]   | fold consumer         | `core/state/fold` plan instances                    | one op-vocabulary instance                                |
+|  [09]   | tenancy shape         | `data/lane/tenant` cases                            | one scope case; isolation stays a scope value             |
+|  [10]   | fanout engine         | `runtime/net/pubsub` engine rows                    | one engine row; the port stays engine-blind               |
+|  [11]   | coordination engine   | `runtime/net/coordinate` engine rows                | one engine row on the `Accord` port; reads stay versioned |
+|  [12]   | metric or instrument  | owning folder mint site + `core/observe/convention` | one instrument row under one convention name              |
+|  [13]   | dashboard pack        | `core/observe/board` pack rows                      | one pack row realized by `iac/operate/observe`            |
+|  [14]   | hook point            | `core/observe/tap` rows + owning registry           | one name row + one registry row; a modality widens a row  |
+|  [15]   | analytics residence   | `data/lane/olap` residence rows + `iac` spec axis   | one row answering the estate residence floor              |
+|  [16]   | query render target   | `core/observe/board` `Query.Target` arms            | one target arm; the algebra never forks                   |
+|  [17]   | columnar query end    | `data/lane/olap` Flight SQL rows                    | one row on the one Flight plane                           |
+|  [18]   | reliability indicator | `core/observe/slo` closed families                  | one indicator, burn, severity, or panel row               |
 
 ## [06]-[BOUNDARIES]
 
-- Folders are capability domains named for their own concern; no folder name mirrors a sibling C# or Python package.
 - Each external receipt family lands as its own typed decode; per-verb receipt schemas keep the family typed end to end.
 - IFC and BCF vocabulary lives only at the codec registry landings and the viewer marks; every consumer reads the decoded landing.
 
 ## [07]-[ADMISSION_POLICY]
 
-One workspace manifest (`pnpm-workspace.yaml`) owns package admission and version bounds; `viewer` is the second Nx project inside `ui` carrying the same edge set, and dev infrastructure stays under `tests/`, never the branch. Installation rationale stays in the manifest; folder pages name capability, entrypoints, boundaries, and exclusions.
+One workspace manifest (`pnpm-workspace.yaml`) owns package admission and version bounds; `viewer` is the second Nx project inside `ui` carrying the same edge set, and dev infrastructure stays under `tests/`, never the branch. Installation rationale stays in the manifest; folder pages name capability, entrypoints, boundaries, and exclusions. Every admission resolves its whole touch-point set live at `docs/laws/topology.md` `[MANIFEST_ADMISSION]`.

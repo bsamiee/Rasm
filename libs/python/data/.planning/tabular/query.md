@@ -2,28 +2,36 @@
 
 Relational query owner over one `QuerySpec` axis materializing to uniform Arrow. `QueryEngine` discriminates the `QuerySpec` tagged-union — DuckDB SQL gated through the `sqlglot` parse/qualify/optimize plane, the chained DuckDB relational API, the dataframe-agnostic narwhals surface, the Ibis backend-agnostic expression IR with cross-dialect emission, the ADBC/ConnectorX/Flight SQL remote transport over a `RemoteOp` read/stream/ingest/probe/partition sub-axis, the daft out-of-core/distributed runner, and the in-process `datafusion` federated engine — onto one `pyarrow.Table`. Frontend identity IS the spec shape, never a parallel backend `StrEnum` knob and never a `read`/`stream`/`ingest` name-suffix method family, and no serve-plane servicer is authored here: the federation channel is content-keyed and AT-REST.
 
-`datafusion` Substrait interchange is BIDIRECTIONAL — outbound `Serde.serialize_bytes` mints the portable plan bytes `csharp:Rasm.Persistence/Query/federation` retains as the content-keyed at-rest wire, inbound a Persistence-authored plan arrives as BYTES and executes through `Serde.deserialize_bytes` -> `Consumer.from_substrait_plan`, data executing foreign plans and never re-planning them. `QueryReceipt`, the `predicate_count` fold, and its `_PREDICATE_NODES` widening are the lower `tabular/columnar#SCAN` owner's, imported and called rather than re-spelled so scan and query count predicates off one application; this owner extends the receipt with the column-level `lineage_edges` projection it populates from `sqlglot.lineage.lineage` over the qualified SQL and `ibis.to_sql` over the bound expression. Awaitable `run` offloads every blocking leg to the `anyio` worker pool — in-process arms ride `_local`, remote and streaming arms delegate the retried-traced-railed leg to `runtime/reliability/resilience#RESILIENCE` under the `REMOTE_DB`/`STREAMING` rows. A secret-bearing DSN and the Ray cluster-address are caller-supplied `Remote.dsn`/`Streaming.cluster` case payloads, the outbound credential minted caller-side through `runtime/execution/admission#SETTINGS` `SecretBoundary`, never `runtime/transport/roots#RESOURCE` `TransportResource` (the `http`/`ssh` artifact-fetch union, not a database-DSN resolver). Durable provenance ledgers stay the C# `Rasm.Persistence` Version/Provenance owner consumed at the wire, never a Python owner.
+`datafusion` Substrait interchange is BIDIRECTIONAL — outbound `Serde.serialize_bytes` mints the portable plan bytes `csharp:Rasm.Persistence/Query/federation` retains as the content-keyed at-rest wire, inbound a Persistence-authored plan arrives as BYTES, admits through the standalone `substrait` plan gate at `_reach`, and only then executes through `Serde.deserialize_bytes` -> `Consumer.from_substrait_plan`, data executing foreign plans and never re-planning them; direction rides the `Federation` two-case discriminant its payload carries, so no runtime XOR gate, rail-returning factory, or unreachable terminal re-derives it. DuckDB's in-process half is a distinct wire: `substrait` attaches SQL TABLE FUNCTIONS alone, so each `PlanWire` half is a `CALL` through `con.execute` off the `_SUBSTRAIT` row — a connection-bound `get_substrait`/`from_substrait` method is not a DuckDB member and never enters. `QueryReceipt`, the `predicate_count` fold, and its `_PREDICATE_NODES` widening are the lower `tabular/columnar#SCAN` owner's, imported rather than re-spelled so scan and query count predicates off one application; this owner extends the receipt with column-level `lineage_edges` off `sqlglot.lineage.lineage` over the qualified SQL and `ibis.to_sql` over the bound expression. Awaitable `run` gates one `_reach`-then-`_bound` prologue over the whole `QuerySpec` axis, then offloads every blocking leg to the `anyio` worker pool — in-process arms ride `_local`, remote and streaming arms delegate the retried-traced-railed leg to `runtime/reliability/resilience#RESILIENCE` under the `REMOTE_DB`/`STREAMING` rows. Secret-bearing DSNs and the Ray cluster-address ride caller-supplied `Remote.dsn`/`Streaming.cluster` payloads, the outbound credential minted caller-side through `runtime/execution/admission#SETTINGS` `SecretBoundary`, never `runtime/transport/roots#RESOURCE` `TransportResource`; provenance keeps the redacted scheme-and-host coordinate alone, so no credential reaches a durable receipt. Durable provenance ledgers stay the C# `Rasm.Persistence` Version/Provenance owner consumed at the wire, never a Python owner.
 
 ## [01]-[INDEX]
 
-- [02]-[QUERY]: the relational query engine over one `QuerySpec` axis materializing to uniform Arrow, with the `columnar`-shared receipt extended by column-level lineage.
+- [02]-[QUERY]: `QueryEngine` folds one `QuerySpec` axis to uniform Arrow, extending the `columnar`-shared receipt with column-level lineage.
 
 ## [02]-[QUERY]
 
-- Owner: `QueryEngine` — the one relational query owner discriminating by the `QuerySpec` tagged-union axis, the single discriminant. `QuerySpec` cases: `Sql`/`Rel`/`Agnostic`/`Ir` in-process, `Remote` over the ADBC/ConnectorX/Flight SQL `RemoteOp` sub-axis, `Streaming` the daft runner, `Flight` the `csharp:Rasm.Persistence/Query/federation` FLIGHT_RESULT_PLANE ticket consumer (SubstraitPlan command bytes -> `GetFlightInfo` -> `DoGet(FlightTicket)`), and `Federated` the in-process `datafusion` `SessionContext` over `register_object_store`-backed stores and Arrow-capsule-registered frames, carrying EITHER the outbound plan-minting `sql` OR the inbound Persistence-authored Substrait `plan` bytes — the two directions of the one `ARCH`-declared `⇄` seam on one case, the minted-or-received bytes stamped onto the result table's schema metadata so the plan rides the wire and keys the receipt.
-- Entry: `QueryEngine.of` admits the bound Arrow/relation inputs; the awaitable `run` folds the `QuerySpec` through `match`/`case` closed by `assert_never`, returning `RuntimeRail[pa.Table]`. In-process `Sql`/`Rel`/`Agnostic`/`Ir` arms ride `_local` — one `async_boundary` offloading the blocking materialization off the event loop through `on_thread` (the `THREAD_BAND`-bounded hop), the broad `Exception` default deliberate because `duckdb.Error`, `ibis.IbisError`, narwhals, and pyarrow are disjoint exception roots with no shared base, so a narrowed catch lets one arm's taxonomy escape the fence. Remote and streaming arms delegate to `guarded(RetryClass.REMOTE_DB)`/`guarded(RetryClass.STREAMING)`, whose `_adbc_transient` hook (ADBC `OperationalError` on `status_code` `TIMEOUT`/`IO`) and `DaftTransientError` tuple retry a genuine transport-transient under runtime backoff — never `RetryClass.RPC`/`WIRE`, whose `_transient` COMPAS module-qualified spellings and `ConnectionError` intra-mesh target catch no ADBC `OperationalError` (which subclasses `DatabaseError`, never `ConnectionError`) or daft Rust fault. Every connection is request-scoped: the DuckDB `Sql`/`Rel` connection rides the shared `tabular/columnar#SCAN` `DuckDbSession().connect()` bracket, the `_ir` backend releases through `try`/`finally` `backend.disconnect()` closing the native `backend.con` the Substrait round-trip drives, and the remote drivers ride `with dbapi.connect(...)`.
-- Admission: `QueryEngine` holds one admitted `BackendGeneration`; query specs never carry raw contract bytes or repeated admission knobs.
-- Receipt: `receipt_of` folds one total `_provenance` match over the `QuerySpec` axis into the shared `tabular/columnar#SCAN` `QueryReceipt.railed` — source, predicate count, and lineage edges. Content keys derive off canonical Arrow bytes except where Substrait plan bytes own identity. Every profiled arm stamps the shared band: DuckDB, Polars, and DataFusion fold portable execution scalars; Daft adds admitted native operator rows. DBAPI span coverage rides the runtime composition-root wrap seam beside `TRAIN`: `dbapi_seams()` declares each admitted connection factory, and the root threads those rows through `Instrumentation.dbapi`. ConnectorX exposes no PEP-249 connection object, so its guarded child span and receipt remain its evidence. Flight SQL injects W3C parent context through its admitted option row. `QueryEngine.bench` times one `QuerySpec` through `Bench.run`, refuses mutation INGEST, and leaves the process-terminal `JobRun.bounded` envelope to its caller.
-- Packages: `duckdb`/`sqlglot` (the parse/qualify/optimize/lineage plane), `narwhals`, `ibis`, `adbc_driver_manager`/`adbc_driver_flightsql` (the DBAPI transport and the `DatabaseOptions`/`StatementOptions`/`ConnectionOptions`-keyed `db_kwargs`/`conn_kwargs` knobs), `connectorx` (the read-parallel accelerator over ADBC's serial pull), `daft` (the out-of-core/distributed runner), `datafusion` (the federation `Serde`/`Consumer` Substrait executor — `duckdb-substrait` owns the DuckDB half, `pyarrow.substrait` DECLINED), `obstore` (`from_url` object-store federation), `anyio` (`anyio.run` drives the awaitable `run` to completion per bench round on a fresh loop off the serving loop), `beartype` (`@beartype(conf=FAULT_CONF)` on `of`/`run`/`bench`), `tabular/columnar#SCAN` (the shared `DuckDbSession`/`DuckDbExtension`/`QueryReceipt`/`predicate_count` substrate with the `EngineProfile`/`ProfileHarvest`/`ProfileMode` profile band the `datafusion`/`daft` arms harvest onto), runtime (`RuntimeRail`/`ContentIdentity`/`async_boundary`/`guarded`/`RetryClass`/`on_thread`, and `runtime/observability/profiles#BENCH` `Bench.run`/`BenchMode`/`BenchmarkReceipt` the query bench lane composes — `DbapiSeam` the declared row shape and `Instrumentation.dbapi` the composition-root wrap `dbapi_seams()` feeds, never a data-altitude activation).
-- Growth: a new query frontend is one `QuerySpec` case; a new SQL dialect target is one `Dialects` member the `SqlGate`/`IrEmit` already thread; a new plan-wire artifact is one `PlanWire` row; a new predicate-bearing node is one `_PREDICATE_NODES` row on the lower `tabular/columnar#SCAN` owner the exported `predicate_count` already scans; a new transport operation is one `RemoteOp` row under `assert_never`; a new remote driver is one `RemoteDriver` row on the `_REMOTE` table; a new transport knob is one `Transport` field folded into `db_kwargs`/`conn_kwargs`; a new timeout phase is one `TimeoutPhase` row; a new OAuth key is one `Transport.oauth` entry the `OAUTH_*` projection folds; a new daft runner is one `Runner` row; a new lakehouse source is one `LakehouseFormat` row on the `_DAFT_READ` table with its time-travel key; a new federated store backend is one `(scheme, url, host)` row `register_object_store` federates; a new daft shaping verb is one `StreamingPlan` field; a new agnostic comparator or aggregator is one `Comparator`+`_COMPARE` row or one `Aggregator` member; a new profiling engine is one `ProfileHarvest` case on the lower `tabular/columnar#SCAN` owner the arm folds its execution scalars through; a new benchmarked frontend inherits the lane free and tunes its default with one `_BENCH_MODE` row; a new wrapped connection factory is one `dbapi_seams()` row the composition root threads through `Instrumentation.dbapi`; a relational verb composes on the existing chain; zero new surface.
-- Boundary: no durable query rail and no global connection; no SQL-string templating or regex rewriting where the `sqlglot` AST owns structure; no hand-rolled Substrait protobuf codec where the extensions own each half; no per-setting builder type where the `DatabaseOptions`/`ConnectionOptions`/`StatementOptions` enum value keys the option; the ADBC partition fan-out rides `Cursor.adbc_execute_partitions`/`adbc_read_partition`/`partition_sql`, never a hand-stitched gRPC loop or low-level `AdbcStatement` dance; a free-string dialect bypassing `Dialect.get_or_raise`, a `find_tables`×`exp.Column` cartesian where `sqlglot.lineage.lineage` owns column provenance, and a `register_globals`-leaking `daft.sql` over unbound globals are foreclosed; `of`/`run`/`bench` carry the `@beartype(conf=FAULT_CONF)` public-seam contract the sibling `interop`/`egress`/`columnar` admission entrypoints share. A bench lane re-executing a mutation `Remote` INGEST spec, a data-side `opentelemetry-instrumentation-dbapi` import where the runtime composition-root `wrap_connect` seam owns the connection-factory patch, a parallel per-engine profile field where `ProfileHarvest` folds every engine onto one `EngineProfile` band, and a data-side metric owner where the `BenchmarkReceipt`/`QueryReceipt` `contribute` projections own every measure are the deleted forms.
+- Owner: `QueryEngine` — the one relational query owner discriminating by the `QuerySpec` tagged-union axis, the single discriminant. `QuerySpec` cases: `Sql`/`Rel`/`Agnostic`/`Ir` in-process, `Remote` over the ADBC/ConnectorX/Flight SQL `RemoteOp` sub-axis, `Streaming` the daft runner, `Flight` the `csharp:Rasm.Persistence/Query/federation` FLIGHT_RESULT_PLANE ticket consumer (SubstraitPlan command bytes -> `GetFlightInfo` -> `DoGet(FlightTicket)` over every returned endpoint), and `Federated` the in-process `datafusion` `SessionContext` over `register_object_store`-backed stores and Arrow-capsule-registered frames, carrying one `Federation` direction — `mint` the outbound plan-minting SQL, `execute` the inbound Persistence-authored Substrait bytes — the two directions of the one `ARCH`-declared `⇄` seam on one case, the minted-or-received bytes stamped onto the result table's schema metadata so the plan rides the wire and keys the receipt.
+- Cases: the driver sub-axis is one `_DRIVER` row per `RemoteDriver`, and `DriverKind` is the closed discriminant every per-driver shape derives from — the manager front end takes the caller's `driver`/`entrypoint` shared-library coordinate, Flight SQL alone takes the typed `DatabaseOptions`/`ConnectionOptions`/`StatementOptions` projection, a bundled native driver takes `db_kwargs`/`conn_kwargs` and resolves its own library, a local driver's `connect` admits the URI alone (a `db_kwargs=` keyword is a `TypeError` there), and the loader kind carries no PEP-249 connection to open, wrap, or instrument. Each row's `ns` is a CALL-TIME thunk: a table row dereferencing a `lazy` module attribute reifies every driver proxy at import and defeats the floor gate the roster reads. Statement options ride one `cursor(adbc_stmt_kwargs=)` open per dispatch, so a timeout, queue size, or Substrait pin reaches every op rather than the partition leg alone.
+- Law: `_reach` is the one gate over the whole `QuerySpec` axis, read as `run`'s prologue so `_dispatch` is total over admitted specs and no arm re-probes — reject law is data exactly as the sibling `tabular/lakehouse#LAKEHOUSE` matrix states it. `_UNREACHED` derives at import from one `find_spec` per `_PROVIDER_MODULE` row, and that roster derives its driver half from the `_DRIVER` table and carries one row per remaining `lazy`-bound frontend — so a provider the manifest gates below the interpreter floor answers `BoundaryFault(import_=)` naming the absent module rather than raising `ModuleNotFoundError` inside an offloaded thread, on the daft, datafusion, and Flight planes exactly as on the remote drivers. `_REMOTE_REFUSAL` rows each `(driver, op)` cell a present provider cannot serve and `_conditional` each cell the transport payload decides, both answering `BoundaryFault(boundary=)` with a typed `RemoteRefusal` whose member value IS the operator-facing evidence. `QueryEngine` honours a caller's `RemoteDriver` choice verbatim: an implicit ADBC-to-ConnectorX swap on a partitioned read overrode an explicit selection AND routed into a floor-absent distribution, so ADBC partition fan-out rides its own native `adbc_execute_partitions` and ConnectorX serves the specs that name it.
+- Law: the two INBOUND plan legs — `Federated` execute and `Flight` ticket — admit at that same gate through `_plan_refusal`: the plan's own protobuf model parses the wire, `_REGISTRY` resolves every extension urn it names, and `infer_plan_schema` proves its result shape is knowable before a row is read. Letting the executor's deserializer decide admission answers a foreign payload with a Rust fault indistinguishable from a transport failure, carrying no reason a `PlanRefusal` row states as data, and letting the Flight producer decide it spends a round trip to learn the same thing.
+- Law: `_bound` is the second prologue leg, resolving each frame-naming arm's input slot ONCE — a spec naming no frame binds the sole bound input, several bound inputs with no name refuse typed, and a named absent frame refuses — so `_dispatch` reads `self.inputs[name]` totally and no arm picks a frame off iteration order. `QueryEngine` holds one admitted `BackendGeneration`; query specs never carry raw contract bytes or repeated admission knobs.
+- Entry: `QueryEngine.of` admits the bound Arrow/relation inputs; the awaitable `run` threads the reach-then-bind prologue then folds the `QuerySpec` through `_dispatch`'s `match`/`case` closed by `assert_never`, returning `RuntimeRail[pa.Table]`. In-process `Sql`/`Rel`/`Agnostic`/`Ir` arms ride `_local` — one `async_boundary` offloading the blocking materialization off the event loop through `on_thread` (the `THREAD_BAND`-bounded hop), the broad `Exception` default deliberate because `duckdb.Error`, `ibis.IbisError`, narwhals, and pyarrow are disjoint exception roots with no shared base, so a narrowed catch lets one arm's taxonomy escape the fence. Remote and streaming arms delegate to `guarded(RetryClass.REMOTE_DB)`/`guarded(RetryClass.STREAMING)`, whose `_adbc_transient` hook (ADBC `OperationalError` on `status_code` `TIMEOUT`/`IO`) and `DaftTransientError` tuple retry a genuine transport-transient under runtime backoff — never `RetryClass.RPC`/`WIRE`, whose `_transient` COMPAS module-qualified spellings and `ConnectionError` intra-mesh target catch no ADBC `OperationalError` (which subclasses `DatabaseError`, never `ConnectionError`) or daft Rust fault. Every connection is request-scoped: the DuckDB `Sql`/`Rel` connection rides the shared `tabular/columnar#SCAN` `DuckDbSession().connect()` bracket, the `_ir` backend releases through `try`/`finally` `backend.disconnect()` closing the native `backend.con` the Substrait round-trip drives, the remote drivers ride `with row.ns().connect(...)`, and the Flight client and each per-location peer ride their own `with` bracket.
+- Auto: the `tabular/lakehouse#LAKEHOUSE` analytics residence is a SOURCE this axis already reaches, never a lane of its own — `Streaming` scans the cold hive tree distributed under its `hive_partitioning` row, `Federated` registers that tree as a datafusion listing table beside the object store holding it, `Sql`/`Rel` read the evidence table interactively off the caller's `session` policy carrying the `delta` extension row, `Agnostic` folds it dataframe-agnostically, and `Flight` beside `RemoteDriver.FLIGHTSQL` serves the remote query end. That same `session` slot carries the `postgres_scanner` `Attach` row, so the `[TENANT_COST_JOIN]` fold against live tenant, grant, and workload tables is ONE statement rather than a second transport. Selection is a spec shape, so a residence earns no engine-shaped surface and every engine lands the one Arrow frame the residence schema pins.
+- Receipt: `_plan_provenance` censuses the admitted plan for both inbound legs — `_plan_rels` walks the plan's whole message tree and recognises a relation by the `Rel` descriptor rather than by the field holding it, so a subquery-nested join counts exactly as a direct child does and `_PLAN_PREDICATES` counts the classes `_PREDICATE_NODES` counts on the SQL legs, where `sqlglot` already walks into subqueries. Relation roster and resolved extension urns both ride the lineage slot under their own edge classes, so one provenance grain spans the SQL and plan wires and a foreign producer's function vocabulary survives the gate that resolved it.
+- Receipt: `receipt_of` folds one total `_provenance` match over the `QuerySpec` axis into the shared `tabular/columnar#SCAN` `QueryReceipt.railed` — source, predicate count, and lineage edges — behind one `boundary` fence, because `_provenance` parses caller SQL through `sqlglot` and a malformed or dialect-foreign statement raises past a rail the signature already declares. DSN-sourced provenance keeps the redacted `_endpoint` coordinate, never the credential-bearing DSN. Content keys derive off canonical Arrow bytes except where Substrait plan bytes own identity. Every profiled arm stamps the shared band: DuckDB, Polars, and DataFusion fold portable execution scalars; Daft adds admitted native operator rows. DBAPI span coverage rides the runtime composition-root wrap seam beside `TRAIN`: `dbapi_seams()` declares each admitted connection factory whose distribution this floor resolves, and the root threads those rows through `Instrumentation.dbapi`. ConnectorX exposes no PEP-249 connection object, so its guarded child span and receipt remain its evidence. Flight SQL injects W3C parent context through its admitted option row. `QueryEngine.bench` times one `QuerySpec` through `Bench.run` behind the same reach prologue `run` reads — a benchmark of a refused spec times the refusal — refuses mutation INGEST, and leaves the process-terminal `JobRun.bounded` envelope to its caller.
+- Packages: `duckdb`/`sqlglot` (the parse/qualify/optimize/lineage plane), `narwhals`, `ibis`, `adbc_driver_manager`/`adbc_driver_flightsql`/`adbc_driver_postgresql`/`adbc_driver_snowflake`/`adbc_driver_sqlite` (the five admitted DBAPI transports, the Flight SQL row alone binding the `DatabaseOptions`/`StatementOptions`/`ConnectionOptions`-keyed `db_kwargs`/`conn_kwargs`/`adbc_stmt_kwargs` knobs), `connectorx` (the read-parallel accelerator over ADBC's serial pull, its `read_sql`/`partition_sql`/`get_meta` surface bound behind the `_UNREACHED` floor gate while the manifest marker holds it below the interpreter floor), `daft` (the out-of-core/distributed runner), `datafusion` (the federation `Serde`/`Consumer` Substrait executor — the DuckDB `substrait` extension owns the in-process half through its `CALL` table functions, `pyarrow.substrait` DECLINED as consumer-only: it mints no `Plan` at all, since `serialize_expressions` emits an `ExtendedExpression` and `serialize_schema` a `SubstraitSchema`, so the outbound half of this seam has no producer there; `run_query` resolves each `NamedTable` through a per-call `table_provider` callback rather than a registered catalog and validates nothing ahead of execution, where `_plan_refusal` answers a typed verdict), `substrait` (`proto.Plan`/`ExtensionRegistry`/`infer_plan_schema` — the inbound-plan admission gate the manifest admits this distribution for, and the executor's own deserializer never becomes), `pyarrow.flight` (`FlightClient`/`FlightDescriptor.for_command`/`FlightInfo.endpoints`/`FlightEndpoint.ticket`+`locations`/`FlightCallOptions` — the ticket-redemption plane), `obstore` (`from_url` object-store federation), `anyio` (`anyio.run` drives the awaitable `run` to completion per bench round on a fresh loop off the serving loop), `beartype` (`@beartype(conf=FAULT_CONF)` on `of`/`run`/`bench`), `tabular/columnar#SCAN` (the shared `DuckDbSession`/`DuckDbExtension`/`QueryReceipt`/`predicate_count` substrate with the `EngineProfile`/`ProfileHarvest`/`ProfileMode` profile band the `datafusion`/`daft` arms harvest onto), runtime (`RuntimeRail`/`ContentIdentity`/`async_boundary`/`boundary`/`guarded`/`RetryClass`/`on_thread`, and `runtime/observability/profiles#BENCH` `Bench.run`/`BenchMode`/`BenchmarkReceipt` the query bench lane composes — `DbapiSeam` the declared row shape and `Instrumentation.dbapi` the composition-root wrap `dbapi_seams()` feeds, never a data-altitude activation).
+- Growth: a new DuckDB extension or attached catalog on the in-process arms is one row on the caller's `session` policy, zero owner edits; a new query frontend is one `QuerySpec` case; a new SQL dialect target is one `Dialects` member the `SqlGate`/`IrEmit` already thread; a new plan-wire artifact is one `PlanWire` row with its `(serialize, execute)` `_SUBSTRAIT` pair; a new federation direction is one `Federation` case; a new inbound-plan bound is one `PlanRefusal` row read in `_plan_refusal`; a newly predicate-bearing relation kind is one `_PLAN_PREDICATES` member, the generic `_plan_rels` walk already reaching it wherever the algebra seats it; an estate function vocabulary beyond the standard extensions is one `_REGISTRY.register_extension_yaml` call at composition; a new predicate-bearing node is one `_PREDICATE_NODES` row on the lower `tabular/columnar#SCAN` owner the exported `predicate_count` already scans; a new transport operation is one `RemoteOp` row under `assert_never`; a new remote driver is one `_DRIVER` row naming its module, namespace thunk, `DriverKind`, and `db.system.name`, from which the floor roster, the connect projection, the statement projection, the executor, and the instrumentation seam all derive; a new driver-connect dialect is one `DriverKind` member with its arm on `_connect_kwargs`/`_stmt_kwargs`/`_RUN`; a newly-unreachable cell is one `_REMOTE_REFUSAL` row or one `_conditional` arm carrying its `RemoteRefusal` reason; a new typed Flight knob is one `Transport` field folded into `db_kwargs`/`conn_kwargs`/`stmt_kwargs`; a driver-native knob no enum here models is one `Transport.db_options`/`conn_options`/`stmt_options` entry; a new timeout phase is one `TimeoutPhase` row; a new OAuth key is one `OAuthKey` row the `oauth` projection folds; a new daft runner is one `Runner` row; a new lakehouse source is one `LakehouseFormat` row on the `_DAFT_READ` table with its time-travel key; a new federated store backend is one `(scheme, url, host)` row `register_object_store` federates; a new federated relation over those bytes is one `(name, path, partition_cols)` row `register_parquet` registers; a new daft shaping verb is one `StreamingPlan` field; a new agnostic comparator or aggregator is one `Comparator`+`_COMPARE` row or one `Aggregator` member; a new profiling engine is one `ProfileHarvest` case on the lower `tabular/columnar#SCAN` owner the arm folds its execution scalars through; a new benchmarked frontend inherits the lane free and tunes its default with one `_BENCH_MODE` row; a relational verb composes on the existing chain; zero new surface.
+- Boundary: no durable query rail and no global connection; no SQL-string templating or regex rewriting where the `sqlglot` AST owns structure; no hand-rolled Substrait protobuf codec where the extensions own each half, and the `CALL` statements interpolate a function name off the closed `_SUBSTRAIT` row while every value binds as a parameter, so no caller string reaches a statement; no per-setting builder type where the `DatabaseOptions`/`ConnectionOptions`/`StatementOptions` enum value keys the option, and a hand-spelled twin of an option the enum already names is the deleted form; the ADBC partition fan-out rides `Cursor.adbc_execute_partitions` and the result-set-rebinding `adbc_read_partition`, the ConnectorX one rides `partition_sql`, never a hand-stitched gRPC loop or low-level `AdbcStatement` dance; a free-string dialect bypassing `Dialect.get_or_raise`, a `find_tables`×`exp.Column` cartesian where `sqlglot.lineage.lineage` owns column provenance, and a `register_globals`-leaking `daft.sql` over unbound globals are foreclosed; `of`/`run`/`bench` carry the `@beartype(conf=FAULT_CONF)` public-seam contract the sibling `interop`/`egress`/`columnar` admission entrypoints share. Deleted forms: a driver swap the caller never asked for, a lazy provider import reached with no floor gate ahead of it, an instrumentation seam row naming a distribution this floor never resolved, a partition op degrading to an unpartitioned single pull because its planning column is absent, an arm picking one of several bound frames off iteration order, a `Flight` redemption reading `endpoints[0]` alone or opening an unauthenticated client where the sibling remote axis carries a whole TLS and OAuth policy, an `adbc_ingest` answering with its own input frame in place of the driver's reported row count, a mirror `sql`-or-`plan` optional pair whose XOR a factory rail and an unreachable `raise` re-derive, a credential-bearing DSN on a durable receipt, a receipt mint raising past its declared rail on a foreign-dialect statement, a bench lane re-executing a mutation `Remote` INGEST spec or timing a refusal it never gated, a data-side `opentelemetry-instrumentation-dbapi` import where the runtime composition-root `wrap_connect` seam owns the connection-factory patch, a parallel per-engine profile field where `ProfileHarvest` folds every engine onto one `EngineProfile` band, and a data-side metric owner where the `BenchmarkReceipt`/`QueryReceipt` `contribute` projections own every measure.
 
 ```python signature
 import operator
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
+from copy import replace
 from enum import StrEnum
+from importlib.util import find_spec
 from time import perf_counter
 from typing import Any, Final, Literal, assert_never
+from urllib.parse import urlsplit, urlunsplit
 
 import anyio
 import duckdb
@@ -31,10 +39,11 @@ import ibis
 import narwhals as nw
 import pyarrow as pa
 import sqlglot
-from adbc_driver_manager import dbapi
 from beartype import beartype
-from expression import Error, Ok, case, tag, tagged_union
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Map
+from google.protobuf.message import DecodeError
+from ibis.backends import BaseBackend
 from ibis.expr.types import Table as IbisTable
 from msgspec import Struct, field
 from narwhals import Expr as NwExpr
@@ -45,18 +54,25 @@ from sqlglot.lineage import Node as LineageNode
 from sqlglot.lineage import lineage as sqlglot_lineage
 from sqlglot.optimizer import optimize as sqlglot_optimize
 from sqlglot.optimizer.qualify import qualify as sqlglot_qualify
+from substrait import proto as substrait_proto
+from substrait.extension_registry import ExtensionRegistry
+from substrait.type_inference import infer_plan_schema
 
 lazy import connectorx as cx
 lazy import daft
 lazy import pyarrow.flight as flight
 lazy from adbc_driver_flightsql import ConnectionOptions, DatabaseOptions, StatementOptions
 lazy from adbc_driver_flightsql import dbapi as flightsql_dbapi
+lazy from adbc_driver_manager import dbapi as adbc_dbapi
+lazy from adbc_driver_postgresql import dbapi as postgres_dbapi
+lazy from adbc_driver_snowflake import dbapi as snowflake_dbapi
+lazy from adbc_driver_sqlite import dbapi as sqlite_dbapi
 lazy from datafusion import SessionContext
 lazy from datafusion import substrait as dfs
 
 from rasm.data.tabular.columnar import DuckDbExtension, DuckDbSession, EngineProfile, ProfileHarvest, ProfileMode, QueryReceipt, predicate_count
 from rasm.runtime.admission import BackendGeneration
-from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail, async_boundary
+from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail, async_boundary, boundary
 from rasm.runtime.identity import ContentIdentity
 from rasm.runtime.lanes import on_thread
 from rasm.runtime.metrics import DbapiSeam
@@ -70,6 +86,10 @@ type LineageEdge = tuple[str, str]
 type Frames = Mapping[str, Any]
 type Predicate = tuple[str, "Comparator", Any]
 type AggExpr = tuple[str, "Aggregator"]
+# `ibis.parse_sql(text, catalog, dialect)` dereferences `catalog.items()`, so the schema is NOT optional beside the
+# text: both ride ONE slot and an `IrEmit(parse=...)` carrying no catalog is unspellable rather than fatal.
+type ParseSpec = tuple[str, Schema]
+type IngestMode = Literal["append", "create", "replace", "create_append"]
 
 
 class Comparator(StrEnum):
@@ -97,6 +117,50 @@ class RemoteDriver(StrEnum):
     ADBC = "adbc"
     CONNECTORX = "connectorx"
     FLIGHTSQL = "flightsql"
+    POSTGRESQL = "postgresql"
+    SNOWFLAKE = "snowflake"
+    SQLITE = "sqlite"
+
+
+# connect-and-execute dialect per driver row — the ONE closed discriminant every per-driver projection derives
+# from, so a sixth driver names its kind rather than adding a boolean beside the row.
+class DriverKind(StrEnum):
+    MANAGER = "manager"  # driver-manager front end: the shared library is a caller `driver`/`entrypoint` coordinate
+    FLIGHT = "flight"  # Flight SQL: the typed option enums key this row's db/conn/stmt projections alone
+    NATIVE = "native"  # bundled driver resolving its own library, `connect(uri, db_kwargs=, conn_kwargs=)`
+    LOCAL = "local"  # bundled driver whose `connect` admits the URI alone — a `db_kwargs=` keyword is a TypeError
+    LOADER = "loader"  # read-parallel loader with no PEP-249 connection to open, wrap, or instrument
+
+
+class RemoteRefusal(StrEnum):
+    # every refused remote cell names its own reason and the member value IS the operator-facing evidence
+    # `BoundaryFault` carries: `_REMOTE_REFUSAL` rows the unconditional cells, `_conditional` the
+    # transport-dependent ones. An absent distribution answers the separate `_UNREACHED` floor gate under the
+    # `import_` tag instead, because a missing provider is a provisioning fact, never a capability bound.
+    CONNECTORX_READ_ONLY = "connectorx reaches no write-back; ingest rides an adbc driver"
+    CONNECTORX_PARTITION_COLUMN = "connectorx partition planning needs transport.partition_on"
+    # every non-Flight driver compiles the refusal into its own binary: postgres returns NOT_IMPLEMENTED from a
+    # call-free stub, snowflake from a zero-call body carrying its own static message, sqlite from the shared
+    # driver template. Exported-symbol presence proves nothing — each ships the flat-C wrapper, only the body decides.
+    SQLITE_NO_PARTITION = "the sqlite driver answers adbc_execute_partitions NOT_IMPLEMENTED"
+    POSTGRESQL_NO_PARTITION = "the postgresql driver answers adbc_execute_partitions NOT_IMPLEMENTED"
+    SNOWFLAKE_NO_PARTITION = "the snowflake driver answers adbc_execute_partitions NOT_IMPLEMENTED"
+    # the native ticket plane is this page's own client, so its bounds state here beside the driver cells: the
+    # pyarrow client carries a bearer header and nothing that MINTS one, and the daft runner is process state a
+    # per-request switch would re-point under every query already executing on it.
+    FLIGHT_NATIVE_OAUTH = "the pyarrow flight plane runs no oauth flow; a token mints caller-side onto transport.authorization"
+    STREAMING_RUNNER_FIXED = "the daft runner is a process-wide composition fact; this process resolved the other one"
+
+
+class PlanRefusal(StrEnum):
+    # an INBOUND plan is authored by `csharp:Rasm.Persistence/Query/federation` and arrives as opaque bytes, so its
+    # admission is this branch's to state rather than the executor's to discover. Each member value IS the
+    # operator-facing evidence, exactly as the remote and lake matrices state theirs.
+    UNPARSEABLE = "the wire bytes decode as no substrait Plan"
+    NO_RELATION = "the plan carries no root relation to execute"
+    RETIRED_EXTENSION_SCHEMA = "the plan declares functions against the retired extension-uri schema this parser drops"
+    UNKNOWN_EXTENSION = "the plan names an extension urn this registry resolves nowhere"
+    UNTYPED_OUTPUT = "the plan's output schema does not infer, so its result shape is unknowable before execution"
 
 
 class RemoteOp(StrEnum):
@@ -118,6 +182,25 @@ class OAuthFlow(StrEnum):
     TOKEN_EXCHANGE = "token_exchange"
 
 
+# closed mirror of the driver's `OAUTH_<KEY>` member roster: an open `str` key reflected onto the provider enum
+# raises `AttributeError` inside the offloaded thread, where a member lookup refuses at the typed seam.
+class OAuthKey(StrEnum):
+    AUTH_URI = "auth_uri"
+    TOKEN_URI = "token_uri"
+    REDIRECT_URI = "redirect_uri"
+    SCOPE = "scope"
+    CLIENT_ID = "client_id"
+    CLIENT_SECRET = "client_secret"
+    EXCHANGE_SUBJECT_TOKEN = "exchange_subject_token"
+    EXCHANGE_SUBJECT_TOKEN_TYPE = "exchange_subject_token_type"
+    EXCHANGE_ACTOR_TOKEN = "exchange_actor_token"
+    EXCHANGE_ACTOR_TOKEN_TYPE = "exchange_actor_token_type"
+    EXCHANGE_REQUESTED_TOKEN_TYPE = "exchange_requested_token_type"
+    EXCHANGE_SCOPE = "exchange_scope"
+    EXCHANGE_AUD = "exchange_aud"
+    EXCHANGE_RESOURCE = "exchange_resource"
+
+
 class Runner(StrEnum):
     NATIVE = "native"
     RAY = "ray"
@@ -135,13 +218,26 @@ class LakehouseFormat(StrEnum):
     SQL = "sql"
 
 
-# --- [MODELS] ---------------------------------------------------------------------------
-
-
 class PlanWire(StrEnum):
     SQL = "sql"
     SUBSTRAIT = "substrait"
     SUBSTRAIT_JSON = "substrait_json"
+
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_SCOPE: Final[str] = "rasm.data.tabular.query"
+
+# Flight SQL Go driver's embedded OTel tracer joins the caller's trace through this CONNECTION option — a key the
+# Python option enums do not spell, verified against the shipped libadbc_driver_flightsql; exporter selection rides
+# exporter selection off the standard OTEL_* env family a deployment sets, never a Python-side knob. Flight carries no
+# embedded tracer, so it stitches the same parent as a gRPC call header instead — one read, two projections.
+_TRACE_PARENT_KEY: Final[str] = "adbc.telemetry.trace_parent"
+
+_PLAN_META: Final[bytes] = b"substrait.plan"
+
+
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class SqlGate(Struct, frozen=True):
@@ -174,22 +270,42 @@ class IrEmit(Struct, frozen=True):
     dialect: Dialects = Dialects.DUCKDB
     wire: PlanWire = PlanWire.SQL
     streaming: bool = False
-    parse: str | None = None
-    catalog: Mapping[str, Mapping[str, str]] | None = None
+    # substrait serializers gate optimize-before-serialize on `enable_optimizer`, so an unoptimized plan is a
+    # policy value on the emit — a peer engine receiving a DuckDB-optimized plan reads DuckDB's rewrite decisions.
+    optimize: bool = True
+    parse: ParseSpec | None = None
 
-    def bound(self, expr: IbisTable | None) -> IbisTable:
-        return ibis.parse_sql(self.parse, catalog=self.catalog, dialect=self.dialect.value) if self.parse is not None else expr
+    def bound(self, expr: IbisTable) -> IbisTable:
+        return ibis.parse_sql(self.parse[0], catalog=self.parse[1], dialect=self.dialect.value) if self.parse is not None else expr
 
     def sql(self, expr: IbisTable) -> str:
-        return ibis.to_sql(self.bound(expr), dialect=self.dialect.value)
+        return str(ibis.to_sql(self.bound(expr), dialect=self.dialect.value))
 
     def edges(self, expr: IbisTable) -> tuple[LineageEdge, ...]:
         return SqlGate(read=self.dialect, write=self.dialect).edges(self.sql(expr))
 
 
 class Transport(Struct, frozen=True):
+    # remote OPERAND and TRANSPORT policy for one `Remote` spec. The typed block mirrors the Flight SQL option
+    # enums; `db_options`/`conn_options`/`stmt_options` are the driver-native pass-through a caller keys with its
+    # OWN driver enum value, because this page models one driver's vocabulary rather than five. That pass-through
+    # WIDENS the surface and never narrows it: each projection seats the raw map first so a typed field wins the
+    # key it owns, and a raw entry can add a knob nothing here models but can never unset one this spec resolved.
     partition_on: str | None = None
     partition_num: int = 4
+    ingest_source: str | None = None
+    ingest_mode: IngestMode = "create_append"
+    ingest_catalog: str | None = None
+    ingest_schema: str | None = None
+    ingest_temporary: bool = False
+    probe_catalog: str | None = None
+    probe_schema: str | None = None
+    # provenance parses the remote statement to count predicates and trace lineage; the DuckDB default mis-parses a
+    # foreign statement, so the dialect the remote engine speaks is a caller value rather than a baked assumption.
+    dialect: Dialects = Dialects.DUCKDB
+    driver: str | None = None
+    entrypoint: str | None = None
+    autocommit: bool = False
     protocol: str | None = None
     queue_size: int | None = None
     authorization: str | None = None
@@ -205,9 +321,12 @@ class Transport(Struct, frozen=True):
     timeouts: Mapping[TimeoutPhase, float] = field(default_factory=dict)
     rpc_headers: Mapping[str, str] = field(default_factory=dict)
     oauth_flow: OAuthFlow | None = None
-    oauth: Mapping[str, str] = field(default_factory=dict)
+    oauth: Mapping[OAuthKey, str] = field(default_factory=dict)
     session_options: Mapping[str, str] = field(default_factory=dict)
     substrait_version: str | None = None
+    db_options: Mapping[str, str] = field(default_factory=dict)
+    conn_options: Mapping[str, str] = field(default_factory=dict)
+    stmt_options: Mapping[str, str] = field(default_factory=dict)
 
     def db_kwargs(self, opts: "type[DatabaseOptions]") -> dict[str, str]:
         timeout_keys = {TimeoutPhase.FETCH: opts.TIMEOUT_FETCH, TimeoutPhase.QUERY: opts.TIMEOUT_QUERY, TimeoutPhase.UPDATE: opts.TIMEOUT_UPDATE}
@@ -226,14 +345,50 @@ class Transport(Struct, frozen=True):
         )
         headers = {f"{opts.RPC_CALL_HEADER_PREFIX.value}{name}": value for name, value in self.rpc_headers.items()}
         timeouts = {timeout_keys[phase].value: str(seconds) for phase, seconds in self.timeouts.items()}
-        oauth = {getattr(opts, f"OAUTH_{key.upper()}").value: value for key, value in self.oauth.items()}
-        return {key.value: value for key, value in rows if value is not None} | timeouts | headers | oauth
+        # `OAuthKey` mirrors the driver's own `OAUTH_<KEY>` roster, so the member lookup is total and no caller
+        # string reaches `getattr` on the provider enum.
+        oauth = {getattr(opts, f"OAUTH_{key.name}").value: value for key, value in self.oauth.items()}
+        # the driver-native pass-through seats FIRST on every tier: it exists to reach knobs no typed field models,
+        # so a raw key colliding with one this spec already declares is a caller mistake, never an override — seating
+        # it last let a stray string silently unset TLS material, an authorization header, an oauth key, or a timeout
+        # the typed projection had already resolved, and no signature broke to say so.
+        return dict(self.db_options) | {key.value: value for key, value in rows if value is not None} | timeouts | headers | oauth
 
-    def conn_kwargs(self, opts: "type[StatementOptions]", conn_opts: "type[ConnectionOptions]") -> dict[str, str]:
+    def conn_kwargs(self, conn_opts: "type[ConnectionOptions]") -> dict[str, str]:
+        session = {f"{conn_opts.OPTION_SESSION_OPTION_PREFIX.value}{key}": value for key, value in self.session_options.items()}
+        return dict(self.conn_options) | session
+
+    def stmt_kwargs(self, opts: "type[StatementOptions]") -> dict[str, str]:
+        # STATEMENT-tier options key a cursor, never a connection: `adbc.rpc.result_queue_size` and the Substrait
+        # pin apply per execution, so they ride `cursor(adbc_stmt_kwargs=)` and every op inherits them.
         queue = {opts.QUEUE_SIZE.value: str(self.queue_size)} if self.queue_size is not None else {}
         substrait = {opts.SUBSTRAIT_VERSION.value: self.substrait_version} if self.substrait_version is not None else {}
-        session = {f"{conn_opts.OPTION_SESSION_OPTION_PREFIX.value}{key}": value for key, value in self.session_options.items()}
-        return queue | substrait | session
+        return dict(self.stmt_options) | queue | substrait
+
+    def client_kwargs(self) -> dict[str, Any]:
+        # pyarrow's Flight client takes PEM OCTETS where the ADBC option enums take PEM TEXT, so the same caller
+        # material serves both planes through one encode rather than a second credential axis on the spec.
+        rows = (
+            ("tls_root_certs", self.tls_root_certs),
+            ("cert_chain", self.mtls_cert_chain),
+            ("private_key", self.mtls_private_key),
+        )
+        pem = {name: value.encode() for name, value in rows if value is not None}
+        return pem | {"override_hostname": self.tls_override_hostname, "disable_server_verification": self.tls_skip_verify or None}
+
+    def call_options(self, plane: Any) -> Any:
+        # gRPC call headers arrive as `(bytes, bytes)` pairs; the trace parent joins them so a ticket redemption
+        # continues the caller's trace exactly as the Flight SQL driver's embedded tracer does off its own option.
+        # The configured `authorization` joins them for the SAME reason the driver plane sets it through its own
+        # option enum: one spec's credential must reach both planes, or a native redemption reaches the very server
+        # every ADBC call authenticates to and arrives anonymous. The flow-minted half has no native equivalent, so
+        # `_reach` refuses an `oauth_flow` on this plane by name rather than dropping it here.
+        stitched = {"traceparent": parent} if (parent := _trace_parent()) else {}
+        credential = {"authorization": self.authorization} if self.authorization is not None else {}
+        headers = dict(self.rpc_headers) | credential | stitched
+        return plane.FlightCallOptions(
+            timeout=self.timeouts.get(TimeoutPhase.QUERY), headers=tuple((k.encode(), v.encode()) for k, v in headers.items())
+        )
 
 
 class StreamingPlan(Struct, frozen=True):
@@ -255,6 +410,9 @@ class StreamingPlan(Struct, frozen=True):
     partition_col: str | None = None
     num_partitions: int | None = None
     partition_strategy: str = "min-max"
+    # cold analytics residences keep their partition columns in path segments, so a scan over one reads them back
+    # only under this flag; the `_DAFT_READ` row decides whether the selected reader carries the keyword at all.
+    hive_partitioning: bool = False
     disable_pushdowns: bool = False
     version: str | int | None = None
     asof: str | None = None
@@ -265,33 +423,50 @@ class StreamingPlan(Struct, frozen=True):
 
 
 @tagged_union(frozen=True)
+class Federation:
+    # `Federation` carries the ONE `⇄` seam direction structurally: `mint` serializes local SQL outbound, `execute` runs the
+    # Persistence-authored bytes inbound. A `(sql | None, plan | None)` pair states the same discriminant three
+    # times over — a runtime XOR gate, a factory rail its seven siblings do not return, and an unreachable raise.
+    tag: Literal["mint", "execute"] = tag()
+    mint: str = case()
+    execute: bytes = case()
+
+
+@tagged_union(frozen=True)
 class QuerySpec:
     tag: Literal["sql", "rel", "agnostic", "ir", "remote", "streaming", "federated", "flight"] = tag()
     sql: tuple[str, SqlGate | None] = case()
-    rel: tuple[str | None, tuple[str, ...], tuple[str, ...]] = case()
-    agnostic: tuple[tuple[str, ...], tuple[Predicate, ...], tuple[str, ...], tuple[AggExpr, ...]] = case()
+    rel: tuple[str | None, str | None, tuple[str, ...], tuple[str, ...]] = case()
+    agnostic: tuple[str | None, tuple[str, ...], tuple[Predicate, ...], tuple[str, ...], tuple[AggExpr, ...]] = case()
     ir: tuple[IbisTable, IrEmit] = case()
     remote: tuple[str, str, RemoteDriver, RemoteOp, Transport] = case()
     streaming: tuple[StreamingPlan, Runner, str | None] = case()
-    federated: tuple[str | None, bytes | None, tuple[tuple[str, str, str | None], ...]] = case()
+    # `(direction, stores, tables)`: registering an object store federates its BYTES and names no relation, so a plan
+    # over the cold analytics residence needs its listing tables registered too — each `(name, path, partition_cols)`
+    # row naming the hive columns datafusion reads back out of the path rather than the file.
+    federated: tuple[Federation, tuple[tuple[str, str, str | None], ...], tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...]] = case()
     # csharp:Rasm.Persistence/Query/federation FLIGHT_RESULT_PLANE consumer: SubstraitPlan command bytes submit
-    # through GetFlightInfo, the returned ReplayKey FlightTicket redeems through DoGet — the producer plans and
-    # holds, this side only executes the ticket round-trip; `federated` stays the in-process datafusion executor.
-    flight: tuple[bytes, str] = case()
+    # through GetFlightInfo, EVERY returned FlightEndpoint redeems through DoGet — the producer plans and holds,
+    # this side only executes the ticket round-trip; `federated` stays the in-process datafusion executor.
+    flight: tuple[bytes, str, Transport] = case()
 
     @staticmethod
     def Sql(text: str, gate: SqlGate | None = None) -> "QuerySpec":
         return QuerySpec(sql=(text, gate))
 
     @staticmethod
-    def Rel(filter_expr: str | None, project: tuple[str, ...], group_by: tuple[str, ...] = ()) -> "QuerySpec":
-        return QuerySpec(rel=(filter_expr, project, group_by))
+    def Rel(filter_expr: str | None, project: tuple[str, ...], group_by: tuple[str, ...] = (), frame: str | None = None) -> "QuerySpec":
+        return QuerySpec(rel=(frame, filter_expr, project, group_by))
 
     @staticmethod
     def Agnostic(
-        select: tuple[str, ...] = (), predicates: tuple[Predicate, ...] = (), group_by: tuple[str, ...] = (), aggs: tuple[AggExpr, ...] = ()
+        select: tuple[str, ...] = (),
+        predicates: tuple[Predicate, ...] = (),
+        group_by: tuple[str, ...] = (),
+        aggs: tuple[AggExpr, ...] = (),
+        frame: str | None = None,
     ) -> "QuerySpec":
-        return QuerySpec(agnostic=(select, predicates, group_by, aggs))
+        return QuerySpec(agnostic=(frame, select, predicates, group_by, aggs))
 
     @staticmethod
     def Ir(expr: IbisTable, emit: IrEmit = IrEmit()) -> "QuerySpec":
@@ -312,18 +487,16 @@ class QuerySpec:
         return QuerySpec(streaming=(plan, runner, cluster))
 
     @staticmethod
-    def Flight(plan: bytes, dsn: str) -> "QuerySpec":
-        return QuerySpec(flight=(plan, dsn))
+    def Flight(plan: bytes, dsn: str, transport: Transport = Transport()) -> "QuerySpec":
+        return QuerySpec(flight=(plan, dsn, transport))
 
     @staticmethod
     def Federated(
-        sql: str | None = None, plan: bytes | None = None, stores: tuple[tuple[str, str, str | None], ...] = ()
-    ) -> "RuntimeRail[QuerySpec]":
-        # exactly one of `sql` (outbound plan-minting) or `plan` (inbound Persistence-authored bytes) drives the
-        # run — the ONE XOR enforcement point, so `_federated`/`_provenance` read a settled direction.
-        if (sql is None) == (plan is None):
-            return Error(BoundaryFault(config=("query.federated", "sql-xor-plan")))
-        return Ok(QuerySpec(federated=(sql, plan, stores)))
+        direction: Federation,
+        stores: tuple[tuple[str, str, str | None], ...] = (),
+        tables: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (),
+    ) -> "QuerySpec":
+        return QuerySpec(federated=(direction, stores, tables))
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -332,6 +505,12 @@ class QuerySpec:
 class QueryEngine(Struct, frozen=True):
     generation: BackendGeneration
     inputs: Frames
+    # `session` carries the in-process DuckDB plane's POLICY as caller data — extensions, attached catalogs, and the
+    # resolved filesystem handle — never a connection: `DuckDbSession` is a frozen row whose bracket still opens per
+    # dispatch under the request-scoped law. Absent it, `Sql`/`Rel` open a bare session, so an evidence-residence read
+    # cannot load `delta` and the `postgres_scanner` attach making `[TENANT_COST_JOIN]` one statement has nowhere to be
+    # spelled — callers would need a second transport for a join DuckDB already folds.
+    session: DuckDbSession = DuckDbSession()
     profiling: ProfileMode = ProfileMode.OFF
 
     @classmethod
@@ -341,9 +520,10 @@ class QueryEngine(Struct, frozen=True):
         generation: BackendGeneration,
         inputs: Frames,
         *,
+        session: DuckDbSession = DuckDbSession(),
         profiling: ProfileMode = ProfileMode.OFF,
     ) -> "QueryEngine":
-        return cls(generation=generation, inputs=inputs, profiling=profiling)
+        return cls(generation=generation, inputs=inputs, session=session, profiling=profiling)
 
     @beartype(conf=FAULT_CONF)
     def bench(
@@ -351,44 +531,98 @@ class QueryEngine(Struct, frozen=True):
     ) -> "RuntimeRail[BenchmarkReceipt]":
         # query bench lane: one repeated `QuerySpec` timed across engines under the runtime `Bench.run` subjects, the
         # `BenchmarkReceipt` projecting through the standing `domain="bench"` rows at its OWN `contribute` — this page adds
-        # zero instrument state. Mutation specs never ride the lane: a `Remote` INGEST re-executes an unknowable partial
-        # append, so it is a typed refusal, never a benchmarked round. Each round drives the awaitable `run` to completion
-        # on a fresh loop through `anyio.run`; a process-terminal caller places this method inside `JobRun.bounded`.
-        if spec.tag == "remote" and spec.remote[3] is RemoteOp.INGEST:
-            return Error(BoundaryFault(config=("query.bench", "mutation-spec-excluded")))
-        selected = mode or _BENCH_MODE.get(spec.tag) or BenchMode.LATENCY
-        return Ok(Bench.run(f"query.{spec.tag}", lambda: anyio.run(self.run, spec), mode=selected, rounds=rounds, warmup=warmup))
+        # zero instrument state. The SAME prologue `run` reads gates the lane, so an unreached provider or a refused
+        # `(driver, op)` cell answers once instead of being timed N times as a microsecond "success". Mutation specs never
+        # ride the lane: a `Remote` INGEST re-executes an unknowable partial append, so it is a typed refusal, never a
+        # benchmarked round. Each round drives the awaitable `run` to completion on a fresh loop through `anyio.run`; a
+        # process-terminal caller places this method inside `JobRun.bounded`.
+        # `Bench.run` rails its own window — a refused round count and a window measuring nothing arrive typed — so the
+        # lane BINDS rather than maps; a map here would nest one rail inside the other the signature already declares.
+        return _reach(spec).bind(self._bound).bind(self._benched).bind(
+            lambda admitted: Bench.run(
+                f"query.{admitted.tag}",
+                lambda: anyio.run(self.run, admitted),
+                mode=mode or _BENCH_MODE.get(admitted.tag) or BenchMode.LATENCY,
+                rounds=rounds,
+                warmup=warmup,
+            )
+        )
+
+    def _benched(self, spec: QuerySpec) -> "RuntimeRail[QuerySpec]":
+        match spec:
+            case QuerySpec(tag="remote", remote=(_sql, _dsn, _driver, RemoteOp.INGEST, _transport)):
+                return Error(BoundaryFault(config=("query.bench", "mutation-spec-excluded")))
+            case QuerySpec():
+                return Ok(spec)
 
     @beartype(conf=FAULT_CONF)
-    async def run(self, spec: QuerySpec) -> "RuntimeRail[pa.Table]":  # ruff:ignore[too-many-return-statements]
+    async def run(self, spec: QuerySpec) -> "RuntimeRail[pa.Table]":
+        # prologue: `_reach` answers every cell no provider on this interpreter floor serves and `_bound` resolves
+        # each frame-naming arm's input slot, so `_dispatch` below is total over admitted specs — no arm re-probes
+        # a driver, degrades an op, or picks one of several bound frames off iteration order.
+        match _reach(spec).bind(self._bound):
+            case Result(tag="error", error=refused):
+                return Error(refused)
+            case Result(tag="ok", ok=admitted):
+                return await self._dispatch(admitted)
+            case unreachable:
+                assert_never(unreachable)
+
+    def _bound(self, spec: QuerySpec) -> "RuntimeRail[QuerySpec]":
+        # admission NORMALIZES the frame slot rather than gating it, so the interior lookup is a total `inputs[name]`.
+        match spec:
+            case QuerySpec(tag="rel", rel=(frame, flt, project, group_by)):
+                return self._named(frame, "query.rel").map(lambda name: QuerySpec(rel=(name, flt, project, group_by)))
+            case QuerySpec(tag="agnostic", agnostic=(frame, select, predicates, group_by, aggs)):
+                return self._named(frame, "query.agnostic").map(lambda name: QuerySpec(agnostic=(name, select, predicates, group_by, aggs)))
+            case QuerySpec(tag="remote", remote=(sql, dsn, driver, RemoteOp.INGEST as op, transport)):
+                return self._named(transport.ingest_source, "query.ingest").map(
+                    lambda name: QuerySpec(remote=(sql, dsn, driver, op, replace(transport, ingest_source=name)))
+                )
+            case QuerySpec():
+                return Ok(spec)
+
+    def _named(self, frame: str | None, subject: str) -> "RuntimeRail[str]":
+        match frame, tuple(self.inputs):
+            case str() as named, bound if named in bound:
+                return Ok(named)
+            case None, (sole,):
+                return Ok(sole)
+            case None, _:
+                return Error(BoundaryFault(config=(subject, "frame-name-required")))
+            case _, _:
+                return Error(BoundaryFault(config=(subject, "frame-absent")))
+
+    async def _dispatch(self, spec: QuerySpec) -> "RuntimeRail[pa.Table]":  # ruff:ignore[too-many-return-statements]
         match spec:
             case QuerySpec(tag="sql", sql=(text, gate)):
                 return await self._local("sql", lambda: self._duckdb(lambda con: con.sql(gate.transpile(text) if gate else text)))
-            case QuerySpec(tag="rel", rel=(flt, project, group_by)):
-                return await self._local("rel", lambda: self._duckdb(lambda con: self._relation(con, flt, project, group_by)))
-            case QuerySpec(tag="agnostic", agnostic=(select, predicates, group_by, aggs)):
-                return await self._local("agnostic", lambda: self._agnostic(select, predicates, group_by, aggs))
+            case QuerySpec(tag="rel", rel=(frame, flt, project, group_by)):
+                return await self._local("rel", lambda: self._duckdb(lambda con: _relation(con, self.inputs[frame], flt, project, group_by)))
+            case QuerySpec(tag="agnostic", agnostic=(frame, select, predicates, group_by, aggs)):
+                return await self._local("agnostic", lambda: _agnostic(self.inputs[frame], select, predicates, group_by, aggs))
             case QuerySpec(tag="ir", ir=(expr, emit)):
                 return await self._local("ir", lambda: self._ir(expr, emit))
             case QuerySpec(tag="remote", remote=(sql, dsn, driver, RemoteOp.INGEST as op, transport)):
                 # ingest mutates the remote table — a transport timeout leaves an unknowable partial append, so the arm crosses
                 # unretried and the caller re-issues under its own dedupe, never a blind REMOTE_DB replay duplicating rows; the
                 # hop never abandons its band slot either, so a deadline-tripped mutation stays observed to completion.
-                return await async_boundary("query.ingest", lambda: on_thread(_REMOTE[driver], sql, dsn, op, transport, self.inputs))
+                return await async_boundary("query.ingest", lambda: on_thread(_remote, driver, sql, dsn, op, transport, self.inputs))
             case QuerySpec(tag="remote", remote=(sql, dsn, driver, op, transport)):
-                divert = transport.partition_on is not None and driver is RemoteDriver.ADBC and op in _CX_OPS
-                selected = RemoteDriver.CONNECTORX if divert else driver
+                # reach already refused every cell this driver cannot serve on this floor, so the caller's
+                # selection rides through verbatim and no arm second-guesses it with a silent swap.
                 return await guarded(
-                    RetryClass.REMOTE_DB, on_thread, _REMOTE[selected], sql, dsn, op, transport, self.inputs, abandon=True, subject="query.remote"
+                    RetryClass.REMOTE_DB, on_thread, _remote, driver, sql, dsn, op, transport, self.inputs, abandon=True, subject="query.remote"
                 )
             case QuerySpec(tag="streaming", streaming=(plan, runner, cluster)):
                 return await guarded(
-                    RetryClass.STREAMING, on_thread, _stream, plan, runner, cluster, self.inputs, self.profiling, abandon=True, subject="query.streaming"
+                    RetryClass.STREAMING, on_thread, _stream, plan, runner, cluster, self.inputs, self.profiling,
+                    abandon=True, subject="query.streaming",
                 )
-            case QuerySpec(tag="federated", federated=(sql, plan, stores)):
-                return await self._local("federated", lambda: _federated(sql, plan, stores, self.inputs, self.profiling))
-            case QuerySpec(tag="flight", flight=(plan, dsn)):
-                return await guarded(RetryClass.REMOTE_DB, on_thread, _flight_ticket, plan, dsn, abandon=True, subject="query.flight")
+            case QuerySpec(tag="federated", federated=(direction, stores, tables)):
+                return await self._local("federated", lambda: _federated(direction, stores, tables, self.inputs, self.profiling))
+            case QuerySpec(tag="flight", flight=(plan, dsn, transport)):
+                return await guarded(RetryClass.REMOTE_DB, on_thread, _flight_ticket, plan, dsn, transport, abandon=True, subject="query.flight")
             case unreachable:
                 assert_never(unreachable)
 
@@ -396,25 +630,14 @@ class QueryEngine(Struct, frozen=True):
         return await async_boundary(f"query.{tag}", lambda: on_thread(run))
 
     def _duckdb(self, build: Callable[[duckdb.DuckDBPyConnection], duckdb.DuckDBPyRelation]) -> pa.Table:
-        # `tabular/columnar#SCAN` profiled bracket, released once `to_arrow_table` has materialized the relation inside it.
-        with DuckDbSession(profiling=self.profiling).profiled() as (con, harvest):
+        # `tabular/columnar#SCAN` profiled bracket over the caller's OWN session policy, released once `to_arrow_table`
+        # has materialized the relation inside it. `profiling` overrides the row's slot rather than living twice: the
+        # daft and datafusion arms read the same axis and neither carries a DuckDB session to hold it.
+        with replace(self.session, profiling=self.profiling).profiled() as (con, harvest):
             for name, frame in self.inputs.items():
                 con.register(name, frame)
             table = build(con).to_arrow_table()
             return harvest(table)
-
-    def _relation(
-        self, con: duckdb.DuckDBPyConnection, flt: str | None, project: tuple[str, ...], group_by: tuple[str, ...]
-    ) -> duckdb.DuckDBPyRelation:
-        rel = con.from_arrow(next(iter(self.inputs.values())))
-        rel = rel.filter(flt) if flt else rel
-        return rel.aggregate(", ".join(project), ", ".join(group_by)) if group_by else rel.project(", ".join(project))
-
-    def _agnostic(self, select: tuple[str, ...], predicates: tuple[Predicate, ...], group_by: tuple[str, ...], aggs: tuple[AggExpr, ...]) -> pa.Table:
-        lf = nw.from_native(next(iter(self.inputs.values()))).lazy()
-        lf = lf.filter(*(_predicate(p) for p in predicates)) if predicates else lf
-        shaped = lf.group_by(*group_by).agg(*(_aggregation(a) for a in aggs)) if group_by else lf.select(*select)
-        return shaped.collect().to_arrow()
 
     def _ir(self, expr: IbisTable, emit: IrEmit) -> pa.Table:
         # `disconnect()` closes the native `backend.con` the Substrait round-trip drives on every exit, so a remote `backend_uri` never leaks.
@@ -431,14 +654,6 @@ class QueryEngine(Struct, frozen=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-_QUEUE_SIZE_KEY: Final[str] = "adbc.rpc.result_queue_size"
-
-# Flight SQL Go driver's embedded OTel tracer joins the caller's trace through this connection option — a key the Python
-# option enums do not spell, verified against the shipped libadbc_driver_flightsql; exporter selection rides the standard
-# OTEL_* env family the deployment sets, never a Python-side knob.
-_TRACE_PARENT_KEY: Final[str] = "adbc.telemetry.trace_parent"
-
 
 # bench-mode default per `QuerySpec` tag — scan-bound frontends (streaming/remote/federated/flight) count rounds over the
 # window, point frontends (sql/rel/agnostic/ir) time each round; a caller override on `bench(mode=)` wins over the row.
@@ -479,61 +694,210 @@ def _leaves(node: LineageNode) -> tuple[LineageNode, ...]:
     return (node,) if not node.downstream else tuple(leaf for child in node.downstream for leaf in _leaves(child))
 
 
-def _partitions(conn: dbapi.Connection, sql: str, transport: Transport) -> pa.Table:
-    stmt_kwargs = {_QUEUE_SIZE_KEY: str(transport.queue_size)} if transport.queue_size is not None else None
-    with conn.cursor(adbc_stmt_kwargs=stmt_kwargs) as cur:
-        descriptors, schema = cur.adbc_execute_partitions(sql)
-        readers = (cur.adbc_read_partition(token).read_all() for token in descriptors)
-        return pa.concat_tables(readers) if descriptors else schema.empty_table()
+def _relation(
+    con: duckdb.DuckDBPyConnection, frame: Any, flt: str | None, project: tuple[str, ...], group_by: tuple[str, ...]
+) -> duckdb.DuckDBPyRelation:
+    rel = con.from_arrow(frame)
+    rel = rel.filter(flt) if flt else rel
+    return rel.aggregate(", ".join(project), ", ".join(group_by)) if group_by else rel.project(", ".join(project))
 
 
-def _ir_plan(backend: Any, expr: IbisTable, emit: IrEmit) -> pa.Table:
+def _agnostic(
+    frame: Any, select: tuple[str, ...], predicates: tuple[Predicate, ...], group_by: tuple[str, ...], aggs: tuple[AggExpr, ...]
+) -> pa.Table:
+    lf = nw.from_native(frame).lazy()
+    lf = lf.filter(*(_predicate(p) for p in predicates)) if predicates else lf
+    shaped = lf.group_by(*group_by).agg(*(_aggregation(a) for a in aggs)) if group_by else lf.select(*select)
+    return shaped.collect().to_arrow()
+
+
+# --- [SUBSTRAIT]
+
+# serialize/execute table-function pair per plan wire. `substrait` attaches SQL TABLE FUNCTIONS alone — no
+# connection-bound method, no extension-owned class — so each half is a `CALL` through `con.execute`: SUBSTRAIT
+# carries the protobuf `Plan` BLOB `datafusion`'s `Consumer` ingests unchanged, SUBSTRAIT_JSON its inspectable
+# VARCHAR twin over the identical logical plan.
+_SUBSTRAIT: Final[Map[PlanWire, tuple[str, str]]] = Map.of_seq([
+    (PlanWire.SUBSTRAIT, ("get_substrait", "from_substrait")),
+    (PlanWire.SUBSTRAIT_JSON, ("get_substrait_json", "from_substrait_json")),
+])
+
+# this registry holds the process-wide function vocabulary an inbound plan resolves against, default-loaded with the
+# standard extension set. An estate function set beyond that registers here ONCE through `register_extension_yaml`,
+# so a plan naming it admits everywhere rather than at whichever call site remembered to widen its own copy.
+_REGISTRY: Final[ExtensionRegistry] = ExtensionRegistry(load_default_extensions=True)
+
+
+def _plan_refusal(wire: bytes) -> "Option[PlanRefusal]":
+    # `_reach` reads this ONE inbound-plan gate ahead of the executor: the plan's own protobuf model parses the
+    # bytes, the registry resolves every extension urn the plan names, and schema inference proves the result shape
+    # is knowable before a row is read. Letting `Serde.deserialize_bytes` be the admission authority hands a caller
+    # a Rust fault wearing a transport failure's clothes, carrying no reason a matrix row states as data — the
+    # AUTHORITY inversion the reach discipline forecloses everywhere else on this page. Inference raises a bare
+    # `Exception` for every unhandled rel and type shape alike, so the catch is as wide as the surface it fences.
+    plan = substrait_proto.Plan()
+    try:
+        plan.ParseFromString(wire)
+    except DecodeError:
+        return Some(PlanRefusal.UNPARSEABLE)
+    # a plan carries `PlanRel` entries and exactly the ROOT ones name an output an executor can return; an entry
+    # seated on `rel` alone is an anonymous sub-plan with no entry point. One predicate answers both the empty plan
+    # and the root-less one, and it answers them HERE rather than through the inference row below, which does refuse
+    # a root-less plan but names a schema that would not infer where the fact is a missing entry point.
+    if not any(relation.HasField("root") for relation in plan.relations):
+        return Some(PlanRefusal.NO_RELATION)
+    # SCHEMA SKEW, not an absence: substrait moved the extension space off `extension_uris` (field 1, `SimpleExtensionURI`)
+    # onto `extension_urns` (field 8, `SimpleExtensionURN`) and moved each declaration's back-reference off
+    # `extension_uri_reference` (field 1) onto `extension_urn_reference` (field 4). proto3 files a retired field into the
+    # unknown set rather than raising, so a producer still minting the URI-era schema parses clean, reads `extension_urns`
+    # EMPTY, and reads every declaration's reference as the 0 default. Treating that as an extension-free plan lets the
+    # resolution check below pass VACUOUSLY and lands zero provenance edges — a false admission wearing a clean gate's
+    # clothes. Declarations without declared spaces is the exact signature, so it refuses on its own reason here.
+    if plan.extensions and not plan.extension_urns:
+        return Some(PlanRefusal.RETIRED_EXTENSION_SCHEMA)
+    if any(_REGISTRY.lookup_urn(named.urn) is None for named in plan.extension_urns):
+        return Some(PlanRefusal.UNKNOWN_EXTENSION)
+    try:
+        infer_plan_schema(plan)
+    except Exception:
+        return Some(PlanRefusal.UNTYPED_OUTPUT)
+    return Nothing
+
+
+def _ir_plan(backend: BaseBackend, expr: IbisTable, emit: IrEmit) -> pa.Table:
     # ibis backends own the connection; the extension load names WHAT it needs through the
     # `tabular/columnar#SCAN` `DuckDbExtension.SUBSTRAIT` row (community repository a row property), never HOW.
+    # Only the function name interpolates, off the closed `_SUBSTRAIT` row — the emitted SQL, the optimizer
+    # gate, and the plan payload all bind as parameters, so no caller string reaches either statement.
+    # DuckDB's OWN parser reads the serializer argument, so this leg pins `Dialects.DUCKDB` whatever
+    # `emit.dialect` says: substrait carries the plan dialect-portable by construction, and `emit.dialect`
+    # governs the SQL wire and the lineage trace alone — a foreign dialect mis-parses before a plan is minted.
     con = backend.con
     DuckDbExtension.SUBSTRAIT.load(con)
-    select = ibis.to_sql(expr, dialect=Dialects.DUCKDB.value)
-    if emit.wire is PlanWire.SUBSTRAIT_JSON:
-        plan = con.get_substrait_json(select).fetchone()[0]
-        return con.from_substrait_json(plan).to_arrow_table()
-    plan = con.get_substrait(select).fetchone()[0]
-    return con.from_substrait(plan).to_arrow_table()
+    serialize, execute = _SUBSTRAIT[emit.wire]
+    plan = con.execute(
+        f"CALL {serialize}(?, enable_optimizer => ?)", [str(ibis.to_sql(expr, dialect=Dialects.DUCKDB.value)), emit.optimize]
+    ).fetchone()[0]
+    # `streaming` threads the same axis the SQL wire threads, so a plan wire never silently drops the caller's
+    # incremental request; `to_arrow_reader`/`to_arrow_table` are the live spellings the deprecated
+    # `fetch_record_batch`/`fetch_arrow_table` twins name.
+    executed = con.execute(f"CALL {execute}(?)", [plan])
+    return executed.to_arrow_reader().read_all() if emit.streaming else executed.to_arrow_table()
 
 
-def _adbc_dispatch(conn: dbapi.Connection, sql: str, op: RemoteOp, transport: Transport, frames: Frames) -> pa.Table:
-    with conn.cursor() as cur:
-        match op:
-            case RemoteOp.READ:
-                cur.execute(sql)
-                return cur.fetch_arrow_table()
-            case RemoteOp.STREAM:
-                cur.execute(sql)
-                return cur.fetch_record_batch().read_all()
-            case RemoteOp.INGEST:
-                frame = next(iter(frames.values()))
-                cur.adbc_ingest(sql, frame, mode="create_append")
-                return frame if isinstance(frame, pa.Table) else pa.table(frame)
-            case RemoteOp.PROBE:
-                schema = conn.adbc_get_table_schema(sql)
-                return pa.table({"field": schema.names, "type": [str(t) for t in schema.types]})
-            case RemoteOp.PARTITION:
-                return _partitions(conn, sql, transport)
-            case unreachable:
-                assert_never(unreachable)
+# --- [REMOTE]
 
 
-def _adbc(sql: str, dsn: str, op: RemoteOp, transport: Transport, frames: Frames) -> pa.Table:
-    with dbapi.connect(uri=dsn) as conn:
-        return _adbc_dispatch(conn, sql, op, transport, frames)
+def _partitions(cur: "adbc_dbapi.Cursor", sql: str) -> pa.Table:
+    # `adbc_execute_partitions` answers `(descriptors, schema)`; `adbc_read_partition` RETURNS NONE, rebinding the
+    # cursor's OWN result set instead, so each descriptor materializes as one rebind-then-fetch step off that same
+    # cursor. Splitting the rebind from the fetch across the fold would leave every read racing the next rebind.
+    # `cur` already carries the statement options its driver row projected, so no second cursor and no foreign
+    # option enum enters here.
+    descriptors, schema = cur.adbc_execute_partitions(sql)
+    partitions = (_partition_table(cur, token) for token in descriptors)
+    return pa.concat_tables(partitions) if descriptors else schema.empty_table()
 
 
-def _connectorx(sql: str, dsn: str, op: RemoteOp, transport: Transport, frames: Frames) -> pa.Table:
+def _partition_table(cur: "adbc_dbapi.Cursor", token: bytes) -> pa.Table:
+    cur.adbc_read_partition(token)
+    return cur.fetch_arrow_table()
+
+
+def _dbapi_op(conn: "adbc_dbapi.Connection", cur: "adbc_dbapi.Cursor", sql: str, op: RemoteOp, transport: Transport, frames: Frames) -> pa.Table:
+    # `Remote`'s first slot carries the op's SUBJECT, not always a statement: READ/STREAM/PARTITION bind it as
+    # SQL text, INGEST and PROBE bind it as the target table name the driver resolves through its own catalog.
+    match op:
+        case RemoteOp.READ:
+            cur.execute(sql)
+            return cur.fetch_arrow_table()
+        case RemoteOp.STREAM:
+            cur.execute(sql)
+            return cur.fetch_record_batch().read_all()
+        case RemoteOp.INGEST:
+            # `adbc_ingest` ANSWERS the driver's own inserted-row count (`-1` where the driver cannot report it),
+            # and that count is the operation's evidence — echoing the input frame back reports the payload the
+            # caller already holds and keys the receipt on bytes the remote never acknowledged.
+            written = cur.adbc_ingest(
+                sql,
+                frames[transport.ingest_source],
+                mode=transport.ingest_mode,
+                catalog_name=transport.ingest_catalog,
+                db_schema_name=transport.ingest_schema,
+                temporary=transport.ingest_temporary,
+            )
+            return pa.table({"table": [sql], "mode": [transport.ingest_mode], "rows": [written]})
+        case RemoteOp.PROBE:
+            schema = conn.adbc_get_table_schema(sql, catalog_filter=transport.probe_catalog, db_schema_filter=transport.probe_schema)
+            return pa.table({"field": schema.names, "type": [str(t) for t in schema.types]})
+        case RemoteOp.PARTITION:
+            return _partitions(cur, sql)
+        case unreachable:
+            assert_never(unreachable)
+
+
+def _trace_parent() -> str | None:
+    # `propagate.inject` writes `traceparent` into the carrier only under a RECORDING span, so an unsampled
+    # or span-less call stitches nothing and the driver traces under its own root.
+    carrier: dict[str, str] = {}
+    propagate.inject(carrier)
+    return carrier.get("traceparent")
+
+
+def _connect_kwargs(kind: DriverKind, transport: Transport, dsn: str) -> dict[str, Any]:
+    # per-kind connect projection, LIVE-shaped: the manager takes the shared-library coordinate beside the URI, a
+    # bundled native driver takes the two kwarg maps, and the local driver's `connect(uri, **kwargs)` forwards
+    # every extra keyword into `Connection.__init__` — so a `db_kwargs=` there is a TypeError, not a no-op.
+    match kind:
+        case DriverKind.MANAGER:
+            return {
+                "driver": transport.driver,
+                "entrypoint": transport.entrypoint,
+                "uri": dsn,
+                "db_kwargs": dict(transport.db_options) or None,
+                "conn_kwargs": dict(transport.conn_options) or None,
+                "autocommit": transport.autocommit,
+            }
+        case DriverKind.FLIGHT:
+            # an embedded Go tracer reads the trace parent off a CONNECTION option the Python enums do
+            # not spell, so the stitched row joins `conn_kwargs` and a span-less call adds nothing.
+            stitched = {_TRACE_PARENT_KEY: parent} if (parent := _trace_parent()) else {}
+            return {
+                "uri": dsn,
+                "db_kwargs": transport.db_kwargs(DatabaseOptions) or None,
+                "conn_kwargs": (transport.conn_kwargs(ConnectionOptions) | stitched) or None,
+            }
+        case DriverKind.NATIVE:
+            return {"uri": dsn, "db_kwargs": dict(transport.db_options) or None, "conn_kwargs": dict(transport.conn_options) or None}
+        case DriverKind.LOCAL | DriverKind.LOADER:
+            return {"uri": dsn}
+        case unreachable:
+            assert_never(unreachable)
+
+
+def _stmt_kwargs(kind: DriverKind, transport: Transport) -> dict[str, str] | None:
+    # typed statement enums belong to the Flight SQL package alone; every other driver takes the caller's own
+    # driver-native rows, so no leg dereferences a distribution the floor gate never proved present.
+    rows = transport.stmt_kwargs(StatementOptions) if kind is DriverKind.FLIGHT else dict(transport.stmt_options)
+    return rows or None
+
+
+def _dbapi(row: "_Driver", sql: str, dsn: str, op: RemoteOp, transport: Transport, frames: Frames) -> pa.Table:
+    # ONE PEP-249 leg over every admitted driver: the row's kind decides the connect projection and the statement
+    # projection, and one cursor open carries those options into every op rather than the partition leg alone.
+    with row.ns().connect(**_connect_kwargs(row.kind, transport, dsn)) as conn:
+        with conn.cursor(adbc_stmt_kwargs=_stmt_kwargs(row.kind, transport)) as cur:
+            return _dbapi_op(conn, cur, sql, op, transport, frames)
+
+
+def _connectorx(row: "_Driver", sql: str, dsn: str, op: RemoteOp, transport: Transport, frames: Frames) -> pa.Table:
+    ns = row.ns()
     if op is RemoteOp.PROBE:
-        return pa.Table.from_pandas(cx.get_meta(dsn, sql, protocol=transport.protocol))
-    queries = (
-        cx.partition_sql(dsn, sql, transport.partition_on, transport.partition_num) if op is RemoteOp.PARTITION and transport.partition_on else sql
-    )
-    result = cx.read_sql(
+        return pa.Table.from_pandas(ns.get_meta(dsn, sql, protocol=transport.protocol))
+    # reach proved `partition_on` present on the PARTITION cell, so the planner emits explicit per-partition
+    # subqueries there and every other op rides the one statement under `read_sql`'s own partition carry.
+    queries = ns.partition_sql(dsn, sql, transport.partition_on, transport.partition_num) if op is RemoteOp.PARTITION else sql
+    result = ns.read_sql(
         dsn,
         queries,
         return_type="arrow_stream" if op is RemoteOp.STREAM else "arrow",
@@ -544,62 +908,220 @@ def _connectorx(sql: str, dsn: str, op: RemoteOp, transport: Transport, frames: 
     return result.read_all() if op is RemoteOp.STREAM else result
 
 
-def _flight_ticket(plan: bytes, dsn: str) -> pa.Table:
-    """FederationFlight ticket round-trip: the plan bytes ride a command FlightDescriptor into GetFlightInfo and
-    the returned ticket (the producer's ReplayKey) redeems through DoGet as zero-copy record batches."""
-    client = flight.FlightClient(dsn)
-    info = client.get_flight_info(flight.FlightDescriptor.for_command(plan))
-    return client.do_get(info.endpoints[0].ticket).read_all()
+type DriverRun = Callable[["_Driver", str, str, RemoteOp, Transport, Frames], pa.Table]
 
-
-def _flightsql(sql: str, dsn: str, op: RemoteOp, transport: Transport, frames: Frames) -> pa.Table:
-    # driver-native trace stitching: the global W3C propagator writes `traceparent` into the carrier only under a
-    # recording span, so an unsampled or span-less call adds no option and the driver traces under its own root.
-    carrier: dict[str, str] = {}
-    propagate.inject(carrier)
-    stitched = {_TRACE_PARENT_KEY: parent} if (parent := carrier.get("traceparent")) else {}
-    conn_kwargs = {**(transport.conn_kwargs(StatementOptions, ConnectionOptions) or {}), **stitched}
-    with flightsql_dbapi.connect(dsn, db_kwargs=transport.db_kwargs(DatabaseOptions) or None, conn_kwargs=conn_kwargs or None) as conn:
-        return _adbc_dispatch(conn, sql, op, transport, frames)
-
-
-_REMOTE: Final[Map[RemoteDriver, Callable[[str, str, RemoteOp, Transport, Frames], pa.Table]]] = Map.of_seq([
-    (RemoteDriver.ADBC, _adbc),
-    (RemoteDriver.CONNECTORX, _connectorx),
-    (RemoteDriver.FLIGHTSQL, _flightsql),
+_RUN: Final[Map[DriverKind, DriverRun]] = Map.of_seq([
+    (DriverKind.MANAGER, _dbapi),
+    (DriverKind.FLIGHT, _dbapi),
+    (DriverKind.NATIVE, _dbapi),
+    (DriverKind.LOCAL, _dbapi),
+    (DriverKind.LOADER, _connectorx),
 ])
 
 
-# INGEST stays ADBC (ConnectorX is read-only), PROBE on ADBC's native `adbc_get_table_schema`; ConnectorX accelerates the rest.
-_CX_OPS: Final[frozenset[RemoteOp]] = frozenset({RemoteOp.READ, RemoteOp.STREAM, RemoteOp.PARTITION})
+class _Driver(Struct, frozen=True):
+    # `ns` stays a CALL-TIME thunk: a table row spelling `adbc_dbapi.connect` dereferences the lazy proxy at
+    # module import, reifying every driver whether a spec names it or not and defeating the floor gate the
+    # `_PROVIDER_MODULE` roster derives from this same table.
+    module: str
+    ns: Callable[[], Any]
+    kind: DriverKind
+    system: str
+
+
+_DRIVER: Final[Map[RemoteDriver, _Driver]] = Map.of_seq([
+    (RemoteDriver.ADBC, _Driver(module="adbc_driver_manager", ns=lambda: adbc_dbapi, kind=DriverKind.MANAGER, system="other_sql")),
+    (RemoteDriver.CONNECTORX, _Driver(module="connectorx", ns=lambda: cx, kind=DriverKind.LOADER, system="other_sql")),
+    (RemoteDriver.FLIGHTSQL, _Driver(module="adbc_driver_flightsql", ns=lambda: flightsql_dbapi, kind=DriverKind.FLIGHT, system="other_sql")),
+    (RemoteDriver.POSTGRESQL, _Driver(module="adbc_driver_postgresql", ns=lambda: postgres_dbapi, kind=DriverKind.NATIVE, system="postgresql")),
+    (RemoteDriver.SNOWFLAKE, _Driver(module="adbc_driver_snowflake", ns=lambda: snowflake_dbapi, kind=DriverKind.NATIVE, system="snowflake")),
+    (RemoteDriver.SQLITE, _Driver(module="adbc_driver_sqlite", ns=lambda: sqlite_dbapi, kind=DriverKind.LOCAL, system="sqlite")),
+])
+
+
+def _remote(driver: RemoteDriver, sql: str, dsn: str, op: RemoteOp, transport: Transport, frames: Frames) -> pa.Table:
+    row = _DRIVER[driver]
+    return _RUN[row.kind](row, sql, dsn, op, transport, frames)
+
+
+# --- [FLIGHT]
+
+
+def _flight_ticket(plan: bytes, dsn: str, transport: Transport) -> pa.Table:
+    """FederationFlight ticket round-trip: the plan bytes ride a command FlightDescriptor into GetFlightInfo and
+    EVERY returned endpoint redeems through DoGet, concatenated in the producer's own endpoint order."""
+    # a producer fans one plan across as many endpoints as it partitioned the result into, so redeeming
+    # `endpoints[0]` alone answers a silent fraction; an empty endpoint set is an honest empty result off the
+    # returned schema, exactly as the ADBC partition fan-out answers an empty descriptor list.
+    options = transport.call_options(flight)
+    with _flight_client(dsn, transport) as client:
+        info = client.get_flight_info(flight.FlightDescriptor.for_command(plan), options)
+        redeemed = tuple(_redeemed(client, endpoint, transport, options) for endpoint in info.endpoints)
+        return pa.concat_tables(redeemed) if redeemed else info.schema.empty_table()
+
+
+def _flight_client(location: str, transport: Transport) -> Any:
+    return flight.FlightClient(location, **transport.client_kwargs())
+
+
+def _redeemed(client: Any, endpoint: Any, transport: Transport, options: Any) -> pa.Table:
+    # an EMPTY location set means "this server", so the already-open planning client redeems it and the common
+    # single-server fan mints no second connection; a located endpoint is served by the peer those locations
+    # name, reached through a bracket carrying the SAME caller TLS material.
+    locations = tuple(endpoint.locations)
+    return (
+        client.do_get(endpoint.ticket, options).read_all()
+        if not locations
+        else _peer_read(locations[0].uri.decode(), endpoint, transport, options)
+    )
+
+
+def _peer_read(location: str, endpoint: Any, transport: Transport, options: Any) -> pa.Table:
+    with _flight_client(location, transport) as peer:
+        return peer.do_get(endpoint.ticket, options).read_all()
+
+
+# --- [REACH]
+
+# module each LAZILY-BOUND provider imports, keyed by the reach coordinate selecting it: a `RemoteDriver` value
+# on the remote sub-axis, a `QuerySpec` tag where one frontend's whole arm rides one distribution. The driver
+# half DERIVES from `_DRIVER`, so a new driver row lands its floor coordinate with no second edit, and the tail
+# carries one row per remaining `lazy` name — gating the driver sub-axis alone would leave
+# `streaming`/`federated`/`flight` open the moment a marker lands on theirs. `(_PROVIDER_MODULE, _UNREACHED)`
+# pairs into the interpreter-floor gate: a manifest marker holding a distribution below the running floor leaves
+# its module unresolvable, so each row derives ONCE at import through `find_spec` and every spec naming that
+# provider refuses typed at reach — never a per-call probe, and never a `ModuleNotFoundError` surfacing from
+# inside the offloaded thread the lazy proxy binds in.
+_PROVIDER_MODULE: Final[Map[str, str]] = Map.of_seq([
+    *((driver.value, row.module) for driver, row in _DRIVER.items()),
+    ("streaming", "daft"),
+    ("federated", "datafusion"),
+    ("flight", "pyarrow.flight"),
+])
+
+_UNREACHED: Final[Map[str, str]] = Map.of_seq(
+    (coordinate, module) for coordinate, module in _PROVIDER_MODULE.items() if find_spec(module) is None
+)
+
+
+def _floor(coordinate: str, subject: str) -> "Option[RuntimeRail[QuerySpec]]":
+    # one floor read serving both `_reach` arms, so the remote sub-axis and a whole-arm frontend answer the
+    # absent distribution through one row shape rather than two spellings of the same lookup.
+    return _UNREACHED.try_find(coordinate).map(lambda module: Error(BoundaryFault(import_=(subject, module))))
+
+# `(driver, op)` reach matrix: an absent cell is reachable and carries an executing arm, a present cell refuses
+# with its own row reason. The matrix outranks the arms, so a fourth driver lands its unreachable cells as rows.
+_REMOTE_REFUSAL: Final[Map[tuple[RemoteDriver, RemoteOp], RemoteRefusal]] = Map.of_seq([
+    ((RemoteDriver.CONNECTORX, RemoteOp.INGEST), RemoteRefusal.CONNECTORX_READ_ONLY),
+    ((RemoteDriver.SQLITE, RemoteOp.PARTITION), RemoteRefusal.SQLITE_NO_PARTITION),
+    ((RemoteDriver.POSTGRESQL, RemoteOp.PARTITION), RemoteRefusal.POSTGRESQL_NO_PARTITION),
+    ((RemoteDriver.SNOWFLAKE, RemoteOp.PARTITION), RemoteRefusal.SNOWFLAKE_NO_PARTITION),
+])
+
+
+def _conditional(driver: RemoteDriver, op: RemoteOp, transport: Transport) -> "Option[RemoteRefusal]":
+    # operand-conditional cell: reach turns on the transport payload a `(driver, op)` key cannot see, so the row
+    # still answers a typed reason instead of collapsing a partition request onto one unpartitioned serial pull.
+    return (
+        Some(RemoteRefusal.CONNECTORX_PARTITION_COLUMN)
+        if driver is RemoteDriver.CONNECTORX and op is RemoteOp.PARTITION and transport.partition_on is None
+        else Nothing
+    )
+
+
+def _reach(spec: QuerySpec) -> "RuntimeRail[QuerySpec]":
+    # one matrix read per spec decides reachability: the floor row answers a provider whose distribution this
+    # interpreter cannot resolve, then the unconditional cell, then the operand-conditional one; an admitted
+    # spec falls through carrying itself onto the dispatch. A frontend whose whole arm rides one lazily-bound
+    # distribution answers the floor row under its own tag, so ONE gate spans the axis and an in-process arm
+    # binding only module-level imports carries no coordinate and falls straight through.
+    match spec:
+        case QuerySpec(tag="remote", remote=(_sql, _dsn, driver, op, transport)):
+            subject = f"query.remote.{op.value}"
+            return (
+                _floor(driver.value, subject)
+                .or_else_with(
+                    lambda: _REMOTE_REFUSAL.try_find((driver, op))
+                    .or_else_with(lambda: _conditional(driver, op, transport))
+                    .map(lambda refusal: Error(BoundaryFault(boundary=(subject, refusal))))
+                )
+                .default_value(Ok(spec))
+            )
+        case QuerySpec(tag="flight", flight=(_wire, _dsn, transport)) if transport.oauth_flow is not None:
+            # the flow lives inside the Flight SQL DRIVER, which mints a bearer off its own option roster; the native
+            # client this leg opens carries a header and no minting seam at all, so an oauth-configured spec refuses
+            # here rather than redeeming a ticket anonymously against a server the same credential set authenticates
+            # to on every ADBC call.
+            return Error(BoundaryFault(boundary=("query.flight", RemoteRefusal.FLIGHT_NATIVE_OAUTH)))
+        case QuerySpec(tag="streaming", streaming=(_plan, runner, _cluster)):
+            # floor row FIRST — the runner probe below binds the lazy distribution, so an absent `daft` answers its
+            # import fact rather than raising inside the very gate that exists to foreclose it. Then the runner: it
+            # is PROCESS-WIDE with no call-local form, so honouring a divergent selection re-points the runner under
+            # every query already executing on it and races two concurrent specs for one global. The composition
+            # resolves it once and a spec naming the other refuses by name, the same verbatim-selection law the
+            # remote arms hold — an implicit swap answers a request nobody made.
+            return (
+                _floor("streaming", "query.streaming")
+                .or_else_with(
+                    lambda: Some(Error(BoundaryFault(boundary=("query.streaming", RemoteRefusal.STREAMING_RUNNER_FIXED))))
+                    if daft.get_or_infer_runner_type() != runner.value
+                    else Nothing
+                )
+                .default_value(Ok(spec))
+            )
+        case (
+            QuerySpec(tag="federated", federated=(Federation(tag="execute", execute=wire), _stores, _tables))
+            | QuerySpec(tag="flight", flight=(wire, _dsn, _transport))
+        ):
+            # these two legs are the ONLY specs carrying a payload this branch did not author, so both join every
+            # other capability bound at one gate: floor row first, then the plan's own admission. A plan refused
+            # here costs nothing; the same plan refused at the Flight producer costs a round trip and comes back as
+            # a remote error naming no local reason.
+            return (
+                _floor(spec.tag, f"query.{spec.tag}")
+                .or_else_with(lambda: _plan_refusal(wire).map(lambda refusal: Error(BoundaryFault(boundary=(f"query.{spec.tag}", refusal)))))
+                .default_value(Ok(spec))
+            )
+        case QuerySpec(tag=tag):
+            return _floor(tag, f"query.{tag}").default_value(Ok(spec))
 
 
 # data-side endpoint of the runtime PEP-249 wrap seam: this plane admits the driver modules, so it declares the
 # `DbapiSeam` rows and the composition root threads each through `Instrumentation.dbapi` — zero data-side
-# instrumentor import, db-semconv query spans landing beside the `QueryReceipt.profile` band. ConnectorX is
-# excluded by shape (`read_sql` exposes no PEP-249 connection to wrap); the Flight SQL row is additive beside the
-# driver's embedded Go tracer stitched through `_TRACE_PARENT_KEY`, its module bound at the call seam under the
-# page's lazy-boundary law; the manager and Flight SQL rows carry `other_sql` because one DBAPI fronts many backends.
+# instrumentor import, db-semconv query spans landing beside the `QueryReceipt.profile` band. The roster derives
+# from `_DRIVER` under the SAME floor gate the dispatch reads, because a seam row naming a distribution this
+# interpreter never resolved crashes the composition root on the very import the gate exists to foreclose; the
+# LOADER kind is excluded by shape (`read_sql` exposes no PEP-249 connection to wrap). The Flight SQL row is
+# additive beside the driver's embedded Go tracer, which the `call_options` trace-parent header stitches.
 def dbapi_seams() -> tuple[DbapiSeam, ...]:
     return (
-        DbapiSeam(name="rasm.data.tabular.query", connect_module=duckdb, connect_method_name="connect", database_system="duckdb"),
-        DbapiSeam(name="rasm.data.tabular.query", connect_module=dbapi, connect_method_name="connect", database_system="other_sql"),
-        DbapiSeam(name="rasm.data.tabular.query", connect_module=flightsql_dbapi, connect_method_name="connect", database_system="other_sql"),
+        DbapiSeam(name=_SCOPE, connect_module=duckdb, connect_method_name="connect", database_system="duckdb"),
+        *(
+            DbapiSeam(name=_SCOPE, connect_module=row.ns(), connect_method_name="connect", database_system=row.system)
+            for driver, row in _DRIVER.items()
+            if row.kind is not DriverKind.LOADER and _UNREACHED.try_find(driver.value).is_none()
+        ),
     )
 
 
-_DAFT_READ: Final[Map[LakehouseFormat, tuple[str, str | None]]] = Map.of_seq([
-    (LakehouseFormat.PARQUET, ("read_parquet", None)),
-    (LakehouseFormat.ICEBERG, ("read_iceberg", "snapshot_id")),
-    (LakehouseFormat.DELTA, ("read_deltalake", "version")),
-    (LakehouseFormat.HUDI, ("read_hudi", None)),
-    (LakehouseFormat.LANCE, ("read_lance", "version")),
-    (LakehouseFormat.SQL, ("read_sql", None)),
+# --- [STREAMING]
+
+# (reader, time-travel key, hive-partition support) per lakehouse frontend. The third column is load-bearing for the
+# cold analytics residence: its partition columns live in PATH SEGMENTS, so a reader without the flag returns rows
+# missing the very columns a `(domain, date)` predicate prunes on. Only the file-shaped reader carries it — a table
+# format reads its partitioning out of its own metadata, so the flag has no meaning and no keyword there.
+_DAFT_READ: Final[Map[LakehouseFormat, tuple[str, str | None, bool]]] = Map.of_seq([
+    (LakehouseFormat.PARQUET, ("read_parquet", None, True)),
+    (LakehouseFormat.ICEBERG, ("read_iceberg", "snapshot_id", False)),
+    (LakehouseFormat.DELTA, ("read_deltalake", "version", False)),
+    (LakehouseFormat.HUDI, ("read_hudi", None, False)),
+    (LakehouseFormat.LANCE, ("read_lance", "version", False)),
+    (LakehouseFormat.SQL, ("read_sql", None, False)),
 ])
 
 
-def _daft_scan(daft: Any, plan: StreamingPlan) -> Any:
-    name, version_key = _DAFT_READ[plan.fmt]
+def _daft_scan(plan: StreamingPlan) -> Any:
+    name, version_key, hive = _DAFT_READ[plan.fmt]
     reader = getattr(daft, name)
     if plan.fmt is LakehouseFormat.SQL:
         return reader(
@@ -613,7 +1135,10 @@ def _daft_scan(daft: Any, plan: StreamingPlan) -> Any:
     travel = {version_key: plan.version} if version_key and plan.version is not None else {}
     travel |= {"asof": plan.asof} if plan.fmt is LakehouseFormat.LANCE and plan.asof else {}
     travel |= {"block_size": plan.block_size} if plan.fmt is LakehouseFormat.LANCE and plan.block_size is not None else {}
-    return reader(plan.source, io_config=plan.io_config, **travel)
+    # layout is a separate axis from travel: a hive tree names its partition columns in the path, and a reader whose
+    # row does not carry the flag never receives the keyword rather than receiving it as False.
+    layout = {"hive_partitioning": True} if hive and plan.hive_partitioning else {}
+    return reader(plan.source, io_config=plan.io_config, **travel, **layout)
 
 
 # daft `stats`-map durations arrive unit-tagged; the row folds the value to seconds off the unit, never a fixed divisor.
@@ -627,16 +1152,23 @@ def _daft_seconds(duration: Mapping[str, Any] | None) -> float:
 def _daft_operators(metrics: Any) -> tuple[tuple[str, float, int], ...]:
     # daft's materialized `DataFrame.metrics` RecordBatch carries one row per physical operator whose `stats` map holds a
     # `duration` {value, unit} struct and a `rows.out` cardinality struct, folded to the shared `(name, seconds, rows)` band.
+    # `stats` binds through a single-element generator clause, never a walrus in a condition true by construction.
     return tuple(
         (str(row["name"]), _daft_seconds(stats.get("duration")), int((stats.get("rows.out") or {"value": 0.0})["value"]))
         for row in metrics.to_pylist()
-        if (stats := dict(row["stats"] or ())) is not None
+        for stats in (dict(row["stats"] or ()),)
     )
 
 
 def _stream(plan: StreamingPlan, runner: Runner, cluster: str | None, frames: Frames, profiling: ProfileMode = ProfileMode.OFF) -> pa.Table:
-    daft.set_runner_ray(address=cluster) if runner is Runner.RAY else daft.set_runner_native()
-    scan = _daft_scan(daft, plan)
+    # the runner is PROCESS-WIDE state with no call-local form: a bare per-request switch re-points it under every
+    # query already executing on it, and two concurrent specs naming different runners race one global. `_reach` has
+    # already proved this process resolved the runner TYPE this spec names, so the ray arm binds only its address and
+    # binds it idempotently — `noop_if_initialized` is daft's own answer for a runner already standing — while the
+    # native arm sets nothing, `set_runner_native` being exactly the re-point that tears a live ray runner down.
+    if runner is Runner.RAY:
+        daft.set_runner_ray(address=cluster, noop_if_initialized=True)
+    scan = _daft_scan(plan)
     bound = (
         daft.sql(plan.sql, register_globals=False, **{name: daft.from_arrow(frame) for name, frame in frames.items()} | {"this": scan})
         if plan.sql and plan.fmt is not LakehouseFormat.SQL
@@ -669,28 +1201,36 @@ def _stream(plan: StreamingPlan, runner: Runner, cluster: str | None, frames: Fr
     ).stamp(table)
 
 
-_PLAN_META: Final[bytes] = b"substrait.plan"
+# --- [FEDERATION]
 
 
 def _federated(
-    sql: str | None, plan: bytes | None, stores: tuple[tuple[str, str, str | None], ...], frames: Frames, profiling: ProfileMode = ProfileMode.OFF
+    direction: Federation,
+    stores: tuple[tuple[str, str, str | None], ...],
+    tables: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...],
+    frames: Frames,
+    profiling: ProfileMode = ProfileMode.OFF,
 ) -> pa.Table:
-    # one in-process datafusion session per run: `(scheme, url, host)` rows federate remote object stores
-    # through obstore `from_url`, every input registering by name through `from_arrow(name=)`. The wire bytes
-    # stamp the result table's schema metadata, so the plan RIDES the table to the Persistence consumer.
+    # one in-process datafusion session per run: `(scheme, url, host)` rows federate remote object stores through
+    # obstore `from_url`, `(name, path, partition_cols)` rows register the listing tables a plan names over those
+    # stores, and every input registers by name through `from_arrow(name=)`. Store registration federates BYTES and
+    # names no relation, so a plan over the cold analytics residence resolves nothing until its table row lands; the
+    # partition columns are declared rather than sniffed, because a hive segment carries no type of its own. The wire
+    # bytes stamp the result table's schema metadata, so the plan RIDES the table to the Persistence consumer.
     ctx = SessionContext()
     for scheme, url, host in stores:
         ctx.register_object_store(scheme, from_url(url), host)
+    for name, path, partition_cols in tables:
+        ctx.register_parquet(name, path, table_partition_cols=[(column, dtype) for column, dtype in partition_cols])
     for name, frame in frames.items():
         ctx.from_arrow(frame, name=name)
-    if plan is not None:
-        bound = ctx.create_dataframe_from_logical_plan(dfs.Consumer.from_substrait_plan(ctx, dfs.Serde.deserialize_bytes(plan)))
-        wire = plan
-    elif sql is not None:
-        bound = ctx.sql(sql)
-        wire = dfs.Serde.serialize_bytes(sql, ctx)
-    else:  # unreachable: the `Federated` XOR gate is the single enforcement point — this terminal only narrows `sql`
-        raise AssertionError("federated: sql-xor-plan breached past the Federated gate")
+    match direction:
+        case Federation(tag="execute", execute=plan):
+            bound, wire = ctx.create_dataframe_from_logical_plan(dfs.Consumer.from_substrait_plan(ctx, dfs.Serde.deserialize_bytes(plan))), plan
+        case Federation(tag="mint", mint=text):
+            bound, wire = ctx.sql(text), dfs.Serde.serialize_bytes(text, ctx)
+        case unreachable:
+            assert_never(unreachable)
     # `execute_stream` drains as a RecordBatchStream unwrapped through `RecordBatch.to_pyarrow()` — incremental, never one giant collect.
     started = perf_counter()
     batches = [batch.to_pyarrow() for batch in bound.execute_stream()]
@@ -708,6 +1248,65 @@ def _federated(
 
 type Provenance = tuple[str, int, tuple[LineageEdge, ...]]
 
+# predicate-bearing Substrait relation kinds, the plan-side twin of the `tabular/columnar#SCAN` `_PREDICATE_NODES`
+# widening: a foreign plan's receipt counts the same predicate classes a local statement does, so one provenance
+# grain spans both wires and a board comparing them is not comparing two different measures.
+_PLAN_PREDICATES: Final[frozenset[str]] = frozenset({"filter", "join", "hash_join", "merge_join", "nested_loop_join"})
+
+# `_REL` pins the descriptor identity the walk recognises a relation BY, wherever in the message tree it sits.
+_REL: Final = substrait_proto.Rel.DESCRIPTOR
+
+
+def _plan_rels(plan: "substrait_proto.Plan") -> "Iterator[str]":
+    # ONE depth-first walk over the plan's WHOLE message tree, generic on two axes: `Rel` is a protobuf `oneof`, so
+    # `WhichOneof` names each node, and a relation is recognised by its own descriptor rather than by the field that
+    # holds it — so a relation nested under an `Expression.Subquery` counts exactly as a direct `input`/`left`/
+    # `inputs` child does. `sqlglot.find_all` walks a subquery's predicates on the SQL legs, so a `Rel`-typed-field
+    # roster alone reports a plan whose only join sits inside a scalar subquery as carrying zero predicates,
+    # breaking the very parity this census claims. A relation kind the spec adds upstream walks free.
+    # `HasField` gates each unset singular message: the algebra is mutually recursive, so descending into a default
+    # sub-message would walk `Rel`->`Expression`->`Rel` forever. Map entries carry keys, never messages.
+    def walked(node: Any) -> "Iterator[str]":
+        if node.DESCRIPTOR is _REL:
+            kind = node.WhichOneof("rel_type")
+            if kind is not None:
+                yield kind
+                yield from walked(getattr(node, kind))
+            return
+        for field in node.DESCRIPTOR.fields:
+            if field.message_type is None or field.message_type.GetOptions().map_entry:
+                continue
+            held = getattr(node, field.name)
+            for child in held if field.is_repeated else ((held,) if node.HasField(field.name) else ()):
+                yield from walked(child)
+
+    for entry in plan.relations:
+        yield from walked(entry.root.input if entry.WhichOneof("rel_type") == "root" else entry.rel)
+
+
+def _plan_provenance(wire: bytes) -> Provenance:
+    # `_reach` already proved these bytes parse, so the census reads the admitted plan rather than reporting the
+    # placeholder a foreign leg would otherwise carry: predicate-bearing relations count the SAME classes the SQL
+    # legs count through `_PREDICATE_NODES`, and the relation roster rides the lineage slot so an inbound receipt
+    # carries the plan's real shape. A parse re-run here is the cost of keeping the gate free of receipt concerns.
+    # Extension urns ride that same slot under their own edge class: reach RESOLVED every one of them to admit the
+    # plan, and a foreign producer's function vocabulary is the one provenance fact no relation kind carries — an
+    # urn the estate later retires reads off the receipts that already used it.
+    plan = substrait_proto.Plan()
+    plan.ParseFromString(wire)
+    rels = tuple(_plan_rels(plan))
+    edges = (*(("substrait", kind) for kind in rels), *(("substrait-urn", named.urn) for named in plan.extension_urns))
+    return "substrait-plan", sum(1 for kind in rels if kind in _PLAN_PREDICATES), edges
+
+
+def _endpoint(dsn: str) -> str:
+    # a DSN carries `user:password` material and a receipt is DURABLE evidence contributed onward, so provenance
+    # keeps the scheme-host-path coordinate and drops the userinfo, query, and fragment with it; a DSN carrying
+    # no `//` authority (a local file or `:memory:`) has no credential band to strip and rides verbatim.
+    parsed = urlsplit(dsn)
+    host = f"{parsed.hostname or ''}:{parsed.port}" if parsed.port else (parsed.hostname or "")
+    return dsn if not parsed.netloc else urlunsplit((parsed.scheme, host, parsed.path, "", ""))
+
 
 # imported `tabular/columnar#SCAN` fold — applied here, never re-spelling the byte-identical `find_all(*_PREDICATE_NODES)`.
 def _provenance(spec: QuerySpec) -> Provenance:
@@ -717,42 +1316,82 @@ def _provenance(spec: QuerySpec) -> Provenance:
         case QuerySpec(tag="ir", ir=(expr, emit)):
             text = emit.sql(expr)
             return text, predicate_count(text), SqlGate(read=emit.dialect, write=emit.dialect).edges(text)
-        case QuerySpec(tag="rel", rel=(flt, _, _)):
+        case QuerySpec(tag="rel", rel=(_frame, flt, _project, _group_by)):
             return spec.tag, int(flt is not None), ()
-        case QuerySpec(tag="agnostic", agnostic=(_, predicates, _, _)):
+        case QuerySpec(tag="agnostic", agnostic=(_frame, _select, predicates, _group_by, _aggs)):
             return spec.tag, len(predicates), ()
-        case QuerySpec(tag="remote", remote=(sql, dsn, _, _, _)):
-            return dsn, predicate_count(sql), SqlGate().edges(sql)
-        case QuerySpec(tag="streaming", streaming=(plan, _, _)):
+        case QuerySpec(tag="remote", remote=(_subject, dsn, _driver, RemoteOp.INGEST | RemoteOp.PROBE, _transport)):
+            # `Remote`'s first slot carries the op's SUBJECT, and on these two it is a TARGET TABLE NAME the driver
+            # resolves through its own catalog rather than a statement — the same split `_dbapi_op` dispatches on.
+            # Parsing a bare identifier as SQL reports lineage the operation never expressed, and a name the parser
+            # refuses raises past a fence that fails the receipt AFTER the remote already committed.
+            return _endpoint(dsn), 0, ()
+        case QuerySpec(tag="remote", remote=(sql, dsn, _driver, _op, transport)):
+            # each remote engine's own dialect parses its statement; a DuckDB default silently mis-reads a
+            # Snowflake or Postgres statement and reports lineage the query never expressed.
+            gate = SqlGate(read=transport.dialect, write=transport.dialect)
+            return _endpoint(dsn), predicate_count(sql), gate.edges(sql)
+        case QuerySpec(tag="streaming", streaming=(plan, _runner, _cluster)):
             return (
                 plan.source,
                 predicate_count(plan.sql) if plan.sql else int(plan.predicate is not None),
                 SqlGate().edges(plan.sql) if plan.sql else (),
             )
-        case QuerySpec(tag="federated", federated=(sql, _, _)):
-            # outbound carries lineage/predicates off the minting SQL; the inbound plan-bytes leg carries none (foreign provenance).
-            return ("substrait-plan" if sql is None else sql, predicate_count(sql) if sql else 0, SqlGate().edges(sql) if sql else ())
-        case QuerySpec(tag="flight", flight=(_, dsn)):
-            # ticket redemption executes a producer-held plan — provenance is the endpoint alone, no local SQL to count or trace.
-            return dsn, 0, ()
+        case QuerySpec(tag="federated", federated=(Federation(tag="mint", mint=text), _stores, _tables)):
+            return text, predicate_count(text), SqlGate().edges(text)
+        case QuerySpec(tag="federated", federated=(Federation(tag="execute", execute=wire), _stores, _tables)):
+            return _plan_provenance(wire)
+        case QuerySpec(tag="flight", flight=(plan, dsn, _transport)):
+            # ticket redemption executes a producer-held plan, so the endpoint names the source while the plan's own
+            # census carries the shape — an endpoint-only provenance reports every remote query as one opaque leg.
+            _source, predicates, edges = _plan_provenance(plan)
+            return _endpoint(dsn), predicates, edges
         case unreachable:
             assert_never(unreachable)
 
 
-def receipt_of(spec: QuerySpec, table: pa.Table) -> "RuntimeRail[QueryReceipt]":
+def _wire(spec: QuerySpec, table: pa.Table) -> "Option[bytes]":
     # FEDERATED and FLIGHT arms key by the PLAN BYTES — the stamped schema metadata or the ticket-minting command — so the
-    # in-process execution and the ticket redemption of one Persistence plan share one reuse-ledger dedupe key; every other
-    # arm keys by the canonical Arrow result bytes through the railed `ContentIdentity.of`.
-    source, predicates, edges = _provenance(spec)
-    wire = (table.schema.metadata or {}).get(_PLAN_META, b"") if spec.tag == "federated" else spec.flight[0] if spec.tag == "flight" else None
-    if wire is not None:
-        # plan-keyed arms carry the profile band too — the federated arm's datafusion harvest rides the same table
-        # metadata the plan wire rides, so a plan-keyed receipt is profile-bearing exactly as a railed one.
-        harvested = EngineProfile.from_table(table)
-        return ContentIdentity.of("query.plan", wire).map(
-            lambda key: QueryReceipt.of(spec.tag, source, table, key, predicate_count=predicates, lineage_edges=edges, profile=harvested)
+    # in-process execution and the ticket redemption of one Persistence plan share one reuse-ledger dedupe key. An absent
+    # stamp is `Nothing` rather than empty bytes, because a zero-length key collapses every unstamped result onto one slot.
+    match spec:
+        case QuerySpec(tag="federated"):
+            return Option.of_optional((table.schema.metadata or {}).get(_PLAN_META))
+        case QuerySpec(tag="flight", flight=(plan, _dsn, _transport)):
+            return Some(plan)
+        case QuerySpec():
+            return Nothing
+
+
+def receipt_of(spec: QuerySpec, table: pa.Table) -> "RuntimeRail[QueryReceipt]":
+    # `_provenance` drives `sqlglot` over caller SQL, so a malformed or dialect-foreign statement raises past the
+    # rail this signature declares — one `boundary` fence converts it once, and a receipt mint never crashes the
+    # run that already produced its table.
+    return boundary("query.provenance", lambda: _provenance(spec)).bind(lambda fold: _keyed(spec, table, fold))
+
+
+def _keyed(spec: QuerySpec, table: pa.Table, fold: Provenance) -> "RuntimeRail[QueryReceipt]":
+    source, predicates, edges = fold
+    # plan-keyed arms carry the profile band too — the federated arm's datafusion harvest rides the same table
+    # metadata the plan wire rides, so a plan-keyed receipt is profile-bearing exactly as a railed one; every
+    # other arm keys by the canonical Arrow result bytes through the railed `ContentIdentity.of`.
+    return (
+        _wire(spec, table)
+        .map(
+            lambda wire: ContentIdentity.of("query.plan", wire).map(
+                lambda key: QueryReceipt.of(
+                    spec.tag,
+                    source,
+                    table,
+                    key,
+                    predicate_count=predicates,
+                    lineage_edges=edges,
+                    profile=EngineProfile.from_table(table),
+                )
+            )
         )
-    return QueryReceipt.railed(spec.tag, source, table, predicate_count=predicates, lineage_edges=edges)
+        .default_with(lambda: QueryReceipt.railed(spec.tag, source, table, predicate_count=predicates, lineage_edges=edges))
+    )
 ```
 
 ## [03]-[RESEARCH]
@@ -761,4 +1400,4 @@ def receipt_of(spec: QuerySpec, table: pa.Table) -> "RuntimeRail[QueryReceipt]":
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [SUBSTRAIT_DECLINE_WHY]-[OPEN]: which capability gap keeps `pyarrow.substrait` declined beside the `datafusion` federation executor and the `duckdb-substrait` round-trip — consumer-only surface, missing plan validation, or extension coverage; `libs/python/data/.api/pyarrow.md` substrait members, then Context7 pyarrow docs for `substrait.run_query` scope.
+(none)

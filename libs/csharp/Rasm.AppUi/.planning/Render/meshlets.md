@@ -295,22 +295,27 @@ public sealed record ResidencyBudget(
     public const string PrefetchInstrument = "rasm.appui.viewport.residency.prefetch";
     public const string PoolInstrument = "rasm.appui.viewport.residency.pool";
 
-    public static TelemetryContributorPort TelemetryRow(LevelCells cells, string version, string schemaUrl) =>
-        AppUiTelemetry.Contribute(version, schemaUrl,
-            new(EvictInstrument, InstrumentKind.Level, "{page}", "tiles the current plan marked for eviction",
-                Level: cells.Reader(EvictInstrument)),
-            new(PrefetchInstrument, InstrumentKind.Level, "{page}", "tiles the current plan queued for prefetch",
-                Level: cells.Reader(PrefetchInstrument)),
-            new(PoolInstrument, InstrumentKind.Levels, "By", "planned VRAM bytes by residency pool",
-                Levels: cells.Reader(PoolInstrument, "pool")));
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            InstrumentSpec.Level(EvictInstrument, "{page}", "tiles the current plan marked for eviction", MeasureForm.Whole),
+            InstrumentSpec.Level(PrefetchInstrument, "{page}", "tiles the current plan queued for prefetch", MeasureForm.Whole),
+            InstrumentSpec.Levels(PoolInstrument, "By", "planned VRAM bytes by residency pool",
+                MeasureForm.Whole, AppUiTelemetry.PoolSlot));
 
     // Levels beside their writer: the caller threads every accepted plan through Observe, so the residency
-    // gauges — evict, prefetch, and the per-pool byte levels — read the live plan at collection cadence.
-    public static ResidencyPlan Observe(LevelCells cells, ResidencyPlan plan) =>
-        (cells.Level(EvictInstrument, plan.Evict.Count),
-         cells.Level(PrefetchInstrument, plan.Prefetch.Count),
-         cells.Level(PoolInstrument, "resident", plan.ResidentBytes),
-         cells.Level(PoolInstrument, "prefetch", plan.PrefetchBytes), plan).Item5;
+    // gauges — evict, prefetch, and the per-pool byte levels — read the live plan at collection cadence, and
+    // every write rides the kernel pulled gate so an unmounted level refuses instead of dropping silently.
+    public static Fin<ResidencyPlan> Observe(InstrumentSet set, ResidencyPlan plan) =>
+        PoolRows.TraverseM(row => set.Level(PoolInstrument, row.Pool, row.Read(plan))).As()
+            .Bind(_ => set.Level(EvictInstrument, plan.Evict.Count))
+            .Bind(_ => set.Level(PrefetchInstrument, plan.Prefetch.Count))
+            .Map(_ => plan);
+
+    // Residency pools are a fanned dimension over ONE keyed family, so a third pool is one row here rather
+    // than a third write beside its siblings.
+    static readonly Seq<(string Pool, Func<ResidencyPlan, long> Read)> PoolRows = Seq(
+        ("resident", (Func<ResidencyPlan, long>)(static plan => plan.ResidentBytes)),
+        ("prefetch", static plan => plan.PrefetchBytes));
 }
 ```
 

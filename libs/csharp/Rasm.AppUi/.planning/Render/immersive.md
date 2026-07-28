@@ -4,9 +4,9 @@ One immersive owner binds OpenXR stereo design review plus `XR_FB_passthrough` o
 
 ## [01]-[INDEX]
 
-- [01]-[XR_SESSION]: Instance/system/session lifecycle against the shared `Wgpu` graphics binding; flat-fold fallback.
-- [02]-[STEREO_FRAME]: The predicted-display-time frame loop submitting one stereo projection layer per frame.
-- [03]-[XR_INPUT_PASSTHROUGH]: The action-set controller model and the `XR_FB_passthrough` env-blend composition.
+- [02]-[XR_SESSION]: Instance/system/session lifecycle against the shared `Wgpu` graphics binding; flat-fold fallback.
+- [03]-[STEREO_FRAME]: The predicted-display-time frame loop submitting one stereo projection layer per frame.
+- [04]-[XR_INPUT_PASSTHROUGH]: The action-set controller model and the `XR_FB_passthrough` env-blend composition.
 
 ## [02]-[XR_SESSION]
 
@@ -16,7 +16,7 @@ One immersive owner binds OpenXR stereo design review plus `XR_FB_passthrough` o
 - Auto: the session creates against the graphics-binding `next` chain sharing the same physical device, queue family, and queue index the wgpu instance negotiated (`KHR_vulkan_enable2`, `GraphicsBindingVulkanKHR`) so the meshlet/path-trace/splat passes render into the OpenXR swapchain images with the one device — a second GPU device for the immersive path is the cross-adapter copy penalty the shared binding avoids; the session probes for `XR_FB_passthrough` through `EnumerateInstanceExtensionProperties` and lists it in `InstanceCreateInfo.EnabledExtensionNames` when advertised; the absence of an installed loader (`libopenxr_loader`) is the `Flat(LoaderAbsent)` capability value that renders through the flat `Render/pipeline` viewport, so the immersive session is an optional surface the desktop path degrades from with the cause preserved and no XR session constructed; every acquired native handle records as its typed `XrHandle` case on the session `XrHandleLedger`, and release is the ledger fold in reverse-acquisition order through the matching `DestroyXxx`/`DestroyXxxFB` entrypoint with each `Result` checked.
 - Receipt: the session creation emits a session-resolved evidence row — system id, view config, swapchain format, passthrough-available flag; `TelemetryRow` contributes the session-resolved and session-absent instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: Silk.NET.OpenXR, Silk.NET.OpenXR.Extensions.FB, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
-- Growth: a new XR extension is one enabled-extension-name row; one immersive instrument is one `InstrumentRow` on `Immersive.TelemetryRow`; zero new surface.
+- Growth: a new XR extension is one enabled-extension-name row; one immersive instrument is one `InstrumentSpec` row on `Immersive.TelemetryRow`; zero new surface.
 - Boundary: the session shares the one `Wgpu` device the `Render/pipeline` viewport leases through the branch `ONE_WGPU_DEVICE` `EMBED_CAPSULE` law — a second GPU context for the immersive path is the `[04]-[BOUNDARIES]` rejected form, so the OpenXR session created with the Vulkan binding shares the wgpu device's physical device, queue family, and queue index; `Silk.NET.OpenXR` carries no bundled native runtime so it P/Invokes the host-installed loader (`.api/api-silk-openxr.md` local admission) and the loader-absent case is `Flat(LoaderAbsent)` — macOS ships no Apple OpenXR loader (visionOS uses ARKit/RealityKit), so the immersive session activates on Windows/Linux desktop hosts where the loader is present and lands `Flat(PlatformUnsupported)` on macOS, the session create being a capability probe not a launch precondition, and a rejected XR session (`SessionRejected`/`SwapchainFailed`) stays a distinguishable fault, never conflated with the normal no-loader state; all native handles (`Instance`, `Session`, `Swapchain`, `Space`, `ActionSet`, and the FB passthrough/foveation set) release through the `XrHandleLedger` reverse-order fold naming each matching `DestroyXxx`/`DestroyXxxFB` entrypoint with its `Result` checked — an opaque `IDisposable` teardown erasing the handle-to-destroy correspondence is the deleted form; the runtime arm is SPIKE-gated exactly as the viewport; the `Silk.NET.OpenXR.Extensions.FB` passthrough rides the same `2.23.0` line as the core (Silk.NET publishes its whole core-plus-extension set from one monorepo release) so no version split.
 
 ```csharp signature
@@ -152,10 +152,10 @@ public sealed record ImmersiveSession(
     public const string ResolvedInstrument = "rasm.appui.immersive.session.resolved";
     public const string AbsentInstrument = "rasm.appui.immersive.session.absent";
 
-    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
-        AppUiTelemetry.Contribute(version, schemaUrl,
-            new(ResolvedInstrument, InstrumentKind.Count, "{session}", "XR sessions resolved by system id"),
-            new(AbsentInstrument, InstrumentKind.Count, "{session}", "XR session creation absences"));
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            InstrumentSpec.Count(ResolvedInstrument, "{session}", "XR sessions resolved by system id", MeasureForm.Whole),
+            InstrumentSpec.Count(AbsentInstrument, "{session}", "XR session creation absences", MeasureForm.Whole));
 }
 ```
 

@@ -426,10 +426,10 @@ public static class IntentApply {
 
 - Owner: `LiveWire` the in-session sync path, the collab-frame W3C wire-context carrier, and the pre-commit/JSON forensics owner; `CollabWireContext` the W3C carrier value and `CollabFrame` the carrier-plus-delta frame; `SnapshotAccelerator` the content-keyed cold-start accelerator.
 - Entry: `public IDisposable Broadcast(Func<CollabFrame, IO<Unit>> sink)` — subscribes each local op-log delta, frames it with the injected W3C carrier, and pushes the `CollabFrame` to the composition-bound transport sink; `public IO<CollabSyncReceipt> Merge(params CollabFrame[] frames)` — extracts the lead frame's ORIGINATING correlation and tenant, imports one framed delta through `ImportWith` or a reconnect burst through `ImportBatch` arity-discriminated by input shape, collapses the import verdict onto the one `IO` rail, and seals the receipt on both originating values; `public IDisposable TapPreCommit(Func<PreCommitFact, IO<Unit>> sink, Func<Error, IO<Unit>> faults)` — the pre-commit forensics tap producing the dev-loop `PreCommitFact`; `public Fin<string> ExportJson(VersionVector from, VersionVector to)` — the readable op-window export.
-- Auto: `SubscribeLocalUpdate` yields each local delta `byte[]` so the only outbound path is the transport broadcast and the only inbound path is the one `Merge` entrypoint, and the document is the merge authority so the rail holds NO custom merge logic; the subscription callback is a named terminal edge — recovery composes into the `Faults` route before its one `Run`, so a failed outbound publication is observed evidence, never a discarded `Fin`; each outbound delta frames through the composition-bound W3C setter so `traceparent`, `tracestate`, baggage, and promoted `rasm.tenant` metadata ride beside the delta, and merge retains the extracted correlation and tenant on `CollabSyncReceipt`; a peer joining an ACTIVE session requests `ExportMode.Updates(VersionVector)` against its last-seen frontier FROM A LIVE PEER — session-ephemeral wire, never persisted; the `ImportStatus` carries the success spans plus the pending spans so a delta whose dependency is missing surfaces its pending range rather than silently dropping; `SubscribePreCommit` surfaces each pending commit as a `PreCommitFact` for the dev-loop evidence stream and `ExportJsonUpdates` renders any version window as readable JSON, so a merge dispute reads as an inspectable operation log without a second collab surface; the live delta rides the AppHost bus/topics law — the document topic carries framed deltas as opaque `DomainEvent` payload rows (the AppHost `topics.md` `[COLLAB_DELTA_FEED]` row, both sides declared) and presence rides its separate ephemeral topic.
+- Auto: `SubscribeLocalUpdate` yields each local delta `byte[]` so the only outbound path is the transport broadcast and the only inbound path is the one `Merge` entrypoint, and the document is the merge authority so the rail holds NO custom merge logic; the subscription callback is a named terminal edge — recovery composes into the `Faults` route before its one `Run`, so a failed outbound publication is observed evidence, never a discarded `Fin`; each outbound delta frames through the composition-bound W3C setter so `traceparent`, `tracestate`, baggage, and promoted `TenantContext.TenantSlot` metadata ride beside the delta, and merge retains the extracted correlation and tenant on `CollabSyncReceipt`; a peer joining an ACTIVE session requests `ExportMode.Updates(VersionVector)` against its last-seen frontier FROM A LIVE PEER — session-ephemeral wire, never persisted; the `ImportStatus` carries the success spans and the pending spans so a delta whose dependency is missing surfaces its pending range rather than silently dropping; `SubscribePreCommit` surfaces each pending commit as a `PreCommitFact` for the dev-loop evidence stream and `ExportJsonUpdates` renders any version window as readable JSON, so a merge dispute reads as an inspectable operation log without a second collab surface; the live delta rides the AppHost bus/topics law — the document topic carries framed deltas as opaque `DomainEvent` payload rows (the AppHost `topics.md` `[COLLAB_DELTA_FEED]` row, both sides declared) and presence rides its separate ephemeral topic.
 - Receipt: a `CollabSyncReceipt` per merge carrying the delta count, total byte length, pending-span count, import success, originating correlation, and originating tenant — sealed through its `Diagnostics/evidence#RECEIPT_UNION` `EvidenceReceipt.CollabSync` case without replacing either carrier value; `TelemetryRow` contributes the merge, delta, byte, and pending instruments through the AppHost `TelemetryContributorPort`, every write fan-fed off this receipt's envelope; the pre-commit fact seals onto the dev-loop evidence sink under the `DevLoop.PreCommitKind` row (composition-bound), never a second receipt union.
 - Packages: LoroCs, Rasm (project), Rasm.Persistence (project), Rasm.AppHost (project, seam types), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
-- Growth: one sync instrument is one `InstrumentRow` on `LiveWire.TelemetryRow`; a new wire-context field is one carrier key; a new forensics verb is one member on this owner; zero new surface.
+- Growth: one sync instrument is one `InstrumentSpec` row on `LiveWire.TelemetryRow`; a new wire-context field is one carrier key; a new forensics verb is one member on this owner; zero new surface.
 - Boundary:
   - The session delta is IN-SESSION wire only — `SubscribeLocalUpdate` -> frame -> broadcast and `Merge` -> import within one epoch; a central merge server is the deleted form; Loro bytes crossing durable truth on either path is the deleted form.
   - W3C injection and extraction belong to AppHost `TraceContext`; AppUi holds only `CollabWireContext` and composition-bound `Inject`/`Extract` delegates. AppHost carries the generic propagation spine and the `[COLLAB_DELTA_FEED]` topic row, but no collab carrier adapter row exists, so `[COLLAB_WIRE_CONTEXT]` remains blocked on that exact reciprocal. A page-local propagator, a `traceparent` parse, or the false claim that `CommitWith(CommitOptions)` carries W3C context is the deleted form.
@@ -455,12 +455,12 @@ public readonly record struct CollabSyncReceipt(
     CorrelationId Correlation,
     Option<TenantContext> Tenant);
 
-// The W3C carrier is a string map — the getter/setter adapter pair AppHost `TraceContext` owns injects
-// on broadcast and extracts on merge; AppUi holds only the carrier value and the composition-bound
-// adapter delegates, naming no propagator and no transport. `rasm.tenant` is the promoted tenant baggage
-// key, so a merge applied on one client joins the originating client's correlation and tenant.
+// AppHost `TraceContext` owns the getter/setter adapter pair over this string-map carrier — injecting on
+// broadcast, extracting on merge — while AppUi holds only the carrier value and the composition-bound
+// adapter delegates, naming no propagator and no transport. `TenantContext.TenantSlot` is the promoted
+// tenant baggage key this carrier reads, so a merge applied on one client joins the originating client's
+// correlation and tenant, and a package-local key const re-mints the sentinel the kernel already owns.
 public sealed record CollabWireContext(Map<string, string> Carrier) {
-    public const string TenantBaggageKey = "rasm.tenant";
     public static readonly CollabWireContext Empty = new(Map<string, string>.Empty);
 
     public Option<string> Get(string key) => Carrier.Find(key);
@@ -484,20 +484,21 @@ public sealed record LiveWire(
     public const string AppliedInstrument = "rasm.appui.collab.merge.applied";
     public const string RejectedInstrument = "rasm.appui.collab.merge.rejected";
     public const string DeltasInstrument = "rasm.appui.collab.sync.deltas";
-    public const string BytesInstrument = "rasm.appui.collab.sync.bytes";
+    // Size, never bytes: the estate name grammar carries no unit suffix and the UCUM By unit states the measure.
+    public const string SizeInstrument = "rasm.appui.collab.sync.size";
     public const string PendingInstrument = "rasm.appui.collab.pending";
 
     // Merge, delta, and byte counts ride the evidence fan's collab-sync arm; the pending levels read
     // the fan-swapped keyed family, so a stalled peer surfaces as a standing per-document gauge, never
     // a stale count.
-    public static TelemetryContributorPort TelemetryRow(LevelCells cells, string version, string schemaUrl) =>
-        AppUiTelemetry.Contribute(version, schemaUrl,
-            new(AppliedInstrument, InstrumentKind.Count, "{merge}", "collab merges applied by document"),
-            new(RejectedInstrument, InstrumentKind.Count, "{merge}", "collab merges rejected by document"),
-            new(DeltasInstrument, InstrumentKind.Count, "{delta}", "collab deltas imported by document"),
-            new(BytesInstrument, InstrumentKind.Count, "By", "collab delta bytes imported by document"),
-            new(PendingInstrument, InstrumentKind.Levels, "{span}", "pending collab spans awaiting merge by document",
-                Levels: cells.Reader(PendingInstrument, "doc")));
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            InstrumentSpec.Count(AppliedInstrument, "{merge}", "collab merges applied by document", MeasureForm.Whole, AppUiTelemetry.DocSlot),
+            InstrumentSpec.Count(RejectedInstrument, "{merge}", "collab merges rejected by document", MeasureForm.Whole, AppUiTelemetry.DocSlot),
+            InstrumentSpec.Count(DeltasInstrument, "{delta}", "collab deltas imported by document", MeasureForm.Whole, AppUiTelemetry.DocSlot),
+            InstrumentSpec.Count(SizeInstrument, "By", "collab delta payload size imported by document", MeasureForm.Whole, AppUiTelemetry.DocSlot),
+            InstrumentSpec.Levels(PendingInstrument, "{span}", "pending collab spans awaiting merge by document",
+                MeasureForm.Whole, AppUiTelemetry.DocSlot));
 
     // Each local delta frames with the injected W3C carrier before it reaches the transport, so the
     // broadcast is a CollabFrame (carrier + bytes), never bare bytes; Inject is the AppHost TraceContext

@@ -1,6 +1,6 @@
 # [RASM_APPUI_ARCHITECTURE]
 
-`Rasm.AppUi` maps the APP-PLATFORM Avalonia product-UI engine over the settled receipt spine and the GPU render surface: each sub-domain page is a UI capability unit lowering onto the one 6xxx `AppUiFaultBand` and aligning with peers by contract, never by reference.
+`Rasm.AppUi` maps the APP-PLATFORM Avalonia product-UI engine over the settled receipt spine and the GPU render surface: each sub-domain page is a UI capability unit lowering onto the one 6xxx `AppUiFaultBand`. S4 seats it as the consuming leaf: it references `{Rasm, Rasm.AppHost, Rasm.Compute, Rasm.Persistence}` downward, re-owns none of their capability, and never becomes the composition root.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -66,7 +66,7 @@ Rasm.AppUi/
 
 Four member-resolved strata order the interior; `Diagnostics/Evidence` is the reciprocal hub — every owner derives its fault codes through `AppUiFaultBand` while `EvidenceReceipt` nests every producer's receipt record — so the hub seats S0 and the nesting reads as co-ownership, never an upward import; every consumption edge points down.
 
-- S0 substrate — the `AppUiFaultBand` 6xxx registry and `AppUiTelemetry` spine (`Diagnostics/Evidence`); every fault code traces here.
+- S0 substrate — `AppUiFaultBand` 6xxx codes and the `AppUiTelemetry` dimension slots (`Diagnostics/Evidence`) over the kernel signal capsule.
 - S0 vocabulary — pure `Theme` (`TokenRow`, `MotionToken`, `AssetKeys`); every visual literal traces here.
 - S1 spines — one owner per fabric: the `CommandIntent` verb table with its `CommandDeck`, and the `VirtualWindowSpec` windowing fabric.
 - S1 spines — the `LayoutSolver` constraint panel, the `EditReceipt` inspection rail, and the `RenderReceipt`/`RenderGraph` render spine.
@@ -132,11 +132,12 @@ config:
 ---
 flowchart LR
     accTitle: AppUi AEC-domain, render-source, and storage seams
-    accDescr: AppUi render, chart, and collaboration owners exchanging residency projections, receipts, boundaries, content keys, and shared-device shapes with the AEC peers Compute, Fabrication, Materials, Bim, the kernel, and the Persistence store.
+    accDescr: AppUi render, chart, collaboration, and diagnostics owners exchanging residency projections, receipts, boundaries, content keys, and shared-device shapes with the AEC peers Compute, Fabrication, Materials, Bim, the kernel, and the Persistence store.
     subgraph appui[RASM.APPUI]
         Render[Render plane]
         Charts[Chart planes]
         Collab[Collab plane]
+        Diagnostics[Diagnostics]
     end
     Compute{{Rasm.Compute}}
     Fabrication([Rasm.Fabrication])
@@ -152,7 +153,8 @@ flowchart LR
     Rasm -->|"[CONTENT_KEY]: ContentHash"| Render
     Bim -->|"[SHAPE]: GeoTiles"| Charts
     Bim -->|"[RECEIPT]: CostSchedule"| Charts
-    Persistence -->|"[RECEIPT]: DuckProfileReceipt"| Charts
+    Persistence -->|"[PROJECTION]: telemetry measure series"| Charts
+    Persistence -->|"[RECEIPT]: resident ReceiptEnvelope"| Diagnostics
     Bim -->|"[PORT]: IssueBoard"| Collab
     Collab -->|"[PROJECTION]: ReplayWindow"| Persistence
     Collab -->|"[CONTENT_KEY]: SnapshotAccelerator"| Persistence
@@ -181,6 +183,7 @@ flowchart LR
         Diagnostics[Diagnostics]
     end
     AppHost{{Rasm.AppHost}}
+    Rasm([Rasm])
     Core([typescript:core])
     Ui([typescript:ui])
     Shell -->|"[WIRE]: CommandPayloadWire"| Core
@@ -190,13 +193,14 @@ flowchart LR
     Render -->|"[RECEIPT]: RenderReceipt"| Ui
     AppHost -->|"[PORT]: DeterminismContext"| Document
     Diagnostics <-->|"[FAULT]: FaultBand"| AppHost
-    AppHost -->|"[PORT]: ReceiptSinkPort + HookRail"| Diagnostics
+    Rasm -->|"[PORT]: ReceiptSinkPort + InstrumentSpec + Slo"| Diagnostics
+    AppHost -->|"[PORT]: HookRail"| Diagnostics
     AppHost -->|"[PORT]: ProfileSampleSource"| Diagnostics
     Collab <-->|"[TRANSPORT]: CollabWireContext"| AppHost
 ```
 
 - `[PORT]: DeterminismContext` into `Document` — the AppHost runtime port spine composed at app composition; `CapabilityPin` anchors it.
-- `[PORT]` into `Diagnostics` — observability spine: owners seal evidence through `ReceiptSinkPort`; telemetry projects facts, never produces them.
+- `[PORT]` into `Diagnostics` — observability spine: owners seal evidence through the kernel `ReceiptSinkPort`, declare instruments as kernel `InstrumentSpec` rows, and bind objectives through the kernel SLO algebra; telemetry projects facts, never produces them, and the AppHost half of the edge is the `HookRail` receipt point the fan taps.
 - Instrument rows contribute through `TelemetryContributorPort` on the `TelemetrySource.AppUi` meter.
 - Evidence fan subscribes to the `HookRail` receipt point as one observe row.
 - `[CONTENT_KEY]` edges are one idiom — every content-identity mint composes the kernel `ContentHash.Of` seed-zero entry.
@@ -204,14 +208,16 @@ flowchart LR
 - `[PROJECTION]: ReplayWindow` also serves the Render version-compare lane — values only, AppUi runs no ledger read.
 - Persistence `ReplayWindow`/commit-DAG fold derives the `(ElementId, DiffClass)` classification `VersionGhost` renders as `VisibilityOverride` rows.
 - `[RECEIPT]: ConstructionState` — `SchedulePlayback.FromSchedule` reads `ConstructionState.At`/`TaskKind` as Bim-owned 4D schedule values.
-- `[RECEIPT]: DuckProfileReceipt` into `Charts` — telemetry tiles consume the Persistence profile receipts as values over the analytical query lane.
+- `[PROJECTION]: telemetry measure series` into `Charts` — store tiles name a facet coordinate beside its rollup column on the Persistence telemetry series and reach it through one injected read arrow.
+- `[RECEIPT]: resident ReceiptEnvelope` into `Diagnostics` — the `EvidenceSource.Resident` arrow hands back envelopes, so the correlation join and the billing accrual stay one fold over two sources.
 - Profiling custody, the pg_stat slots, and the `store.<domain>.<verb>` grammar stay Persistence-side.
 - `[TRANSPORT]: CollabWireContext` — `Collab/sync` frames each delta as a `CollabFrame`, W3C carrier and Loro bytes.
 - Merge extracts the originating correlation; AppUi holds only the composition-bound `Inject`/`Extract` delegates of AppHost `TraceContext`.
 - `Rasm.AppHost [COLLAB_WIRE_CONTEXT]` owns the reciprocal — the `TraceContext` collab-frame adapter and the `COLLAB_DELTA_FEED` frame schema.
 - `[PORT]: ProfileSampleSource` lands at `Diagnostics/devloop`, each sample keyed by correlation.
 - Capture stays AppHost-side — Pyroscope span profiles, EventPipe CPU stacks; `FlameNode.Of` folds the samples into the frame tree.
-- Feed rides an existing AppHost port row, never a new `PortCardinality` port; `Rasm.AppHost [PROFILE_FLAME_JOIN]` owns the reciprocal.
+- Feed rides an existing AppHost port row, never a new `PortCardinality` port.
+- Samples carry the producer's symbolization posture, so AppUi renders the frames it received and resolves no address itself.
 
 `Diagnostics ⇄ Rasm.AppHost` `[FAULT]` edge is the 6xxx `AppUiFaultBand` neighborhood: AppUi lowers every fault union onto its band and the AppHost lifecycle registry pins the reciprocal range, so fault codes never collide across the platform seam.
 

@@ -21,7 +21,7 @@ This realtime serve plane: SSE and WebSocket endpoints over the branch's own fee
 - Law: tokens are opaque and bounded — the `Resume` brand admits the wire form at the header seam; minting is the source's, and this plane never parses a token's interior.
 - Packages: `effect` (`Schema`, `Option`, `Stream`); `@rasm/ts/core` (`FaultClass`).
 
-```typescript
+```typescript signature
 import { Sse } from "@effect/experimental"
 import { ChannelSchema, type HttpApp, HttpServerRequest, HttpServerResponse, Ndjson, Socket } from "@effect/platform"
 import { SqlClient, type SqlError } from "@effect/sql"
@@ -75,13 +75,13 @@ declare namespace Realtime {
 
 [SSE_ROW]:
 - Owner: `Realtime.sse` — one endpoint fold for every SSE feed in the branch: decode `Last-Event-ID` through the `Resume` brand (absence is a fresh attach, never a fault), open `source.from(resume)`, encode each item through its schema into an `Sse.Event` whose `id` is the item's own token, and merge the heartbeat cadence so proxies never reap an idle feed. This emitted family is exactly the `Sse.Event` family `net/channel#FEED_SEAM` decodes, so neither endpoint invents a second frame arm.
-- Law: `_SSE` is the policy row — `beat` (heartbeat cadence) and `lag` (the buffer bound between the fold and a slow consumer, `"suspend"` so pressure stops the producer before any frame is lost) — one value tuned per app, threaded nowhere. A dropping or sliding buffer is forbidden on a resumable stream because it creates an in-connection gap the browser's reconnect token cannot attest.
+- Law: `_SSE` is the policy row — `beat` (heartbeat cadence) and `lag` (the buffer bound between the fold and a slow consumer, `"suspend"` so pressure stops the producer before any frame is lost) — one value tuned per app, threaded nowhere. Dropping and sliding buffers are forbidden on a resumable stream because it creates an in-connection gap the browser's reconnect token cannot attest.
 - Law: the encode seam is the codec's own — frames lower to response bytes through `Sse.encoder`, the heartbeat is a named `ping` event clients ignore by name, and a tokenless item writes no `id` so the browser attests only coordinates the source honors.
 - Law: a source's own `LiveFault` passes the seam intact; any foreign source fault normalizes to `closed` at the one `Stream.mapError` seam — the same one-seam fold the socket row runs.
 - Boundary: which feeds exist and who attaches is `[06]`'s admission; the inbound SSE parser is `net/channel#FEED_SEAM`'s — this endpoint only emits.
 - Packages: `@effect/experimental` (`Sse`); `@effect/platform` (`HttpServerRequest`, `HttpServerResponse`); `effect` (`Stream`, `Schedule`, `Duration`).
 
-```typescript
+```typescript signature
 const _SSE = {
   beat: Duration.seconds(25),
   lag: 64,
@@ -142,7 +142,7 @@ const _sse = <A, I, E, R, R2>(
 - Law: a decode failure on any inbound frame ends the session typed — a malformed client frame is a `LiveFault`, never a silent drop; the channel's error fold normalizes every transport, frame, and parse fault into the family at the one `Channel.mapError` seam.
 - Packages: `@effect/platform` (`Socket`, `Ndjson`, `ChannelSchema`, `HttpServerRequest`); `effect` (`Channel`, `Chunk`).
 
-```typescript
+```typescript signature
 const _socket = <In, IEnc, Out, OEnc, RIn, ROut>(
   frames: {
     readonly inbound: Schema.Schema<In, IEnc, RIn>
@@ -173,7 +173,7 @@ const _socket = <In, IEnc, Out, OEnc, RIn, ROut>(
 - Growth: a new feed family (a flag-verdict stream, a vital fact stream) is one adapter over the same contract; the endpoints never change.
 - Packages: `@rasm/ts/data` (`Live`); `@rasm/ts/core` (`Presence`, `Hlc`); `../net/pubsub.ts` (`Fanout`); `effect` (`Stream`, `Option`, `DateTime`).
 
-```typescript
+```typescript signature
 const _query = <A, R>(
   bound: Live.Bound<A, R>,
 ): Realtime.Source<A, SqlError.SqlError | ParseResult.ParseError, R | SqlClient.SqlClient> => ({
@@ -223,7 +223,7 @@ const _roster = <E, R>(
 - Growth: a new admission axis (a payload ceiling, a rate row) is one `Rule` field read at its gate; a new channel family is one app-side row.
 - Packages: `effect` (`Trie`, `Option`, `FiberMap`, `HashMap`, `Ref`, `Scope`); `@rasm/ts/core` (`Presence`, `Hlc`); `./api.ts` (`Principal`).
 
-```typescript
+```typescript signature
 const _Channel = Schema.NonEmptyString.pipe(Schema.maxLength(128), Schema.pattern(/^[a-z0-9][a-z0-9:_-]*$/), Schema.brand("Channel"))
 
 declare namespace Admission {
@@ -312,7 +312,7 @@ const Admission = { Channel: _Channel, Rule: _Rule, make: _make } as const
 - Boundary: upgrade mechanics inside the mounted app are the satisfier's; this page owns the Tag and its contract.
 - Packages: `@effect/platform` (`HttpApp`); `effect` (`Context`, `Layer`); each satisfier's own packages stay at the app root.
 
-```typescript
+```typescript signature
 declare namespace Mount {
   type Row = { readonly prefix: `/${string}`; readonly app: HttpApp.Default }
 }
@@ -338,4 +338,4 @@ export { Admission, LiveFault, Mount, Realtime }
 
 ## [08]-[RESEARCH]
 
-- [CONNECT_MOUNT]-[BLOCKED]: which exact adapter fold lifts `connectNodeAdapter(options): NodeHandlerFn` into `HttpApp.Default` without bypassing `Seam.guard`, and which server interceptor option continues W3C context before the handler; route first through `libs/typescript/runtime/.api/connectrpc-connect-node.md` `[03]-[ENTRYPOINTS]`, then `libs/typescript/.api/connectrpc-connect-node.md`, with the host interop rows at `libs/typescript/.api/effect-platform-node.md`; arm when the handler lift and interceptor pair are both exact and one mounted fence composes them.
+- [CONNECT_MOUNT_LIFT]-[BLOCKED]: which owner publishes the node-handler lift a `Mount.Row` needs — `connectNodeAdapter(options)` answers a `NodeHandlerFn` and `HttpApp` exposes `fromWebHandler` over a FETCH handler alone, so nothing lifts a `NodeHandlerFn` into the `HttpApp.Default` the row carries, while `serve/route#LAYER_ROUTES` already drives a raw node handler through `NodeHttpServerRequest.toIncomingMessage`/`toServerResponse` without publishing that pair as a member, and `ConnectNodeAdapterOptions` declares no own `interceptors` field — the option reaches a caller only by inheritance from the package-internal `UniversalHandlerOptions`, so no stable adapter spelling carries it and `Seam.guard` covers every mounted row regardless, the router attaching it once above the catch-all; route through `libs/typescript/runtime/.planning/serve/route.md` `Router.RailMount`, `libs/typescript/.api/effect-platform-node.md`, and `libs/typescript/runtime/.api/connectrpc-connect-node.md`; arm when one published lift serves both the rail row and this port, since two spellings of one adapter fork the Mount contract.

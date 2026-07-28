@@ -6,9 +6,9 @@
 
 ## [01]-[INDEX]
 
-- [01]-[ADMISSION]: `LinkDemand` materializes dimensions and delegates once; generated owners admit coupled elements, keepouts, precedence, policy, and objective.
-- [02]-[ROUTING]: `Link.Route` jointly selects a precedence-safe tour and occurrence orientation against realized transition costs, then lowers each transition through one rail.
-- [03]-[EGRESS]: `Linked` projects through a caller-supplied arrow while retaining route, objective, reachability, and guard evidence.
+- [02]-[ADMISSION]: `LinkDemand` materializes dimensions and delegates once; generated owners admit coupled elements, keepouts, precedence, policy, and objective.
+- [03]-[ROUTING]: `Link.Route` jointly selects a precedence-safe tour and occurrence orientation against realized transition costs, then lowers each transition through one rail.
+- [04]-[EGRESS]: `Linked` projects through a caller-supplied arrow while retaining route, objective, reachability, and guard evidence.
 
 ## [02]-[ADMISSION]
 
@@ -25,6 +25,7 @@
 
 `Link.Route` chooses among direct, ramped, skim, lifted, visibility-routed, and controlled-descent transitions. Each posture is a case over one geometric transition; no nullable move family or sentinel cost crosses the rail.
 
+- Exemption: index-pruned arc intersection and graph search are measured kernel statement boundaries.
 - Entry: `Route<TOut>` parameterizes raw ingress, transition lowering, collision guard, and egress projection.
 - Auto: one precedence-aware beam state owns each chosen occurrence, variant, identity-change charge, realized obstacle route, and return-home score.
 - Auto: `BeamState` carries pending precedence in-degrees, so frontier readiness is one map probe per candidate; occurrence variants remain part of the ordering choice.
@@ -33,16 +34,15 @@
 - Auto: direct three-dimensional travel remains direct when the corridor and ramp envelope are safe; differing endpoint heights never force a skim.
 - Auto: clearance planes exceed endpoints and bounded obstacle tops; unbounded obstacles enter a visibility graph carrying each bulged span's arc apex beside its corner, whose connected components prove reachability before `ShortestPathsAStar` runs.
 - Packages: `ArcAlgebra.Apply` inflates arc-native keepouts; `StaticAABB2DIndex<double>.Query` prunes corridor tests; `PlineSegIntersection.Intersect` preserves bulged boundaries; `PlineSeg.SegMidpoint` places arc apexes; QuikGraph owns DAG, components, and weighted recovery; LanguageExt keeps failures flat.
-- Exemption: index-pruned arc intersection and graph search are measured kernel statement boundaries.
 - Boundary: `FabricationFault.LinkBlocked` names the stalled cursor and first withheld element; `Guard` verifies each segment without rewriting moves or refuses it without swallowed failure.
 
 ## [04]-[EGRESS]
 
 `Linked` is inverse-sufficient: `LinkSegment.Cutting` and `Transiting` keep cut and travel moves distinct, `Linked.Moves` projects guarded motion without erasing that split, and `LinkReceipt` preserves order, rejected alternatives, component evidence, guarded-move count, and full-route metrics.
 
+- Law: motion supplies transition lowering; its commit fold conditions and guards the linked program once. Posting and simulation retain typed transition metrics, and estimation consumes the realized motion clock without double-counting receipt duration.
+- Output: `Linked.PostingSource` carries transition evidence into canonical posting; the caller arrow retains other result projections.
 - Receipt: `TransitionReceipt` records transition endpoints, posture, distance, time, lift, retract, tool-change, and setup-change terms beside its objective score; `LinkReceipt.Total` adds cutting distance, time, thermal exposure, rotation, and pierces exactly once.
-- Projection: `Linked.PostingSource` carries transition evidence into canonical posting; the caller arrow retains other result projections.
-- Consumer: motion supplies transition lowering; its commit fold conditions and guards the linked program once. Posting and simulation retain typed transition metrics, and estimation consumes the realized motion clock without double-counting receipt duration.
 - Growth: a new machine posture is one `RetractKind` policy value; a new cost regime is one admitted `LinkObjective`; a new obstacle occurrence is one `Keepout` admission; a new move classification is one `LinkSegment` case.
 - Boundary: no route publishes `double.PositiveInfinity`, a disconnected partial tour, an open tour that never returns home, or unguarded moves.
 
@@ -591,7 +591,7 @@ public sealed record LinkStation(
         variant.Key, element.ToolKey, element.WorkOffset, variant.Entry, variant.Exit, variant.Moves, variant.Directives,
         variant.RotationPenalty, variant.ThermalExposure, variant.Pierces);
 
-    // A park inherits its neighbour's machine identity, so a home leg never scores a fabricated tool or setup change.
+    // Parking inherits the neighbour's machine identity, so a home leg never scores a fabricated tool or setup change.
     public static LinkStation Park(string key, Point3d point, LinkStation neighbour) => new(
         key, neighbour.ToolKey, neighbour.WorkOffset, point, point, Seq<Move>(), Seq<MotionDirective>(), 0.0, 0.0, 0);
 }
@@ -795,7 +795,7 @@ public static class Link {
         if (!Clear(from, liftedFrom, job.Keepouts, job.Policy.ToleranceMm)
             || !Clear(liftedTo, to, job.Keepouts, job.Policy.ToleranceMm))
             return Fin.Fail<(Seq<Point3d>, RetractKind, int)>(FabricationFault.LinkBlocked(from, to).ToError());
-        // A bulged span contributes its arc apex beside its endpoints, so a routed corridor never chords through an arc wall.
+        // Bulged spans contribute their arc apex beside their endpoints, so a routed corridor never chords through an arc wall.
         Seq<Point3d> vertices = Seq(liftedFrom, liftedTo)
             + job.Keepouts.Filter(static row => row.Extent is KeepoutExtent.Unbounded).Bind(row => row.Geometry.Bind(region =>
                 region.Boundary.Vertices.Bind((_, index) => region.Boundary.BulgeAt(index) == 0.0

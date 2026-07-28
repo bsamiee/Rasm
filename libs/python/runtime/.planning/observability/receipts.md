@@ -1,25 +1,26 @@
 # [PY_RUNTIME_RECEIPTS]
 
-This owner produces local evidence — typed receipts and structured log facts — and contributes nothing to provider install, product telemetry export, or health. Its drain taxonomy is MINTED here: a drain receipt IS local evidence, so `DrainOutcome`, the derived `DRAIN_COLUMNS`, and `DrainReceipt[T]` live on this page, and `execution/lanes#LANE` (the producing drain) and `observability/metrics#METRIC` (the `rasm.lane.drained` counter) import the taxonomy FROM this owner — no upward import survives and the column set can never drift.
+This owner produces local evidence — typed receipts and structured log facts — and contributes nothing to provider install, product telemetry export, or health. Its drain taxonomy is MINTED here: a drain receipt IS local evidence, so `DrainOutcome`, the derived `DRAIN_COLUMNS` beside the `DRAIN_DISPOSITIONS` carve that strips the admitted total off the terminal partition, and `DrainReceipt[T]` live on this page, and `execution/lanes#LANE` (the producing drain) and `observability/metrics#METRIC` (the `rasm.lane.drained` counter) import the taxonomy FROM this owner — no upward import survives and neither column set can drift.
 
-`ReceiptContributor` is the Protocol port every sibling's typed receipt streams through; `@receipted` harvests a contributor's stream on exit, so receipt production is a decorator rail, never scattered inline `emit` calls. `measured` is the one call-shaped evidence weave — span from the caller's scope, fault fence, rail flatten, fenced harvest, two-sided status close — the folder's sole span-lifecycle owner. `Redaction` is a `Classification`-keyed field policy the emit fold binds under `REDACTION_KEY`; the `observability/logging#PIPELINE` chain applies it to the assembled line and ships under its `LogShip` law. Inbound context rides the `continue_inbound`/`attach` pair — the cross-`libs/` `ONE_DISTRIBUTED_TRACE` Python leg against the C# `csharp:Rasm.AppHost/Observability/telemetry#CORRELATION_SPINE` producer.
+`ReceiptContributor` is the Protocol port every sibling's typed receipt streams through; `@receipted` harvests a contributor's stream on exit, so receipt production is a decorator rail, never scattered inline `emit` calls. `measured` is the one call-shaped evidence weave — span from the caller's scope, fault fence, rail flatten, fenced harvest, two-sided status close — the folder's sole span-lifecycle owner. `Redaction` is a `Classification`-keyed field policy the emit fold binds under `REDACTION_KEY`, classifying by key name at every depth; the `observability/logging#PIPELINE` chain applies it to the assembled line and ships under its `LogShip` law. Inbound context rides the `continue_inbound`/`attach` pair — the cross-`libs/` `ONE_DISTRIBUTED_TRACE` Python leg against the C# `csharp:Rasm.AppHost/Observability/telemetry#CORRELATION_SPINE` producer. This page mints the `ScopeKey` composition axis naming which embedded composition owns a custody row, and composes the `reliability/faults#FAULT` `scoped` stamp naming which library emitted a signal — the instrumentation coordinate homing one tier lower because `identity`, `clock`, `shapes`, and `wire` emit spans from below this owner and no import of theirs reaches it.
 
 ## [01]-[INDEX]
 
-- [02]-[RECEIPT]: the minted drain taxonomy and composition-scope vocabulary, the bracket-cheap `Cost` process-spend evidence, the self-projecting receipt union, the contributor port, the `@receipted` aspect and the `measured` weave, the `emit`/`emit_async` sink pair, the emit-bound redaction policy, and the inbound trace-context pair.
+- [02]-[RECEIPT]: minted drain taxonomy, the `ScopeKey` composition axis and its default-sink resolution, bracket-cheap `Cost` process-spend evidence, the self-projecting receipt union, the contributor port, the `@receipted` aspect and the `measured` weave, the `emit`/`emit_async` sink pair, the emit-bound redaction policy, and the inbound trace-context pair.
 
 ## [02]-[RECEIPT]
 
 - Owner: `Receipt` owns its own projection — every case folds to a `(LogLevel, name, EventDict)` triple through one total `project`, the event name its own slot, never packed under an `"event"` key the sink re-pops — so `Signals.emit` is a renderer-agnostic fold, never three hand-built dict arms. Case log disposition is data: the `fact` case reads its level off `PHASE_LEVEL`, so a new phase is one row, never a phase branch.
 - Cases: the three lifecycle phases share the one `fact` case as a `Phase` value, never three identical-payload sibling cases. `rejected` carries the whole fault and spreads the `reliability/faults#FAULT`-owned `BoundaryFault.facts()` projection — the subject is never a pre-extracted slot beside the fault, and no private fault walk re-implements the owner's fold. Correlation flows through `merge_contextvars`, never a per-case field.
-- Entry: `Signals.emit`/`emit_async` are polymorphic on both axes — input normalized through one `_stream`, output any `FilteringBoundLogger`, so a `capture_logs` test or `wrap_logger` consumer drives the same fold without a second emit surface. This page mints the folder's composition-scope vocabulary — `ScopeKey` and the pinned `DEFAULT_SCOPE` spelling every scope-keyed custody surface (hooks tables, metrics state, the install-receipt maps) imports from here, receipts being the observability tier below every consumer — and the default-sink resolution is its first custody surface: the default scope resolves the bare global logger preserving the standing call shape, a non-default scope resolves a `composition`-bound logger, so two compositions' lines partition and self-identify with no second emit surface. `emit_async` awaits the `a*` mirror, so a high-volume async serve path offloads render-and-sink to a worker thread rather than blocking the event loop. This `continue_inbound`/`attach` split is load-bearing at the `execution/lanes#LANE` offload stitch — the loop side injects, the worker kernel extracts then attaches around exactly the offloaded body, a placement one fused extract-and-activate scope cannot serve — and the gRPC ingress composes neither: the `transport/serve#SERVE` interceptor is that seam's one context authority. Before the telemetry install the extract reads the default no-op propagator and the C# parent drops — the mechanical reason the extract sequences after the install.
-- Auto: `@receipted` is parameterized over the concrete contributor type through the `R: ReceiptContributor` bound, so a decorated operation statically returns its concrete receipt rather than collapsing to the bare Protocol, and a consumer's `Ok` arm reads concrete members without a static error. Its admitted `ScopeKey` reaches both contributor harvest arms, so a composition never falls back to the default sink during decorator emission. Span creation belongs to the measured operation, never to emission — emit writes under whatever span is active, and `measured` is that operation-owned weave stated once: one entry discriminating modality on the dispatch shape, the caller's `facts` mapping stamped at span open with `scope`/`subject` authoritative last, the fault fence INSIDE the live span so a provider raise records on a recording span, a rail-returning dispatch flattened so an offload composes without double-nesting, emission fenced under the same `ScopeKey` so a render or sink raise folds onto the rail, and the status close two-sided — OK set exactly once on the clean exit, ERROR with the fault-fact event landing at the rail lift, so a pre-railed fault marks the same span the raise path marks through the faults-owned conversion and the OTLP trace carries every fault the receipt stream reports. Its drained projection reads the outcome counts per column off `DRAIN_COLUMNS` — a full `asdict` allocates the receipt's containers per emit only to drop them — and the metrics counter keys the identical columns, so the line and the counter cannot disagree. A `hash`-class field renders a stable correlation token, so two lines carrying the same secret correlate without leaking the value. Receipts' RSS slot is a point fact and the metrics gauge the stream over one `psutil` source, each owner holding its own handle.
-- Growth: a new drain outcome is one `DrainOutcome` member with its `DrainReceipt` field, reaching the drained line, the metrics counter, and the lanes fold through the one `DRAIN_COLUMNS` derivation with zero consumer edits; a new cost column is one `Cost` field reaching the drained line, the crossing bracket, and the `rasm.cost.<measure>` projection through `facts`/`measures` with zero consumer edits; a new lifecycle phase one `Phase` literal and one `PHASE_LEVEL` row; a distinct-payload evidence kind one `Receipt` case with its `project` and `of` arms; a new classified field one `Redaction` table row; a new classification transform one `Classification` member and one `_reduce` arm; a producer's new crossing fact one `facts` entry at its own call site with zero weave edits; a new log level one `LogLevel` literal and one `LEVEL_METHOD` row reaching the floor and both emit arms at once; a new sink target the `sink` argument, never a second emit method; a new composition one `ScopeKey` value threaded through the `scope` keyword, never a sibling registry.
-- Boundary: the `observability/logging#PIPELINE` owner wires the processor chain and the stdlib bridge this fold renders through — this page emits and never configures; no private `LogRecordProcessor`/`OTLPLogExporter` beside the composition-root egress, and no second drain vocabulary or upward `lanes` import beside the taxonomy this page mints.
+- Entry: `Signals.emit`/`emit_async` are polymorphic on both axes — input normalized through one `_stream`, output any `FilteringBoundLogger`, so a `capture_logs` test or `wrap_logger` consumer drives the same fold without a second emit surface. This page mints the folder's composition-scope vocabulary — `ScopeKey` and the pinned `DEFAULT_SCOPE` spelling every scope-keyed custody surface (hooks tables, metrics state, the install-receipt maps) imports from here, receipts being the observability tier below every consumer — and the default-sink resolution is its first custody surface: the default scope resolves the bare global logger preserving the standing call shape, a non-default scope resolves a `composition`-bound logger, so two compositions' lines partition and self-identify with no second emit surface. `emit_async` awaits the `a*` mirror, so a high-volume async serve path offloads render-and-sink to a worker thread rather than blocking the event loop. This `continue_inbound`/`attach` split is load-bearing at the `execution/lanes#LANE` offload stitch — the loop side injects, the worker kernel extracts then attaches around exactly the offloaded body, a placement one fused extract-and-activate scope cannot serve — and the gRPC ingress composes neither: the `transport/serve#SERVE` interceptor is that seam's one context authority. Before the telemetry install the extract reads the default no-op propagator and the C# parent drops — the mechanical reason the extract sequences after the install. Its free `scope` parameter refuses off-grammar before a span mints — `SCOPE_ID` is the branch telemetry namespace the hook, meter, and instrument owners already enforce, and this weave is the one exported ingress a sibling package hands a scope, so a bare package-prefixed value refuses here rather than reaching an exporter as an instrumentation scope no backend joins. Its tracer mints through the faults-owned `scoped` stamp, memoized per scope: the API caches no handle, so a per-call mint allocates on the weave's hot path, while the pre-install proxy this memo holds re-reads the global at every `start_span` and upgrades at the install with no invalidation.
+- Auto: `@receipted` is parameterized over the concrete contributor type through the `R: ReceiptContributor` bound, so a decorated operation statically returns its concrete receipt rather than collapsing to the bare Protocol, and a consumer's `Ok` arm reads concrete members without a static error. Its admitted `ScopeKey` reaches both contributor harvest arms, so a composition never falls back to the default sink during decorator emission. Span creation belongs to the measured operation, never to emission — emit writes under whatever span is active, and `measured` is that operation-owned weave stated once: one entry discriminating modality on the dispatch shape, the caller's `facts` mapping stamped at span open with `scope`/`subject` authoritative last, the fault fence INSIDE the live span so a provider raise records on a recording span, a rail-returning dispatch flattened so an offload composes without double-nesting, emission fenced under the caller's `composition` key so a render or sink raise folds onto the rail, and the status close two-sided — OK set exactly once on the clean exit, ERROR with the fault-fact event landing at the rail lift, so a pre-railed fault marks the same span the raise path marks through the faults-owned conversion and the OTLP trace carries every fault the receipt stream reports. Its drained projection reads the outcome counts per column off `DRAIN_COLUMNS` — a full `asdict` allocates the receipt's containers per emit only to drop them — while the metrics counter keys the `DRAIN_DISPOSITIONS` carve of that same literal, so the line carries the denominator its parts sum to and the counter carries the partition alone. Every `hash`-class field renders a stable correlation token, so two lines carrying the same secret correlate without leaking the value. Receipts' RSS slot is a point fact and the metrics gauge the stream over one `psutil` source, each owner holding its own handle.
+- Growth: a new drain outcome is one `DrainOutcome` member with its `DrainReceipt` field, reaching the drained line through `DRAIN_COLUMNS` and the metrics counter through the `DRAIN_DISPOSITIONS` carve with zero consumer edits; a new cost column is one `Cost` field reaching the drained line, the crossing bracket, and the `rasm.cost.<measure>` projection through `facts`/`measures` with zero consumer edits; a new lifecycle phase one `Phase` literal and one `PHASE_LEVEL` row; a distinct-payload evidence kind one `Receipt` case with its `project` and `of` arms; a new classified field one `Redaction` table row; a new classification transform one `Classification` member and one `_reduce` arm; a producer's new crossing fact one `facts` entry at its own call site with zero weave edits; a new log level one `LogLevel` literal and one `LEVEL_METHOD` row reaching the floor and both emit arms at once; a new sink target the `sink` argument, never a second emit method; a new composition one `ScopeKey` value threaded through the `scope` and `composition` keywords, never a sibling registry; a widened instrumentation namespace one `SCOPE_ID` pattern edit.
+- Boundary: the `observability/logging#PIPELINE` owner wires the processor chain and the stdlib bridge this fold renders through — this page emits and never configures; no private `LogRecordProcessor`/`OTLPLogExporter` beside the composition-root egress, and no second drain vocabulary or upward `lanes` import beside the taxonomy this page mints. No semconv or scope-version literal re-spells beside the faults-owned pair, and the stamp stays a coordinate rather than a provider seam: `scoped` passes `None` for the provider slot so the global the `observability/telemetry#TELEMETRY` install published stays the one resolution, and no page beside that install ever names a provider instance.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from collections.abc import Awaitable, Callable, Iterable, Iterator, Mapping
+import re
+from collections.abc import Awaitable, Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager, suppress
 from functools import cache, partial, wraps
 from hashlib import blake2b
@@ -28,15 +29,15 @@ from typing import Final, Literal, Protocol, assert_never, get_args, runtime_che
 
 import psutil
 import structlog
-from expression import Ok, Option, Result, Some, case, tag, tagged_union
+from expression import Error, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec.json import Encoder
 from opentelemetry import context, propagate, trace
-from opentelemetry.trace import Span, Status, StatusCode
 from opentelemetry.context import Context
+from opentelemetry.trace import Span, Status, StatusCode
 
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, async_boundary, boundary
+from rasm.runtime.faults import BoundaryFault, RuntimeRail, async_boundary, boundary, scoped
 from rasm.runtime.identity import ContentKey
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -44,7 +45,7 @@ from rasm.runtime.identity import ContentKey
 type ScopeKey = str
 type DrainOutcome = Literal["accepted", "completed", "cancelled", "rejected", "hit"]
 type Phase = Literal["admitted", "planned", "emitted"]
-type LogLevel = Literal["debug", "info", "warning", "error"]
+type LogLevel = Literal["debug", "info", "warning", "error", "critical"]
 type EventDict = dict[str, object]
 type Classification = Literal["drop", "mask", "hash"]
 type ReceiptEvidence = tuple[Phase, str, dict[str, object]] | BoundaryFault | DrainReceipt[object]  # evidence/evidence owns the branch-facing `Evidence` union
@@ -54,16 +55,29 @@ type BoundLogger = structlog.typing.FilteringBoundLogger
 type LevelSelector = Callable[[BoundLogger], Callable[..., object]]
 type LevelBinding = tuple[int, LevelSelector, LevelSelector]
 
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 # pinned composition-scope default: every scope-keyed custody surface (hooks tables, metrics state, install-receipt
 # maps, this page's default-sink resolution) imports this one spelling, so the bare call shape stays scope-free.
 DEFAULT_SCOPE: Final[ScopeKey] = "default"
 
-# column set IS the DrainOutcome literal, so the drained line, the metrics counter, and the lanes fold can never disagree.
+# One literal owns the drain vocabulary and both tuples derive from it, so the drained line, the metrics counter, and the
+# lanes fold can never disagree on a column and a new disposition reaches all three from one member. `accepted` is the
+# ADMITTED TOTAL the terminal columns exactly partition — `DrainReceipt.of` derives `cancelled` as the remainder, so
+# hit + completed + rejected + cancelled == accepted by construction. The line reports both because a reader wants the
+# denominator beside its parts; the tag-partitioned counter folds `DRAIN_DISPOSITIONS` alone, where a total riding as one
+# more dimension VALUE makes every sum across that dimension read twice the work drained.
+ADMITTED: Final[DrainOutcome] = "accepted"
 DRAIN_COLUMNS: Final[tuple[DrainOutcome, ...]] = get_args(DrainOutcome.__value__)
+DRAIN_DISPOSITIONS: Final[tuple[DrainOutcome, ...]] = tuple(column for column in DRAIN_COLUMNS if column != ADMITTED)
 
 PHASE_LEVEL: Final[Map[Phase, LogLevel]] = Map.of_seq([("admitted", "debug"), ("planned", "debug"), ("emitted", "info")])
+
+# instrumentation-scope grammar the whole branch already enforces at its hook, meter, and instrument owners, spelled
+# HERE because `measured` is the one exported ingress carrying a FREE scope a sibling package supplies. Anchors are
+# `\\A`/`\\Z` rather than `^`/`$`, which admit a trailing newline and hand an exporter two scopes rendering alike.
+SCOPE_ID: Final[re.Pattern[str]] = re.compile(r"\Arasm(\.[a-z0-9_]+)+\Z")
 
 REDACTED: Final[str] = "***"
 
@@ -77,6 +91,7 @@ LEVEL_METHOD: Final[Map[LogLevel, LevelBinding]] = Map.of_seq([
     ("info", (20, lambda log: log.info, lambda log: log.ainfo)),
     ("warning", (30, lambda log: log.warning, lambda log: log.awarning)),
     ("error", (40, lambda log: log.error, lambda log: log.aerror)),
+    ("critical", (50, lambda log: log.critical, lambda log: log.acritical)),
 ])
 
 # enc_hook=repr degrades non-native values instead of raising on the hot path; order="deterministic" fixes key order so the one
@@ -150,7 +165,7 @@ class Cost(Struct, frozen=True, gc=False):
         return {
             "rasm.cost.cpu_time": self.cpu_ms,
             "rasm.cost.memory_delta": float(self.rss_bytes),
-            "rasm.cost.io_bytes": float(self.io_bytes),
+            "rasm.cost.byte_volume": float(self.io_bytes),
             "rasm.cost.ctx_switches": float(self.switches),
         }
 
@@ -239,7 +254,23 @@ class Redaction(Struct, frozen=True):
         return {key: redacted for key, value in facts.items() if key != REDACTION_KEY for redacted in self._classify(key, value)}
 
     def _classify(self, key: str, value: object) -> tuple[object, ...]:
-        return self.classified.try_find(key).map(lambda cls: self._reduce(cls, value)).default_value((value,))
+        # classification is by KEY NAME at every depth, never at the top level alone: a collector document nests its
+        # receipt maps and replay rings, and a producer's own fact can carry a mapping or a sequence of them, so a
+        # classified field seated one level down would reach the archive and the wire unscrubbed while its top-level
+        # twin scrubbed. The key's own row is read FIRST, so a classified value reduces WHOLE under its class —
+        # dropped, masked, or hashed alike — and only an UNCLASSIFIED container is descended into; descending first
+        # would hash a container's already-scrubbed projection and mask members the class had settled entire.
+        # Scalars and strings terminate immediately, and a `str` is excluded from the sequence arm because iterating
+        # it yields characters, never members.
+        match self.classified.try_find(key), value:
+            case Option(tag="some", some=cls), _:
+                return self._reduce(cls, value)
+            case _, Mapping() as nested:
+                return (self.apply(dict(nested)),)
+            case _, Sequence() as members if not isinstance(members, str | bytes):
+                return (tuple(held for member in members for held in self._classify(key, member)),)
+            case _:
+                return (value,)
 
     def _reduce(self, classification: Classification, value: object) -> tuple[object, ...]:
         match classification:
@@ -308,6 +339,14 @@ class Signals:
 
     @staticmethod
     def continue_inbound(carrier: Mapping[str, str]) -> Context:
+        # `context=` stays UNPASSED by law, and the default is not a convenience: `propagate.extract` forwards `None`
+        # to the composite, whose trace-context leg seeds a FRESH ROOT and returns it untouched when the carrier
+        # holds no `traceparent` — so a crossing that carried no parent attaches a root and runs unparented, which
+        # is exactly what the boundary rules for a pickled worker with no install of its own. Passing
+        # `context=get_current()` here reads as defensive and silently grafts whatever span the EXTRACTING thread
+        # inherited — a thread the instrumentor train may have handed the caller's context — onto the crossing as
+        # its parent, minting a hop that never happened. A malformed or version-refused header takes the same root
+        # path, so a forged carrier can never re-parent this leg either.
         return propagate.extract(carrier)
 
     @staticmethod
@@ -322,7 +361,7 @@ class Signals:
 
 @cache
 def _tracer(scope: str) -> trace.Tracer:
-    return trace.get_tracer(scope)
+    return scoped(trace.get_tracer, scope)
 
 
 def _marked(fault: BoundaryFault) -> BoundaryFault:
@@ -361,12 +400,32 @@ def _closed[T](span: Span, value: T) -> T:
     return value
 
 
+async def _lifted[T](rail: RuntimeRail[T]) -> RuntimeRail[T]:
+    # a settled rail wearing the awaitable shape a declared-async caller awaits, so one refusal site serves both
+    # modalities and neither arm grows a refusal spelling the other lacks.
+    return rail
+
+
 def measured[T](
-    scope: ScopeKey, subject: str, redaction: Redaction, dispatch: Callable[[], T] | Callable[[], Awaitable[T]],
-    facts: Mapping[str, str | int | float | bool] = Map.empty(),
+    scope: str, subject: str, redaction: Redaction, dispatch: Callable[[], T] | Callable[[], Awaitable[T]],
+    facts: Mapping[str, str | int | float | bool] = Map.empty(), *, composition: ScopeKey = DEFAULT_SCOPE,
 ) -> RuntimeRail[T] | Awaitable[RuntimeRail[T]]:
     # Exemption: the span lifecycle and the modality probe are the platform-forced seam every evidence producer
     # composes instead of re-authoring; emission runs inside its own fence, so an emit-time raise folds onto the rail.
+    # Two axes this page mints stay SEPARATE across the weave: `scope` names the INSTRUMENTATION scope of the emitting
+    # library, spent on `_tracer` and on the fence labels alone, while `composition` carries the custody key the harvest
+    # hands `Signals.emit`, where `_sink` binds a `composition`-bound logger. Spending one value on both binds every
+    # producer's harvest under a tracer name no `ScopeKey` vocabulary owns, and leaves a producer holding a real
+    # composition key no parameter to thread it through.
+    # Scope grammar refuses BEFORE any span mints: an off-grammar scope reaching `_tracer` opens a span whose
+    # instrumentation scope no backend joins against its versioned siblings, and no later gate retracts an exported
+    # span. The modality probe hoists so ONE refusal serves both arms — the async caller awaits `_lifted`, the sync
+    # caller reads the rail — where a per-arm refusal lets one modality drift off the other.
+    awaiting = iscoroutinefunction(dispatch) or iscoroutinefunction(getattr(dispatch, "__call__", None))
+    if SCOPE_ID.fullmatch(scope) is None:
+        refusal: RuntimeRail[T] = Error(BoundaryFault(config=("receipts.scope", scope)))
+        return _lifted(refusal) if awaiting else refusal
+
     def opened() -> Span:
         span = _tracer(scope).start_span(subject)
         if span.is_recording():
@@ -382,13 +441,13 @@ def measured[T](
             match rail:  # one total carrier match — `expression` ships no async builder, and the harvest awaits emit_async
                 case Result(tag="ok", ok=value):
                     return (
-                        await async_boundary(f"{scope}.emit", lambda: _harvested_async(value, redaction, scope))
+                        await async_boundary(f"{scope}.emit", lambda: _harvested_async(value, redaction, composition))
                     ).map_error(_marked).map(lambda live: _closed(span, live))
                 case _:
                     return rail
 
     # declared modality routes first: a coroutine function or an async-`__call__` instance never touches the sync arm.
-    if iscoroutinefunction(dispatch) or iscoroutinefunction(getattr(dispatch, "__call__", None)):
+    if awaiting:
         return settled(opened(), dispatch)
     span = opened()
     with trace.use_span(span, end_on_exit=False):
@@ -400,7 +459,7 @@ def measured[T](
                 return settled(span, lambda: pending)
             case _:
                 outcome = railed.bind(
-                    lambda value: boundary(f"{scope}.emit", lambda: _harvested(value, redaction, scope)).map_error(_marked)
+                    lambda value: boundary(f"{scope}.emit", lambda: _harvested(value, redaction, composition)).map_error(_marked)
                 ).map(lambda value: _closed(span, value))
                 span.end()
                 return outcome
@@ -433,7 +492,7 @@ def receipted[**P, R: ReceiptContributor](
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[STATUS]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

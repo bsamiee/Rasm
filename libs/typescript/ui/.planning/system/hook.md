@@ -16,18 +16,22 @@ Hook owns the `rasm.ui.<domain>.<point>` fact rail. Each plane contributes one t
 [POINT_REGISTRY]:
 - Owner: `Points` — the one open interface of the folder: each owning plane contributes its point row from its own module through `declare module`, one row per contribution, so a new point is a new file's row and never a central-table edit; `Hook.Point` derives as `keyof Points`, per-point payload and modality project by indexed access, and the merged-whole guard re-validates every contribution at this declaration. Row shape: `{ modality, payload }` — `modality` a `Hook.Modality` literal, `payload` the fact value the point carries.
 - Law: point names are `rasm.ui.<domain>.<point>` template literals — the pattern is the row-key contract the guard enforces, so a foreign-scoped or flat point name fails at the seam; the census below is the initial contribution set, and growth is one contributed row and one runtime row at composition.
+- Law: this rail is the package-keyed hook-point namespace Tier-0's grammar carve exempts, so its `<domain>` segment answers to no `Convention._domain` row.
+- Law: a span deliberately named for its point rides the carve with it, which is what makes a hook fact and its span correlate by name.
+- Law: a metric name never rides this rail — a series resolves against `Convention._domain` and the vocabulary owner names its instrument row.
 - Law: payload types cross strata type-only — a viewer plane contributes `Selection.Op` or a residency fact into `Points` through an erased augmentation without a value import upward; the runtime row arrives by registration at the composition root, never through a value edge into this floor module.
 - Law: the census rows adopt the owners' standing facts — `rasm.ui.mark.op` carries mark's applied `Selection.Op` stream, `rasm.ui.scene.residency` carries the graft fold's arrival-and-refusal lanes, `rasm.ui.form.submit` consults veto arbiters before the mutation write, `rasm.ui.panel.egress` observes the control-sink egress records, `rasm.ui.overlay.present` observes overlay presentation and reason-keyed dismissal, `rasm.ui.vital.row` replays the vital plane's evidence rows.
+- Law: a replay point carries evidence in both directions — `rasm.ui.vital.row` is the one browser-evidence window, so the app bridge republishes the runtime plane's graded vital rows onto it while `system/vital` and `viewer/probe` publish local rows, and a board mounted mid-session reads one retained source without this package importing a peer.
 - Boundary: contribution mechanics are the registry merge seam — type-plane only; which facts an owner mints stays the owner's law (`viewer/mark`, `viewer/scene`, `view/form`, `viewer/panel`, `view/overlay`, `system/vital`), and this page owns only the rail they meet on.
 
-| [INDEX] | [POINT]                   | [OWNER_FACT]                                             | [MODALITY] | [DEPTH] |
-| :-----: | :------------------------ | :------------------------------------------------------- | :--------- | :------ |
-|  [01]   | `rasm.ui.mark.op`         | applied `Selection.Op` (`viewer/mark` echo channel)      | `replay`   | 64      |
-|  [02]   | `rasm.ui.scene.residency` | graft arrival and refusal facts (`viewer/scene`)         | `observe`  | 32      |
-|  [03]   | `rasm.ui.form.submit`     | submit pre-flight and outcome (`view/form`)              | `veto`     | 16      |
-|  [04]   | `rasm.ui.panel.egress`    | control egress records (`viewer/panel`)                  | `observe`  | 32      |
-|  [05]   | `rasm.ui.overlay.present` | overlay present and dismiss-with-reason (`view/overlay`) | `observe`  | 16      |
-|  [06]   | `rasm.ui.vital.row`       | performance evidence rows (`system/vital`)               | `replay`   | 128     |
+| [INDEX] | [POINT]                   | [OWNER_FACT]                                                           | [MODALITY] | [DEPTH] |
+| :-----: | :------------------------ | :--------------------------------------------------------------------- | :--------- | :------ |
+|  [01]   | `rasm.ui.mark.op`         | applied `Selection.Op` (`viewer/mark` echo channel)                    | `replay`   | 64      |
+|  [02]   | `rasm.ui.scene.residency` | graft arrival and refusal facts (`viewer/scene`)                       | `observe`  | 32      |
+|  [03]   | `rasm.ui.form.submit`     | submit pre-flight and outcome (`view/form`)                            | `veto`     | 16      |
+|  [04]   | `rasm.ui.panel.egress`    | control egress records (`viewer/panel`)                                | `observe`  | 32      |
+|  [05]   | `rasm.ui.overlay.present` | overlay present and dismiss-with-reason (`view/overlay`)               | `observe`  | 16      |
+|  [06]   | `rasm.ui.vital.row`       | browser evidence rows (`system/vital`, `viewer/probe`, the app bridge) | `replay`   | 128     |
 
 ```typescript
 interface Points {

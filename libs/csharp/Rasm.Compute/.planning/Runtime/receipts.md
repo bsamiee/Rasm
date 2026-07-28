@@ -1,30 +1,30 @@
 # [COMPUTE_UNION]
 
-`ComputeReceipt` is the package's only fact vocabulary for measured execution: every operational view derives as a fold over that one stream, NodaTime-protobuf bridges own the instant/duration/calendar wire edge, fingerprint-gated benchmark claims decide every performance-motivated route in the suite, and the tenant cost ledger and dashboard descriptor derive from that same stream and the one instrument-spec roster — no second fact truth, no second panel truth. Cases declare inline here save `Assessment`, a `partial` the `Analysis/assessment` discipline page declares on this owner while this owning index keeps its `[JsonDerivedType]` registration and widened wire projection so the whole union round-trips through the one Strict resolver.
+`ComputeReceipt` is the package's only fact vocabulary for measured execution: every operational view folds over that one stream, NodaTime-protobuf bridges own the temporal wire edge, fingerprint-gated claims decide every performance-motivated route, and the cost ledger and dashboard descriptor derive from that stream and the one spec roster — no second fact truth, no second panel truth.
 
-`ComputeWireContext` joins the suite Strict-resolver merge: the polymorphic `kind` discriminator and every Thinktecture key-scalar spine field round-trip through one shared `JsonSerializerOptions`, `Seq<string>` collections intact, `UnmappedMemberHandling.Disallow` rejecting drift at the edge. `ReceiptSinkPort`, `ReceiptEnvelope`, `ScheduleEntry`, and `TenantContext` arrive settled from the AppHost port vocabulary; `TelemetryContributorPort`, `InstrumentRow`, `InstrumentSet`, `LevelCells`, `Buckets`, `TelemetryIdentity.Mint`, and the hook vocabulary (`HookPoint<TFact>`, `HookId`, `HookModality`, `HookRegistry`, `IsolatedFault`) from the kernel signal capsule; the Persistence benchmark and artifact-index contracts arrive settled.
+Kernel vocabulary arrives whole from the signal capsule — the causal frame (`TelemetrySource`, `CorrelationId`, `TenantContext`, `ReceiptEnvelope`, `ReceiptSinkPort`), the instrument mechanism (`TelemetryContributorPort`, `InstrumentSpec` over `InstrumentKind` x `MeasureForm`, `InstrumentSet`, `LevelCells`, `Buckets`, `TelemetryIdentity`), the trace band (`SpanBand`, `TraceScope`, `Op`), the SLO algebra (`Sli`, `Objective`, `SloSample`, `BurnRow`, `AlertSeverity`, `AlertSpec`, `PanelKind`, `PanelSpec`, `BoardPack`, `Slo`), the hook vocabulary (`HookPoint<TFact>`, `HookId`, `HookModality`, `HookRegistry`, `IsolatedFault`) — beside the AppHost `ScheduleEntry` and the settled Persistence benchmark and artifact-index contracts. `Assessment` alone declares elsewhere, a `partial` the `Analysis/assessment` page seats on this owner while its `[JsonDerivedType]` row and wire projection stay here, so `ComputeWireContext` round-trips the whole union through the one Strict resolver: polymorphic `kind` discriminator, Thinktecture key scalars, `Seq<string>` intact, `UnmappedMemberHandling.Disallow` refusing drift at the edge.
 
 ## [01]-[INDEX]
 
-- [01]-[RECEIPT_UNION]: the fact union (inline cases and the `Analysis/assessment` `Assessment` partial), its Strict-resolver round-trip context, and sink-port emission.
-- [02]-[TELEMETRY_PROJECTION]: instrument roster, bucket advice, the receipt-to-instrument fan, and the dispatch activity spine.
-- [03]-[FOLD_PROJECTIONS]: operational views derive as folds over the fact stream; content-keyed verdicts re-derive and diff under the determinism tag.
-- [04]-[WIRE_STAMPS]: NodaTime-protobuf bridges own the temporal wire edge.
-- [05]-[BENCHMARK_CLAIMS]: fingerprint-gated claim rows decide performance routes.
-- [06]-[HOOK_POINTS]: the compute hook roster on the AppHost hook rail — veto, observe, and replay points with subscriber-fault isolation.
-- [07]-[TS_PROJECTION]: receipt payload union, benchmark-claim, descriptor, and chargeback wire shapes.
-- [08]-[COST_LEDGER]: substrate-rated cost pricing, tenant-partitioned ledger folds over the envelope-joined journal, and the content-keyed chargeback egress.
-- [09]-[DASHBOARD_DESCRIPTOR]: panel rows derived from the instrument specs and SLO burn-rate alert rows derived from the fold views, emitted as data for the IaC compile leg.
+- [02]-[RECEIPT_UNION]: Fact union (inline cases and the `Analysis/assessment` `Assessment` partial), its Strict-resolver round-trip context, the instrument roster, and sink-port emission.
+- [03]-[TELEMETRY_PROJECTION]: Receipt-to-instrument fan and the dispatch span spine over the kernel trace band.
+- [04]-[FOLD_PROJECTIONS]: Operational views derive as folds over the fact stream; content-keyed verdicts re-derive and diff under the determinism tag.
+- [05]-[WIRE_STAMPS]: NodaTime-protobuf bridges own the temporal wire edge.
+- [06]-[BENCHMARK_CLAIMS]: Fingerprint-gated claim rows decide performance routes.
+- [07]-[HOOK_POINTS]: Compute hook roster on the kernel hook capsule — veto, observe, and replay points with subscriber-fault isolation.
+- [08]-[TS_PROJECTION]: Receipt payload union, benchmark-claim, descriptor, and chargeback wire shapes.
+- [09]-[COST_LEDGER]: Substrate-rated cost pricing, tenant-partitioned ledger folds over the envelope-joined journal, and the content-keyed chargeback egress.
+- [10]-[DASHBOARD_DESCRIPTOR]: One kernel board pack over the instrument specs and the reliability objectives whose burn discipline, specs, and verdicts derive from the kernel SLO algebra.
 
 ## [02]-[RECEIPT_UNION]
 
-- Owner: `ReceiptScope`, `SelectionDecision`, `SelectionMode`, `ComputeReceipt`, `ComputeWireContext`, `PanelKind`, `InstrumentSpec`, `ReceiptSurface` — the scope and selection evidence families, fact union, strict serializer context, instrument-spec primary, and sink-bound emission-plus-telemetry surface.
+- Owner: `ReceiptScope`, `SelectionDecision`, `SelectionMode`, `ComputeReceipt`, `ComputeWireContext`, `ReceiptSurface` — the scope and selection evidence families, fact union, strict serializer context, and the sink-bound emission-plus-telemetry surface carrying the Compute instrument roster, name vocabulary, and dimension slots over the kernel declaration mechanism.
 - Cases: selection · tensor-run · model-load · warmup · model-run · remote-call · stream-segment · allocation · copy · cache · unit-projection · backpressure · drain · conflict · factorization · generate · embedding · discretization · solve · coupling · optimization · sweep · clash · twin · uncertainty · fit · governor · drift · assessment (the last declared as a partial on this owner by `Analysis/assessment`)
 - Entry: `public IO<ReceiptEnvelope> ReceiptSurface.Emit(ComputeReceipt fact)` — the surface binds sink, serializer, and mounted-instrument aspects once at composition; `IO` carries the sink effect and returns the envelope evidence.
-- Auto: wire kind derives from the polymorphic metadata pinned on the union; the HLC stamp and `SkewBound` derive inside `Send`, and `Emit` reads `TenantContext.Current` exactly once — the same tenant prices the fact through `ComputeInstrumentFan.Charge` and rides into `Send` so the envelope `Tenant` field partitions evidence by the AppHost tenancy primitive; instrument rows register once at composition through `TelemetryContributorPort`, `Emit` folds every typed fact through the `[03]-[TELEMETRY_PROJECTION]` fan before serialization, and the `[03]-[TELEMETRY_PROJECTION]` `ComputeTraces` spine opens the dispatch span on the minted `TelemetrySource.Compute` source so receipt correlation joins the OTel rail with zero call-site ceremony.
+- Auto: wire kind derives from the polymorphic metadata pinned on the union; the HLC stamp and `SkewBound` derive inside `Send`, and `Emit` reads `TenantContext.Current` exactly once — the same tenant prices the fact through `ComputeInstrumentFan.Charge` and rides into `Send` so the envelope `Tenant` field partitions evidence by the kernel tenancy primitive; instrument rows register once at composition through `TelemetryContributorPort`, which carries the `[10]-[DASHBOARD_DESCRIPTOR]` pack beside them so the composing root proves board and objectives against the set it mounts and this folder ships no probe entry, `Emit` folds every typed fact through the `[03]-[TELEMETRY_PROJECTION]` fan before serialization, and the `[03]-[TELEMETRY_PROJECTION]` `ComputeTraces` spine opens the dispatch span through the kernel `SpanBand` at the admitted `Dispatch` scope so receipt correlation joins the OTel rail with zero call-site ceremony.
 - Receipt: union cases materialize at the sink edge only; hot-path capsules upstream stay allocation-free.
-- Packages: Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, LanguageExt.Core, NodaTime, Rasm.AppHost (project), BCL inbox
-- Growth: a new measured concern is one case row on `ComputeReceipt`, one `[JsonDerivedType]` row, one TS payload row, and one `[03]-[TELEMETRY_PROJECTION]` projection arm, zero new surface; a discipline rail in another folder declares its case as a `partial` record on this owner (the `Analysis/assessment` `Assessment` case) while this owning index keeps the `[JsonDerivedType]` registration and the TS payload row so the polymorphic registry stays single-sited — the `[JsonDerivedType]` roster is the ONE primary correspondence: `ReceiptSurface.Kinds` projects it from the context's polymorphism metadata, the TS `ComputeReceiptKind` union generates from `Kinds` during descriptor emit under the suite schema hash, and `ReceiptSurface.Probe` proves roster-versus-case bijection at boot, so a parallel receipt union, a second discriminator registry, or a hand-maintained TS mirror that can silently go stale is the deleted form; `Specs` is the SECOND primary correspondence — one `InstrumentSpec` row per instrument carrying name, unit, description, `PanelKind`, and the explicit `Thresholds` column, from which the mounted `InstrumentRow` roster (`Instruments`) and the `[10]-[DASHBOARD_DESCRIPTOR]` panel projection both derive, so a bucket boundary reachable only inside a bind delegate is the repaired facade and a second panel-truth roster is the deleted form.
+- Packages: Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, LanguageExt.Core, NodaTime, Rasm (project, kernel signal capsule), Rasm.AppHost (project), BCL inbox
+- Growth: a new measured concern is one case row on `ComputeReceipt`, one `[JsonDerivedType]` row, one TS payload row, and one `[03]-[TELEMETRY_PROJECTION]` projection arm, zero new surface; a discipline rail in another folder declares its case as a `partial` record on this owner (the `Analysis/assessment` `Assessment` case) while this owning index keeps the `[JsonDerivedType]` registration and the TS payload row so the polymorphic registry stays single-sited — the `[JsonDerivedType]` roster is the ONE primary correspondence: `ReceiptSurface.Kinds` projects it from the context's polymorphism metadata, the TS `ComputeReceiptKind` union generates from `Kinds` during descriptor emit under the suite schema hash, and `ReceiptSurface.Probe` proves roster-versus-case bijection at boot, so a parallel receipt union, a second discriminator registry, or a hand-maintained TS mirror that can silently go stale is the deleted form; `Specs` is the SECOND primary correspondence — one kernel `InstrumentSpec` row per instrument carrying name, unit, description, kind, measurement form, bounds, and dimension slots, from which the mounted `InstrumentSet` and the `[10]-[DASHBOARD_DESCRIPTOR]` panel projection both derive, so a bucket boundary reachable only inside a bind delegate is the repaired facade and a second panel-truth roster is the deleted form; a folder-local spec record or instrument-kind vocabulary beside it re-mints the mechanism the capsule owns.
 - Boundary: receipts are HLC-correlated through the envelope and emit only through the sink-bound `ReceiptSurface`. `ReceiptScope.Execution` carries lane, substrate, allocation, and elapsed evidence, while `Process` carries only correlation and allocation; process facts never fabricate execution context or bypass the union. Every solver, statistical-learning, generative, residency, allocation, governance, and monitor-drift outcome rides this union. `Selection` projects ordered hops onto `SelectionDecision` and forced presence onto `SelectionMode`, avoiding parallel rosters and nullable policy. `Allocation` carries the complete `AllocationEvidence` projection, including typed `StagingEventKind`, requested/granted bytes, detail, allocator, reservation, and pool gauges. `Uncertainty` carries distribution moments, sensitivity indices, interactions, reliability search coordinates, and explicit null moments for methods that do not estimate them. `Factorization` optional wire evidence remains case-local. Spine values serialize as Thinktecture key scalars and format without runtime format strings.
 
 ```csharp signature
@@ -285,221 +285,303 @@ public sealed class UInt128HexJsonConverter : JsonConverter<UInt128> {
 [JsonSerializable(typeof(BenchmarkInput))]
 [JsonSerializable(typeof(HostFingerprint))]
 [JsonSerializable(typeof(PanelRow))]
-[JsonSerializable(typeof(SloAlertRow))]
+[JsonSerializable(typeof(AlertSpec))]
 [JsonSerializable(typeof(ChargebackDataset))]
 public partial class ComputeWireContext : JsonSerializerContext;
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class PanelKind {
-    public static readonly PanelKind Counter = new("counter");
-    public static readonly PanelKind Level = new("level");
-    public static readonly PanelKind Histogram = new("histogram");
-}
-
-public sealed record InstrumentSpec(
-    string Name,
-    string Unit,
-    string Description,
-    PanelKind Kind,
-    Option<ImmutableArray<double>> Thresholds,
-    Func<Meter, string, string, string, Instrument> Bind) {
-    public InstrumentRow Row => new(Name, Unit, Description, Bind);
-
-    public static InstrumentSpec Count(string name, string unit, string text) =>
-        new(name, unit, text, PanelKind.Counter, None,
-            static (meter, boundName, boundUnit, boundText) => meter.CreateCounter<long>(boundName, boundUnit, boundText));
-
-    public static InstrumentSpec Level(string name, string unit, string text, Func<long> read) =>
-        new(name, unit, text, PanelKind.Level, None,
-            (meter, boundName, boundUnit, boundText) => meter.CreateObservableGauge(boundName, read, boundUnit, boundText));
-
-    public static InstrumentSpec Advised(string name, string unit, string text, ImmutableArray<double> bounds) =>
-        new(name, unit, text, PanelKind.Histogram, Some(bounds),
-            (meter, boundName, boundUnit, boundText) => Buckets.Advised(meter, boundName, boundUnit, boundText, bounds));
-}
-
-public sealed class ReceiptSurface(ReceiptSinkPort sink, ComputeWireContext wire, InstrumentSet instruments, CostPolicy costs) {
-    private static Seq<(Type Type, string Kind)> Rows =>
+// Refusal cell is a ctor param from the owning composition, matching the capsule's own evidence-cell law —
+// two compositions hold two cells and no instrument defect crosses between them.
+public sealed class ReceiptSurface(
+    ReceiptSinkPort sink, ComputeWireContext wire, InstrumentSet instruments, CostPolicy costs, Atom<Seq<Error>> refusals) {
+    // Polymorphic metadata is the ONE kind roster, read once at type init: a per-access re-read walks the
+    // serializer contract on every `Kinds`, `KindOf`, and `Probe` call, and the drift proof then compares two
+    // independent readings of a registry that must be one.
+    private static readonly (int Declared, Seq<(Type Case, string Kind)> Rows) Registry =
         ComputeWireContext.Default.ComputeReceipt.PolymorphismOptions is { } options
-            ? toSeq(options.DerivedTypes).Choose(static row => row.TypeDiscriminator is string kind ? Some((row.DerivedType, kind)) : None)
-            : Seq<(Type, string)>();
+            ? (options.DerivedTypes.Count,
+               toSeq(options.DerivedTypes)
+                   .Choose(static row => row.TypeDiscriminator is string kind ? Some((row.DerivedType, kind)) : None)
+                   .Strict())
+            : (0, Seq<(Type, string)>());
 
     private static readonly FrozenDictionary<Type, string> KindByCase =
-        Rows.ToFrozenDictionary(static row => row.Type, static row => row.Kind);
+        Registry.Rows.ToFrozenDictionary(static row => row.Case, static row => row.Kind);
 
-    public static Seq<string> Kinds => Rows.Map(static row => row.Kind);
+    public static readonly Seq<string> Kinds = Registry.Rows.Map(static row => row.Kind).Strict();
 
-    public static string KindOf(ComputeReceipt fact) => KindByCase[fact.GetType()];
+    // One lookup, two call shapes: an instance names its own kind, a case type names the kind a typed
+    // selector binds before any fact exists.
+    public static string KindOf(Type @case) => KindByCase[@case];
+
+    public static string KindOf(ComputeReceipt fact) => KindOf(fact.GetType());
 
     public static Fin<Unit> Probe() {
         FrozenSet<Type> cases = typeof(ComputeReceipt)
             .GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic)
             .Where(static nested => nested.IsAssignableTo(typeof(ComputeReceipt)) && !nested.IsAbstract)
             .ToFrozenSet();
-        FrozenSet<Type> registered = Rows.Map(static row => row.Type).ToFrozenSet();
-        bool uniqueKinds = Kinds.ToFrozenSet(StringComparer.Ordinal).Count == Kinds.Count;
-        bool stringDiscriminators = ComputeWireContext.Default.ComputeReceipt.PolymorphismOptions is { } options
-            && options.DerivedTypes.Count == Rows.Count;
-        return stringDiscriminators && uniqueKinds && cases.SetEquals(registered)
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(ComputeFault.Create($"<kind-registry-drift:cases={cases.Count}:types={registered.Count}:kinds={Kinds.Count}>"));
+        return Registry.Declared == Registry.Rows.Count
+            && Kinds.ToFrozenSet(StringComparer.Ordinal).Count == Kinds.Count
+            && cases.SetEquals(Registry.Rows.Map(static row => row.Case).ToFrozenSet())
+                ? Fin.Succ(unit)
+                : Fin.Fail<Unit>(ComputeFault.Create(
+                    $"<kind-registry-drift:cases={cases.Count}:rows={Registry.Rows.Count}:declared={Registry.Declared}>"));
     }
 
-    public const string Scope = "Rasm.Compute";
+    public static readonly TelemetrySource Source = TelemetrySource.Compute;
 
-    public static Seq<InstrumentSpec> Specs(LevelCells cells) => Seq(
-        InstrumentSpec.Count("rasm.compute.receipts.emitted", "{receipt}", "receipts emitted through the sink port by kind"),
-        InstrumentSpec.Level("rasm.compute.claims.bound", "{claim}", "benchmark claims bound for the current host fingerprint",
-            () => (long)cells.Reader("rasm.compute.claims.bound")()),
-        InstrumentSpec.Count("rasm.compute.solve.factorizations", "{factorization}", "dense and sparse factorizations by provider and kind"),
-        InstrumentSpec.Advised("rasm.compute.solve.residual", "1", "iterative-solver convergence residual", Buckets.ResidualDecades),
-        InstrumentSpec.Advised("rasm.compute.solve.iterations", "{iteration}", "iterative-solve iteration counts to convergence or frame-budget stop", Buckets.IterationCounts),
-        InstrumentSpec.Count("rasm.compute.generate.tokens", "{token}", "tokens emitted through the generative run loop by run mode, adapter, and guidance"),
-        InstrumentSpec.Advised("rasm.compute.optimize.hypervolume", "1", "Pareto-front hypervolume indicator per optimizer generation", Buckets.Hypervolume),
-        InstrumentSpec.Count("rasm.compute.mesh.elements", "{element}", "volumetric elements generated per discretization and refinement level"),
-        InstrumentSpec.Count("rasm.compute.clash.confirmed", "{clash}", "confirmed clashes by severity and federated-index kind"),
-        InstrumentSpec.Count("rasm.compute.twin.anomalies", "{anomaly}", "digital-twin anomaly verdicts exceeding the ROM error bound"),
-        InstrumentSpec.Advised("rasm.compute.remote.duration", "s", "remote transport wall duration per call by transport and status", Buckets.RemoteSeconds),
-        InstrumentSpec.Count("rasm.compute.assessment.verdicts", "{assessment}", "discipline assessments by discipline and verdict"),
-        InstrumentSpec.Advised("rasm.compute.assessment.ratio", "1", "governing utilization ratio per assessment by discipline", Buckets.GoverningRatio),
-        InstrumentSpec.Count("rasm.compute.progress.marks", "{mark}", "progress marks delivered through the cadence gate by phase"),
-        InstrumentSpec.Advised("rasm.compute.progress.cadence", "s", "interval between consecutive delivered progress marks by phase", Buckets.CadenceSeconds),
-        InstrumentSpec.Advised("rasm.compute.cost.units", "1", "priced cost units attributed per tenant and substrate", Buckets.CostUnitDecades),
-        InstrumentSpec.Count("rasm.compute.monitor.breaches", "{breach}", "streaming-monitor control-limit and drift breaches by monitor"));
+    // Trace plane admitted into the kernel band: substrates ride the span NAME under this one scope, so no
+    // dispatch bracket ever mints a per-route source.
+    public static readonly TraceScope Dispatch = TraceScope.Create("rasm.compute.dispatch");
 
-    public static Seq<InstrumentRow> Instruments(LevelCells cells) => Specs(cells).Map(static spec => spec.Row);
+    public const string ProcessScope = "process";
+    public const string OkStatus = "ok";
+    public const string HardClash = "hard";
+    public const string ClearanceClash = "clearance";
 
-    public static TelemetryContributorPort Telemetry(LevelCells cells, string version, string schemaUrl) => new(Scope, version, schemaUrl, Instruments(cells));
+    // --- [INSTRUMENT_NAMES] — one spelling each, read by the declaration row AND every writer recording it.
+    public const string ReceiptsEmitted = "rasm.compute.receipts.emitted";
+    public const string ClaimsBound = "rasm.compute.claims.bound";
+    public const string SolveFactorizations = "rasm.compute.solve.factorizations";
+    public const string SolveResidual = "rasm.compute.solve.residual";
+    public const string SolveIterations = "rasm.compute.solve.iterations";
+    public const string SolveRuns = "rasm.compute.solve.runs";
+    public const string SolveConverged = "rasm.compute.solve.converged";
+    public const string GenerateTokens = "rasm.compute.generate.tokens";
+    public const string OptimizeHypervolume = "rasm.compute.optimize.hypervolume";
+    public const string MeshElements = "rasm.compute.mesh.elements";
+    public const string ClashConfirmed = "rasm.compute.clash.confirmed";
+    public const string TwinVerdicts = "rasm.compute.twin.verdicts";
+    public const string TwinNominal = "rasm.compute.twin.nominal";
+    public const string RemoteDuration = "rasm.compute.remote.duration";
+    public const string RemoteCalls = "rasm.compute.remote.calls";
+    public const string RemoteOk = "rasm.compute.remote.ok";
+    public const string BackpressureVerdicts = "rasm.compute.backpressure.verdicts";
+    public const string BackpressureAdmitted = "rasm.compute.backpressure.admitted";
+    public const string AssessmentVerdicts = "rasm.compute.assessment.verdicts";
+    public const string AssessmentRatio = "rasm.compute.assessment.ratio";
+    public const string ProgressMarks = "rasm.compute.progress.marks";
+    public const string ProgressCadence = "rasm.compute.progress.cadence";
+    public const string CostUnits = "rasm.compute.cost.units";
+    public const string MonitorBreaches = "rasm.compute.monitor.breaches";
 
+    // --- [DIMENSION_SLOTS] — the declared Dimensions column and the fan's tag keys are this one vocabulary,
+    // so the governance view derives its tag-key set off the mounted row.
+    public const string KindSlot = "rasm.compute.kind";
+    public const string SubstrateSlot = "rasm.compute.substrate";
+    public const string LaneSlot = "rasm.compute.lane";
+    public const string TransportSlot = "rasm.compute.transport";
+    public const string StatusSlot = "rasm.compute.status";
+    public const string ProviderSlot = "rasm.compute.provider";
+    public const string DecompositionSlot = "rasm.compute.decomposition";
+    public const string ModeSlot = "rasm.compute.run.mode";
+    public const string AdapterSlot = "rasm.compute.lora.adapter";
+    public const string GuidanceSlot = "rasm.compute.guidance";
+    public const string AlgorithmSlot = "rasm.compute.algorithm";
+    public const string RefineSlot = "rasm.compute.refine";
+    public const string PhysicsSlot = "rasm.compute.physics";
+    public const string MethodSlot = "rasm.compute.method";
+    public const string ConvergedSlot = "rasm.compute.converged";
+    public const string SeveritySlot = "rasm.compute.clash.severity";
+    public const string IndexSlot = "rasm.compute.clash.index";
+    public const string SignalSlot = "rasm.compute.signal";
+    public const string MonitorSlot = "rasm.compute.monitor";
+    public const string DisciplineSlot = "rasm.compute.discipline";
+    public const string VerdictSlot = "rasm.compute.verdict";
+    public const string PhaseSlot = "rasm.compute.phase";
+
+    // Ratio indicators need BOTH series mounted as counters, so each SLO subject carries a population row and
+    // a good row beside its shape measure; the fold in [10] and the store-side burn rule then read one truth.
+    // Both rows of a pair declare the IDENTICAL dimension set so the burn rule divides series against series,
+    // and the outcome axis that discriminates them rides the shape measures alone — carried on the good row it
+    // is a constant column, and carried on the population row alone it makes the good row derivable.
+    public static readonly Seq<InstrumentSpec> Specs = Seq(
+        InstrumentSpec.Count(ReceiptsEmitted, "{receipt}", "receipts emitted through the sink port by kind", MeasureForm.Whole, KindSlot),
+        InstrumentSpec.Level(ClaimsBound, "{claim}", "benchmark claims bound for the current host fingerprint", MeasureForm.Whole),
+        InstrumentSpec.Count(SolveFactorizations, "{factorization}", "dense and sparse factorizations by provider and kind", MeasureForm.Whole, ProviderSlot, DecompositionSlot),
+        InstrumentSpec.Advised(SolveResidual, "1", "iterative-solver convergence residual", MeasureForm.Real, Buckets.ResidualDecades, PhysicsSlot, MethodSlot, ConvergedSlot),
+        InstrumentSpec.Advised(SolveIterations, "{iteration}", "iterative-solve iteration counts to convergence or frame-budget stop", MeasureForm.Whole, Buckets.IterationCounts, PhysicsSlot, MethodSlot, ConvergedSlot),
+        InstrumentSpec.Count(SolveRuns, "{solve}", "iterative solves attempted by physics and method", MeasureForm.Whole, PhysicsSlot, MethodSlot),
+        InstrumentSpec.Count(SolveConverged, "{solve}", "iterative solves reaching their convergence criterion", MeasureForm.Whole, PhysicsSlot, MethodSlot),
+        InstrumentSpec.Count(GenerateTokens, "{token}", "tokens emitted through the generative run loop by run mode, adapter, and guidance", MeasureForm.Whole, ModeSlot, AdapterSlot, GuidanceSlot),
+        InstrumentSpec.Advised(OptimizeHypervolume, "1", "Pareto-front hypervolume indicator per optimizer generation", MeasureForm.Real, Buckets.Hypervolume, MethodSlot),
+        InstrumentSpec.Count(MeshElements, "{element}", "volumetric elements generated per discretization and refinement level", MeasureForm.Whole, AlgorithmSlot, RefineSlot),
+        InstrumentSpec.Count(ClashConfirmed, "{clash}", "confirmed clashes by severity and federated-index kind", MeasureForm.Whole, SeveritySlot, IndexSlot),
+        InstrumentSpec.Count(TwinVerdicts, "{verdict}", "digital-twin verdicts evaluated against the ROM error bound", MeasureForm.Whole, SignalSlot),
+        InstrumentSpec.Count(TwinNominal, "{verdict}", "digital-twin verdicts inside the ROM error bound", MeasureForm.Whole, SignalSlot),
+        InstrumentSpec.Advised(RemoteDuration, "s", "remote transport wall duration per call by transport and status", MeasureForm.Real, Buckets.RemoteSeconds, TransportSlot, StatusSlot),
+        InstrumentSpec.Count(RemoteCalls, "{call}", "remote transport calls attempted by transport", MeasureForm.Whole, TransportSlot),
+        InstrumentSpec.Count(RemoteOk, "{call}", "remote transport calls landing an ok status", MeasureForm.Whole, TransportSlot),
+        InstrumentSpec.Count(BackpressureVerdicts, "{verdict}", "backpressure verdicts evaluated at the queue gate", MeasureForm.Whole),
+        InstrumentSpec.Count(BackpressureAdmitted, "{verdict}", "backpressure verdicts admitting queued work without shedding", MeasureForm.Whole),
+        InstrumentSpec.Count(AssessmentVerdicts, "{assessment}", "discipline assessments by discipline and verdict", MeasureForm.Whole, DisciplineSlot, VerdictSlot),
+        InstrumentSpec.Advised(AssessmentRatio, "1", "governing utilization ratio per assessment by discipline", MeasureForm.Real, Buckets.GoverningRatio, DisciplineSlot),
+        InstrumentSpec.Count(ProgressMarks, "{mark}", "progress marks delivered through the cadence gate by phase", MeasureForm.Whole, PhaseSlot),
+        InstrumentSpec.Advised(ProgressCadence, "s", "interval between consecutive delivered progress marks by phase", MeasureForm.Real, Buckets.CadenceSeconds, PhaseSlot),
+        InstrumentSpec.Advised(CostUnits, "1", "priced cost units attributed per tenant and substrate", MeasureForm.Real, Buckets.CostUnitDecades, TenantContext.TenantSlot, SubstrateSlot),
+        InstrumentSpec.Count(MonitorBreaches, "{breach}", "streaming-monitor control-limit and drift breaches by monitor", MeasureForm.Whole, MonitorSlot));
+
+    // Rows and the `[10]` pack derived from them leave as ONE downward fact, so the mounting root proves the
+    // pack in the fold that binds these handles; the pack's own init reads this roster and never this method.
+    public static TelemetryContributorPort Telemetry(string version) =>
+        new(Scope: Source.Key, Version: version, Instruments: Specs, Planes: Seq(Dispatch), Board: ComputeDescriptors.Board);
+
+    // Instrument refusals are evidence, never an emit abort: the envelope IS the truth and the instrument
+    // stream is the lossy channel beside it, so a mount defect parks and the receipt still seals.
     public IO<ReceiptEnvelope> Emit(ComputeReceipt fact) =>
         IO.lift(() => TenantContext.Current)
-            .Map(tenant => (ComputeInstrumentFan.Project(instruments, fact), ComputeInstrumentFan.Charge(instruments, costs, tenant, fact), tenant).Item3)
-            .Bind(tenant => IO.lift(() => (Tenant: tenant, Payload: JsonSerializer.SerializeToElement(fact, wire.ComputeReceipt))))
-            .Bind(state => sink.Send(fact.Correlation, state.Tenant, Scope, KindOf(fact), state.Payload));
+            .Bind(tenant => IO.lift(() => Park(Metered(fact, tenant))).Map(_ => tenant))
+            .Bind(tenant => IO.lift(() => JsonSerializer.SerializeToElement(fact, wire.ComputeReceipt))
+                .Bind(payload => sink.Send(fact.Correlation, tenant, Source.Key, KindOf(fact), payload)));
+
+    private Fin<Unit> Metered(ComputeReceipt fact, TenantContext tenant) =>
+        ComputeInstrumentFan.Project(instruments, fact)
+            .Bind(_ => ComputeInstrumentFan.Charge(instruments, costs, tenant, fact));
+
+    private Unit Park(Fin<Unit> written) =>
+        written.Match(Succ: static _ => unit, Fail: error => ignore(refusals.Swap(held => held.Add(error))));
 }
 ```
 
 ## [03]-[TELEMETRY_PROJECTION]
 
-- Owner: `ComputeInstrumentFan` — the one receipt-to-instrument projection over the typed union and the one priced cost write, its advice rows the kernel `Buckets` and its levels the composition `LevelCells`; `ComputeTraces` — the dispatch activity spine over the minted `Rasm.Compute` source.
-- Entry: `ComputeInstrumentFan.Mount(Meter meter, LevelCells cells)` materializes the `[02]-[RECEIPT_UNION]` roster once over the minted meter into the kernel `InstrumentSet` capsule; `ComputeInstrumentFan.Project(InstrumentSet set, ComputeReceipt fact)` folds one typed fact into instrument writes through the generated total `Switch`; `ComputeInstrumentFan.Charge(InstrumentSet set, CostPolicy costs, TenantContext tenant, ComputeReceipt fact)` records the one `rasm.compute.cost.units` write for a non-zero-priced fact under tenant and substrate tags; `ComputeTraces.Traced(DispatchTable table, ActivitySource source)` decorates every dispatch arm with the substrate-keyed span.
-- Auto: `ReceiptSurface.Emit` runs `Project` on the typed fact before serialization, so every emitted receipt projects with zero call-site metering and the kind space partitions cleanly — the AppHost fan owns AppHost kinds, this `Switch` owns Compute kinds, and one envelope kind projects in exactly one fan; every histogram row ships `InstrumentAdvice<T>` explicit-bucket boundaries as the fallback a backend without base2-exponential histograms reads; the trace-based exemplar filter at the provider joins any measurement recorded inside the live dispatch span to its trace and span ids with zero wiring; the composition root taps `Bound` where the boot-frozen `Runtime/admission#SUBSTRATE_AXIS` `BenchmarkRank` projection resolves, folding the fingerprint-matched claim count into the level cell the `rasm.compute.claims.bound` gauge reads.
-- Receipt: none — the fan is a projection of receipts; an instrument write beside it is a second truth.
-- Packages: LanguageExt.Core, Rasm.AppHost (project), BCL inbox
-- Growth: a new receipt case breaks the projection `Switch` at compile time, so every new kind decides its instrument writes or returns `unit` explicitly; a new instrument is one `[02]-[RECEIPT_UNION]` roster row and one arm edit; a level-shaped fact is one `cells.Level` write and one `Reader`-bound gauge row.
-- Boundary: instruments stay curated aggregates, never 1:1 with cases — remote latency reads the scope `Elapsed` off `RemoteCall`, clash counts split hard and clearance on a severity tag, assessment rows carry discipline and verdict dimensions, and every tag fan rides the AppHost tenant cardinality cap; the span opens at dispatch and closes on the arm's own rail through the bracket, `SetStatus(ActivityStatusCode.Error)` the typed verdict on the fail leg; profile correlation rides trace identity — the AppHost-composed `PyroscopeSpanProcessor` stamps `pyroscope.profile.id` on the trace's root span alone and clears the profiler span context at `OnEnd`, so a `rasm.compute.dispatch.*` `ActivityKind.Internal` span joins its flame-graph slice through the `TraceId` it shares with that stamped root, and Compute stamps no profile tag and holds zero OTel package reference — a Compute-side re-stamp of interior spans is the deleted form; receipt payload identifiers — checksums, content keys, artifact ids, provider names — sit in the `Operational`/`Internal` classification tiers whose redactor rows pass, so per-field `DataClassification` attributes never land on receipt cases and redaction custody stays at the AppHost egress seam; the cost write is the lossy channel — the `[09]-[COST_LEDGER]` ledger folds over the envelope-joined journal stay billing truth, a zero-priced fact skips the write, and the tenant tag rides the same AppHost cardinality cap every tag fan obeys.
+- Owner: `ComputeInstrumentFan` — the one receipt-to-instrument projection over the typed union and the one priced cost write, its advice rows the kernel `Buckets` and its levels the composition `LevelCells`; `ComputeTraces` — the dispatch spine composing the kernel `SpanBand` at the admitted `rasm.compute.dispatch` scope. Instrument custody is one-per-composition: `ReceiptSurface.Telemetry` is the whole declaration and the composing app materializes it, so the fan holds writes alone and mints neither meter nor set.
+- Entry: `ComputeInstrumentFan.Project(InstrumentSet set, ComputeReceipt fact)` folds one typed fact onto the write rail through the generated total `Switch`; `ComputeInstrumentFan.Charge(InstrumentSet set, CostPolicy costs, TenantContext tenant, ComputeReceipt fact)` records the one cost-unit write for a non-zero-priced fact under the tenancy tag set and the substrate tag; `ComputeInstrumentFan.Bound(InstrumentSet set, BenchmarkRank ranks)` swaps the boot-frozen claim count onto its level cell through the kernel pulled gate; `ComputeTraces.Traced(DispatchTable table, SpanBand band)` decorates every dispatch arm with the substrate-named span.
+- Auto: `ReceiptSurface.Emit` runs `Project` on the typed fact before serialization, so every emitted receipt projects with zero call-site metering and the kind space partitions cleanly — the AppHost fan owns AppHost kinds, this `Switch` owns Compute kinds, and one envelope kind projects in exactly one fan; every histogram row ships `InstrumentAdvice<T>` explicit-bucket boundaries as the fallback a backend without base2-exponential histograms reads; the trace-based exemplar filter at the provider joins any measurement recorded inside the live dispatch span to its trace and span ids with zero wiring; the composition root taps `Bound` where the boot-frozen `BenchmarkRank` projection resolves, folding the fingerprint-matched claim count into the level cell the `rasm.compute.claims.bound` gauge reads.
+- Receipt: none — the fan is a projection of receipts; an instrument write beside it is a second truth. Every write returns the kernel rail and a refusal parks on the composition's cell at `ReceiptSurface.Emit`, so a mount defect is evidence rather than a silently dropped measurement or an emit abort.
+- Packages: LanguageExt.Core, Rasm (kernel signal capsule), BCL inbox
+- Growth: a new receipt case breaks the projection `Switch` at compile time, so every new kind decides its instrument writes or returns the succeeding rail explicitly; a new instrument is one `[02]-[RECEIPT_UNION]` roster row and one arm edit; a level-shaped fact is one `set.Level` write and one `Level` declaration row.
+- Boundary: instruments stay curated aggregates, never 1:1 with cases — remote latency reads the scope `Elapsed` off `RemoteCall`, clash counts split hard and clearance on a severity tag, assessment rows carry discipline and verdict dimensions, and every tag fan rides the AppHost tenant cardinality cap; a ratio indicator's population and good series are BOTH mounted counters written from the same arm, so the in-process burn fold and the store-side burn rule read one truth and neither re-derives the other's numerator; the span opens at dispatch and closes on the arm's own rail through the band's IO bracket, `SetStatus(ActivityStatusCode.Error)` the typed verdict on the fail leg, and a package-local `ActivitySource` beside the band is the deleted form; profile correlation rides trace identity — the AppHost-composed `PyroscopeSpanProcessor` stamps `pyroscope.profile.id` on the trace's root span alone and clears the profiler span context at `OnEnd`, so a `rasm.compute.dispatch.*` `ActivityKind.Internal` span joins its flame-graph slice through the `TraceId` it shares with that stamped root, and Compute stamps no profile tag and holds zero OTel package reference — a Compute-side re-stamp of interior spans is the deleted form; receipt payload identifiers — checksums, content keys, artifact ids, provider names — sit in the `Operational`/`Internal` classification tiers whose redactor rows pass, so per-field `DataClassification` attributes never land on receipt cases and redaction custody stays at the AppHost egress seam; the cost write is the lossy channel — the `[09]-[COST_LEDGER]` ledger folds over the envelope-joined journal stay billing truth, a zero-priced fact skips the write, and the tenant tag rides the same AppHost cardinality cap every tag fan obeys.
 
 ```csharp signature
 public static class ComputeInstrumentFan {
-    public static InstrumentSet Mount(Meter meter, LevelCells cells) =>
-        InstrumentSet.Of(meter, ReceiptSurface.Instruments(cells));
+    public static Fin<Unit> Bound(InstrumentSet set, BenchmarkRank ranks) =>
+        set.Level(ReceiptSurface.ClaimsBound, ranks.Ranks.Count);
 
-    public static Unit Bound(LevelCells cells, BenchmarkRank ranks) =>
-        ignore(cells.Level("rasm.compute.claims.bound", ranks.Ranks.Count));
-
-    public static Unit Charge(InstrumentSet set, CostPolicy costs, TenantContext tenant, ComputeReceipt fact) =>
+    // Tenancy contributes a possibly-empty tag set, so a single-tenant process writes the cost series with no
+    // tenant dimension at all rather than a zero-valued sentinel every backend would then have to interpret.
+    public static Fin<Unit> Charge(InstrumentSet set, CostPolicy costs, TenantContext tenant, ComputeReceipt fact) =>
         costs.Price(fact) is { Total: > 0d } priced
-            ? set.Record("rasm.compute.cost.units", priced.Total,
-                tenant.Tag,
-                new KeyValuePair<string, object?>("substrate", fact.Substrate.Map(static row => row.Key).IfNone("process")))
-            : unit;
+            ? set.Write(ReceiptSurface.CostUnits, priced.Total,
+                [.. tenant.Tags, new KeyValuePair<string, object?>(
+                    ReceiptSurface.SubstrateSlot, fact.Substrate.Map(static row => row.Key).IfNone(ReceiptSurface.ProcessScope))])
+            : Fin.Succ(unit);
 
-    public static Unit Project(InstrumentSet set, ComputeReceipt fact) {
-        ignore(set.Count("rasm.compute.receipts.emitted", 1L, new KeyValuePair<string, object?>("kind", ReceiptSurface.KindOf(fact))));
-        return fact.Switch(
-            state: set,
-            selection: static (_, _) => unit,
-            tensorRun: static (_, _) => unit,
-            modelLoad: static (_, _) => unit,
-            warmup: static (_, _) => unit,
-            modelRun: static (_, _) => unit,
-            remoteCall: static (s, r) => r.Elapsed.Match(
-                Some: elapsed => s.Record("rasm.compute.remote.duration", elapsed.TotalSeconds,
-                    new KeyValuePair<string, object?>("transport", r.Transport), new KeyValuePair<string, object?>("status", r.Status)),
-                None: static () => unit),
-            streamSegment: static (_, _) => unit,
-            allocation: static (_, _) => unit,
-            copy: static (_, _) => unit,
-            cache: static (_, _) => unit,
-            unitProjection: static (_, _) => unit,
-            backpressure: static (_, _) => unit,
-            drain: static (_, _) => unit,
-            conflict: static (_, _) => unit,
-            factorization: static (s, f) => s.Count("rasm.compute.solve.factorizations", 1L,
-                new KeyValuePair<string, object?>("provider", f.Provider), new KeyValuePair<string, object?>("decomposition", f.Decomposition)),
-            generate: static (s, g) => s.Count("rasm.compute.generate.tokens", g.Tokens,
-                new KeyValuePair<string, object?>("run.mode", g.Mode),
-                new KeyValuePair<string, object?>("lora.adapter", g.Adapter),
-                new KeyValuePair<string, object?>("guidance", g.GuidanceKind.Key)),
-            embedding: static (_, _) => unit,
-            discretization: static (s, d) => s.Count("rasm.compute.mesh.elements", d.Elements,
-                new KeyValuePair<string, object?>("algorithm", d.Algorithm), new KeyValuePair<string, object?>("refine", d.RefineLevel)),
-            solve: static (s, v) => Solved(s, v),
-            coupling: static (_, _) => unit,
-            optimization: static (s, o) => s.Record("rasm.compute.optimize.hypervolume", o.Hypervolume,
-                new KeyValuePair<string, object?>("optimizer", o.Optimizer)),
-            sweep: static (_, _) => unit,
-            clash: static (s, c) => Clashed(s, c),
-            twin: static (s, t) => t.Anomaly
-                ? s.Count("rasm.compute.twin.anomalies", 1L, new KeyValuePair<string, object?>("signal", t.SignalId))
-                : unit,
-            uncertainty: static (_, _) => unit,
-            fit: static (_, _) => unit,
-            governor: static (_, _) => unit,
-            drift: static (s, d) => d.Breach
-                ? s.Count("rasm.compute.monitor.breaches", 1L, new KeyValuePair<string, object?>("monitor", d.MonitorId))
-                : unit,
-            assessment: static (s, a) => Assessed(s, a));
+    // Every arm returns the write rail, so a refused measurement reaches ReceiptSurface.Emit's parking cell
+    // instead of vanishing; an arm with nothing to meter says so explicitly and the Switch stays total.
+    public static Fin<Unit> Project(InstrumentSet set, ComputeReceipt fact) =>
+        set.Write(ReceiptSurface.ReceiptsEmitted, 1L, new KeyValuePair<string, object?>(ReceiptSurface.KindSlot, ReceiptSurface.KindOf(fact)))
+            .Bind(_ => fact.Switch(
+                state: set,
+                selection: static (_, _) => Fin.Succ(unit),
+                tensorRun: static (_, _) => Fin.Succ(unit),
+                modelLoad: static (_, _) => Fin.Succ(unit),
+                warmup: static (_, _) => Fin.Succ(unit),
+                modelRun: static (_, _) => Fin.Succ(unit),
+                remoteCall: static (s, r) => Called(s, r),
+                streamSegment: static (_, _) => Fin.Succ(unit),
+                allocation: static (_, _) => Fin.Succ(unit),
+                copy: static (_, _) => Fin.Succ(unit),
+                cache: static (_, _) => Fin.Succ(unit),
+                unitProjection: static (_, _) => Fin.Succ(unit),
+                backpressure: static (s, b) => s.Write(ReceiptSurface.BackpressureVerdicts, 1L)
+                    .Bind(_ => b.Dropped is null ? s.Write(ReceiptSurface.BackpressureAdmitted, 1L) : Fin.Succ(unit)),
+                drain: static (_, _) => Fin.Succ(unit),
+                conflict: static (_, _) => Fin.Succ(unit),
+                factorization: static (s, f) => s.Write(ReceiptSurface.SolveFactorizations, 1L,
+                    new KeyValuePair<string, object?>(ReceiptSurface.ProviderSlot, f.Provider),
+                    new KeyValuePair<string, object?>(ReceiptSurface.DecompositionSlot, f.Decomposition)),
+                generate: static (s, g) => s.Write(ReceiptSurface.GenerateTokens, (long)g.Tokens,
+                    new KeyValuePair<string, object?>(ReceiptSurface.ModeSlot, g.Mode),
+                    new KeyValuePair<string, object?>(ReceiptSurface.AdapterSlot, g.Adapter),
+                    new KeyValuePair<string, object?>(ReceiptSurface.GuidanceSlot, g.GuidanceKind.Key)),
+                embedding: static (_, _) => Fin.Succ(unit),
+                discretization: static (s, d) => s.Write(ReceiptSurface.MeshElements, d.Elements,
+                    new KeyValuePair<string, object?>(ReceiptSurface.AlgorithmSlot, d.Algorithm),
+                    new KeyValuePair<string, object?>(ReceiptSurface.RefineSlot, d.RefineLevel)),
+                solve: static (s, v) => Solved(s, v),
+                coupling: static (_, _) => Fin.Succ(unit),
+                optimization: static (s, o) => s.Write(ReceiptSurface.OptimizeHypervolume, o.Hypervolume,
+                    new KeyValuePair<string, object?>(ReceiptSurface.MethodSlot, o.Optimizer)),
+                sweep: static (_, _) => Fin.Succ(unit),
+                clash: static (s, c) => Clashed(s, c),
+                twin: static (s, t) => s.Write(ReceiptSurface.TwinVerdicts, 1L, new KeyValuePair<string, object?>(ReceiptSurface.SignalSlot, t.SignalId))
+                    .Bind(_ => t.Anomaly
+                        ? Fin.Succ(unit)
+                        : s.Write(ReceiptSurface.TwinNominal, 1L, new KeyValuePair<string, object?>(ReceiptSurface.SignalSlot, t.SignalId))),
+                uncertainty: static (_, _) => Fin.Succ(unit),
+                fit: static (_, _) => Fin.Succ(unit),
+                governor: static (_, _) => Fin.Succ(unit),
+                drift: static (s, d) => d.Breach
+                    ? s.Write(ReceiptSurface.MonitorBreaches, 1L, new KeyValuePair<string, object?>(ReceiptSurface.MonitorSlot, d.MonitorId))
+                    : Fin.Succ(unit),
+                assessment: static (s, a) => Assessed(s, a)));
+
+    static Fin<Unit> Called(InstrumentSet set, ComputeReceipt.RemoteCall call) {
+        KeyValuePair<string, object?> transport = new(ReceiptSurface.TransportSlot, call.Transport);
+        return set.Write(ReceiptSurface.RemoteCalls, 1L, transport)
+            .Bind(_ => StringComparer.Ordinal.Equals(call.Status, ReceiptSurface.OkStatus)
+                ? set.Write(ReceiptSurface.RemoteOk, 1L, transport)
+                : Fin.Succ(unit))
+            .Bind(_ => call.Elapsed.Match(
+                Some: elapsed => set.Write(ReceiptSurface.RemoteDuration, elapsed.TotalSeconds,
+                    transport, new KeyValuePair<string, object?>(ReceiptSurface.StatusSlot, call.Status)),
+                None: static () => Fin.Succ(unit)));
     }
 
-    static Unit Solved(InstrumentSet set, ComputeReceipt.Solve solve) {
-        KeyValuePair<string, object?>[] tags =
-            [new("physics", solve.Physics), new("method", solve.Method), new("converged", solve.Converged)];
-        ignore(set.Record("rasm.compute.solve.residual", solve.Residual, tags));
-        return set.Record("rasm.compute.solve.iterations", (double)solve.Iterations, tags);
+    // Subject tags the ratio pair, outcome tags the shape measures: the burn rule divides converged by runs
+    // series against series, while residual and iteration distributions still split on the verdict.
+    static Fin<Unit> Solved(InstrumentSet set, ComputeReceipt.Solve solve) {
+        KeyValuePair<string, object?>[] subject = [
+            new(ReceiptSurface.PhysicsSlot, solve.Physics),
+            new(ReceiptSurface.MethodSlot, solve.Method)];
+        KeyValuePair<string, object?>[] outcome = [.. subject, new(ReceiptSurface.ConvergedSlot, solve.Converged)];
+        return set.Write(ReceiptSurface.SolveRuns, 1L, subject)
+            .Bind(_ => solve.Converged ? set.Write(ReceiptSurface.SolveConverged, 1L, subject) : Fin.Succ(unit))
+            .Bind(_ => set.Write(ReceiptSurface.SolveResidual, solve.Residual, outcome))
+            .Bind(_ => set.Write(ReceiptSurface.SolveIterations, (long)solve.Iterations, outcome));
     }
 
-    static Unit Clashed(InstrumentSet set, ComputeReceipt.Clash clash) {
-        ignore(set.Count("rasm.compute.clash.confirmed", clash.HardClashes,
-            new KeyValuePair<string, object?>("severity", "hard"), new KeyValuePair<string, object?>("index", clash.IndexKind)));
-        return set.Count("rasm.compute.clash.confirmed", clash.ClearanceViolations,
-            new KeyValuePair<string, object?>("severity", "clearance"), new KeyValuePair<string, object?>("index", clash.IndexKind));
+    static Fin<Unit> Clashed(InstrumentSet set, ComputeReceipt.Clash clash) {
+        KeyValuePair<string, object?> index = new(ReceiptSurface.IndexSlot, clash.IndexKind);
+        return Seq(
+                (Severity: ReceiptSurface.HardClash, Count: (long)clash.HardClashes),
+                (Severity: ReceiptSurface.ClearanceClash, Count: (long)clash.ClearanceViolations))
+            .TraverseM(row => set.Write(
+                ReceiptSurface.ClashConfirmed, row.Count,
+                new KeyValuePair<string, object?>(ReceiptSurface.SeveritySlot, row.Severity), index))
+            .As().Map(static _ => unit);
     }
 
-    static Unit Assessed(InstrumentSet set, ComputeReceipt.Assessment assessment) {
-        ignore(set.Count("rasm.compute.assessment.verdicts", 1L,
-            new KeyValuePair<string, object?>("discipline", assessment.Discipline), new KeyValuePair<string, object?>("verdict", assessment.Verdict)));
-        return set.Record("rasm.compute.assessment.ratio", assessment.GoverningRatio,
-            new KeyValuePair<string, object?>("discipline", assessment.Discipline));
+    static Fin<Unit> Assessed(InstrumentSet set, ComputeReceipt.Assessment assessment) {
+        KeyValuePair<string, object?> discipline = new(ReceiptSurface.DisciplineSlot, assessment.Discipline);
+        return set.Write(ReceiptSurface.AssessmentVerdicts, 1L,
+                discipline, new KeyValuePair<string, object?>(ReceiptSurface.VerdictSlot, assessment.Verdict))
+            .Bind(_ => set.Write(ReceiptSurface.AssessmentRatio, assessment.GoverningRatio, discipline));
     }
 }
 
 public static class ComputeTraces {
-    public static DispatchTable Traced(DispatchTable table, ActivitySource source) => new(
-        CpuTensor: Spanned(source, Substrate.CpuTensor, table.CpuTensor),
-        DeviceWgpu: Spanned(source, Substrate.DeviceWgpu, table.DeviceWgpu),
-        Onnx: Spanned(source, Substrate.Onnx, table.Onnx),
-        GenAi: Spanned(source, Substrate.GenAi, table.GenAi),
-        RemoteGrpc: Spanned(source, Substrate.RemoteGrpc, table.RemoteGrpc));
+    // Band composition owns the one bracket: substrates ride the span name under the admitted
+    // `rasm.compute.dispatch` scope, and an arm's IO rail brackets through the band's own IO overload.
+    public static DispatchTable Traced(DispatchTable table, SpanBand band) => new(
+        CpuTensor: Spanned(band, Substrate.CpuTensor, table.CpuTensor),
+        DeviceWgpu: Spanned(band, Substrate.DeviceWgpu, table.DeviceWgpu),
+        Onnx: Spanned(band, Substrate.Onnx, table.Onnx),
+        GenAi: Spanned(band, Substrate.GenAi, table.GenAi),
+        RemoteGrpc: Spanned(band, Substrate.RemoteGrpc, table.RemoteGrpc));
 
-    static Func<AdmittedIntent, IO<Unit>> Spanned(ActivitySource source, Substrate route, Func<AdmittedIntent, IO<Unit>> arm) =>
-        admitted => IO.lift(() => Started(source, route, admitted)).Bracket(
-            span => (arm(admitted) | @catch<IO, Unit>(static _ => true, error => IO.fail<Unit>(Marked(span, error)))).As(),
-            static span => IO.lift(() => ignore(span.Iter(static live => live.Dispose()))));
+    static Func<AdmittedIntent, IO<Unit>> Spanned(SpanBand band, Substrate route, Func<AdmittedIntent, IO<Unit>> arm) =>
+        admitted => band.Traced(
+            ReceiptSurface.Dispatch,
+            Op.Of(name: route.Key),
+            span => IO.lift(() => Tagged(span, route, admitted)).Bind(_ => arm(admitted)));
 
-    static Option<Activity> Started(ActivitySource source, Substrate route, AdmittedIntent admitted) =>
-        source.HasListeners()
-            ? Optional(source.StartActivity($"rasm.compute.dispatch.{route.Key}", ActivityKind.Internal))
-                .Map(span => span
-                    .SetTag(nameof(CorrelationId), admitted.Correlation.ToString())
-                    .SetTag("rasm.compute.lane", admitted.Spec.Lane.Key)
-                    .SetTag("rasm.compute.substrate", route.Key))
-            : None;
-
-    static Error Marked(Option<Activity> span, Error error) =>
-        (span.Iter(live => ignore(live.SetStatus(ActivityStatusCode.Error, error.Message))), error).Item2;
+    static Unit Tagged(Activity? span, Substrate route, AdmittedIntent admitted) =>
+        ignore(span?
+            .SetTag(CorrelationId.Slot, admitted.Correlation.ToString())
+            .SetTag(ReceiptSurface.LaneSlot, admitted.Spec.Lane.Key)
+            .SetTag(ReceiptSurface.SubstrateSlot, route.Key));
 }
 ```
 
@@ -515,7 +597,7 @@ public static class ComputeTraces {
 ```csharp signature
 public static class ReceiptFolds {
     public static Fin<Seq<(TenantContext Tenant, ComputeReceipt Fact)>> Journal(Seq<ReceiptEnvelope> envelopes, ComputeWireContext wire) =>
-        envelopes.Filter(static envelope => StringComparer.Ordinal.Equals(envelope.Package, TelemetrySource.Compute.Key))
+        envelopes.Filter(static envelope => StringComparer.Ordinal.Equals(envelope.Package, ReceiptSurface.Source.Key))
             .TraverseM(envelope => Try.lift(() => envelope.Payload.Deserialize(wire.ComputeReceipt)).Run()
                 .MapFail(error => (Error)ComputeFault.Create($"journal-decode:{envelope.Kind}:{error.Message}"))
                 .Bind(fact => fact is null
@@ -655,7 +737,7 @@ public static class ReceiptReplay {
 
 - Owner: `WireStamps` — the NodaTime-protobuf bridge family is the only temporal crossing between the receipt rail and the proto wire, spanning the well-known `Timestamp`/`Duration` edge and the `Google.Type` calendar-date and time-of-day edge.
 - Entry: `public Timestamp WirePhysical` — the envelope's HLC physical stamp projected onto the well-known wire type.
-- Packages: NodaTime.Serialization.Protobuf, Google.Protobuf, NodaTime, Rasm.AppHost (project)
+- Packages: NodaTime.Serialization.Protobuf, Google.Protobuf, NodaTime, Rasm (kernel signal capsule)
 - Growth: a new temporal wire field is one extension row over the bridge family, zero new surface.
 - Boundary: BCL `DateTime` never appears between wire and rail; pre-epoch instants and out-of-window durations are boundary faults the call edge projects onto the typed rail, and an invalid time-of-day or out-of-range day-of-week is the same boundary fault on the calendar edge; the desktop and the web dashboard consume the identical receipt stream — envelope JSON and the proto contracts are two encodings of one stream — and `SkewBound` surfaces in the evidence view with zero configuration; a sweep occurrence's calendar date, time-of-day, and day-of-week cross as `Google.Type.Date`/`TimeOfDay`/`DayOfWeek` so a dashboard groups runs by calendar day and weekday without re-deriving the instant, and `ToBase64` projects a frame or artifact checksum onto a text-safe field for the evidence view without a second hashing pass.
 
@@ -710,7 +792,7 @@ public static class WireStamps {
 - Owner: `BenchmarkInput`, `BenchmarkClaim`, `HostFingerprint`, `ProfileArtifact` — the admitted tensor-shape/stride/density class, measured claim row bound to the Persistence `BenchmarkFamily` and admitted `CacheToken`, effective-host identity that gates it, and the typed profile-evidence family; a claim is data, never prose.
 - Entry: `public Option<BenchmarkRow> Claim(ModelResultIndex index, Seq<BenchmarkRow> rows)` — delegates fingerprint and recency admission to the Persistence `ModelResultIndex.Claim` owner (its horizon and clock are closed inside the index; no call shape can omit or replace them); `None` is the fall-through to the static cost rank on the substrate row.
 - Auto: `BenchmarkInput.Admit` validates payload size, dtype, shape, strides, batch, and density, derives rank and contiguity, and classifies the payload band. `Key` includes the family, admitted case token, full input class, route, provider, and tolerance class, so claim admission refuses a zero-init case token — the struct value object's admission-bypassing ghost — beside the family check before identity forms. `Persist` delegates the durable mint to `BenchmarkFamily.Claim`, carrying operations, corpus, artifact key, timing, allocation, fingerprint, and timestamp without a parallel constructor; `Stale` compares the full effective fingerprint, including container-limited processors. `Sweep` registers the equivalence cadence row on `WorkLane.Benchmark`.
-- Receipt: every sweep run emits `TensorRun`/`ModelRun` receipts beside the persisted row; artifacts — chrome-trace profiles, BenchmarkDotNet exports, EP-context caches — admit as content-keyed `ArtifactIndexRow`s on the blob lane and ride the claim as typed `ProfileArtifact` cases, each carrying the same `ContentAddress` the index row holds so evidence joins its blob in one hop; the `ChromeTrace` case additionally carries the `InferenceSession.ProfilingStartTimeNs` epoch so a trace viewer aligns receipt-relative timestamps without re-opening the session.
+- Receipt: every sweep run emits `TensorRun`/`ModelRun` receipts beside the persisted row; artifacts — chrome-trace profiles, BenchmarkDotNet exports, EP-context caches — admit as content-keyed `ArtifactIndexRow`s on the blob lane and ride the claim as typed `ProfileArtifact` cases, each carrying the same `ContentAddress` the index row holds so evidence joins its blob in one hop; the `ChromeTrace` case carries the `InferenceSession.ProfilingStartTimeNs` epoch beside it so a trace viewer aligns receipt-relative timestamps without re-opening the session.
 - Packages: BenchmarkDotNet, NodaTime, LanguageExt.Core, Rasm.AppHost (project), Rasm.Persistence (project), BCL inbox
 - Growth: a new performance surface is one claim row; a new claim dimension is one column on `BenchmarkClaim`; zero new surface.
 - Boundary: SIMD routes, compression, partitioning, DATAS values, and numeric-provider ranks bind only behind a winning claim whose full fingerprint and input class match. `Provider` carries the numeric-lane key while `Substrate` remains the execution discriminant. `Stamps` includes the provider determinism tag, admitted package versions, device identity, and runtime posture; `Processors` uses `CpuBudget.Total`, never ambient host count under a container limit. Shape, strides, batch, density, route, and tolerance participate in identity, preventing a contiguous micro-vector claim from winning for a strided batched tensor. Samples, warmups, mean, deviation, median, and P95 remain claim evidence while Persistence owns recency. `ProfileArtifact` is the ONE profile-evidence vocabulary — `ChromeTrace` from the inference `EndProfiling` run, `BenchmarkExport` from a BenchmarkDotNet exporter, `EpContext` from the session fleet compile — replacing the loose path-string columns on `ModelRun` and `Artifacts` alike; identity is the `ContentAddress` the blob index mints, never the on-disk path, so a moved or re-materialized file cannot fork evidence, and continuous profiles join by span identity through the `[03]-[TELEMETRY_PROJECTION]` trace correlation law, never as a fourth artifact case.
@@ -945,7 +1027,7 @@ public sealed record BenchmarkClaim {
 
 ## [07]-[HOOK_POINTS]
 
-- Owner: `ComputeHookRail` — the five-point compute hook roster on the AppHost hook rail, one typed `HookPoint<TFact>` per point, declared once and mounted into the one `HookRegistry` at composition; `ConvergenceMark` — the solve-iteration evidence struct the replay point buffers.
+- Owner: `ComputeHookRail` — the five-point compute hook roster on the kernel hook capsule, one typed `HookPoint<TFact>` per point, declared once and mounted into the one `HookRegistry` at composition; `ConvergenceMark` — the solve-iteration evidence struct the replay point buffers.
 - Cases: `Admit` `rasm.compute.runtime.admit` (Veto over `AdmittedIntent` — policy transform-or-reject before `Plan`) · `Dispatch` `rasm.compute.runtime.dispatch` (Observe over `SelectionReceipt` — substrate-keyed tap beside the `[03]-[TELEMETRY_PROJECTION]` dispatch span) · `Iteration` `rasm.compute.solve.iteration` (Replay over `ConvergenceMark`, depth 256 — a late UI subscriber drains the recent convergence window) · `Writeback` `rasm.compute.assessment.writeback` (Veto over `GraphDelta` — gate before the caller applies the assessment delta) · `Control` `rasm.compute.twin.control` (Veto over `TwinVerdict` — gate before the control suggestion crosses to the AppHost write-back as `ExternalValue`).
 - Entry: `ComputeHookRail.Live()` mints the roster; `HookRegistry.Mount` at the composition root folds these points beside the AppHost `HookRail` rows into one frozen table, so a duplicate id dies structurally at composition and subscription reaches a point only through its declared rail field — a name-resolved lookup surface never exists.
 - Auto: domain code fires evidence and observability subscribes — `Planned` runs the admit veto fold on the emitter's own rail before `SubstrateSelection.Plan` so the first refusing gate short-circuits with its typed fault and a transform threads forward; `Ran` fires the dispatch tap with the `SelectionReceipt` before `DispatchTable.Run` so the tap observes the identical evidence the `[03]-[TELEMETRY_PROJECTION]` span tags; `Marked` folds a `ConvergenceMark` into the bounded replay buffer through the same cadence gate the `rasm.compute.progress.cadence` law meters, so a hot solver never floods the buffer; `Applied` and `Suggested` run the writeback and control veto folds where the delta and the verdict leave the package.
@@ -993,112 +1075,136 @@ public sealed record ComputeHookRail(
 
 ## [08]-[TS_PROJECTION]
 
-- Owner: `ComputeReceiptKind`, `ComputeReceiptSpineWire`, `ComputeReceiptWire`, `ComputeReceiptEnvelopeWire`, `ProfileArtifactWire`, `HostFingerprintWire`, `BenchmarkClaimWire`, `ComputePanelWire`, `SloAlertRowWire`, `CostVectorWire`, `ChargebackDatasetWire` — the receipt payload union, profile-evidence union, claim row, descriptor rows, and chargeback rows as the dashboard and the composing app root consume them.
+- Owner: `ComputeReceiptKind`, `ComputeReceiptSpineWire`, `ComputeReceiptWire`, `ComputeReceiptEnvelopeWire`, `ProfileArtifactWire`, `HostFingerprintWire`, `BenchmarkClaimWire`, `ComputePanelWire`, `AlertSpecWire`, `CostVectorWire`, `ChargebackDatasetWire` — the receipt payload union, profile-evidence union, claim document with its subject union and band, descriptor rows, and chargeback rows as the dashboard and the composing app root consume them.
 - Packages: BCL inbox
-- Growth: a new receipt case lands as one payload row on `ComputeReceiptWire`; a new panel or alert axis lands as one field on its descriptor wire; zero new surface.
-- Boundary: `ComputeReceiptKind` is a generated projection of `ReceiptSurface.Kinds` — emitted during the descriptor build and gated by the suite schema hash, never a hand-maintained mirror; payloads bind as `TPayload` through `ReceiptEnvelopeWire` with the envelope `kind` mirroring the payload discriminator; smart-enum spine fields cross as their key scalars; `long` values cross as invariant decimal strings through `Int64StringJsonConverter`, while `Instant` and `Duration` cross as ISO-8601 and roundtrip-pattern strings; `ProfileArtifactWire` mirrors the `ProfileArtifact` `[JsonDerivedType]` roster with `ContentAddress` crossing as its invariant hex string and `ulong StartNs` as a decimal string; absent evidence crosses as explicit null, never as an omitted member; the `[10]-[DASHBOARD_DESCRIPTOR]` descriptor rows and `[09]-[COST_LEDGER]` chargeback rows generate during the same descriptor build under the same schema hash, `UInt128` content keys cross as invariant hex strings through `UInt128HexJsonConverter`, the chargeback `tenant` mirrors the AppHost `TenantContextWire`, and a process-scoped chargeback row crosses its `route` as explicit null.
+- Growth: a new receipt case lands as one payload row on `ComputeReceiptWire`; a new panel or alert axis lands as one field on its descriptor wire, and a new kernel `Sli`, `InstrumentKind`, `PanelKind`, `BurnRow`, or `AlertSeverity` row lands as one arm or key on the wire union mirroring it; zero new surface.
+- Boundary: `ComputeReceiptKind` is a generated projection of `ReceiptSurface.Kinds` — emitted during the descriptor build and gated by the suite schema hash, never a hand-maintained mirror; payloads bind as `TPayload` through `ReceiptEnvelopeWire` with the envelope `kind` mirroring the payload discriminator; smart-enum spine fields cross as their key scalars, so `SliWire` spells one arm per kernel `[JsonDerivedType]` case and the `Saturation` polarity column crosses beside its bound — a union short an arm refuses a whole sink's alerts at the typed boundary, and a dropped polarity compiles every floor indicator as a ceiling breach; `long` values cross as invariant decimal strings through `Int64StringJsonConverter`, while `Instant` and `Duration` cross as ISO-8601 and roundtrip-pattern strings; `ProfileArtifactWire` mirrors the `ProfileArtifact` `[JsonDerivedType]` roster with `ContentAddress` crossing as its invariant hex string and `ulong StartNs` as a decimal string; absent evidence crosses as explicit null, never as an omitted member; the `[10]-[DASHBOARD_DESCRIPTOR]` descriptor rows and `[09]-[COST_LEDGER]` chargeback rows generate during the same descriptor build under the same schema hash, a panel row crossing its break keys beside its widget so the compile leg splits series without re-reading a meter it cannot reach, `UInt128` content keys cross as invariant hex strings through `UInt128HexJsonConverter`, the chargeback `tenant` mirrors the AppHost `TenantContextWire`, and a process-scoped chargeback row crosses its `route` as explicit null; `BenchmarkClaimWire` crosses as the one host-admitted document `tests/contracts/` `BENCHMARK_CLAIM` binds, so the fingerprint and the mint instant ride the document that one sweep produces, the subject union keeps the kernel coordinate off a bare probe row instead of widening every column to optional, each band rung crosses populated only where this sweep computes it and a peer grading an uncomputed rung refuses by axis rather than reading a fabricated value, and the distribution crosses as nanosecond numbers — the one carve on the `Duration` roundtrip-string law above, because a percentile ladder is arithmetic at every consumer.
 
 ```ts signature
-type ComputeReceiptKind =
-  | "selection" | "tensor-run" | "model-load" | "warmup" | "model-run" | "remote-call"
-  | "stream-segment" | "allocation" | "copy" | "cache" | "unit-projection" | "backpressure" | "drain" | "conflict"
-  | "factorization" | "generate" | "embedding"
-  | "discretization" | "solve" | "coupling" | "optimization" | "sweep" | "clash" | "twin" | "uncertainty" | "fit" | "governor" | "drift" | "assessment";
-
 type ReceiptScopeWire =
   | { kind: "execution"; correlation: string; lane: string; substrate: string; allocationClass: string; elapsed: string }
   | { kind: "process"; correlation: string; allocationClass: string };
 
-interface ComputeReceiptSpineWire { kind: ComputeReceiptKind; scope: ReceiptScopeWire; }
+// The spine PINS its own discriminator: each payload passes the literal its `[JsonDerivedType]` row declares, so
+// the roster lives exactly once — in the payload set — and `ComputeReceiptKind` derives off that union below.
+interface ComputeReceiptSpineWire<K extends string> { kind: K; scope: ReceiptScopeWire; }
 
 type SelectionDecisionWire = { outcome: "chosen"; row: string } | { outcome: "rejected"; row: string; reason: string };
 type SelectionModeWire = { mode: "ranked" } | { mode: "forced"; row: string };
-interface SelectionWire extends ComputeReceiptSpineWire { kind: "selection"; decisions: SelectionDecisionWire[]; mode: SelectionModeWire; warmAffinity: boolean; }
+interface SelectionWire extends ComputeReceiptSpineWire<"selection"> { decisions: SelectionDecisionWire[]; mode: SelectionModeWire; warmAffinity: boolean; }
 
-interface TensorRunWire extends ComputeReceiptSpineWire { kind: "tensor-run"; family: string; dtype: string; elements: string; simdWidth: string; partitions: number; }
+interface TensorRunWire extends ComputeReceiptSpineWire<"tensor-run"> { family: string; dtype: string; elements: string; simdWidth: string; partitions: number; }
 
-interface ModelLoadWire extends ComputeReceiptSpineWire { kind: "model-load"; modelChecksum: string; source: string; ep: string; version: string; }
+interface ModelLoadWire extends ComputeReceiptSpineWire<"model-load"> { modelChecksum: string; source: string; ep: string; version: string; }
 
-interface WarmupWire extends ComputeReceiptSpineWire { kind: "warmup"; modelChecksum: string; ep: string; shape: string; }
+interface WarmupWire extends ComputeReceiptSpineWire<"warmup"> { modelChecksum: string; ep: string; shape: string; }
 
 type ProfileArtifactWire =
   | { kind: "chrome-trace"; content: string; startNs: string }
   | { kind: "benchmark-export"; content: string; exporter: string }
   | { kind: "ep-context"; content: string; ep: string };
 
-interface ModelRunWire extends ComputeReceiptSpineWire { kind: "model-run"; modelChecksum: string; ep: string; mode: string; batchSize: number; peakBytes: string; arenaAllocator: string | null; profile: ProfileArtifactWire | null; }
+interface ModelRunWire extends ComputeReceiptSpineWire<"model-run"> { modelChecksum: string; ep: string; mode: string; batchSize: number; peakBytes: string; arenaAllocator: string | null; profile: ProfileArtifactWire | null; }
 
-interface RemoteCallWire extends ComputeReceiptSpineWire { kind: "remote-call"; transport: string; method: string; status: string; requestBytes: string; responseBytes: string; outcome: string; }
+interface RemoteCallWire extends ComputeReceiptSpineWire<"remote-call"> { transport: string; method: string; status: string; requestBytes: string; responseBytes: string; outcome: string; }
 
-interface StreamSegmentWire extends ComputeReceiptSpineWire { kind: "stream-segment"; artifactId: string; segments: number; bytes: string; }
+interface StreamSegmentWire extends ComputeReceiptSpineWire<"stream-segment"> { artifactId: string; segments: number; bytes: string; }
 
-interface AllocationWire extends ComputeReceiptSpineWire { kind: "allocation"; event: string; requestedBytes: string; grantedBytes: string; detail: string | null; nativeAllocator: string | null; nativeReservedBytes: string | null; smallPoolFreeBytes: string | null; largePoolFreeBytes: string | null; }
+interface AllocationWire extends ComputeReceiptSpineWire<"allocation"> { event: string; requestedBytes: string; grantedBytes: string; detail: string | null; nativeAllocator: string | null; nativeReservedBytes: string | null; smallPoolFreeBytes: string | null; largePoolFreeBytes: string | null; }
 
-interface CopyWire extends ComputeReceiptSpineWire { kind: "copy"; gate: string; bytes: string; device: string; }
+interface CopyWire extends ComputeReceiptSpineWire<"copy"> { gate: string; bytes: string; device: string; }
 
-interface CacheWire extends ComputeReceiptSpineWire { kind: "cache"; outcome: "hit" | "miss" | "store" | "evict"; key: string; bytes: string; }
+interface CacheWire extends ComputeReceiptSpineWire<"cache"> { outcome: "hit" | "miss" | "store" | "evict"; key: string; bytes: string; }
 
-interface UnitProjectionWire extends ComputeReceiptSpineWire { kind: "unit-projection"; family: string; originalUnit: string; originalValue: number; canonicalValue: number; }
+interface UnitProjectionWire extends ComputeReceiptSpineWire<"unit-projection"> { family: string; originalUnit: string; originalValue: number; canonicalValue: number; }
 
-interface BackpressureWire extends ComputeReceiptSpineWire { kind: "backpressure"; queueDepth: number; waited: string; dropped: string | null; }
+interface BackpressureWire extends ComputeReceiptSpineWire<"backpressure"> { queueDepth: number; waited: string; dropped: string | null; }
 
-interface DrainWire extends ComputeReceiptSpineWire { kind: "drain"; drained: number; faulted: number; refused: number; }
+interface DrainWire extends ComputeReceiptSpineWire<"drain"> { drained: number; faulted: number; refused: number; }
 
-interface ConflictWire extends ComputeReceiptSpineWire { kind: "conflict"; subject: "retry-owner" | "contract-checksum"; evidence: string; }
+interface ConflictWire extends ComputeReceiptSpineWire<"conflict"> { subject: "retry-owner" | "contract-checksum"; evidence: string; }
 
-interface FactorizationWire extends ComputeReceiptSpineWire { kind: "factorization"; provider: string; decomposition: string; rows: number; cols: number; nnz: string; format: string; routeVariant: string | null; determinismTag: string | null; symbolicFill: number | null; residualCap: number | null; trueResidual: number | null; }
+interface FactorizationWire extends ComputeReceiptSpineWire<"factorization"> { provider: string; decomposition: string; rows: number; cols: number; nnz: string; format: string; routeVariant: string | null; determinismTag: string | null; symbolicFill: number | null; residualCap: number | null; trueResidual: number | null; }
 
-interface GenerateWire extends ComputeReceiptSpineWire { kind: "generate"; modelChecksum: string; ep: string; modelType: string; mode: string; adapter: string | null; tokens: number; tokensPerSecond: number; guidanceKind: string; constrainedTokens: number; toolCalls: number; }
+interface GenerateWire extends ComputeReceiptSpineWire<"generate"> { modelChecksum: string; ep: string; modelType: string; mode: string; adapter: string | null; tokens: number; tokensPerSecond: number; guidanceKind: string; constrainedTokens: number; toolCalls: number; }
 
-interface EmbeddingWire extends ComputeReceiptSpineWire { kind: "embedding"; modelChecksum: string; encoding: string; dimension: number; byteLength: string; }
+interface EmbeddingWire extends ComputeReceiptSpineWire<"embedding"> { modelChecksum: string; encoding: string; dimension: number; byteLength: string; }
 
-interface DiscretizationWire extends ComputeReceiptSpineWire { kind: "discretization"; algorithm: string; element: string; nodes: string; elements: string; boundaryLayers: number; refineLevel: number; worstQuality: number; metric: string; }
+interface DiscretizationWire extends ComputeReceiptSpineWire<"discretization"> { algorithm: string; element: string; nodes: string; elements: string; boundaryLayers: number; refineLevel: number; worstQuality: number; metric: string; }
 
-interface SolveWire extends ComputeReceiptSpineWire { kind: "solve"; physics: string; method: string; dofs: string; iterations: number; residual: number; converged: boolean; }
+interface SolveWire extends ComputeReceiptSpineWire<"solve"> { physics: string; method: string; dofs: string; iterations: number; residual: number; converged: boolean; }
 
-interface CouplingWire extends ComputeReceiptSpineWire { kind: "coupling"; scheme: string; fields: number; transfers: number; rounds: number; couplingResidual: number; converged: boolean; }
+interface CouplingWire extends ComputeReceiptSpineWire<"coupling"> { scheme: string; fields: number; transfers: number; rounds: number; couplingResidual: number; converged: boolean; }
 
-interface OptimizationWire extends ComputeReceiptSpineWire { kind: "optimization"; optimizer: string; generations: number; evaluations: number; surrogateHits: number; frontSize: number; hypervolume: number; }
+interface OptimizationWire extends ComputeReceiptSpineWire<"optimization"> { optimizer: string; generations: number; evaluations: number; surrogateHits: number; frontSize: number; hypervolume: number; }
 
-interface SweepWire extends ComputeReceiptSpineWire { kind: "sweep"; gridPoints: string; completed: number; onFront: number; dominated: number; }
+interface SweepWire extends ComputeReceiptSpineWire<"sweep"> { gridPoints: string; completed: number; onFront: number; dominated: number; }
 
-interface ClashWire extends ComputeReceiptSpineWire { kind: "clash"; indexKind: "bvh" | "octree" | "sdf"; candidates: number; hardClashes: number; clearanceViolations: number; totalPairs: number; }
+interface ClashWire extends ComputeReceiptSpineWire<"clash"> { indexKind: "bvh" | "octree" | "sdf"; candidates: number; hardClashes: number; clearanceViolations: number; totalPairs: number; }
 
-interface TwinWire extends ComputeReceiptSpineWire { kind: "twin"; signalId: string; predicted: number; measured: number; residual: number; anomaly: boolean; controlDelta: number; }
+interface TwinWire extends ComputeReceiptSpineWire<"twin"> { signalId: string; predicted: number; measured: number; residual: number; anomaly: boolean; controlDelta: number; }
 
-interface UncertaintyWire extends ComputeReceiptSpineWire { kind: "uncertainty"; method: string; samples: number; mean: number | null; variance: number | null; skewness: number | null; kurtosis: number | null; quantiles: number[]; sobolFirst: number[]; sobolTotal: number[]; interaction: number[]; mostProbablePoint: number[]; failureProbability: number; reliabilityIndex: number; }
+interface UncertaintyWire extends ComputeReceiptSpineWire<"uncertainty"> { method: string; samples: number; mean: number | null; variance: number | null; skewness: number | null; kurtosis: number | null; quantiles: number[]; sobolFirst: number[]; sobolTotal: number[]; interaction: number[]; mostProbablePoint: number[]; failureProbability: number; reliabilityIndex: number; }
 
-interface FitWire extends ComputeReceiptSpineWire { kind: "fit"; family: string; method: string; parameters: string; iterations: number; residual: number; converged: boolean; quality: number; qualityMetric: string; retainedRank: number; }
+interface FitWire extends ComputeReceiptSpineWire<"fit"> { family: string; method: string; parameters: string; iterations: number; residual: number; converged: boolean; quality: number; qualityMetric: string; retainedRank: number; }
 
-interface GovernorWire extends ComputeReceiptSpineWire { kind: "governor"; cpuPercent: number; memoryPercent: number; workers: number; readerCeiling: number; partitionCap: number; memoryScale: number; spillPressure: boolean; }
+interface GovernorWire extends ComputeReceiptSpineWire<"governor"> { cpuPercent: number; memoryPercent: number; workers: number; readerCeiling: number; partitionCap: number; memoryScale: number; spillPressure: boolean; }
 
-interface DriftWire extends ComputeReceiptSpineWire { kind: "drift"; monitorId: string; statistic: string; level: number; limit: number | null; breach: boolean; window: number; }
+interface DriftWire extends ComputeReceiptSpineWire<"drift"> { monitorId: string; statistic: string; level: number; limit: number | null; breach: boolean; window: number; }
 
-interface AssessmentWire extends ComputeReceiptSpineWire { kind: "assessment"; discipline: string; route: string; key: string; verdict: string; governingRatio: number; admitted: boolean; phase: string | null; failureKind: string | null; transient: boolean; attempt: number; participation: number | null; combination: string | null; }
+interface AssessmentWire extends ComputeReceiptSpineWire<"assessment"> { discipline: string; route: string; key: string; verdict: string; governingRatio: number; admitted: boolean; phase: string | null; failureKind: string | null; transient: boolean; attempt: number; participation: number | null; combination: string | null; }
 
 type ComputeReceiptWire =
   | SelectionWire | TensorRunWire | ModelLoadWire | WarmupWire | ModelRunWire | RemoteCallWire | StreamSegmentWire
   | AllocationWire | CopyWire | CacheWire | UnitProjectionWire | BackpressureWire | DrainWire | ConflictWire | FactorizationWire | GenerateWire | EmbeddingWire
   | DiscretizationWire | SolveWire | CouplingWire | OptimizationWire | SweepWire | ClashWire | TwinWire | UncertaintyWire | FitWire | GovernorWire | DriftWire | AssessmentWire;
 
+// Derived off the payload union the descriptor build emits, never re-typed: a landed case widens the kind with no
+// second list to edit, so the mirror that can silently go stale has nowhere to live.
+type ComputeReceiptKind = ComputeReceiptWire["kind"];
+
 type ComputeReceiptEnvelopeWire = ReceiptEnvelopeWire<ComputeReceiptWire>;
 
-interface HostFingerprintWire { os: string; arch: string; processors: number; stamps: Record<string, string>; }
+interface HostFingerprintWire { print: string; machine: string; os: string; arch: string; processors: number; runtime: string; stamps: Record<string, string>; }
 
 interface BenchmarkInputWire { payloadBytes: string; band: "micro" | "small" | "medium" | "large"; dtype: string; shape: string[]; strides: string[]; batch: number; density: number; rank: number; contiguous: boolean; }
 
-interface BenchmarkClaimWire { input: BenchmarkInputWire; substrate: string; family: string; case: string; route: string; provider: string; mean: string; median: string; p95: string; stdDev: string; samples: number; warmups: number; allocatedBytes: string; operations: string; corpus: string | null; artifactKey: string | null; equivalenceMaxDeviation: number; toleranceClass: string; fingerprint: HostFingerprintWire; artifacts: ProfileArtifactWire[]; at: string; }
+type BenchmarkSubjectWire =
+  | { subject: "probe" }
+  | { subject: "kernel"; input: BenchmarkInputWire; substrate: string; family: string; case: string; route: string; provider: string; corpus: string | null; artifactKey: string | null; equivalenceMaxDeviation: number; toleranceClass: string; artifacts: ProfileArtifactWire[] };
 
-type PanelKindWire = "counter" | "level" | "histogram";
-interface ComputePanelWire { instrument: string; unit: string; description: string; kind: PanelKindWire; thresholds: number[]; }
+interface BenchmarkAggregateWire { avg: number; min: number; max: number; total: number; }
 
-type FactMatchWire =
-  | { match: "is"; field: string; value: string }
-  | { match: "is-not"; field: string; value: string }
-  | { match: "present"; field: string };
-interface FactSelectorWire { kind: ComputeReceiptKind; where: FactMatchWire | null; }
-interface BurnWindowWire { long: string; short: string; factor: number; severity: "page" | "ticket"; }
-interface SloAlertRowWire { slug: string; description: string; objective: number; numerator: FactSelectorWire; denominator: FactSelectorWire; windows: BurnWindowWire[]; }
+type BenchmarkRungWire = "min" | "max" | "avg" | "p25" | "p50" | "p75" | "p95" | "p99" | "p999" | "stdDev";
+
+interface BenchmarkBandWire { sampleCount: number; rungs: Partial<Record<BenchmarkRungWire, number>>; ticks: number | null; samples: number[] | null; gc: BenchmarkAggregateWire | null; heap: BenchmarkAggregateWire | null; counters: Record<string, number> | null; }
+
+interface BenchmarkMetricWire { label: string; unit: string; modality: "fn" | "iter" | "yield"; subject: BenchmarkSubjectWire; band: BenchmarkBandWire; warmups: number | null; allocatedBytes: string | null; operations: string | null; }
+
+interface BenchmarkClaimWire { suite: string; host: HostFingerprintWire; minted: string; metrics: BenchmarkMetricWire[]; }
+
+type InstrumentKindWire = "count" | "delta" | "distribution" | "reading" | "total" | "balance" | "level" | "levels";
+type PanelKindWire = "timeseries" | "stat" | "gauge" | "heatmap" | "logs" | "table" | "geomap" | "nodes";
+interface ComputePanelWire { title: string; instrument: string; unit: string; measure: InstrumentKindWire; panel: PanelKindWire; by: string[]; bounds: number[]; }
+
+type LevelBreachWire = "ceiling" | "floor";
+type SliWire =
+  | { sli: "ratio"; good: string; total: string }
+  | { sli: "partition"; metric: string; by: string; good: string[] }
+  | { sli: "latency"; metric: string; ceiling: string; quantile: number }
+  | { sli: "saturation"; metric: string; bound: number; breach: LevelBreachWire }
+  | { sli: "freshness"; metric: string; horizon: string };
+type AlertSeverityWire = "page" | "ticket";
+type BurnRowWire = "page-fast" | "page-slow" | "ticket-fast" | "ticket-slow";
+interface AlertSpecWire {
+  slug: string;
+  burn: BurnRowWire;
+  severity: AlertSeverityWire;
+  sli: SliWire;
+  target: number;
+  spend: number;
+  annotations: ReadonlyArray<{ key: string; value: string }>;
+}
 
 interface CostVectorWire { elapsedUnits: number; tokenUnits: number; byteUnits: number; remoteUnits: number; }
 interface ChargebackRowWire { tenant: TenantContextWire; route: string | null; vector: CostVectorWire; facts: string; }
@@ -1111,9 +1217,9 @@ interface ChargebackDatasetWire { windowStart: string; windowEnd: string; rows: 
 - Entry: `public static Fin<CostPolicy> CostPolicy.Admit(Seq<(Substrate Row, double SecondRate)> rates, double tokenRate, double stagedByteRate, double remoteNodeSecondRate)` — rates enter once at the composition root as external policy, admission proving `Substrate.Items` coverage exactly once per row and finite non-negative rates; `ChargebackDataset.Of(Instant windowStart, Instant windowEnd, Seq<(TenantContext Tenant, ComputeReceipt Fact)> journal, CostPolicy costs)` folds the envelope-joined journal into ordered per-`(tenant, route)` rows and mints the content key.
 - Auto: `Price` folds one typed fact through the generated total `Switch`, so a new receipt case decides its cost axes at compile time or returns `CostVector.Zero` explicitly — elapsed seconds price by the scope substrate's rate, generated tokens by the token rate, granted staging bytes by the byte rate, and remote wall seconds by the node-second rate; the base elapsed term derives from the `Option` spine, so a process-scoped fact prices only its declared axes and fabricates no route.
 - Receipt: none new — the ledger is a projection of the standing fact stream; `ChargebackDataset` rows are the billing truth and the `rasm.compute.cost.units` histogram is the lossy channel beside them.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, System.IO.Hashing, Rasm.AppHost (project), BCL inbox
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, System.IO.Hashing, Rasm (kernel signal capsule), BCL inbox
 - Growth: a new cost axis is one `CostVector` field, one `CostPolicy` rate column, and the priced arms it touches — every untouched arm breaks loudly; a new rate posture is one admitted policy value at composition; zero new surface.
-- Boundary: no rate literal lives in the package — `Admit` is the only mint and the composition root supplies the rows; the dataset content key folds window, tenant slug, route, vector lanes, and fact counts through the one `XxHash128` identity path so a re-derived dataset over identical evidence re-keys identically; grouping composes the BCL `AggregateBy` keyed fold, ordering is ordinal by slug then route so the key is order-stable; the envelope `Tenant` the AppHost `TenantContext.Stamp` promotes onto OTel `Baggage` is the same partition this ledger folds — the estate baggage-attribution law (`libs` `[COST_ATTRIBUTION_BAGGAGE]`) consumes this dataset, and a second attribution stream beside the receipt rail is the rejected form; the content-keyed `ChargebackDataset` projects columnar for the billing lake through the one `Runtime/codecs#ARROW_BATCH` `ArrowBatch.Chargeback` owner — the same `RecordBatch` construction path `Solver/sweep` `DoeDataset` folds — never a second columnar encoder.
+- Boundary: no rate literal lives in the package — `Admit` is the only mint and the composition root supplies the rows; the dataset content key folds window, tenant slug, route, vector lanes, and fact counts through the one `XxHash128` identity path so a re-derived dataset over identical evidence re-keys identically; grouping composes the BCL `AggregateBy` keyed fold, ordering is ordinal by slug then route so the key is order-stable; the envelope `Tenant` that `TenantContext.Stamp` promotes onto every registered mirror store is the same partition this ledger folds — the estate baggage-attribution law (`libs` `[COST_ATTRIBUTION_BAGGAGE]`) consumes this dataset, and a second attribution stream beside the receipt rail is the rejected form; the content-keyed `ChargebackDataset` projects columnar for the billing lake through the one `ArrowBatch.Chargeback` owner — the same `RecordBatch` construction path `Solver/sweep` `DoeDataset` folds — never a second columnar encoder.
 
 ```csharp signature
 public readonly record struct CostVector(double ElapsedUnits, double TokenUnits, double ByteUnits, double RemoteUnits) {
@@ -1225,73 +1331,111 @@ public sealed record ChargebackDataset(Instant WindowStart, Instant WindowEnd, S
 
 ## [10]-[DASHBOARD_DESCRIPTOR]
 
-- Owner: `PanelRow`, `FactMatch`, `FactSelector`, `AlertSeverity`, `BurnWindow`, `SloAlertRow`, `ComputeDescriptors` — the typed dashboard-and-alert contribution the composing app root encodes into provisioned boards and rule groups; data rows, never rendered JSON, and never a deploy-plane import.
-- Entry: `ComputeDescriptors.Panels(LevelCells cells)` — one panel row per `[02]-[RECEIPT_UNION]` `InstrumentSpec`, thresholds read from the explicit spec column; `ComputeDescriptors.Alerts` — the SLO burn-rate rows; `ComputeDescriptors.Probe(LevelCells cells)` — the boot proof that every alert selector kind is a registered receipt kind, every histogram spec carries thresholds, and alert slugs are unique.
-- Auto: panels derive from `ReceiptSurface.Specs`, so descriptor truth structurally cannot drift from the mounted roster — a new spec row is a new panel with zero descriptor edit; each alert row anchors an operational fold view (`Diverged` the solve rate, `Anomalies` the twin rate, the `Backpressure` and `RemoteCall` cases the drop and failure rates), states its objective, and carries the canonical multiwindow burn pairs — the long/short window, factor, and severity travel as data the estate burn-rate algebra consumes.
-- Receipt: none — the descriptor is a projection of the spec roster and the fold vocabulary; a hand-authored board beside it is the drift the projection deletes.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project), BCL inbox
-- Growth: a new panel is the `[02]-[RECEIPT_UNION]` spec row it derives from; a new alert is one `SloAlertRow` with its selector and windows; a new selector shape is one `FactMatch` case breaking every consumer switch loudly; zero new surface.
-- Boundary: descriptor rows emit during the descriptor build under the suite schema hash beside `ReceiptSurface.Kinds` and cross on the `[08]-[TS_PROJECTION]` wires; the ts-iac compile leg (`typescript:iac` `[0014]`) owns turning rows into Foundation-SDK dashboards and rule groups — Compute owns no IaC surface and renders nothing; `FactSelector` kinds spell receipt discriminators and `Probe` refuses an unregistered kind at boot, so an alert can never reference a fact the union does not carry; burn factors and windows are the canonical fast/slow multiwindow pairs stated once as `CanonicalBurn`, a per-alert bespoke window earning its own row only with a distinct severity story.
+- Owner: `FactSelector`, `ComputeObjective`, `PanelRow`, `ComputeDescriptors` — the typed dashboard-and-alert contribution the composing app root encodes into provisioned boards and rule groups; data rows, never rendered JSON, and never a deploy-plane import. Indicator shapes, the burn table, severity routing, the verdict fold, the alert spec, and both descriptor carriers — `PanelSpec` and `BoardPack` — are the kernel SLO algebra composed whole, so `PanelRow` projects the pack outward and mints no second panel truth.
+- Entry: `ComputeDescriptors.Board` — the kernel `BoardPack` carrying one `PanelSpec` per `[02]-[RECEIPT_UNION]` `InstrumentSpec` beside every objective; `ComputeDescriptors.Panels` — the wire projection of that pack, each row carrying its title, break keys, widget, unit, and bucket edges; `ComputeDescriptors.Alerts` — the pack's compilation-ready specs; `ComputeObjective.Verdict` — the in-process burn verdict over a windowed fact slice. Admission is the kernel pack's whole and reaches the composing root on `[02]-[RECEIPT_UNION]`'s contributor port, so this owner exposes no probe entry.
+- Auto: panels derive from `ReceiptSurface.Specs`, so descriptor truth structurally cannot drift from the mounted roster — a new spec row is a new panel with zero descriptor edit — and each panel's break keys are its declaring row's `Dimensions`, so the tag vocabulary a writer spells is the vocabulary the board splits on; each objective binds a mounted counter pair as its ratio indicator and a typed selector pair as its in-process sampler, so the store-side burn rule and the live verdict divide the same evidence; the four multiwindow burn rows, both severities, the budget share, and every annotation derive from the kernel table, so a factor change moves verdict, alert, and dashboard in one edit at one owner.
+- Receipt: none — the descriptor is a projection of the spec roster and the fact vocabulary; a hand-authored board beside it is the drift the projection deletes.
+- Packages: LanguageExt.Core, NodaTime, Rasm (kernel signal capsule), BCL inbox
+- Growth: a new panel is the `[02]-[RECEIPT_UNION]` spec row it derives from; a panel wanting a non-default widget or a narrower break set overrides on its own `PanelSpec` row; a new objective is one `Bound<TCase>` row naming its scored receipt case, indicator series, target, and breach predicate; a fifth indicator shape is one kernel `Sli` case breaking every consumer at compile time; zero new surface.
+- Boundary: descriptor rows emit during the descriptor build under the suite schema hash beside `ReceiptSurface.Kinds` and cross on the `[08]-[TS_PROJECTION]` wires; the ts-iac compile leg (`typescript:iac` `[0014]`) owns turning rows into Foundation-SDK dashboards and rule groups — Compute owns no IaC surface and renders nothing; selectors are typed case predicates rather than payload field matchers, so they never cross the wire, a field rename fails the build instead of quietly sampling nothing, and an unregistered case fails where the selector is constructed rather than at a boot probe restating it; `BoardPack.Admit` carries every claim this pack owes — panel widgets and break keys, indicator series and partition keys, and objective-name distinctness across the alert namespace — so an alert can never name a series the meter never mounts, a panel can never break on a key its row never declares, and a folder-local probe restating any of them is the deleted form; three further proofs are structural and probing them tests nothing, since the `Advised` factory is the only path carrying bounds and `Distribution` the only path without, `FactSelector.Of` resolves its kind through the frozen registry so an objective naming an unregistered case has no construction path, and `ComputeObjective.Of` mints the population-and-breach pair off ONE type argument behind a private constructor so a pair spanning two cases — whose breach then samples a population it can never intersect and reports a permanent zero — has none either; a hand-typed window, factor, or severity beside the kernel table is the forked form that silently diverges from every sibling descriptor plane on the next tuning.
 
 ```csharp signature
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class AlertSeverity {
-    public static readonly AlertSeverity Page = new("page");
-    public static readonly AlertSeverity Ticket = new("ticket");
+// Typed case selection replaces a stringly field matcher: the population IS a receipt case and the predicate
+// reads that case's own fields, so a renamed payload field breaks at compile time instead of silently
+// selecting nothing, and the kind travels only so the boot probe can prove the case is on the wire roster.
+public sealed record FactSelector(string Kind, Func<ComputeReceipt, bool> Holds) {
+    public static FactSelector Of<TCase>(Func<TCase, bool>? holds = null) where TCase : ComputeReceipt =>
+        new(ReceiptSurface.KindOf(typeof(TCase)), fact => fact is TCase held && (holds is null || holds(held)));
+
+    public long Count(Seq<ComputeReceipt> facts) => facts.Filter(Holds).Count;
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "match")]
-[JsonDerivedType(typeof(Is), "is")]
-[JsonDerivedType(typeof(IsNot), "is-not")]
-[JsonDerivedType(typeof(Present), "present")]
-public abstract partial record FactMatch {
-    private FactMatch() { }
+// Compute's evidence plane is its own fact stream, so the sampler is a selector pair while the burn windows,
+// factors, severity routing, budget share, and spec derivation stay the kernel's single discipline.
+public sealed record ComputeObjective {
+    private ComputeObjective(Objective objective, FactSelector population, FactSelector breach) =>
+        (Objective, Population, Breach) = (objective, population, breach);
 
-    public sealed record Is(string Field, string Value) : FactMatch;
+    public Objective Objective { get; }
 
-    public sealed record IsNot(string Field, string Value) : FactMatch;
+    public FactSelector Population { get; }
 
-    public sealed record Present(string Field) : FactMatch;
+    public FactSelector Breach { get; }
+
+    // ONE type argument mints BOTH views, so population and breach are two predicates over one receipt case by
+    // construction: a pair naming two cases samples a breach against a population it can never intersect and
+    // reports a permanent zero — a green indicator over an unmeasured objective, the worst reading this plane can
+    // produce. The private constructor leaves this the only path, so the mismatch has no construction site rather
+    // than a runtime refusal restating it — the third structural proof beside the bounds factory and the frozen
+    // kind registry. `within` narrows the population when an objective scores a slice of its case.
+    public static ComputeObjective Of<TCase>(
+        Objective objective, Func<TCase, bool> breached, Func<TCase, bool>? within = null)
+        where TCase : ComputeReceipt =>
+        new(objective, FactSelector.Of<TCase>(within), FactSelector.Of<TCase>(breached));
+
+    // Breaching filters the ALREADY-filtered population, so the sample's Breaching <= Total claim holds by
+    // construction at the one seam that mints it and no consumer re-proves it.
+    public SloSample Sample(Seq<ComputeReceipt> window) {
+        Seq<ComputeReceipt> total = window.Filter(Population.Holds);
+        return new SloSample(Breaching: Breach.Count(total), Total: total.Count);
+    }
+
+    public SloVerdict Verdict(Func<Duration, Seq<ComputeReceipt>> window) =>
+        Slo.Evaluate(Objective, row => new BurnReading(Long: Sample(window(row.Long)), Short: Sample(window(row.Short))));
+
+    public Seq<AlertSpec> Specs => Slo.Specs(Objective);
 }
 
-public sealed record FactSelector(string Kind, FactMatch? Where);
-
-public sealed record PanelRow(string Instrument, string Unit, string Description, PanelKind Kind, ImmutableArray<double> Thresholds);
-
-public sealed record BurnWindow(Duration Long, Duration Short, double Factor, AlertSeverity Severity);
-
-public sealed record SloAlertRow(string Slug, string Description, double Objective, FactSelector Numerator, FactSelector Denominator, Seq<BurnWindow> Windows);
+// Wire projection of one pack panel: the kernel `PanelSpec` carries the policy half — which instrument, broken
+// on which keys, under which widget — and these columns carry the instrument facts a renderer needs beside it,
+// so the deploy plane renders from one row and resolves nothing against a meter it cannot reach.
+public sealed record PanelRow(
+    string Title, string Instrument, string Unit, InstrumentKind Measure, PanelKind Panel, Seq<string> By, ImmutableArray<double> Bounds);
 
 public static class ComputeDescriptors {
-    public static readonly Seq<BurnWindow> CanonicalBurn = Seq(
-        new BurnWindow(Duration.FromHours(1), Duration.FromMinutes(5), 14.4, AlertSeverity.Page),
-        new BurnWindow(Duration.FromHours(6), Duration.FromMinutes(30), 6.0, AlertSeverity.Ticket));
+    public static readonly Seq<ComputeObjective> Objectives = Seq(
+        Bound<ComputeReceipt.Solve>("compute.solve-convergence",
+            new Sli.Ratio(ReceiptSurface.SolveConverged, ReceiptSurface.SolveRuns), 0.99d,
+            static solve => !solve.Converged),
+        Bound<ComputeReceipt.RemoteCall>("compute.remote-call",
+            new Sli.Ratio(ReceiptSurface.RemoteOk, ReceiptSurface.RemoteCalls), 0.999d,
+            static call => !StringComparer.Ordinal.Equals(call.Status, ReceiptSurface.OkStatus)),
+        Bound<ComputeReceipt.Backpressure>("compute.backpressure",
+            new Sli.Ratio(ReceiptSurface.BackpressureAdmitted, ReceiptSurface.BackpressureVerdicts), 0.999d,
+            static shed => shed.Dropped is not null),
+        Bound<ComputeReceipt.Twin>("compute.twin-anomaly",
+            new Sli.Ratio(ReceiptSurface.TwinNominal, ReceiptSurface.TwinVerdicts), 0.95d,
+            static twin => twin.Anomaly));
 
-    public static readonly Seq<SloAlertRow> Alerts = Seq(
-        new SloAlertRow("compute-solve-nonconvergence", "share of solve runs failing to converge", 0.99,
-            new FactSelector("solve", new FactMatch.Is("converged", "false")), new FactSelector("solve", null), CanonicalBurn),
-        new SloAlertRow("compute-remote-call-failure", "share of remote transport calls landing a non-ok status", 0.999,
-            new FactSelector("remote-call", new FactMatch.IsNot("status", "ok")), new FactSelector("remote-call", null), CanonicalBurn),
-        new SloAlertRow("compute-backpressure-drop", "share of backpressure verdicts shedding queued work", 0.999,
-            new FactSelector("backpressure", new FactMatch.Present("dropped")), new FactSelector("backpressure", null), CanonicalBurn),
-        new SloAlertRow("compute-twin-anomaly", "share of twin verdicts breaching the ROM error bound", 0.95,
-            new FactSelector("twin", new FactMatch.Is("anomaly", "true")), new FactSelector("twin", null), CanonicalBurn));
+    // One derivation from the spec roster: the kernel policy row and its wire projection are two reads of the
+    // same pair, so a panel cannot sit on the pack and be missing from the wire or carry a different widget on
+    // each side. Every panel breaks on its declaring row's own `Dimensions`, so the break vocabulary IS the
+    // declaration and a hand-kept break list beside it has nothing to hold.
+    static readonly Seq<(PanelSpec Panel, InstrumentSpec Row)> Descriptors =
+        ReceiptSurface.Specs.Map(static row => (PanelSpec.Of(row.Description, row.Name, [.. row.Dimensions]), row)).Strict();
 
-    public static Seq<PanelRow> Panels(LevelCells cells) =>
-        ReceiptSurface.Specs(cells).Map(static spec => new PanelRow(spec.Name, spec.Unit, spec.Description, spec.Kind, spec.Thresholds.IfNone([])));
+    // Panels and objectives travel as one kernel pack, so a roster change re-derives panels, alerts, and the
+    // whole admission proof in one diff and no descriptor plane re-mints a panel carrier.
+    public static readonly BoardPack Board = new(
+        Wire: "compute.receipt", // the provenance key the deploy tuple admits this projection under; pack and key are one value
+        Panels: Descriptors.Map(static entry => entry.Panel).Strict(),
+        Objectives: Objectives.Map(static row => row.Objective).Strict());
 
-    public static Fin<Unit> Probe(LevelCells cells) {
-        FrozenSet<string> kinds = ReceiptSurface.Kinds.ToFrozenSet(StringComparer.Ordinal);
-        bool selectorsRegistered = Alerts.ForAll(alert => kinds.Contains(alert.Numerator.Kind) && kinds.Contains(alert.Denominator.Kind));
-        bool thresholdsPresent = ReceiptSurface.Specs(cells).ForAll(static spec => spec.Kind != PanelKind.Histogram || spec.Thresholds.IsSome);
-        bool slugsUnique = Alerts.Map(static alert => alert.Slug).ToFrozenSet(StringComparer.Ordinal).Count == Alerts.Count;
-        return selectorsRegistered && thresholdsPresent && slugsUnique
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(ComputeFault.Create($"<descriptor-drift:selectors={selectorsRegistered}:thresholds={thresholdsPresent}:slugs={slugsUnique}>"));
-    }
+    public static Seq<AlertSpec> Alerts => Board.Alerts;
+
+    public static Seq<PanelRow> Panels =>
+        Descriptors.Map(static entry => new PanelRow(
+            entry.Panel.Title, entry.Panel.Instrument, entry.Row.Unit, entry.Row.Kind,
+            entry.Panel.Widget.IfNone(PanelKind.For(entry.Row.Kind)), entry.Panel.By, entry.Row.Bounds.IfNone([]))).Strict();
+
+    // Omitting the window canonicalizes it at the kernel to the estate compliance default, so no calendar
+    // literal lands in a descriptor row and a shortened window still refuses below the longest burn row. The
+    // scored case is the ONE type argument every row states, so the objective's two selectors cannot name two cases.
+    static ComputeObjective Bound<TCase>(
+        string name, Sli sli, double target, Func<TCase, bool> breached, Func<TCase, bool>? within = null)
+        where TCase : ComputeReceipt =>
+        ComputeObjective.Of(Objective.Create(name: name, sli: sli, target: target, window: default), breached, within);
+
 }
 ```
 

@@ -180,7 +180,7 @@ public static class ProofEngine {
 
 - Owner: `ProofLaw` — the law-matrix fence surface composing `ProofEngine` with CsCheck property generators, `Verify.XunitV3` FrameHash equality, the `MetricCollector<T>` instrument lane, the frame-bench gate minting estate `BenchmarkReceipt` evidence, the bundle-tree pin, and the `VerifyChecks`/`DanglingSnapshots` suite-hygiene gates.
 - Entry: `public static IO<Seq<EvidenceReceipt>> ProofMatrix(...)` — the one entrypoint that owns the singular-cell and full-matrix run by input shape so a per-spec screenshot helper is the deleted form.
-- Auto: `RenderHashGrid` generates cells from the live headless catalog crossed with admitted scale and `VisualCodec.ColorPolicy` data, so a new screen or gamut expands proof without a named roster edit; `ProofLaw.FrameHashEquality` seals one generated cell through `Captures.Shot` then `Verifier.Verify`; `ProofLaw.ReplayDeterminism` restores the same snapshot before each journal run, resets virtual time, rejects unequal receipt counts before pairing, and verifies the complete digest sequence; `ProofLaw.FrameCost` requires a baseline for every pass and compares it against both variance and `FrameBudget`, so a missing baseline cannot bless a new pass implicitly; `ProofLaw.InstrumentFold` receives the composition `LevelCells`, mounts contributions whose level readers close over that instance, and passes the same instance to `EvidenceFan.Fan`, so writes and observable-gauge reads share one cell family; `ProofLaw.FrameBench` samples a `BenchLane` between forced ticks, folds the sorted elapsed distribution to the true median — the central value on an odd count, the two central values' mean on an even one — and nearest-rank p95 — admitted positive `Samples` keeps the distribution non-empty, so the rank index is total without a bounds guard — beside the precise allocation delta, mints one corpus-bearing Unjudged `BenchmarkReceipt` under `HostEvidence.Current()`, composes `BenchmarkGate.Gate` over the held claim and sink, and collapses its verdict onto the public `IO` rail; `ProofLaw.Divergence` buckets the fresh-versus-held median ratio under `Buckets.DivergenceRatio` so regression magnitude reads on the shared advice axis; `ProofLaw.BundleShape` pins the exported support archive as two goldens — the zip entry roster and the extracted tree.
+- Auto: `RenderHashGrid` generates cells from the live headless catalog crossed with admitted scale and `VisualCodec.ColorPolicy` data, so a new screen or gamut expands proof without a named roster edit; `ProofLaw.FrameHashEquality` seals one generated cell through `Captures.Shot` then `Verifier.Verify`; `ProofLaw.ReplayDeterminism` restores the same snapshot before each journal run, resets virtual time, rejects unequal receipt counts before pairing, and verifies the complete digest sequence; `ProofLaw.FrameCost` requires a baseline for every pass and compares it against both variance and `FrameBudget`, so a missing baseline cannot bless a new pass implicitly; `ProofLaw.InstrumentFold` receives the composition `LevelCells`, mounts contributions whose level readers close over that instance, and hands the mounted set to `EvidenceFan.Fan`, so writes and observable-gauge reads share one cell family and a refused measurement fails the fold's own rail rather than reading as a zero sum, with the envelope set and the named `Instrument<long>` admitted on that rail ahead of the collector so an empty run and a wrongly-measured name each refuse by name; `ProofLaw.FrameBench` samples a `BenchLane` between forced ticks, folds the sorted elapsed distribution to the true median — the central value on an odd count, the two central values' mean on an even one — and nearest-rank p95 — admitted positive `Samples` keeps the distribution non-empty, so the rank index is total without a bounds guard — beside the precise allocation delta, mints one corpus-bearing Unjudged `BenchmarkReceipt` under `HostEvidence.Current()`, composes `BenchmarkGate.Gate` over the held claim and sink, and collapses its verdict onto the public `IO` rail; `ProofLaw.Divergence` buckets the fresh-versus-held median ratio under `Buckets.DivergenceRatio` so regression magnitude reads on the shared advice axis; `ProofLaw.BundleShape` pins the exported support archive as two goldens — the zip entry roster and the extracted tree.
 - Packages: Verify.XunitV3, CsCheck, Avalonia.Headless, Microsoft.Extensions.Diagnostics.Testing, Rasm.AppHost (project, seam types), NodaTime, LanguageExt.Core
 - Growth: one lane cell absorbs a new golden; one benchmark claim is one held `BenchmarkReceipt` value; zero new surface.
 - Boundary: the `RenderHashGrid` FrameHash golden bytes derive under the `tests/contracts/MANIFEST.md` `CANONICAL_BYTE_IDENTITY` framing and seed law and stay a C#-tree snapshot no peer runtime binds — the render-hash lane is the one host golden producer, never a second golden store; the headless capture lanes are the parity oracle for every `[V6]` fence repair — a repaired fence proves itself here before the campaign closes; gamut cells key by `ColorPolicy` rows (the `Render/capture.md` one gamut/transfer family); the proof fence is a terminal edge with the CATALOG-TRUE collapse law — `IO<A>.Run()` returns `A` and `RunAsync()` returns `ValueTask<A>`, both THROWING the typed `Error` on failure (only `Eff.Run` lands `Fin`) — so a failing disposition composes BEFORE the terminal: the awaited `RunAsync` throw carries the registry-coded `ProofFault` the runner reports loudly, a property that must survive failure composes `| @catch` to its verdict value before its one `Run()`, and a `ThrowIfFail`/`IfFail` shim applied to the terminal result is the phantom spelling that does not compile; the frame-bench lane composes the AppHost benchmark rail as settled vocabulary — `BenchmarkReceipt`, `HostEvidence`, `BenchmarkGate.Gate`, and `GatePolicy.Canonical` mint and judge, the held claim arrives as a value off the Persistence reuse index, and the judged receipt fans through the sink under the AppHost benchmark kind, so the dashboards benchmark layout ingests it off the HLC-ordered envelope stream and an AppUi-local benchmark receipt family is the deleted form; `VerifyZip`/`VerifyDirectory` pin support-bundle roster and tree completeness, while content-hash manifest proof remains blocked until AppHost `SupportManifest.Entry` carries its post-redaction key.
@@ -263,17 +263,28 @@ public static class ProofLaw {
     // Instrument lane: the mount precedes the collector, which binds the already-published
     // Instrument<long> pulled from the mounted set — no measurement rides late-instrument observation
     // semantics; the factory scope isolates parallel proof cells, and level rows assert through their
-    // cell value instead.
-    public static long InstrumentFold(
-        IMeterFactory factory, string version, string schemaUrl, CorrelationId root,
+    // cell value instead. Mount, descriptor admission, and the arms all land on one rail, so a mount
+    // defect fails the lane rather than reading as a zero sum indistinguishable from an unwritten arm.
+    // The two inputs the collector cannot state — an empty envelope set and a name the mount published
+    // under another measurement type — admit on that same rail BEFORE the collector exists, because a
+    // vacuous sum and a `long`-typed read of a `MeasureForm.Real` row both render as a passing zero, and
+    // both would otherwise leave the rail as a throw the lane's own fault registry never names.
+    public static Fin<long> InstrumentFold(
+        IMeterFactory factory, string version, CorrelationId root,
         LevelCells cells, Seq<TelemetryContributorPort> contributions,
-        string instrument, Seq<ReceiptEnvelope> envelopes) {
-        InstrumentSet set = AppUiTelemetry.Mount(factory, version, schemaUrl, root, contributions);
-        ReceiptFan fan = EvidenceFan.Fan(set, cells);
-        using MetricCollector<long> collector = new((Instrument<long>)set.ByName[instrument]);
-        ignore(envelopes.Iter(envelope => EvidenceFan.Project(fan, envelope)));
-        return collector.GetMeasurementSnapshot().Sum(static measurement => measurement.Value);
-    }
+        string instrument, Seq<ReceiptEnvelope> envelopes) =>
+        envelopes.IsEmpty
+            ? Fin.Fail<long>(new ProofFault.Text($"proof/instrument: {instrument} folded no envelopes"))
+            : AppUiTelemetry.Mount(factory, version, root, cells, contributions).Bind(set =>
+                (set.ByName.TryGetValue(instrument, out Instrument? published) && published is Instrument<long> whole
+                    ? Fin.Succ(whole)
+                    : Fin.Fail<Instrument<long>>(new ProofFault.Text($"proof/instrument: {instrument} is no mounted whole-measure instrument")))
+                .Bind(mounted => {
+                    ReceiptFan fan = EvidenceFan.Fan(set);
+                    using MetricCollector<long> collector = new(mounted);  // Exemption: the collector's deterministic close is the platform-forced disposal seam
+                    return envelopes.TraverseM(envelope => EvidenceFan.Project(fan, envelope)).As()
+                        .Map(_ => collector.GetMeasurementSnapshot().Sum(static measurement => measurement.Value));
+                }));
 
     public const string BenchSuite = "rasm.appui.frame";
 

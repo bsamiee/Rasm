@@ -4,15 +4,23 @@ Bounded runtime resource lanes for the Rasm.AppHost spine: the HybridCache read-
 
 ## [01]-[INDEX]
 
-- [01]-[CACHE_PORT]: One read-through entry; lane rows bind tags, lifetimes, options, and keyed L2.
-- [02]-[OBJECT_POOLS]: Delegate-row pool policy, concrete text pool, and rent/reset/leak tracking.
-- [03]-[DRAIN_QUEUES]: `DrainSpec` frozen rows, `DrainKind` topology, and fan-out/join/coalesce blocks.
+- [02]-[CACHE_PORT]: One read-through entry; lane rows bind tags, lifetimes, options, and keyed L2.
+- [03]-[OBJECT_POOLS]: Delegate-row pool policy, concrete text pool, and rent/reset/leak tracking.
+- [04]-[DRAIN_QUEUES]: `DrainSpec` frozen rows, `DrainKind` topology, and fan-out/join/coalesce blocks.
 
 ## [02]-[CACHE_PORT]
 
 - Owner: `CacheLane` `[SmartEnum<string>]` under the `ComparerAccessors.StringOrdinal` accessor; `CacheSurface` attaches the dispatch to `HybridCache` as one extension block and resolves each lane's keyed cache by its `Store` column.
 - Cases: `ModelResult`, `Projection`, `ArtifactBlob`.
-- Entry: `ValueTask<T> Read<T, TState>(CacheLane lane, string key, TState state, Func<TState, CancellationToken, ValueTask<T>> factory, Option<Seq<string>> tags = default, CancellationToken token = default)`.
+- Law: `CacheLane.Store` names the distributed-cache service key its `AddKeyedHybridCache(lane.Key)` registration binds through `DistributedCacheServiceKey`, so `ModelResult` and `Projection` share the `durable-l2` store while `ArtifactBlob` carries no `Store` and resolves the default cache; `Cache(lane)` resolves the keyed `HybridCache` by lane key for a stored lane and the default service otherwise — one cache contract, distinct L2 backings, never a second cache owner; that one column is the only growth axis for L2 topology.
+- Law: a consumer obtains the lane's cache as `provider.Cache(lane)` and reads through it as `provider.Cache(lane).Read(lane, key, …)`, so a stored lane's read hits its keyed L2 and never the default cache; `Read`, `Invalidate`, and `Remove` ride the same `Cache(lane)`-resolved receiver as the registration, so the keyed-store routing is one resolution per consumer, never a default-cache read against a `Store`-keyed lane.
+- Law: `RemoveByTagAsync` records a timestamp cut; pre-cut entries read as misses in both tiers and persist until natural expiry — logical, never physical; `RemoveAsync` is the physical sibling deleting the key from both tiers.
+- Law: tags MINT at `CacheLane.Tag`, never at a call site — a read names owner keys and the lane frames each into its own tag space, so a free-string tag has no spelling and no caller reaches another lane's tags; every write also carries the bare lane key, so ONE `Invalidate(lane, owners)` entry cuts the whole lane through `RemoveByTagAsync(lane.Key)` on an empty owner set and exactly those owners otherwise — a lane-scoped cut is the widest invalidation the closed tag vocabulary admits, and a global reset rides provider disposal at host unload, never a write-time pattern tag.
+- Law: peer-process L1 staleness is TTL-bounded with no backplane; convergence rides natural expiry or the next tag cut.
+- Law: the cache implementation service-locates the DI `TimeProvider` with system fallback, so creation stamps and tag cuts ride the injected clock; absolute L1 expiry is delegated to the memory-cache entry's `AbsoluteExpirationRelativeToNow` under the memory cache's own clock — read-time revalidation checks only tag cuts against the injected clock, so advancing `FakeTimeProvider` never expires an L1 entry by TTL and specs assert via tag cut or `RemoveAsync`.
+- Law: `MaximumPayloadBytes` is the lane's `MaxPayloadBytes` column — 1 MiB for `ModelResult`/`Projection` at the package default and 64 MiB for the `ArtifactBlob` lane whose blobs exceed the default — and `MaximumKeyLength` stays the 1024 default; the package clamps `LocalCacheExpiration` to `Expiration` when the L1 row exceeds the L2 row; `ReportTagMetrics` is enabled because the lane tag vocabulary is closed and low-cardinality.
+- Law: no fake cache type exists or gets hand-rolled; `SetAsync` preloads spec state through the real implementation.
+- Entry: `ValueTask<T> Read<T, TState>(CacheLane lane, string key, TState state, Func<TState, CancellationToken, ValueTask<T>> factory, Seq<string> owners = default, CancellationToken token = default)`.
 - Auto: `GetOrCreateAsync` owns stampede single-flight; local and distributed hit, miss, and write counts, stampede joins, and tag invalidations ride the package `Microsoft-Extensions-HybridCache` event source as polling counters with zero call-site metric code; `Cache` resolves the lane's keyed `HybridCache` from the provider by the lane key so each lane reads its own L2 topology.
 - Packages: Microsoft.Extensions.Caching.Hybrid; NodaTime; Thinktecture.Runtime.Extensions; LanguageExt.Core.
 - Growth: one lane row on `CacheLane`; a lifetime or flag change is one policy value; a new L2 topology is one `Store` value on the lane row; a payload-guard retune is one `MaxPayloadBytes` value; zero new surface.
@@ -44,21 +52,30 @@ public sealed partial class CacheLane {
     // distinct tenants never collide at L1 or L2 — the Persistence `Query/cache#L2_CONTRIBUTION` `CachePartition`
     // digest reads this SAME `(lane, tenant, key)` identity, and a lane-plus-key-only derivation is the deleted
     // cross-tenant collision form.
-    public string Scoped(string key) => $"{Key}:{TenantContext.Current.TenantId.Value:x32}:{key}";
+    public string Scoped(string key) => $"{Key}:{TenantContext.Current.Entry}:{key}";
+
+    // Tags MINT here, so the closed vocabulary is structural rather than declared: an owner tag frames under its
+    // own lane and a caller holds no spelling that reaches another lane's tag space or a bare free string, which
+    // is what makes `Invalidate` cut exactly what the vocabulary admits before any provider call runs.
+    public string Tag(string owner) => $"{Key}/{owner}";
 }
 ```
 
 ```csharp signature
 public static class CacheSurface {
     extension(HybridCache cache) {
-        public ValueTask<T> Read<T, TState>(CacheLane lane, string key, TState state, Func<TState, CancellationToken, ValueTask<T>> factory, Option<Seq<string>> tags = default, CancellationToken token = default) =>
-            cache.GetOrCreateAsync(lane.Scoped(key), state, factory, lane.Entry, tags.IfNone(Seq<string>()).Add(lane.Key), token);
+        // Owner keys cross, never tags: the lane frames each one, so no caller spelling reaches the tag space and
+        // the bare lane key rides every write beside them.
+        public ValueTask<T> Read<T, TState>(CacheLane lane, string key, TState state, Func<TState, CancellationToken, ValueTask<T>> factory, Seq<string> owners = default, CancellationToken token = default) =>
+            cache.GetOrCreateAsync(lane.Scoped(key), state, factory, lane.Entry, owners.Map(lane.Tag).Add(lane.Key), token);
 
-        public ValueTask Invalidate(CacheLane lane, CancellationToken token = default) =>
-            cache.RemoveByTagAsync(lane.Key, token);
-
-        public ValueTask Invalidate(Seq<string> tags, CancellationToken token = default) =>
-            cache.RemoveByTagAsync(tags, token);
+        // ONE cut entry over the whole vocabulary: an empty owner set cuts the lane whole through its bare key and
+        // a non-empty one cuts exactly those owner tags, so lane-wide and owner-scoped invalidation cannot drift
+        // apart and neither arm can name a tag the lane never minted.
+        public ValueTask Invalidate(CacheLane lane, Seq<string> owners = default, CancellationToken token = default) =>
+            owners.IsEmpty
+                ? cache.RemoveByTagAsync(lane.Key, token)
+                : cache.RemoveByTagAsync(owners.Map(lane.Tag), token);
 
         public ValueTask Remove(CacheLane lane, string key, CancellationToken token = default) =>
             cache.RemoveAsync(lane.Scoped(key), token);
@@ -82,17 +99,6 @@ public static class CacheSurface {
                 : current);
 }
 ```
-
-Cache semantics ride these rulings:
-
-- Keyed L2 topology: a lane's `Store` value is the distributed-cache service key its `AddKeyedHybridCache(lane.Key)` registration binds through `DistributedCacheServiceKey`, so `ModelResult` and `Projection` share the `durable-l2` store while `ArtifactBlob` carries no `Store` and resolves the default cache; `Cache(lane)` resolves the keyed `HybridCache` by lane key for a stored lane and the default service otherwise — one cache contract, distinct L2 backings, never a second cache owner. A lane row's `Store` is the only growth axis for L2 topology.
-- Read routing: a consumer obtains the lane's cache as `provider.Cache(lane)` and reads through it as `provider.Cache(lane).Read(lane, key, …)`, so a stored lane's read hits its keyed L2 and never the default cache; `Read`, `Invalidate`, and `Remove` ride the same `Cache(lane)`-resolved receiver as the registration, so the keyed-store routing is one resolution per consumer, never a default-cache read against a `Store`-keyed lane.
-- Tag cut: `RemoveByTagAsync` records a timestamp cut; pre-cut entries read as misses in both tiers and persist until natural expiry — logical, never physical; `RemoveAsync` is the physical sibling deleting the key from both tiers.
-- Tag vocabulary: tags derive from `CacheLane` keys and admitted owner keys; a free-string tag is the rejected form; every write carries its lane key tag, so `Invalidate(lane)` cuts the whole lane through `RemoveByTagAsync(lane.Key)` and `Invalidate(tags)` cuts a tag set — a lane-scoped cut is the widest invalidation the closed tag vocabulary admits, and a global reset rides provider disposal at host unload, never a write-time pattern tag.
-- Cross-process L1: peer-process L1 staleness is TTL-bounded with no backplane; convergence rides natural expiry or the next tag cut.
-- Clock seam: the cache implementation service-locates the DI `TimeProvider` with system fallback, so creation stamps and tag cuts ride the injected clock; absolute L1 expiry is delegated to the memory-cache entry's `AbsoluteExpirationRelativeToNow` under the memory cache's own clock — read-time revalidation checks only tag cuts against the injected clock, so advancing `FakeTimeProvider` never expires an L1 entry by TTL and specs assert via tag cut or `RemoveAsync`.
-- Guards: `MaximumPayloadBytes` is the lane's `MaxPayloadBytes` column — 1 MiB for `ModelResult`/`Projection` at the package default and 64 MiB for the `ArtifactBlob` lane whose blobs exceed the default — and `MaximumKeyLength` stays the 1024 default; the package clamps `LocalCacheExpiration` to `Expiration` when the L1 row exceeds the L2 row; `ReportTagMetrics` is enabled because the lane tag vocabulary is closed and low-cardinality.
-- Test double: no fake cache type exists or gets hand-rolled; `SetAsync` preloads spec state through the real implementation.
 
 ## [03]-[OBJECT_POOLS]
 
@@ -134,6 +140,15 @@ public static class Pools {
 
 - Owner: `DrainSpec` frozen rows carrying the `DrainKind` `[SmartEnum<string>]` topology discriminant, materialized through the `DrainQueue<T>` union; `DrainFault` `[Union]` fault family deriving its codes through `FaultBand.Drain`; `DrainSurface` carries options projection, open, drain, and the fan-out/join/coalesce block builders as one extension surface.
 - Cases: `Pipe(DrainSpec Spec, Channel<T> Channel)` for simple producer-consumer seams; `Network(DrainSpec Spec, ITargetBlock<T> Intake, IDataflowBlock Tail)` for every completion-propagating block graph — single-stage batch, `BroadcastBlock` fan-out, `JoinBlock` correlated-join, and `BatchedJoinBlock` dual-stream coalesce all land as `Network` whose `Row.Kind` names the topology; `DrainFault` = Text | UnreceiptedLoss | TopologyMismatch — a lossy row opened without its `onDrop` receipt and an arm projection against the wrong topology are typed rail failures, never throws.
+- Law: `DrainKind` fixes the topology on the row — `Pipe` rides `Channel.CreateBounded`; `Network`, `FanOut`, `CorrelatedJoin`, and `DualCoalesce` ride Dataflow blocks; the row's `Kind` selects the `DrainSurface` builder, never the call site.
+- Law: `WriteAsync` and `SendAsync` await fullness on `Wait` rows; `TryWrite` and `Post` are legal only on receipted-loss rows; `NullTarget` absorption is spelled at the link site and stands in as the `Network` intake for join and coalesce rows whose live intake is the two arms.
+- Law: a `DropOldest` row opens only with an `onDrop` receipt delegate; `Open` rejects an unreceipted-loss row on the `Fin` rail; fan-out, join, and coalesce rows are `Wait` rows because their completion-propagating tails carry no silent loss.
+- Law: `BatchBlock` carries receipt-grade batched hand-off, with `TriggerBatch` flushing a partial batch at drain; `GroupingDataflowBlockOptions` projects `Greedy` and `MaxNumberOfGroups` from the row's `Greedy`/`MaxGroups` columns while `BoundedCapacity` rides the base `DataflowBlockOptions` from `Capacity` — the reservation rail, `Encapsulate`, `AsObservable`, and `AsObserver` stay out.
+- Law: `Broadcast` mints one `BroadcastBlock<T>(clone)` whose `BroadcastOptions` projection rides the base `DataflowBlockOptions` (`BoundedCapacity` from `Capacity`, no `MaxDegreeOfParallelism`), links the head to every sink under `LinkOptions` carrying the row's `PropagateCompletion`, and exposes the head as both intake and `Tail` so completing the head fans completion to all sinks; the clone delegate is the receipt-fan-out copy guard, never a shared-reference leak across sinks.
+- Law: `Join<T1, T2>` mints one non-greedy `JoinBlock<T1, T2>` (`Greedy: false` so the watchdog heartbeat and the health snapshot pair atomically rather than buffering one stream unbounded), links it to the sink under `PropagateCompletion`, exposes `Target1`/`Target2` through `Arms`, and emits `Tuple<T1, T2>`; the producer completes both arms and `Drained` awaits the join `Tail.Completion`, so an unmatched residual on one arm at drain fails `Completion` and folds onto the lifecycle fault rail.
+- Law: `Coalesce<T1, T2>` mints one greedy `BatchedJoinBlock<T1, T2>(batchSize)` reading `batchSize` from the row's `Batch` column, links it to the sink under `PropagateCompletion`, exposes `Target1`/`Target2` through `CoalesceArms`, and emits `Tuple<IList<T1>, IList<T2>>` so the support artifact stream and error stream coalesce into one batched hand-off; a partial pair flushes when either arm reaches `batchSize` or both arms complete at drain.
+- Law: `Drained` completes intake then awaits `Completion` under the conductor token at the row's band; for join and coalesce the `NullTarget` intake `Complete()` is inert and the producer-completed arms drive the tail; evidence rows complete inside the final band before exporter flush; a faulted block or channel fails `Completion`, and the conductor folds the failure into the unload receipt instead of swallowing it.
+- Law: the fan-out, join, and coalesce rows export no new instrument by default — depth observability is a `rasm.apphost.drain.queue.depth` gauge raised only when a consumer reads it, a forward row, never a speculative instrument; queue lane counts leave as telemetry consequence of the registered `DrainSpec` set.
 - Entry: `Task Drained(CancellationToken token)`.
 - Receipt: `DropOldest` rows surface every lost item through the open-time `onDrop` delegate; a faulted `Completion` projects typed evidence onto the lifecycle fault rail; the `Network` tail's `Completion` carries the join-failure and coalesce-flush evidence.
 - Packages: BCL inbox; Thinktecture.Runtime.Extensions; LanguageExt.Core.
@@ -287,18 +302,6 @@ public static class DrainSurface {
     }
 }
 ```
-
-Queue semantics ride these rulings:
-
-- Kind split: `DrainKind` fixes the topology on the row — `Pipe` rides `Channel.CreateBounded`; `Network`, `FanOut`, `CorrelatedJoin`, and `DualCoalesce` ride Dataflow blocks; the row's `Kind` selects the `DrainSurface` builder, never the call site.
-- Backpressure: `WriteAsync` and `SendAsync` await fullness on `Wait` rows; `TryWrite` and `Post` are legal only on receipted-loss rows; `NullTarget` absorption is spelled at the link site and stands in as the `Network` intake for join and coalesce rows whose live intake is the two arms.
-- Loss: a `DropOldest` row opens only with an `onDrop` receipt delegate; `Open` rejects an unreceipted-loss row on the `Fin` rail; fan-out, join, and coalesce rows are `Wait` rows because their completion-propagating tails carry no silent loss.
-- Grouping: `BatchBlock` carries receipt-grade batched hand-off, with `TriggerBatch` flushing a partial batch at drain; `GroupingDataflowBlockOptions` projects `Greedy` and `MaxNumberOfGroups` from the row's `Greedy`/`MaxGroups` columns while `BoundedCapacity` rides the base `DataflowBlockOptions` from `Capacity` — the reservation rail, `Encapsulate`, `AsObservable`, and `AsObserver` stay out.
-- Fan-out: `Broadcast` mints one `BroadcastBlock<T>(clone)` whose `BroadcastOptions` projection rides the base `DataflowBlockOptions` (`BoundedCapacity` from `Capacity`, no `MaxDegreeOfParallelism`), links the head to every sink under `LinkOptions` carrying the row's `PropagateCompletion`, and exposes the head as both intake and `Tail` so completing the head fans completion to all sinks; the clone delegate is the receipt-fan-out copy guard, never a shared-reference leak across sinks.
-- Correlated join: `Join<T1, T2>` mints one non-greedy `JoinBlock<T1, T2>` (`Greedy: false` so the watchdog heartbeat and the health snapshot pair atomically rather than buffering one stream unbounded), links it to the sink under `PropagateCompletion`, exposes `Target1`/`Target2` through `Arms`, and emits `Tuple<T1, T2>`; the producer completes both arms and `Drained` awaits the join `Tail.Completion`, so an unmatched residual on one arm at drain fails `Completion` and folds onto the lifecycle fault rail.
-- Dual coalesce: `Coalesce<T1, T2>` mints one greedy `BatchedJoinBlock<T1, T2>(batchSize)` reading `batchSize` from the row's `Batch` column, links it to the sink under `PropagateCompletion`, exposes `Target1`/`Target2` through `CoalesceArms`, and emits `Tuple<IList<T1>, IList<T2>>` so the support artifact stream and error stream coalesce into one batched hand-off; a partial pair flushes when either arm reaches `batchSize` or both arms complete at drain.
-- Drain and fault: `Drained` completes intake then awaits `Completion` under the conductor token at the row's band; for join and coalesce the `NullTarget` intake `Complete()` is inert and the producer-completed arms drive the tail; evidence rows complete inside the final band before exporter flush; a faulted block or channel fails `Completion`, and the conductor folds the failure into the unload receipt instead of swallowing it.
-- Telemetry: the fan-out, join, and coalesce rows export no new instrument by default — depth observability is a `rasm.apphost.drain.queue.depth` gauge raised only when a consumer reads it, a forward row, never a speculative instrument; queue lane counts leave as telemetry consequence of the registered `DrainSpec` set.
 
 ## [05]-[RESEARCH]
 

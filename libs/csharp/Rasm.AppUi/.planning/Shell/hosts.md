@@ -6,11 +6,11 @@ Host identity reaches this page only as `HostDescriptor` columns — `Surface`, 
 
 ## [01]-[INDEX]
 
-- [01]-[HOST_AXIS]: Five-case mount axis, host-surface admission, seam columns, one mount transaction.
-- [02]-[EMBED_CAPSULE]: Foreign-view embedding capsule, lifecycle order, platform policy.
-- [03]-[SCHEDULER_BOUNDARY]: One UI-thread boundary completing the scheduler port marshal.
-- [04]-[NATIVE_ASSETS]: Per-RID Skia and HarfBuzz rows with load-identity receipts.
-- [05]-[SCALE_FOCUS]: Closed host fact union for scale, visibility, focus, appearance.
+- [02]-[HOST_AXIS]: Five-case mount axis, host-surface admission, seam columns, one mount transaction.
+- [03]-[EMBED_CAPSULE]: Foreign-view embedding capsule, lifecycle order, platform policy.
+- [04]-[SCHEDULER_BOUNDARY]: One UI-thread boundary completing the scheduler port marshal.
+- [05]-[NATIVE_ASSETS]: Per-RID Skia and HarfBuzz rows with load-identity receipts.
+- [06]-[SCALE_FOCUS]: Closed host fact union for scale, visibility, focus, appearance.
 
 ## [02]-[HOST_AXIS]
 
@@ -20,7 +20,7 @@ Host identity reaches this page only as `HostDescriptor` columns — `Surface`, 
 - Auto: one mount transaction replaces every per-host boot program — surface admission, boot-edge guard, builder shaping, parent-handle capture, scale capture, disposal registration, and receipt emission land in one fold; raw mount keys serialize through the suite wire law as locked kind literals.
 - Receipt: `SurfaceReceipt` — mount case, host key off the descriptor, native handle identity as descriptor beside an `Option<long>` value (interactive rows always `Some` because a missing handle aborts the mount, the offscreen row structurally `None`), scale, `Instant`, `CorrelationId`; `TelemetryRow` contributes the mount-outcome and scale-flip instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: Avalonia, Avalonia.Desktop, Avalonia.Headless, Avalonia.Skia, ReactiveUI.Avalonia, System.Reactive, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
-- Growth: a new host substrate is one `HostRows` descriptor row at the AppHost owner and costs zero cases here; a genuinely new mounting shape is one `SurfaceMount` case with one `Admits` arm; one host instrument is one `InstrumentRow` on `Surfaces.TelemetryRow`.
+- Growth: a new host substrate is one `HostRows` descriptor row at the AppHost owner and costs zero cases here; a genuinely new mounting shape is one `SurfaceMount` case with one `Admits` arm; one host instrument is one `InstrumentSpec` row on `Surfaces.TelemetryRow`.
 - Boundary: `Surfaces` is the named boundary capsule for the statement carve-out on its boot-edge guard; host-agnostic sourcing law — every probe, marshal, mount, and fact delegate is a `SurfaceSeam` column, no dispatch arm names a host API, and no dispatch arm names a product: an `Embedded` host crosses only the panel, semi-modal, companion, and UI-thread `SurfaceSeam` delegate columns (the catching marshal that wraps the swallowing host invoke binds at the app root that composes a live host) while an unhosted shell crosses nothing; a `HostSurface` refusing the requested mount aborts as `SurfaceFault.AxisUnsupported` carrying `AxisEvidence` on the `host` axis, so a browser-resolved or service-resolved profile mints no surface and the package neither degrades silently nor narrows its public surface; boot is one `SetupWithoutStarting` admission behind the `Interlocked` edge guard and a second `AppBuilder` or lifetime anywhere is the rejected form; production view materialization uses Avalonia's compiled-XAML path — each generated view constructor calls the core `AvaloniaXamlLoader.Load(this)` materializer, while `AvaloniaRuntimeXamlLoader` from `Avalonia.Markup.Xaml.Loader` remains Debug-only behind HotAvalonia and `RejectRuntimeInflation` structurally faults any Release attempt to parse or load source markup; desktop backend admission is exactly `UsePlatformDetect`, which already installs Skia, while the headless proof lane composes `UseSkia` explicitly because `UseHeadlessDrawing = false`; the shared `SkiaOptions` value carries `MaxGpuResourceSizeBytes` from the `GpuResourceBudget` anchor with `UseOpacitySaveLayer` true so the render-hash lanes share one deterministic GPU budget and a per-shell GPU knob is the rejected form; host-document capability rides `profile.HostDocument` off the descriptor, so an embedded mount under a document-bearing host carries it and every other row holds it structurally false; the offscreen row draws through Skia with the `FrameBufferFormat` pinned to `Rgba8888` so the capture pixel layout is one declared comparison layout for the render-hash lanes, attaches through `HeadlessRoot` whose receipt handle is structurally `None`, and is the mount surface of the command-journal replay lane; a missing platform handle on an interactive row aborts as `SurfaceFault.HandleUnavailable` — a zero-handle success receipt is the deleted sentinel, so every `Some` handle originates from a present platform handle and mount success and failure stay disjoint on the `Fin` rail.
 
 `isolation` reaches AppUi as one served value: the shell runs on the host's own UI thread, so the branch answers `in-proc` and `thread` through `SurfaceScheduler`, and `process`, `wasm`, and `remote` refuse on the `isolation` axis because a foreign address space owns no `Control` this page can mount.
@@ -198,12 +198,12 @@ public static class Surfaces {
 
     // Mount counts ride the evidence fan's surface arm; scale flips, host facts, and affinity
     // assertions count direct where the seam delegate holds the typed fact in hand.
-    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
-        AppUiTelemetry.Contribute(version, schemaUrl,
-            new(MountInstrument, InstrumentKind.Count, "{mount}", "surface mounts by host case"),
-            new(ScaleInstrument, InstrumentKind.Count, "{flip}", "backing-scale flips by host case"),
-            new(FactInstrument, InstrumentKind.Count, "{fact}", "host facts by fact case"),
-            new(AffinityInstrument, InstrumentKind.Count, "{violation}", "off-thread access assertions"));
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            InstrumentSpec.Count(MountInstrument, "{mount}", "surface mounts by host case", MeasureForm.Whole, AppUiTelemetry.HostSlot),
+            InstrumentSpec.Count(ScaleInstrument, "{flip}", "backing-scale flips by host case", MeasureForm.Whole),
+            InstrumentSpec.Count(FactInstrument, "{fact}", "host facts by fact case", MeasureForm.Whole),
+            InstrumentSpec.Count(AffinityInstrument, "{violation}", "off-thread access assertions", MeasureForm.Whole));
 }
 ```
 
@@ -326,7 +326,7 @@ public sealed record SurfaceScheduler(IScheduler Ui, Func<Action, IO<Unit>> Mars
 - Entry: `Fin<Seq<NativeAssetReceipt>> Identity(NativeAssetRow row)` — traverses the row's native libraries into receipts.
 - Receipt: `NativeAssetReceipt` — library, version, path, RID; `TelemetryRow` contributes the asset-resolved and asset-absent instruments inward through the AppHost `TelemetryContributorPort`, so a missing-architecture load is a counted absence on the spine, never a silent draw fault.
 - Packages: SkiaSharp.NativeAssets.macOS, SkiaSharp.NativeAssets.Linux.NoDependencies, HarfBuzzSharp.NativeAssets.macOS, HarfBuzzSharp.NativeAssets.Linux, LanguageExt.Core, BCL inbox
-- Growth: one `NativeAssetRow` per new RID; one native-asset instrument is one `InstrumentRow` on `NativeAssets.TelemetryRow`; zero new surface.
+- Growth: one `NativeAssetRow` per new RID; one native-asset instrument is one `InstrumentSpec` row on `NativeAssets.TelemetryRow`; zero new surface.
 - Boundary: one shaping family rides every admitted row — each Skia asset row pairs its HarfBuzz row across the macOS-plus-headless-Linux RID matrix (osx universal, linux-x64/arm64, linux-musl-x64) so cross-architecture load identity is one row per RID and a missing-architecture load surfaces as an absent receipt; the macOS rendering-mode column is `[OpenGl, Software]` by default with `Metal` available, sourced from `EmbedOptions.RenderingMode`, never a per-row GPU literal; the fontconfig-dependent Linux Skia variant stays pinned and excluded at the AppUi admission, so NoDependencies is the only Linux Skia asset and the glibc and musl rows share it; the Win32 desktop and WebAssembly native pins are dropped from the macOS-only build so no Win32 row exists and a browser host descriptor carries `HostSurface.None`, refusing every mount rather than resolving assets; identity receipts run at mount, so a wrong-RID load surfaces as a receipt, never a draw fault; the load-identity probe folds its per-row receipt count into the asset-resolved instrument and an absent receipt into the asset-absent instrument, so the native-asset evidence rides the same `AppUiTelemetry.Contribute` spine every owner uses and a per-row meter is the deleted form.
 
 ```csharp signature
@@ -347,10 +347,11 @@ public static class NativeAssets {
     public const string ResolvedInstrument = "rasm.appui.nativeasset.resolved";
     public const string AbsentInstrument = "rasm.appui.nativeasset.absent";
 
-    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
-        AppUiTelemetry.Contribute(version, schemaUrl,
-            new(ResolvedInstrument, InstrumentKind.Count, "{asset}", "native assets resolved by library and RID"),
-            new(AbsentInstrument, InstrumentKind.Count, "{asset}", "native assets absent at load probe"));
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            InstrumentSpec.Count(ResolvedInstrument, "{asset}", "native assets resolved by library and RID", MeasureForm.Whole,
+                AppUiTelemetry.LibrarySlot, AppUiTelemetry.RidSlot),
+            InstrumentSpec.Count(AbsentInstrument, "{asset}", "native assets absent at load probe", MeasureForm.Whole));
 
     private static Fin<NativeAssetReceipt> Probe(NativeAssetRow row, string library) =>
         Process.GetCurrentProcess().Modules.Cast<ProcessModule>()

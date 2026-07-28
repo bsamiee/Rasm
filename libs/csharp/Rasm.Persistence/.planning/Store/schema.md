@@ -13,8 +13,7 @@ Rasm.Persistence composes framework-owned schema artifacts and the provisioning 
 ## [02]-[CONTRACT]
 
 - Owner: `SchemaContract` composes content-addressed artifacts already produced by EF, Marten, and raw SQL owners.
-- Artifact: `SchemaArtifact` carries one admitted key, role, content identity, provider set, and dependency set.
-- Capability: `CapabilityContract` projects each `ServerExtension` onto the wire carrying both closed vocabularies — `FailureRank` and `RestartClass` ride as their own types and reach the wire as keys; provisioning owns the roster, the absence policy, and the restart rank order an aggregated repair folds through.
+- Law: `CapabilityContract` projects each `ServerExtension` onto the wire carrying both closed vocabularies — `FailureRank` and `RestartClass` ride as their own types and reach the wire as keys; provisioning owns the roster, the absence policy, and the restart rank order an aggregated repair folds through.
 - Boundary: operator settings, capacity, coordinates, secrets, schedules, observations, and recovery points never enter identity.
 - Packages: Thinktecture, LanguageExt, QuikGraph, `System.Text.Json.Schema`, JsonSchema.Net, and kernel `ContentHash`.
 - Growth: a framework adds one artifact row; a server capability remains one `ServerExtension` row; no schema DSL grows here.
@@ -165,13 +164,13 @@ public abstract partial record ContractFault : Expected, IValidationError<Contra
 
 ## [03]-[IDENTITY]
 
-- Input: callers supply admitted artifacts; framework-native compilation produces each artifact's canonical content bytes.
-- Merge: `ContractComposition.Merge` folds branch contributions into the deployment unit — union by artifact key under the same ordinal order, one re-projection minting the merged generation, and a `ContributionCollision` refusal wherever two branches claim one key with differing content, capability rows judged on their whole record and artifacts on their content digest.
-- Order: artifact key ordinal order is the whole wire order — a dependency-depth or topological rank inside the stream mints a second generation from one artifact set, so no path re-sorts.
-- Proof: `ContractComposition.Project` is the one funnel every mint path reaches, proving key uniqueness, dependency closure, acyclicity, and the closed capability vocabulary before a byte is framed; a proof bolted to an ordering function leaves every path skipping that function unproved.
-- Bytes: source-generated `System.Text.Json` writes a scalar-and-array wire shape with no dictionary-order ambiguity.
-- Identity: kernel `ContentHash.Of` mints the `UInt128` generation key; no cryptographic or language-local digest competes.
-- Schema: `JsonSchemaExporter` derives the JSON Schema from the same source-generated contract used for serialization.
+- Law: `ContractComposition.Merge` folds branch contributions into the deployment unit — union by artifact key under the same ordinal order, one re-projection minting the merged generation, and a `ContributionCollision` refusal wherever two branches claim one key with differing content, capability rows judged on their whole record and artifacts on their content digest.
+- Law: artifact key ordinal order is the whole wire order — a dependency-depth or topological rank inside the stream mints a second generation from one artifact set, so no path re-sorts.
+- Law: `ContractComposition.Project` is the one funnel every mint path reaches, proving key uniqueness, dependency closure, acyclicity, and the closed capability vocabulary before a byte is framed; a proof bolted to an ordering function leaves every path skipping that function unproved.
+- Law: source-generated `System.Text.Json` writes a scalar-and-array wire shape with no dictionary-order ambiguity.
+- Law: kernel `ContentHash.Of` mints the `UInt128` generation key; no cryptographic or language-local digest competes.
+- Law: `JsonSchemaExporter` derives the JSON Schema from the same source-generated contract used for serialization.
+- Entry: callers supply admitted artifacts, and framework-native compilation produces each artifact's canonical content bytes.
 
 ```csharp signature
 public sealed record ArtifactWire(
@@ -272,7 +271,10 @@ public static class ContractComposition {
     static Fin<SchemaContract> Project(SchemaContractWire wire) =>
         Proof(wire).Match(Some: Fin.Fail<SchemaContract>, None: () => Mint(wire));
 
-    static Option<ContractFault> Proof(SchemaContractWire wire) {
+    // The graph proof is reachable to the transport verifier because a foreign bundle carries exactly the same
+    // structural claims a locally composed one does; `Mint` is not, because it re-derives canonical bytes and a
+    // schema from this exporter and would bind every peer to one type system.
+    internal static Option<ContractFault> Proof(SchemaContractWire wire) {
         FrozenSet<string> keys = wire.Artifacts
             .Select(static row => row.Key)
             .ToFrozenSet(StringComparer.Ordinal);
@@ -358,11 +360,11 @@ public static class ContractComposition {
 ## [04]-[PROJECTION]
 
 - Owner: `ContractProjection.Emit` writes one instance, one derived JSON Schema, and one conformance corpus, carrying them as one `ContractBundle` beside the identity-stamped publication files.
-- Observation: `BackendObservation.Of` projects a `ProvisionVerdict.Provisioned` onto the observed capability set; the verdict already names the exact `ServerExtension` keys the contract's capability rows carry, so this branch interposes no canonical-to-local adapter table, and artifact evidence arrives from the owners that realized each artifact.
-- Contribution: the emitted set is THIS branch's contribution conforming to the corpus `BACKEND_CONTRACT` schema; a C#-only application deploys it directly, and a polyglot application merges it with peer contributions at the app root by artifact key.
-- Consumers: C#, TypeScript, Python, IaC, and fixtures decode these machine artifacts through local boundary adapters; each peer mints its own contribution rather than reading this one as its source.
-- Publication: fixed file names live inside a generation-qualified bundle; deployment transports bytes without editing them.
-- Runtime: adapters compare expected generation and observed evidence; availability or desired declarations prove nothing.
+- Law: `BackendObservation.Of` projects a `ProvisionVerdict.Provisioned` onto the observed capability set; the verdict already names the exact `ServerExtension` keys the contract's capability rows carry, so this branch interposes no canonical-to-local adapter table, and artifact evidence arrives from the owners that realized each artifact.
+- Law: the emitted set is THIS branch's contribution conforming to the corpus `BACKEND_CONTRACT` schema; a C#-only application deploys it directly, and a polyglot application merges it with peer contributions at the app root by artifact key.
+- Law: C#, TypeScript, Python, IaC, and fixtures decode these machine artifacts through local boundary adapters; each peer mints its own contribution rather than reading this one as its source.
+- Law: adapters compare expected generation and observed evidence; availability or desired declarations prove nothing.
+- Output: fixed file names live inside a generation-qualified bundle; deployment transports bytes without editing them.
 - Boundary: providers execute native migrations and provisioning; this owner neither synthesizes DDL nor orchestrates deployment.
 
 ```csharp signature
@@ -454,11 +456,11 @@ public static class BackendAdmission {
 
 ## [05]-[CONFORMANCE]
 
-- Producer: `BackendConformance.Emit` derives every expected value from one composed contract.
-- Corpus: canonical bytes, schema bytes, generation identity, artifact identities, and capability rows remain one fixture.
-- Consumer: `BackendConformance.Verify` reads the transported `ContractBundle` and proves the corpus against the instance and schema bytes the wire carried; a locally re-derived JSON Schema binds every peer to one exporter over one type system, so no peer satisfies it.
-- Roster: key sequences stay in the proof because the corpus is the index a peer trusts WITHOUT decoding the instance — a roster disagreeing with the instance it names is drift even where both files decode clean.
-- Mutation: consumers exercise reordered input and missing required evidence locally; no copied expected digest survives.
+- Owner: `BackendConformance.Emit` derives every expected value from one composed contract.
+- Law: one `ConformanceCorpus` fixture carries canonical bytes, schema bytes, generation identity, artifact identities, and capability rows.
+- Law: `BackendConformance.Verify` reads the transported `ContractBundle`, proves the corpus against the instance and schema bytes the wire carried, then crosses the SAME `ContractComposition.Proof` funnel every local mint crosses and evaluates the decoded instance against the transported validator; a locally re-derived JSON Schema binds every peer to one exporter over one type system, so no peer satisfies it, while a bundle admitted on corpus agreement alone enters the merge with duplicate keys, dangling dependencies, or a cycle nothing rejected.
+- Law: key sequences stay in the proof because the corpus is the index a peer trusts WITHOUT decoding the instance — a roster disagreeing with the instance it names is drift even where both files decode clean.
+- Law: consumers exercise reordered input and missing required evidence locally; no copied expected digest survives.
 - Boundary: conformance proves projection semantics only; provider readiness still requires realized observations.
 
 ```csharp signature
@@ -508,19 +510,27 @@ public static class BackendConformance {
                     .Where(static row => row.FailureRank == FailureRank.Required.Key)
                     .Select(static row => row.Key)
                     .SequenceEqual(corpus.RequiredCapabilities, StringComparer.Ordinal);
-            return generation.ToString("x32") == corpus.Generation
+            bool corpusHeld = generation.ToString("x32") == corpus.Generation
                 && wire.Contract == corpus.Contract
                 && bundle.Instance.Span.SequenceEqual(Convert.FromBase64String(corpus.Canonical))
                 && bundle.Schema.Span.SequenceEqual(Convert.FromBase64String(corpus.JsonSchema))
-                && keysHeld
-                ? Fin.Succ(new SchemaContract(
-                    wire,
-                    bundle.Instance,
-                    GenerationId.From(generation),
-                    bundle.Schema,
-                    JsonSchema.FromText(Encoding.UTF8.GetString(bundle.Schema.Span))))
-                : Fin.Fail<SchemaContract>(
-                    new ContractFault.InvalidProjection("<conformance-drift>"));
+                && keysHeld;
+            // Corpus agreement proves the index; the CONTRACT is proved after it. The transported wire crosses
+            // the one composition proof — duplicate keys, out-of-set dependencies, cycles, and capability rows
+            // outside the closed vocabulary — and the decoded instance is then evaluated against the
+            // TRANSPORTED validator, so a foreign exporter satisfies the same law a local mint does while a
+            // bundle whose corpus agrees with an unprovable graph stops here instead of entering the merge.
+            JsonSchema validator = JsonSchema.FromText(Encoding.UTF8.GetString(bundle.Schema.Span));
+            using JsonDocument instance = JsonDocument.Parse(bundle.Instance);
+            return !corpusHeld
+                ? Fin.Fail<SchemaContract>(new ContractFault.InvalidProjection("<conformance-drift>"))
+                : ContractComposition.Proof(wire).Match(
+                    Some: Fin.Fail<SchemaContract>,
+                    None: () => validator.Evaluate(instance.RootElement).IsValid
+                        ? Fin.Succ(new SchemaContract(
+                            wire, bundle.Instance, GenerationId.From(generation), bundle.Schema, validator))
+                        : Fin.Fail<SchemaContract>(
+                            new ContractFault.InvalidProjection("<schema-refused-instance>")));
         } catch (Exception failure) when (
             failure is FormatException or JsonException or NotSupportedException or JsonSchemaException) {
             return Fin.Fail<SchemaContract>(

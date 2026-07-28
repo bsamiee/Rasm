@@ -8,7 +8,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 <!-- source-only: open task card template:
 [ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
-- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Capability: <the higher-order invariant, owner capability, or concept established — concept grain only, never a page path, row list, or member spelling>.
 - Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
 - Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
 - Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
@@ -19,6 +19,13 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Atomic: <present only on a minor-scope task; names the small unit so a later session sizes its turn>.
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
+
+[FIXTURE_FAULT_CASE_HOMING]-[QUEUED]: Seat the fixture-admission fault case on its union owner so the `[Union]` dispatch reaches it and its band code stays disjoint.
+- Capability: one `FabricationFault` type carries every case, so the generated `Switch`/`Map` is exhaustive over the whole family and each case's band offset is unique across the package.
+- Shape: `Process/faults.md` `[ERRORS]` gains the `FixtureInadmissible(FixturingWitness Witness)` case at the free offset 54, its prelude gains the witness namespace, and `Fixturing/workholding.md` drops the second `public abstract partial record FabricationFault` block whole; the witness-homing question — witnesses beside their fault owner, as `EquipmentWitness` and `DeriveWitness` already sit — settles in the same pass.
+- Unlocks: every `FabricationFault` consumer dispatches one exhaustive family, and the Fixturing pages' roughly forty-five `FabricationFault.FixtureInadmissible` construction sites bind a case that compiles.
+- Anchors: the partial seated at `Rasm.Fabrication.Fixturing` against the union's `Rasm.Fabrication.Process` home, so the two declarations are distinct types and the nested case's three-argument base call resolves against a constructor its enclosing type never declares; offset 53 already spent by `bend-search-budget-exceeded`, making 54 the free slot on a 54-case roster; `docs/laws/topology.md` `[01]` row [13] binds band disjointness; branch `RULINGS.md` `[02]` package-receipt-union row binds one kind vocabulary per union.
+- Atomic: one case relocation with its prelude row and one deleted block.
 
 [SPECIALIZED_ENVELOPE_ADMISSION]-[QUEUED]: Enforce `SpecializedToolpathEnvelope` admission at its owner and route every consumer through the admitted rail.
 - Capability: `SpecializedToolpathEnvelope` mints only through an admission factory that folds payload validity, so an invalid envelope is unrepresentable and the public primary constructor retires.
@@ -38,35 +45,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Unlocks: unambiguous recurring windows feeding finite-capacity reservations.
 - Anchors: `Kinematics/fleet.md`, `libs/csharp/.api/api-nodatime.md` `YearMonth` and `AnnualDate`, IDEAS `[FABRICATION_FINITE_CAPACITY]`.
 - Atomic: two typed calendar rows on the fleet page.
-
-[HATCH_EDGE_SPELLING]-[QUEUED]: Resolve the nested hatch boundary-edge member spellings blocking hatch admission.
-- Capability: exact leaf-member spellings for the `BoundaryPath.Edge` line, circular-arc, elliptic-arc, and polyline edge kinds answer whether each lowers under the OCS frame law with bulge preserved.
-- Shape: verified spellings extend `.api/api-acadsharp.md` and unblock the hatch admission rows on the profile page.
-- Unlocks: `[HATCH_BOUNDARY_INGRESS]` moves to QUEUED with its landing rows pinned.
-- Anchors: `Ingress/profile.md`, `.api/api-acadsharp.md`, IDEAS `[HATCH_BOUNDARY_INGRESS]`.
-- Route: `tools.assay api query --key acadsharp` over the `BoundaryPath.Edge` nested types, then the catalog extension.
-- Atomic: one catalog extension and one card unblock.
-
-[RECEIPT_PORT_KERNEL_TYPES]-[QUEUED]: Fabrication's receipt seam names the kernel causal-frame owners.
-- Capability: receipt emission composes kernel-owned identity, tenancy, envelope, and sink types, so the L2 page names no app-platform declaration.
-- Shape: `libs/csharp/Rasm.Fabrication/.planning/Process/telemetry.md` `[03]` — the `ReceiptSinkPort`/`CorrelationId`/`TenantContext`/`ReceiptEnvelope` seam mentions re-anchor to the kernel capsule spellings, and the `[02]` fence's `TelemetrySource.Fabrication.Key` composition re-anchors to the capsule package-identity row it cannot reach at `Rasm.AppHost`.
-- Unlocks: the strata inversion at the fabrication receipt seam dissolves; the AppHost seam mirror stays byte-consistent.
-- Anchors: `libs/csharp/.planning/RULINGS.md` causal-frame row; kernel `Domain/telemetry.md`.
-- Ripple: follows `Rasm` `[CAPSULE_EXTENSION_MINTS]`.
-- Atomic: seam-spelling re-anchors.
-
-[MARKING_ENTITY_ROWS]-[QUEUED]: Pin the profile-marking admission rows and their transform lowering.
-- Capability: `ProfileMarking` rows admit insert attributes through `Insert.HasAttributes`, text, and multiline-text content; array and nested instances lower through `Insert.ApplyTransform(Transform)`, and arc marks center through `Arc.GetCenter`.
-- Shape: marking entities retain source identity through census and lowering, and traveler and posting consumers read the typed marks.
-- Unlocks: part marks, heat numbers, and shop tags on travelers and posted programs.
-- Anchors: `Ingress/profile.md`, `.api/api-acadsharp.md`, `Documentation/traveler.md`, IDEAS `[PROFILE_ANNOTATION_MARKS]`.
-
-[SPLINE_NATIVE_SAMPLING]-[QUEUED]: Sample splines through the owner's parametric evaluator, never a hand-rolled de Boor.
-- Capability: profile spline lowering walks `Spline.TryPointOnSpline(double t, out XYZ)` at the chord-precision knob, and the witnessed lowering row records the sampler.
-- Shape: one sampler row on the profile curve lowering; evaluator failure at a parameter lands as repair evidence.
-- Unlocks: faithful spline contours with owner-verified sampling.
-- Anchors: `Ingress/profile.md`, `.api/api-acadsharp.md` `Spline.TryPointOnSpline`, IDEAS `[HATCH_BOUNDARY_INGRESS]`.
-- Atomic: one sampler row on the profile page.
 
 [TOOLCHANGE_ELAPSED_ROW]-[QUEUED]: Price magazine traverse as a typed per-change evidence row.
 - Capability: `ToolChange.Elapsed` derives from slot index distance and arm swing; estimation consumes the row and simulation advances its modal clock by the same value.
@@ -111,7 +89,8 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Shape: projection consumes the symbol rows while the render tier keeps layout, and the seam ledger names one APP-stratum owner.
 - Unlocks: `[GDT_ANNOTATION_AS_SPEC_EVIDENCE]` lands with its consumer seam pinned.
 - Anchors: `Spec/tolerance.md`, `Documentation/projection.md`, IDEAS `[GDT_ANNOTATION_AS_SPEC_EVIDENCE]`.
-- Tension: blocker question — whether the drafting symbols ride the landed `HiddenLineResult` seam onto `Rasm.AppUi` or wait for the app shell outside `libs/csharp`; route — the AppUi drafting seam page `libs/csharp/Rasm.AppUi/.planning/Render/drafting.md` and this folder's ARCHITECTURE seam ledger.
+- Arms: arm when one APP-stratum owner claims the annotation rows — the landed `HiddenLineResult` seam onto `Rasm.AppUi`, or an app shell outside `libs/csharp` the seam ledger then names.
+- Route: `libs/csharp/Rasm.AppUi/.planning/Render/drafting.md` for the drafting seam's declared consumption, then this folder's `ARCHITECTURE.md` seam ledger for the edge that claim obliges.
 
 [MOVE_ORIENTATION_PAYLOAD]-[QUEUED]: Widen the motion atom with continuous tool-frame and contact payload.
 - Capability: `Move` gains continuous orientation and contact; indexed 3+2 stays on `SurfaceFrame`, and the consumer census spans surface swarf, machine solve, posting, and swept guard.
@@ -171,22 +150,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Unlocks: `[SHOP_SCHEDULE_DERIVATION]` lands deliverable by deliverable.
 - Anchors: `DetailSchema.Realization` seam bags, `FabricationProjector`, IDEAS `[SHOP_SCHEDULE_DERIVATION]`.
 
-[ENGINE_SPAN_FOLDS]-[BLOCKED]: Land long-solve span brackets after the diagnostics catalog admits their exact member family.
-- Capability: nest, simulation, scanpath, and probe folds share one listener-gated, fault-stamping trace bracket.
-- Shape: one package span vocabulary and one AppHost adapter; no kernel-local provider.
-- Unlocks: exemplar and profile correlation on the same trace rail.
-- Anchors: `Process/telemetry.md#[06]-[SPANS]`, `Process/telemetry.md#[09]-[RESEARCH]`, IDEAS `[FABRICATION_SPAN_SPINE]`.
-- Arms: exact diagnostics members are absent from both applicable catalogs; arm when `libs/csharp/.api/api-diagnostics-metrics.md` catalogs them and `libs/csharp/Rasm.AppHost` lands the bracket adapter.
-- Atomic: one catalog family, one adapter, and four fold bindings.
-
-[OBSERVATION_PAGE_MINT]-[BLOCKED]: Complete the provider decode adapter against cataloged MTConnect observation members.
-- Capability: provider rows map exhaustively into `MachineObservationIngress`; wear, fleet, and engagement consumers remain bound to `MachineObservations`.
-- Shape: one AppHost adapter and one provider-neutral package ingress.
-- Unlocks: measured consumers receive verified machine state without transport coupling.
-- Anchors: `Kinematics/observation.md#[02]-[MACHINE_OBSERVATION]`, `Kinematics/observation.md#[03]-[RESEARCH]`, IDEAS `[MACHINE_TELEMETRY_DECODE]`.
-- Arms: observation-model members are absent from both applicable catalogs; arm when `libs/csharp/Rasm.Fabrication/.api/api-mtconnect-net-common.md` catalogs them and `libs/csharp/Rasm.AppHost` lands the adapter.
-- Atomic: one catalog family and one adapter.
-
 [BENCH_CASE_ROSTER]-[BLOCKED]: Mint accepted receipts for every solver benchmark row before a measured route consumes one.
 - Capability: branch cases produce durable receipts, AppHost judges them, and the accepted projection enters `ProbeRoute.Measured`.
 - Shape: `AcceptedBenchmarkClaim` closes the package boundary over the roster and durable receipt key.
@@ -201,9 +164,16 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-[ENGINE_FACT_CASE]-[COMPLETE]: `FabricationFact.Engine` case with solver/phase dimensions fans nest, skeleton, setup, scan, probe (`AlignmentReceipt.Iterations`), and bend-search (`BendSequenceReceipt`) rows onto `rasm.fabrication.engine.steps`; counters ride settled receipt evidence.
+[HATCH_EDGE_SPELLING]-[COMPLETE]: the route resolved on the assay rail — `Hatch.BoundaryPath` publishes `Edges : ObservableCollection<Edge>` over `Line`(`Start`/`End : XY`), `Arc`(`Center`/`Radius`/`StartAngle`/`EndAngle`/`CounterClockWise`), `Ellipse`(`MajorAxisEndPoint`/`RadiusRatio`), `Polyline`(`Vertices : List<XYZ>` carrying bulge in Z), and `Spline`, each answering `EdgeType` with `ToEntity()`/`PolygonalVertexes(int)`; the catalogue carries every row and the lowering arms already compose them.
+[OBSERVATION_PAGE_MINT]-[COMPLETE]: the arming condition landed at the branch tier — `libs/csharp/.api/api-mtconnect.md` carries both namespace partitions with `Rasm.AppHost` bound to CONNECTIVITY and this folder to the ISO-13399 CUTTING-TOOL slice, the dual-homed folder catalogue is deleted, and the README row moved to `## [03]-[SUBSTRATE_PACKAGES]` under `[MACHINE_CONNECTIVITY]`; AppHost already carries the decode adapter, its `MachineObservationWire` crossing, and the `machine.observations` instrument, so `Kinematics/observation.md` stays provider-neutral by design rather than by omission and the `[LOCAL_ADMISSION]` partition law forecloses this folder reaching the connectivity half.
+[DERIVATION_ROW_KEY_CUSTODY]-[COMPLETE]: `Process/derivation.md` mints every bag key through `Row`, its own one-line composition of the seam owner's `PropertyCategory.Fabrication.Row`, so the three call-site `PropertyName.Create(row.Key)` spellings are gone and this package's vocabulary lands inside a partition `Rasm.Element` blesses rather than in the shared key space; the Boundary states a bare `PropertyName.Create` at any write site as the deleted form.
+[MARKING_CONSUMER_BINDING]-[COMPLETE]: the binding was unreachable, not merely unwritten — `FabricationInput` dropped markings at admission, so both consumers gained their read only once the input carried `Markings` beside `Profiles` with `Tags` deriving through the ingress owner's newly-public `ProfileImport.TagsOf`; `TravelerMarks` lands a `TravelerSection.Marks` carrying keyed rows, free-text runs, and every keyed row contradicting the declared `TravelerIdentity`, and posting's `Prologue` opens every program on a sorted verbatim comment block so an operator verifies material against the sheet the program was posted from.
+[MARKING_ENTITY_ROWS]-[COMPLETE]: the admission rows and transform lowering landed at `Ingress/profile.md` over verified `Insert.Attributes -> SeqendCollection<AttributeEntity>`, `Insert.ApplyTransform(Transform)`, and `Arc.GetCenter`; `Insert.HasAttributes` catalogued but deliberately unbranched, since concatenating an empty collection is already total and a guard carries no decision; `[MARKING_CONSUMER_BINDING]` re-cuts the consumer half, since neither traveler nor posting named a marking read.
+[SPLINE_NATIVE_SAMPLING]-[COMPLETE]: `SplineLoop` walks `Spline.TryPointOnSpline(double, out XYZ)` first and falls back to the bulk tessellator then the fit-point rebuild, with `SplineSampler` and `ProfileRepair.Sampled` recording which won on the new `ProfileLowered.Repairs` channel; the evaluator assigns `XYZ.NaN` and swallows every exception, so the bool is the only safe gate and `t == 1.0` nudges down one epsilon.
+[ENGINE_FACT_CASE]-[COMPLETE]: `FabricationFact.Engine` fans nest, skeleton, setup, scan, probe (`AlignmentReceipt.Iterations`), and bend-search (`BendSequenceReceipt`) rows onto `rasm.fabrication.engine.steps`; the `EnginePhase` roster carries each phase's owning `FabricationEngine` row, so the fact stores one discriminant, the arm derives the solver dimension through the generated keyed admission, and every solver and phase literal is a vocabulary row.
+[ENGINE_SPAN_FOLDS]-[COMPLETE]: `FabricationTrace.Scopes` landed at `Process/telemetry#SPANS` — `libs/csharp/.api/api-diagnostics-activity.md` already met the arming condition, and the kernel `SpanBand` owns the listener gate, the `using` open, and the fail-leg status, so the assumed AppHost adapter never mints. Probing, simulate, and scanpath drop the `EngineSpan` they composed: the bracket is `band.Traced(FabricationEngine.<lane>, key, body)` over a nullable band, and phase events are `FabricationTrace.Mark(span, EnginePhase.<row>)`.
 [HOOK_POINT_ROSTER]-[COMPLETE]: `FabricationHooks` roster with modality columns landed at `Process/telemetry.md#[07]-[HOOK_ROSTER]`; the run spine fires every point per `Process/owner.md#[03]-[RUN_FOLD]`.
-[SLO_ROW_FAMILY]-[COMPLETE]: `FabricationSlos` five rows landed at `Process/telemetry.md#[08]-[SLO_ROWS]`; the fleet-stale row's `measured=false` selector matches its emitted tag.
+[SLO_ROW_FAMILY]-[COMPLETE]: `FabricationDescriptors` landed at `Process/telemetry#BOARD_PACK` — `Objective` rows over `Sli.Partition`, `Sli.Latency`, and the `FleetLoad` `Sli.Saturation` headroom row beside the panel roster, the pack carrying its `Admit` proof; stringly breach selectors, the folder-local `SliKind`/`BurnLane` twins, and every good-half counter are deleted, so each share partitions the population its arm stamps a verdict on and the wear share reads `MaintenanceDisposition.ServiceableKeys`.
 [PERFORMANCE_HORIZON_REFRESH]-[COMPLETE]: `MachinePerformance.Of(MachineObservations, ratedPowerKw, declared, prior)` refreshes measured rows under `PerformanceHorizon`; `PerformanceBaseline` supplies honest cold-start performance and quality ratios, and matching falls back to declared OEE.
 [MEASURED_LOAD_CEILING]-[COMPLETE]: one `EngagementLimit.MeasuredLoad` row over the demand-carried `LoadWindow`; `EngagementSolution.Binding` unchanged.
 [STORE_SLOT_ROWS]-[COMPLETE]: `store.fabrication.<domain>.<verb>` rows landed as `RemnantSlots`, `FleetSlots`, `MagazineSlots`, and `CapabilitySlots` on their owning pages; the Persistence registry's contributed span already reserves the family at the counterpart.

@@ -4,8 +4,8 @@ One GPU shader-asset owner with a per-backend pipeline-state cache feeds the pat
 
 ## [01]-[INDEX]
 
-- [01]-[SHADER_ASSET]: Per-`GpuBackend` shader-asset cache; `SKRuntimeEffect` and wgpu pipeline-state compile.
-- [02]-[SURFACE_SHADE]: The GPU shading pass consuming the Materials `LayeredBsdf` at the path tracer.
+- [02]-[SHADER_ASSET]: Per-`GpuBackend` shader-asset cache; `SKRuntimeEffect` and wgpu pipeline-state compile.
+- [03]-[SURFACE_SHADE]: The GPU shading pass consuming the Materials `LayeredBsdf` at the path tracer.
 
 ## [02]-[SHADER_ASSET]
 
@@ -15,7 +15,7 @@ One GPU shader-asset owner with a per-backend pipeline-state cache feeds the pat
 - Auto: a shader source compiles once per `(Key, Revision, GpuBackend)` cell. The entry probes before native construction, a miss compiles, and a concurrent-race loser disposes its minted handle, so a revision change cannot reuse stale code and a re-shade of the same revision reuses one retained pipeline state. Ganesh binds `SKRuntimeShaderBuilder.Uniforms`; Wgpu binds the current `ShadeUniforms` through `WgpuPipelineState.Bind` and records the resulting group through `Mount`, so neither arm can return success without mounting executable state.
 - Receipt: `ShaderReceipt` — shader key, backend, compile outcome, uniform count, `Instant`; `TelemetryRow` contributes the shader-compiled and shader-failed instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: SkiaSharp, Silk.NET.WebGPU, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
-- Growth: a new shader is one `ShaderSource` keyed into the cache; a new backend is one compile arm over the existing `GpuBackend` family; one shader instrument is one `InstrumentRow` on `ShaderAssets.TelemetryRow`; zero new surface.
+- Growth: a new shader is one `ShaderSource` keyed into the cache; a new backend is one compile arm over the existing `GpuBackend` family; one shader instrument is one `InstrumentSpec` row on `ShaderAssets.TelemetryRow`; zero new surface.
 - Boundary: the shader-asset cache is keyed per `GpuBackend` — a per-host `GpuBackend`/`GRContext` construction in a shading arm is the `[04]-[BOUNDARIES]` rejected form, so the cache folds the leased context through the `Render/pipeline` `GpuBackend` target-factory column and a backend swap re-compiles one cell; the Ganesh shader is `SKRuntimeEffect` confined to the `Offscreen` capsule so an `SKSurface` outside the capsule is the `[04]-[BOUNDARIES]` rejected form; the wgpu pipeline-state shares the one `Wgpu` device the viewport leases through the branch `ONE_WGPU_DEVICE` `EMBED_CAPSULE` law so a second GPU device for shading is the rejected form (`Render/shading ⇄ csharp:Rasm.Compute # [SHAPE]: shared ONE_WGPU_DEVICE`); the runtime arm is SPIKE-gated exactly as the viewport — the CPU `LayeredBsdf` reference shade is the floor and the GPU compile is the SPIKE; the shader source is backend-neutral so a backend-specific shader literal is the rejected form, the per-backend lowering living in the compile arm.
 
 ```csharp signature
@@ -128,10 +128,10 @@ public sealed record ShaderAssetCache(
     public const string CompiledInstrument = "rasm.appui.shader.compiled";
     public const string FailedInstrument = "rasm.appui.shader.failed";
 
-    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
-        AppUiTelemetry.Contribute(version, schemaUrl,
-            new(CompiledInstrument, InstrumentKind.Count, "{shader}", "shader compiles by backend"),
-            new(FailedInstrument, InstrumentKind.Count, "{shader}", "shader compile failures by backend"));
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            InstrumentSpec.Count(CompiledInstrument, "{shader}", "shader compiles by backend", MeasureForm.Whole),
+            InstrumentSpec.Count(FailedInstrument, "{shader}", "shader compile failures by backend", MeasureForm.Whole));
 }
 ```
 

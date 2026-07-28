@@ -57,9 +57,9 @@ public static class SupportTriggerOps {
 - Entry: `Capture(SupportRuntime runtime, SupportTrigger trigger)` returns `IO<SupportReceipt>` — `IO` carries the freeze-fan-redact-cap-bundle effect.
 - Auto: `GlobalLogBuffer.Flush` replays the fault buffer into the frozen window before contributor fan-in; the `DeadlineClass.SupportWindow` row bounds the capture run on the cancel spine.
 - Receipt: per-artifact written bytes, truncated bytes, and redaction counts land as `SupportManifest.Entry` rows.
-- Packages: Rasm (kernel `Dimension`), Microsoft.Diagnostics.NETCore.Client, Microsoft.Diagnostics.Runtime, Microsoft.Diagnostics.Tracing.TraceEvent, Microsoft.Extensions.Telemetry.Abstractions, Microsoft.Extensions.Compliance.Redaction, Microsoft.Extensions.Configuration, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
+- Packages: Rasm (kernel `Dimension`; `InstrumentTally`/`InstrumentReading`/`ReadingCell` from `Rasm/Domain/telemetry#INSTRUMENT_MECHANISM`), Microsoft.Diagnostics.NETCore.Client, Microsoft.Diagnostics.Runtime, Microsoft.Diagnostics.Tracing.TraceEvent, Microsoft.Extensions.Telemetry.Abstractions, Microsoft.Extensions.Compliance.Redaction, Microsoft.Extensions.Configuration, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one `SupportArtifact` factory row lands a new contributor; a new dump completeness is one `DumpPolicy` value (`Triage` routine, `WithHeap`/`Full` escalation-only) and a triage-depth retune is one `CensusCap`/`TriageRows`/`FrameCap` value; a new triage dimension is one `DumpTriage` row family; a new fault is one `SupportFault` case; zero new surface.
-- Boundary: the `Active` cell is the coalesce gate — a trigger arriving mid-capture folds to `SupportReceipt.Coalesced` and never opens a second window; classification resolves redaction at row registration, so `Produce` returns only redacted bytes with their redaction count and no unredacted classified byte reaches assembly; every contributor row runs under its own recovery arm — a faulting `Produce` converts to a zero-byte `SupportFault.ContributorFaulted` manifest entry, so the bundle exports partial with the fault named on its row; `SupportArtifact.Cleanup` is the optional custody row, and `Assemble` brackets the whole contributor fan then folds every cleanup before bundle sealing, so cancellation, a skipped dependent row, or analysis failure cannot bypass staging cleanup and a cleanup refusal becomes a zero-byte `SupportFault.CleanupFaulted` manifest row; `ReleaseDump` owns every raw-dump delete, and eager release suppresses its refusal while the outer custody row reports that same refusal without replacing a capture or analysis fault; the `EffectiveConfig` row passes the `GetDebugView(Func<ConfigurationDebugViewContext, string>?)` per-value processor through the resolved `Redactor` so each provider value redacts at its origin from the `ConfigurationDebugViewContext.Value` and the redaction count rises per masked entry, carrying no unredacted secret; the `ProcessDump` row composes `Microsoft.Diagnostics.NETCore.Client` — `DiagnosticsClient.WriteDump(DumpType, path, WriteDumpFlags)` captures under the frozen window with completeness as `DumpPolicy` row data, materializes the manifest bytes, and registers the raw path's cleanup independently of `DumpAnalysis`; `DumpAnalysis` retains a local `finally` as the eager release after ClrMD consumption while the outer custody row remains the guaranteed release; `DumpAnalysis` folds through `Microsoft.Diagnostics.Runtime` — `DataTarget.LoadDump(string filePath, DataTargetOptions? options = null)` opens the dump, `DataTarget.ClrVersions[0].CreateRuntime()` materializes the `ClrRuntime`, `ClrHeap.EnumerateObjects` samples at most `CensusCap` objects before grouping by `ClrObject.Type?.Name` and summing shallow `ClrObject.Size`, `ClrRuntime.Threads` projects `OSThreadId`/`ManagedThreadId`/`GCMode`/`State` with `ClrThread.CurrentException?.Type?.Name` and the `EnumerateStackTrace(includeContext, maxFrames)`-bounded frame walk discriminated on `ClrStackFrameKind.ManagedMethod` versus the runtime `FrameName`, and `ClrHeap.EnumerateRoots` samples at most `CensusCap` roots before counting `ClrRoot.RootKind`; `CensusCap`, `TriageRows`, and `FrameCap` bound every enumeration and output family; the `EventTrace` row hands `EventPipeSession.EventStream` to `Microsoft.Diagnostics.Tracing.TraceEvent`'s `EventPipeEventSource(Stream).Process()` on a dedicated pump inside the `DeadlineClass.SupportWindow` bound, and the admitted `Dimension` supplies both `circularBufferMB` and the artifact estimate so runtime buffering and bundle accounting cannot drift; decode faults map to `SupportFault.DecodeFaulted` and land `SupportReceipt`-partial rather than aborting the bundle; the `.gcdump` heap graph has no reader in the admitted TraceEvent assembly, so the gcdump column binds the `dotnet-gcdump` tool boundary; `PerfMapLease` brackets perf-map emission around a profiled window — `EnablePerfMap(PerfMapType)` at open, `DisablePerfMap()` at disposal — so continuous-profiling and benchmark flame graphs resolve jitted native frames.
+- Boundary: the `Active` cell is the coalesce gate — a trigger arriving mid-capture folds to `SupportReceipt.Coalesced` and never opens a second window; classification resolves redaction at row registration, so `Produce` returns only redacted bytes with their redaction count and no unredacted classified byte reaches assembly; every contributor row runs under its own recovery arm — a faulting `Produce` converts to a zero-byte `SupportFault.ContributorFaulted` manifest entry, so the bundle exports partial with the fault named on its row; `SupportArtifact.Cleanup` is the optional custody row, and `Assemble` brackets the whole contributor fan then folds every cleanup before bundle sealing, so cancellation, a skipped dependent row, or analysis failure cannot bypass staging cleanup and a cleanup refusal becomes a zero-byte `SupportFault.CleanupFaulted` manifest row; `ReleaseDump` owns every raw-dump delete, and eager release suppresses its refusal while the outer custody row reports that same refusal without replacing a capture or analysis fault; the `EffectiveConfig` row passes the `GetDebugView(Func<ConfigurationDebugViewContext, string>?)` per-value processor through the resolved `Redactor` so each provider value redacts at its origin from the `ConfigurationDebugViewContext.Value` through the one masking owner every redacted column shares, whose count rises on each entry the redactor CHANGED — a length-preserving HMAC or fixed-width fill masks in place, so a length comparison reports zero over a fully masked bundle — carrying no unredacted secret; the `ProcessDump` row composes `Microsoft.Diagnostics.NETCore.Client` — `DiagnosticsClient.WriteDump(DumpType, path, WriteDumpFlags)` captures under the frozen window with completeness as `DumpPolicy` row data, materializes the manifest bytes, and registers the raw path's cleanup independently of `DumpAnalysis`; `DumpAnalysis` retains a local `finally` as the eager release after ClrMD consumption while the outer custody row remains the guaranteed release; `DumpAnalysis` folds through `Microsoft.Diagnostics.Runtime` — `DataTarget.LoadDump(string filePath, DataTargetOptions? options = null)` opens the dump, `DataTarget.ClrVersions[0].CreateRuntime()` materializes the `ClrRuntime`, `ClrHeap.EnumerateObjects` samples at most `CensusCap` objects before grouping by `ClrObject.Type?.Name` and summing shallow `ClrObject.Size`, `ClrRuntime.Threads` projects `OSThreadId`/`ManagedThreadId`/`GCMode`/`State` with `ClrThread.CurrentException?.Type?.Name` and the `EnumerateStackTrace(includeContext, maxFrames)`-bounded frame walk discriminated on `ClrStackFrameKind.ManagedMethod` versus the runtime `FrameName`, and `ClrHeap.EnumerateRoots` samples at most `CensusCap` roots before counting `ClrRoot.RootKind`; `CensusCap`, `TriageRows`, and `FrameCap` bound every enumeration and output family; the `EventTrace` row hands `EventPipeSession.EventStream` to `Microsoft.Diagnostics.Tracing.TraceEvent`'s `EventPipeEventSource(Stream).Process()` on a dedicated pump inside the `DeadlineClass.SupportWindow` bound, and the admitted `Dimension` supplies both `circularBufferMB` and the artifact estimate so runtime buffering and bundle accounting cannot drift; decode faults map to `SupportFault.DecodeFaulted` and land `SupportReceipt`-partial rather than aborting the bundle; the `.gcdump` heap graph has no reader in the admitted TraceEvent assembly, so the gcdump column binds the `dotnet-gcdump` tool boundary; `PerfMapLease` brackets perf-map emission around a profiled window — `EnablePerfMap(PerfMapType)` at open, `DisablePerfMap()` at disposal — so continuous-profiling and benchmark flame graphs resolve jitted native frames; the `SignalReadings` row is the capture's MEASUREMENT evidence and reads the kernel `InstrumentTally` alone — a bundle is pulled exactly when the exporter, collector, or store is what failed, so the read plane that answers it composes no exporter and no store, the tally's own lifetime and arming stay the composition root's (this row receives it, never opens it), and a tally refusal rides the standing contributor recovery arm as a named zero-byte entry rather than a second fault path.
 
 ```csharp signature
 public sealed record SupportArtifact(
@@ -74,15 +74,52 @@ public sealed record SupportArtifact(
         EstimatedBytes: 64 << 10,
         Produce: _ => IO.lift(() => {
             var redactions = 0;
-            string Mask(ConfigurationDebugViewContext entry) {
-                if (entry.Value is not { Length: > 0 } value) return entry.Value ?? string.Empty;
-                var masked = redactor.Redact(value);
-                if (masked.Length != value.Length) redactions++;
-                return masked;
-            }
-            var view = root.GetDebugView(Mask);
+            var view = root.GetDebugView(entry => Masked(redactor, entry.Value, ref redactions));
             return (new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(view)), redactions);
         }));
+
+    // Backend-free measurement evidence: a bundle is pulled exactly when the exporter, collector, or store is
+    // what failed, so a capture answering only stacks, heap, and config leaves the reader to guess what the
+    // process was measuring. Kernel tallies own the read plane whole, and a refusal rides this row's own
+    // recovery arm, so an unarmed tally lands a named zero-byte entry rather than an absent artifact.
+    public static SupportArtifact SignalReadings(InstrumentTally tally, Redactor redactor) => new(
+        Name: "signal-readings",
+        Classification: DataClassification.HostIdentity,
+        EstimatedBytes: 256 << 10,
+        Produce: _ => IO.lift(tally.Read).Bind(readings => readings.Match(
+            Succ: rows => IO.pure(Rendered(rows, redactor)),
+            Fail: fault => IO.fail<(ReadOnlyMemory<byte> Bytes, int Redactions)>(
+                (Error)new SupportFault.ContributorFaulted("signal-readings", fault.Message)))));
+
+    // One line per measured series under its declaring row's name, kind, and unit. Tag VALUES carry the tenant
+    // slug this row is classified for, so redaction runs over values alone and key spellings — already declared
+    // as the row's own `Dimensions` — stay readable; rows the process never measured print `unmeasured` rather
+    // than a zero, so a quiet producer and a dead one stay distinguishable.
+    static (ReadOnlyMemory<byte> Bytes, int Redactions) Rendered(Seq<InstrumentReading> readings, Redactor redactor) {
+        var redactions = 0;
+        var sink = new StringBuilder();
+        foreach (InstrumentReading reading in readings) {
+            string head = $"{reading.Row.Name} {reading.Row.Kind.Key} {reading.Row.Unit}";
+            if (reading.Cells.IsEmpty) { sink.AppendLine($"{head} unmeasured"); continue; }
+            foreach (ReadingCell cell in reading.Cells) {
+                sink.Append(head);
+                foreach (KeyValuePair<string, object?> tag in cell.Tags) sink.Append(' ').Append(tag.Key).Append('=').Append(Masked(redactor, tag.Value, ref redactions));
+                sink.AppendLine($" count={cell.Count} sum={cell.Sum:R} min={cell.Min:R} max={cell.Max:R} last={cell.Last:R}");
+            }
+        }
+        return (new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(sink.ToString())), redactions);
+    }
+
+    // ONE masking owner for every redacted column, so the config view and the readings render cannot disagree on
+    // what counts. The count rises on a CONTENT change: a length-preserving redactor — an HMAC token, a
+    // fixed-width fill — replaces the value byte-for-byte, and a length comparison then reports zero redactions
+    // over a fully masked bundle. Absent and empty values mask to the empty string, so no column carries a null.
+    static string Masked(Redactor redactor, object? value, ref int redactions) {
+        if (value?.ToString() is not { Length: > 0 } text) { return string.Empty; }
+        string masked = redactor.Redact(text);
+        if (!string.Equals(masked, text, StringComparison.Ordinal)) { redactions++; }
+        return masked;
+    }
 
     // Dump admission composes DiagnosticsClient.WriteDump under the frozen window with
     // completeness as row policy; a capture-tool fault is the typed registry-banded case, never a

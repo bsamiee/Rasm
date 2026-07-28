@@ -8,7 +8,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 <!-- source-only: open idea card template:
 [ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
-- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Capability: <the higher-order invariant, owner capability, or concept established — concept grain only, never a page path, row list, or member spelling>.
 - Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
 - Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
 - Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
@@ -67,40 +67,13 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Unlocks: ring-case Bishop seeding, panel plane fits, and the remesh flip gate read one fold; `Spatial/cloud.md`'s fitted-plane ring normal keeps its winding guard as the deliberate divergent method.
 - Anchors: the folder `RULINGS.md` Newell-owner row; the repaired `DominantAxis` five-page collapse as precedent; `predicates.md`'s exact-carrier boundary.
 
-[CAUSAL_FRAME_CAPSULE]-[QUEUED]: Cross-stratum causal-frame primitives join the kernel signal capsule — every stratum emits receipts through kernel-owned identity, tenancy, and envelope types.
-- Capability: receipt emission stops splitting into two paradigms — the neutral-`Guid`/`string` twins and the L3 value objects collapse onto one kernel-owned causal frame every package names legally.
-- Shape: `CorrelationId`, `TenantId`/`TenantContext`, `ReceiptEnvelope`, and the `ReceiptSinkPort` record (its emit delegate app-root-bound) mint on `libs/csharp/Rasm/.planning/Domain/telemetry.md` beside `TelemetryContributorPort`.
-- Unlocks: `Rasm.Fabrication` and every app-platform peer name the receipt seam without a strata inversion; the OTel, HLC, and baggage lacing stays at `Rasm.AppHost` `SignalGovernance` untouched.
-- Anchors: `libs/csharp/.planning/RULINGS.md` causal-frame homing row; the settled `TelemetryContributorPort` kernel move as the proven vehicle; `Domain/telemetry.md` capsule law.
-- Ripple: `[CAPSULE_EXTENSION_MINTS]` decomposes this with `[INSTRUMENT_SPEC_CAPSULE]` and `[BURN_RATE_CAPSULE]`.
-
-[INSTRUMENT_SPEC_CAPSULE]-[QUEUED]: Instrument-shape specs and their kind roster become one kernel capsule member — per-folder bind factories retire.
-- Capability: the counter, level, advised-histogram, and keyed-levels bind bodies mint once; every sink descriptor composes the kernel spec instead of re-typing its own spec record and kind vocabulary.
-- Shape: an `InstrumentSpec` record and kind roster with per-kind bind delegates on `libs/csharp/Rasm/.planning/Domain/telemetry.md` `[03]`, beside `InstrumentRow` and `Buckets`.
-- Unlocks: `Rasm.AppUi` and `Rasm.Compute` delete their twin spec records; `Rasm.AppHost` instrument rows adopt the factories and drop inline lambdas.
-- Anchors: `libs/csharp/.planning/RULINGS.md` instrument-spec collapse row; kernel `InstrumentRow`/`Buckets`/`LevelCells` already homed.
-- Ripple: `[CAPSULE_EXTENSION_MINTS]`.
-
-[BURN_RATE_CAPSULE]-[QUEUED]: Multiwindow burn-rate SLO algebra joins the kernel capsule — one carrier for windows, objective, and the burn fold.
-- Capability: the canonical fast/slow burn windows and the burn computation exist once; a factor or objective change lands at one owner and every alerting sink follows.
-- Shape: a burn-window/objective carrier and fold on `libs/csharp/Rasm/.planning/Domain/telemetry.md` `[03]` beside the cost and bench capsules.
-- Unlocks: `Rasm.AppUi` viewport tiles, `Rasm.Compute` IaC rule rows, and `Rasm.AppHost` health rules compose one algebra; the hand-typed window constants delete.
-- Anchors: `libs/csharp/.planning/RULINGS.md` burn-rate carrier row; the SRE multiwindow discipline both sinks already encode.
-- Ripple: `[CAPSULE_EXTENSION_MINTS]`.
-
-[KERNEL_SIGNAL_FABRIC]-[BLOCKED]: Analysis-runtime charge completes the kernel signal plane — runtime capability reads join the settled spans, metrics, hooks, cost evidence, and bench ledger.
-- Capability: the analysis-runtime capability read over `Eff.runtime<RT>()` — the last research remnant of the signal plane restored to settled fences, so analysis effects read their capability from the runtime record.
-- Shape: settled `[03]` fences on `libs/csharp/Rasm/.planning/Analysis/query.md` (runtime charge).
-- Unlocks: analysis pipelines read runtime capability without service location — the last unsettled band of the observability theme closes.
-- Anchors: `libs/csharp/.api/api-languageext.md` runtime rows; the settled span, metric, hook, cost, and bench bands on `Domain/telemetry.md`.
-- Arms: `api-languageext.md` admits `public static Eff<RT, RT> runtime<RT>()`; until the row exists the charge stays research, never settled fences.
-
-[COLUMNAR_WIRE_SCHEMA]-[BLOCKED]: Frozen JSON identity completes the pack wire — `EvidenceWire.Json` becomes one static sealed options identity beside the settled schema and exact binary blocks.
-- Capability: one static read-only `JsonSerializerOptions` identity for `EvidenceWire.Json`, joining the validated `PackSchema` identity and the exact binary `EvidenceWire` blocks `[03]-[SCHEMA_AND_EVIDENCE]` already settles.
-- Shape: one static identity row on `libs/csharp/Rasm/.planning/Drawing/pack.md` `[03]-[SCHEMA_AND_EVIDENCE]`.
-- Unlocks: wire consumers verify and dedupe against a sealed contract identity — no per-call options graph, no cold metadata cache, no post-seal mutation path.
-- Anchors: `libs/csharp/.api/api-system-text-json.md` options rows; `Drawing/pack.md` schema-and-evidence law; the contract-identity precedent that resolver, converter, and options instances are stable identities.
-- Arms: `api-system-text-json.md` admits `public void JsonSerializerOptions.MakeReadOnly()`; until that row exists the frozen JSON identity stays research.
+[OPTIONAL_KEY_LEVEL_FAMILY]-[QUEUED]: Pulled level families reach the absent-tenant arm — a keyed cell entry carries an optional key, so a possibly-unpartitioned dimension projects untagged rather than vanishing.
+- Capability: absent-dimension law reaches the PULLED plane — a level family whose one dimension may be absent projects an untagged measurement, so partitioned and unpartitioned compositions report the same series and neither mints a sentinel key nor drops the measure.
+- Shape: the keyed cell store, its write, and its keyed reader on `libs/csharp/Rasm/.planning/Domain/telemetry.md` `[04]-[INSTRUMENT_MECHANISM]`, with the `Levels` bind arm reading the optional key.
+- Unlocks: every per-tenant census gauge in the estate reports under both tenancy modes; a contributor stops choosing between a sentinel dimension and a missing series.
+- Anchors: the settled `TenantContext.Partitions`/`Tags` absent-tenant arm on `[03]-[CAUSAL_FRAME]`; the `Levels` kind beside its keyed reader on `[04]-[INSTRUMENT_MECHANISM]`; `libs/csharp/.api/api-diagnostics-metrics.md` `Measurement<T>` rows carrying the untagged construction.
+- Tension: the keyed store's map key widens, so whether structural equality over a full tag set lands in the same edit or stays a second axis is the open bet.
+- Ripple: mirrors `Rasm.Persistence` `[UNPARTITIONED_USAGE_SERIES]`.
 
 ## [02]-[CLOSED]
 
@@ -108,4 +81,10 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-[BENCH_CLAIM_LEDGER]-[COMPLETE]: landed as `Domain/telemetry.md` `[05]` (`BenchClaim`/`BenchLedger`) with claim rows at `Processing/decimate.md` `Simplify.HausdorffClaim`, `Parametric/curve.md` `Parametric.FrameDefectClaim`, `Parametric/surface.md` `Surfaces.CurvatureSummaryClaim`, and `Processing/flatten.md` `Flatten.DistortionClaim`.
+[GEOMETRY_BATCH_PRODUCER]-[DROPPED]: wrong owner — S0 references no sibling, so the kernel reaches neither `LakeGeneration` nor `Apache.Arrow` without pushing a columnar dependency onto every package above it, and `Encode.Apply` yields ONE `EncodedGeometry` per op where a lake generation needs a corpus; landed as `Rasm.Compute` `[GEOMETRY_LAKE_EGRESS]` keying its generation on this page's `PackSchema.SchemaId`.
+[KERNEL_SIGNAL_FABRIC]-[COMPLETE]: the arming row is `libs/csharp/.api/api-languageext.md` `[07]` `Eff.runtime<RT>() -> Eff<RT, RT>`, and the charge already rides settled fences — `Env.EnvAsks`/`Asks`/`Taps` and the two-exit `Operation.Apply` cost charge at `Analysis/query.md` `[03]-[OPERATION_RUNTIME]` — so the signal plane carries no research remnant.
+[BENCH_CLAIM_LEDGER]-[COMPLETE]: landed as `Domain/telemetry.md` `[08]-[BENCH_LEDGER]` (`BenchClaim`/`BenchLedger`) with claim rows at `Processing/decimate.md` `Simplify.HausdorffClaim`, `Parametric/curve.md` `Parametric.FrameDefectClaim`, `Parametric/surface.md` `Surfaces.CurvatureSummaryClaim`, and `Processing/flatten.md` `Flatten.DistortionClaim`.
+[COLUMNAR_WIRE_SCHEMA]-[COMPLETE]: landed as `Drawing/pack.md` `[03]-[SCHEMA_AND_EVIDENCE]` — `PackWireContext` supplies the resolver, `EvidenceWire.Json` seals through `JsonSerializerOptions.MakeReadOnly()` at type init with `DDoubleJsonConverter` registered options-level, and the context folds into `Rasm.AppHost/Runtime/ports#WIRE_LAW` `SuiteContracts.Wire` as one argument.
+[CAUSAL_FRAME_CAPSULE]-[COMPLETE]: landed as `Domain/telemetry.md` `[03]-[CAUSAL_FRAME]` — `TelemetrySource`, `CorrelationId`, `TenantId`/`TenantContext`, `ReceiptEnvelope`, and `ReceiptSinkPort`; tenancy stamps the kernel `AsyncLocal` slot and the BCL `Activity` store, and the OTel baggage store registers as one composition `TenantMirror` row.
+[INSTRUMENT_SPEC_CAPSULE]-[COMPLETE]: landed as `Domain/telemetry.md` `[04]-[INSTRUMENT_MECHANISM]` — `InstrumentSpec` absorbed `InstrumentRow` whole, `InstrumentKind` x `MeasureForm` derives every bind from one generic body, and `InstrumentSet.Write` folds the three write verbs onto one typed rail.
+[BURN_RATE_CAPSULE]-[COMPLETE]: landed as `Domain/telemetry.md` `[06]-[SLO_ALGEBRA]` — `Sli`, `Objective`, the four-row `BurnRow` table, `AlertSeverity` over page and ticket, `AlertSpec`, and the eight-row `PanelKind`.

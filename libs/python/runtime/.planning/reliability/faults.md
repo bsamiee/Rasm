@@ -2,11 +2,11 @@
 
 One fault family and one `Result`/`Option` rail span the whole branch: `BoundaryFault` is the one tagged union every package returns through — its ingress classes and the `aggregate` case keep every member structurally addressable — and `RuntimeRail` is the one `Result[T, BoundaryFault]` carrier every fallible function returns. Domain logic returns `Result`/`Option` and never raises; exceptions convert exactly once at the owning boundary, and interior code receives only the rail. Absence rides the `expression` `Option` directly — no fault-bound alias, since `Option` carries no error slot to bind.
 
-One fault-lift core backs every application shape — the explicit-thunk `boundary`, the awaitable `async_boundary`, and the `@trapped` decorator — so the sync/async split is one coroutine-detection branch, never a parallel rail. Classification is the ordered data-driven `CLASSIFY` table, and the same conversion is the trace-egress seam: each caught exception is recorded on the active OTel span inside the one fold, the owner never minting, naming, or ending a span — span lifecycle stays with the measured operation. `latched`, the branch's one-shot install latch, and `Scope`/`SCOPES`, the one instrumentation-scope vocabulary every tracer, meter, and service literal mints from, live here because faults is the one tier below every consumer.
+One fault-lift core backs every application shape — the explicit-thunk `boundary`, the awaitable `async_boundary`, and the `@trapped` decorator — so the sync/async split is one coroutine-detection branch, never a parallel rail. Classification is the ordered data-driven `CLASSIFY` table, and the same conversion is the trace-egress seam: each caught exception is recorded on the active OTel span inside the one fold, the owner never minting, naming, or ending a span — span lifecycle stays with the measured operation. `latched`, the branch's one-shot install latch, and the WHOLE instrumentation-scope coordinate — `Scope`/`SCOPES` naming the emitting library beside the `scoped` stamp binding that name to its distribution version and semconv url — live here because faults is the one tier below every consumer, the sub-receipts `identity`, `clock`, `shapes`, and `wire` strata included, so no emitting page in the branch is left minting the unversioned scope a backend cannot join against its versioned siblings.
 
 ## [01]-[INDEX]
 
-- [02]-[FAULT]: the closed fault family, the classification table, the rail carriers and disposition-parameterized traversal, the three fault-lift shapes, the install latch, and the instrumentation-scope vocabulary.
+- [02]-[FAULT]: the closed fault family, the classification table, the rail carriers and disposition-parameterized traversal, the three fault-lift shapes, the install latch, and the versioned instrumentation-scope stamp.
 
 ## [02]-[FAULT]
 
@@ -14,8 +14,8 @@ One fault-lift core backs every application shape — the explicit-thunk `bounda
 - Cases: `config` versus `boundary` splits on who can repair the refusal — `config` carries a caller-repairable construction refusal (a policy value, roster, credential row, or precondition the same inputs deterministically refuse), while `boundary` carries the seam classification of a provider or runtime raise during work (a codec, render, parse, or engine failure a re-issue may clear), so a render-class or draw-class fault rides `boundary=` and a refused composition rides `config=` in every consumer. `wire` is reserved for explicit code-carrying construction where a numeric protocol/status code is the discriminant; a caught codec exception carries no code, so the `CLASSIFY` `msgspec` row lands it in the subject-carrying `boundary` case. A deadline-owning fence constructs `deadline` explicitly with its real budget and tripped-axis `cause`; the `CLASSIFY` `TimeoutError` row, with no budget in hand, defaults `budget` to `0.0` — the budget-unknown floor a consumer reads as unspecified, never a true zero deadline.
 - Entry: the three lift shapes share one `_convert`; `catch` admits a class tuple so an engine boundary narrows over its real multi-class raise surface instead of the `Exception` catch-all, and it never widens past `Exception` — converting the `anyio` cancellation exception into a fault is the forbidden widening, cancellation being scope-owned flow control rather than an ingress class.
 - Auto: `facts` is the one structured egress projection the `observability/receipts#RECEIPT` `rejected` projection spreads whole, so every leaf case carries its own `subject` inline and the receipts owner re-derives nothing.
-- Packages: `expression`, `beartype`, `msgspec`, `anyio`, and `opentelemetry-api` per the fence imports; the OTel dependency is `-api` only — the owner reads the active span and never touches the SDK or a tracer mint.
-- Growth: a new fault class is one `case()` with one recovery-membership row; a new exception family is one ordered `CLASSIFY` row reaching every lift shape and the trace weave; a new egress slot is one `facts` arm; a new traversal output shape is one `Disposition` member with one fold arm; a new instrumentation scope is one `Scope` member with one `SCOPES` row; a new one-shot install owner is one `@latched(...)` application.
+- Packages: `expression`, `beartype`, `msgspec`, `anyio`, `opentelemetry-api`, and `opentelemetry-semantic-conventions` per the fence imports; the OTel dependency is `-api` with the semconv constant surface — the owner reads the active span, `scoped` stamps a caller-supplied factory, and no SDK type or provider instance enters.
+- Growth: a new fault class is one `case()` with one recovery-membership row; a new exception family is one ordered `CLASSIFY` row reaching every lift shape and the trace weave; a new egress slot is one `facts` arm; a new traversal output shape is one `Disposition` member with one fold arm; a new instrumentation scope is one `Scope` member with one `SCOPES` row; a semconv bump one `Schemas` member swap reaching every meter, tracer, logger, and `Resource` at once; a fourth scope-minting API one `scoped` call, the port already covering any factory sharing the positional `(name, version, provider, schema_url)` shape; a new one-shot install owner is one `@latched(...)` application.
 - Boundary: no C# `Expected` clone and no exception taxonomy copied from a C# owner. Recovery keys on the fault's own `FaultTag` and never imports `reliability/resilience#RESILIENCE` `RetryClass` — resilience depends on faults, never the reverse; the rail maps exceptions to fault classes, the policy table maps retry classes to exception sets, and the two meet only through the rail outcome.
 
 ```python signature
@@ -24,7 +24,8 @@ import inspect
 from collections.abc import Awaitable, Callable
 from enum import StrEnum
 from functools import wraps
-from typing import Any, Final, Literal, assert_never, overload
+from importlib.metadata import distributions
+from typing import Any, Final, Literal, Protocol, assert_never, overload
 
 import anyio
 import msgspec
@@ -33,6 +34,7 @@ from beartype.roar import BeartypeCallHintViolation
 from expression import Error, Nothing, Ok, Result, Some, case, effect, tag, tagged_union
 from expression.collections import Block, Map
 from opentelemetry import trace
+from opentelemetry.semconv.schemas import Schemas
 from opentelemetry.trace import Status, StatusCode
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -53,11 +55,20 @@ class Disposition(StrEnum):
 class Scope(StrEnum):
     WIRE = "wire"
     METER = "meter"
+    LOGGER = "logger"
     SERVICE = "service"
     RESILIENCE = "resilience"
     IDENTITY = "identity"
     EVIDENCE = "evidence"
     RECIPE = "recipe"
+
+
+# Three API scope factories — `metrics.get_meter`, `trace.get_tracer`, `_logs.get_logger` — spell their version
+# parameter two ways (`version` against `instrumenting_library_version`) yet share one positional shape, so this
+# stamp binds POSITIONALLY through the port and that naming divergence never reaches a call site. Its third slot
+# takes the provider override every runtime site declines: `None` resolves whichever global the install published.
+class ScopeAcquire[T](Protocol):
+    def __call__(self, name: str, version: str, provider: None, schema_url: str, /) -> T: ...
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -175,10 +186,13 @@ CLASSIFY: Final[Block[ClassifyRow]] = Block.of_seq([
 # BeartypeCallHintViolation the CLASSIFY `api` row folds onto the rail, so no adapter re-catches inline.
 FAULT_CONF: Final[BeartypeConf] = BeartypeConf(violation_type=BeartypeCallHintViolation)
 
-# consumers mint handles from rows — trace.get_tracer(SCOPES[Scope.WIRE]) — never a per-page literal.
+# consumers mint handles through the stamp — scoped(trace.get_tracer, SCOPES[Scope.WIRE]) — never a per-page literal and
+# never a bare factory call. A scope names the instrumenting library, never the signal, so the meter and logger slots
+# resolve one name for one library's two signals.
 SCOPES: Final[Map[Scope, str]] = Map.of_seq([
     (Scope.WIRE, "rasm.wire"),
     (Scope.METER, "rasm.runtime"),
+    (Scope.LOGGER, "rasm.runtime"),
     (Scope.SERVICE, "rasm.companion"),
     (Scope.RESILIENCE, "rasm.runtime.resilience"),
     (Scope.IDENTITY, "rasm.runtime.identity"),
@@ -186,8 +200,36 @@ SCOPES: Final[Map[Scope, str]] = Map.of_seq([
     (Scope.RECIPE, "rasm.runtime.recipe"),
 ])
 
+# Distribution version and estate-wide semconv pin complete the coordinate `SCOPES` starts, every runtime `Resource`
+# carrying that same url. Both home beside the name because a scope is one triple, and both home at THIS tier because
+# `identity`, `clock`, `shapes`, and `wire` emit spans from below every observability owner — a coordinate seated any
+# higher leaves those pages no import that reaches it. `SCHEMA_URL` reads the semconv distribution's own `Schemas`
+# roster rather than re-spelling the url, so a semconv bump moves the pin by moving the member and can never desync
+# it silently. `DISTRIBUTION` names the ONE python distribution this estate declares — `pyproject.toml` `[project]
+# name`, the per-package manifest being foreclosed by `libs/.planning/README.md` — because installed metadata keys on
+# a DISTRIBUTION name, never a package path. The roster read is TOTAL where `version(DISTRIBUTION)` is not: that call
+# RAISES `PackageNotFoundError` whenever no metadata answers, and the workspace root declares `[tool.uv] package =
+# false`, so every source-tree run and every dev venv resolves nothing for a correctly-spelled name and a module-scope
+# raise there kills every `scoped` mint in the process — the whole signal plane and the `Resource` service version
+# with it. `SOURCE_VERSION` answers that miss with the local-version segment PEP 440 reserves for a build carrying no
+# release identity, so an uninstalled run still mints a versioned, schema-pinned coordinate a backend joins against
+# its installed siblings and the segment itself reports which was read; a plausible release number spelled as the miss
+# is the deleted form, because it forges provenance the process never had.
+SCHEMA_URL: Final[str] = Schemas.V1_43_0.value
+DISTRIBUTION: Final[str] = "workspace-foundation-python"
+SOURCE_VERSION: Final[str] = "0+source"
+SCOPE_VERSION: Final[str] = next((dist.version for dist in distributions() if dist.metadata["Name"] == DISTRIBUTION), SOURCE_VERSION)
+
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def scoped[T](acquire: ScopeAcquire[T], scope: str) -> T:
+    # one scope stamp every signal mints through: the `SCOPES` row names the emitting library, this pair versions it
+    # and pins the semconv coordinate, so a meter, a tracer, and a logger opened for one scope carry an identical
+    # instrumentation-scope triple and a semconv bump is one constant. A bare `get_*(scope)` mints an unversioned,
+    # schema-free scope a backend cannot join against its versioned siblings, so no call site spells one.
+    return acquire(scope, SCOPE_VERSION, None, SCHEMA_URL)
 
 
 def _hits(marker: ClassifyMarker, cause: BaseException) -> bool:
@@ -302,7 +344,7 @@ railed = effect.result[Any, BoundaryFault]()
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[STATUS]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

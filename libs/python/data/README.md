@@ -14,29 +14,30 @@
 - [07]-[PROFILE](.planning/tabular/profile.md): Graded data-quality plane over `pointblank` thresholds emitting the `QualityProfile` frame.
 - [08]-[EGRESS](.planning/tabular/egress.md): Native object-store egress façade over `obstore` keyed by content identity.
 - [09]-[COST](.planning/tabular/cost.md): Cost ledger folding the receipt families into one content-keyed, tenant-attributed priced frame.
+- [10]-[JOURNAL](.planning/tabular/journal.md): `Ledger` implementer landing runtime audit and meter facts over the commit matrix and the scan reader.
 
 [SPATIAL]:
-- [10]-[GEOSPATIAL](.planning/spatial/geospatial.md): Vector and raster geo claims over the `VectorOp`/`RasterOp` axes with native-GeoArrow egress.
-- [11]-[SPATIAL_QUERY](.planning/spatial/query.md): DuckDB-spatial join, transform, and H3-SQL engine on the shared `DuckDbSession` rail.
-- [12]-[GRID](.planning/spatial/grid.md): Discrete-global-grid plane over `h3ronpy` vectorized cell algebra with the raster-cell bridge.
-- [13]-[CATALOG](.planning/spatial/catalog.md): Cloud-native STAC discovery over `pystac-client` folding asset hrefs into object-store egress.
-- [14]-[MESH](.planning/spatial/mesh.md): Mesh-file identity and topology owner with the LAS/LAZ/COPC point-cloud interchange row.
+- [11]-[GEOSPATIAL](.planning/spatial/geospatial.md): Vector and raster geo claims over the `VectorOp`/`RasterOp` axes with native-GeoArrow egress.
+- [12]-[SPATIAL_QUERY](.planning/spatial/query.md): DuckDB-spatial join, transform, and H3-SQL engine on the shared `DuckDbSession` rail.
+- [13]-[GRID](.planning/spatial/grid.md): Discrete-global-grid plane over `h3ronpy` vectorized cell algebra with the raster-cell bridge.
+- [14]-[CATALOG](.planning/spatial/catalog.md): Cloud-native STAC discovery over `pystac-client` folding asset hrefs into object-store egress.
+- [15]-[MESH](.planning/spatial/mesh.md): Mesh-file identity and topology owner with the LAS/LAZ/COPC point-cloud interchange row.
 
 [GRIDDED]:
-- [15]-[STORE](.planning/gridded/store.md): Dense chunked N-D tensor store over a `TensorBackend` axis with codec and region axes.
-- [16]-[VIRTUAL](.planning/gridded/virtual.md): Sole manifest-cube owner over `icechunk` virtual-chunk addressing and the per-variable manifest wire.
-- [17]-[RAGGED](.planning/gridded/ragged.md): Ragged N-D store over `awkward` with the zero-copy Arrow bridge to the interop carrier.
-- [18]-[FIELD](.planning/gridded/field.md): CF field-dataset owner over `xarray` engines with flox grouped and resampled reductions.
+- [16]-[STORE](.planning/gridded/store.md): Dense chunked N-D tensor store over a `TensorBackend` axis with codec and region axes.
+- [17]-[VIRTUAL](.planning/gridded/virtual.md): Sole manifest-cube owner over `icechunk` virtual-chunk addressing and the per-variable manifest wire.
+- [18]-[RAGGED](.planning/gridded/ragged.md): Ragged N-D store over `awkward` with the zero-copy Arrow bridge to the interop carrier.
+- [19]-[FIELD](.planning/gridded/field.md): CF field-dataset owner over `xarray` engines with flox grouped and resampled reductions.
 
 [GRAPH]:
-- [19]-[GRAPH](.planning/graph/graph.md): Graph-payload owner over the `rustworkx` run kernel with the GPL-confined community-detection split.
+- [20]-[GRAPH](.planning/graph/graph.md): Graph-payload owner over the `rustworkx` run kernel with the GPL-confined community-detection split.
 
 [IMPACT]:
-- [20]-[IMPACT](.planning/impact/impact.md): Material environmental-impact owner normalizing EPD and LCA results onto one EN 15804 carrier.
+- [21]-[IMPACT](.planning/impact/impact.md): Material environmental-impact owner normalizing EPD and LCA results onto one EN 15804 carrier.
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Domain-specific libraries admitted by this folder; versions centralize in the root `pyproject.toml` and corroborate against this folder's `.api/`.
+Domain-specific libraries admitted by this folder; versions centralize in the root `pyproject.toml` and corroborate against this folder's `.api/`. FLOOR-GATED marks a row whose `python_version` marker in that manifest no supported interpreter satisfies, so its module resolves nowhere and its owning page refuses every selection naming it through an import-time `find_spec` row — admission stands, reach does not, and the mark keeps a gated row from reading as a live provider.
 
 [FRAMES]:
 - `polars`
@@ -63,7 +64,7 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `sqlglot`
 - `datafusion`
 - `substrait` — typed plan admission IR.
-- `connectorx`
+- `connectorx` — FLOOR-GATED; `tabular/query#QUERY` refuses every `RemoteDriver.CONNECTORX` spec while the marker holds.
 - `adbc-driver-manager`
 - `adbc-driver-flightsql`
 - `adbc-driver-postgresql`
@@ -78,6 +79,10 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `httpfs`
 - `spatial`
 - `h3`
+- `aws` — `credential_chain` provider over the s3, gcs, and r2 secret types `httpfs` registers.
+- `azure` — azure blob protocol carrying its own `credential_chain` secret type.
+- `postgres_scanner` — operational-store attach joining evidence rows against live PostgreSQL in one statement.
+- `delta` — `delta_scan` transaction-log reader binding the analytics evidence residence to the interactive query arm.
 
 [GEOSPATIAL]:
 - `geopandas`
@@ -103,7 +108,7 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `zarr`
 - `numcodecs` — zarr v3 chunk filter/compressor codec registry.
 - `cubed`
-- `tensorstore`
+- `tensorstore` — FLOOR-GATED; `gridded/store#STORE` refuses every `TensorBackend.TENSORSTORE` selection while the marker holds.
 - `awkward`
 - `flox`
 - `icechunk`
@@ -158,6 +163,7 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 [TRANSPORT]:
 - `fsspec` — Filesystem-resolution substrate beneath `universal-pathlib`; the `UPath.fs` handle threads into the DuckDB scan session.
 - `obstore` — Object-store substrate beneath the content-keyed egress owner.
+- `protobuf` — Wire codec beneath the Substrait plan model; `tabular/query#QUERY` reads its decode fault as the inbound-plan refusal.
 
 [MESH_INTERCHANGE]:
 - `meshio`

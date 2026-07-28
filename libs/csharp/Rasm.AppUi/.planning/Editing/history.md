@@ -4,9 +4,9 @@ Client-side undo/redo is one revert algebra over the admitted `CancelableCommand
 
 ## [01]-[INDEX]
 
-- [01]-[REVERTIBLE_OP]: The per-kind `RevertDelta` union; the one revert vocabulary across client and durable arms.
-- [02]-[REVERT_SCOPE]: The unified inverse algebra spanning the recorder window and the op-log inverse stream.
-- [03]-[EDIT_HISTORY]: The `CancelableCommandRecorder` wrapper; undo/redo command intents sealing direction-specific outcomes.
+- [02]-[REVERTIBLE_OP]: The per-kind `RevertDelta` union; the one revert vocabulary across client and durable arms.
+- [03]-[REVERT_SCOPE]: The unified inverse algebra spanning the recorder window and the op-log inverse stream.
+- [04]-[EDIT_HISTORY]: The `CancelableCommandRecorder` wrapper; undo/redo command intents sealing direction-specific outcomes.
 
 ## [02]-[REVERTIBLE_OP]
 
@@ -190,7 +190,7 @@ public sealed record RevertScope(
 - Auto: every edit records through the admitted `CancelableCommandRecorder`, whose `MaxCommand`, `CanUndo`, `CanRedo`, lifecycle events, and queue snapshots remain authoritative. The `history.undo` and `history.redo` command rows bind availability to `CommandHistoryViewModel`, and the timeline re-projects from the recorder queues on the recorder's `OnNewCommandAdded`, `OnCommandRedo`, `OnCommandCanceled`, and `OnCommandCleared` events. Undo and redo seal distinct outcomes through the one `EditReceipt` family, and the recorder clears at screen teardown.
 - Receipt: `EditReceipt` with `EditOutcome.Reverted` for undo and `EditOutcome.Redone` for redo; `TelemetryRow` contributes both instruments through the AppHost `TelemetryContributorPort`.
 - Packages: bodong.PropertyModels, ReactiveUI, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
-- Growth: a new history verb is one `CommandIntent` row; one history instrument is one `InstrumentRow` on `EditHistory.TelemetryRow`; zero new surface — an undo package is deleted by the admitted recorder.
+- Growth: a new history verb is one `CommandIntent` row; one history instrument is one `InstrumentSpec` row on `EditHistory.TelemetryRow`; zero new surface — an undo package is deleted by the admitted recorder.
 - Boundary: client undo/redo binds the admitted `CancelableCommandRecorder` and `CommandHistoryViewModel`; a per-screen stack, history-local command registry, generic history receipt, and duplicate deep-history store are rejected. Command availability derives from `CanUndo` and `CanRedo`, the durable arm extends the same `RevertScope` beyond the recorder window, and screen activation owns recorder disposal.
 
 ```csharp signature
@@ -226,10 +226,10 @@ public sealed record EditHistory(CancelableCommandRecorder Recorder, CommandHist
     public const string RevertedInstrument = "rasm.appui.edit.reverted";
     public const string RedoneInstrument = "rasm.appui.edit.redone";
 
-    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
-        AppUiTelemetry.Contribute(version, schemaUrl,
-            new(RevertedInstrument, InstrumentKind.Count, "{edit}", "undo reverts by surface"),
-            new(RedoneInstrument, InstrumentKind.Count, "{edit}", "redo replays by surface"));
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            InstrumentSpec.Count(RevertedInstrument, "{edit}", "undo reverts by surface", MeasureForm.Whole, AppUiTelemetry.SurfaceSlot),
+            InstrumentSpec.Count(RedoneInstrument, "{edit}", "redo replays by surface", MeasureForm.Whole, AppUiTelemetry.SurfaceSlot));
 }
 ```
 

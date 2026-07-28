@@ -6,9 +6,9 @@
 
 ## [01]-[INDEX]
 
-- [01]-[FEATURE_SPACE]: generated analytic, toroidal, profile, and sampled-surface contact targets under one metrology spec row per case.
-- [02]-[OBSERVATION_RAIL]: exact cycle-addressed ingress, temporal containment, per-contact outcome evidence, and calibration compensation.
-- [03]-[DATUM_AND_RESULT]: registration before residuals, primitive-fit evidence, capability projection, and atoms-safe egress.
+- [02]-[FEATURE_SPACE]: generated analytic, toroidal, profile, and sampled-surface contact targets under one metrology spec row per case.
+- [03]-[OBSERVATION_RAIL]: exact cycle-addressed ingress, temporal containment, per-contact outcome evidence, and calibration compensation.
+- [04]-[DATUM_AND_RESULT]: registration before residuals, primitive-fit evidence, capability projection, and atoms-safe egress.
 
 ## [02]-[FEATURE_SPACE]
 
@@ -30,7 +30,7 @@
 
 - Owner: `DatumPolicy` closes assigned transform, best-fit registration, and primitive substitution over the current `DatumReceipt` wire.
 - Auto: `AlignKind.AlignDetailed` projects a transform only through `AlignmentReceipt.Project<Transform>`; `Fit.Apply` retains per-feature and datum-substitution `FitReceipt` evidence, and a group thinned below its kind's `MinimalSamples` carries no fit rather than a fabricated one; transformed measured points precede every `ResidualSample`.
-- Receipt: `ProbeReport` closes the pre-egress evidence fold, while the frozen `InspectionResult` projects only `InspectionFeature` atoms and drops cycle, datum, fit, capability, source, and time evidence. `Probe.Inspect` mints `FabricationFact.Probe` beside the frozen result — conformance counts and worst deviation onto `rasm.fabrication.probe.features` and `rasm.fabrication.probe.deviation` through `Process/telemetry#FACT_PROJECTION` as kind `probe` — because `ProbeReport` is file-scoped and the fact is its one telemetry projection; the fact fires through the `FabricationTap` the run spine passes, defaulting silent for headless callers, and the whole fold runs inside the `EngineSpan.ProbeFit` span with datum registration and feature fitting as phase events; the settled datum alignment fires the `FabricationFact.Engine.Of` ICP-iteration row through the same tap, so probe-fit cost attribution rides the engine census with zero kernel writes.
+- Receipt: `ProbeReport` closes the pre-egress evidence fold, while the frozen `InspectionResult` projects only `InspectionFeature` atoms and drops cycle, datum, fit, capability, source, and time evidence. `Probe.Inspect` mints `FabricationFact.Probe` beside the frozen result — conformance counts and worst deviation onto `rasm.fabrication.probe.features` and `rasm.fabrication.probe.deviation` through `Process/telemetry#FACT_PROJECTION` as kind `probe` — because `ProbeReport` is file-scoped and the fact is its one telemetry projection; the fact fires through the `FabricationTap` the run spine passes, defaulting silent for headless callers, and the whole fold runs inside the `FabricationEngine.Probe` bracket the run spine's `SpanBand` opens — absent for a headless caller on the same law — with `EnginePhase.DatumRegistered` and `EnginePhase.FeaturesFitted` as its span marks; the settled datum alignment fires the `FabricationFact.Engine.Of` ICP-iteration row through the same tap, so probe-fit cost attribution rides the engine census with zero kernel writes.
 - Boundary: `Capability.Assess(new CapabilityStudy.Variables(...), tolerance)` consumes the residual tranche; no local QIF-shaped record claims a standard contract the package does not admit.
 
 ```csharp signature
@@ -674,8 +674,9 @@ public static class Probe {
 
     internal static readonly Op ProbeOp = Op.Of(name: "fabrication:probe");
 
-    public static Fin<FabricationResult> Inspect(InspectPolicy policy, FabricationInput input, FabricationTap? tap = null) =>
-        EngineSpan.ProbeFit.Traced(span =>
+    public static Fin<FabricationResult> Inspect(
+        InspectPolicy policy, FabricationInput input, FabricationTap? tap = null, SpanBand? band = null) =>
+        band.Traced(FabricationEngine.Probe, ProbeOp, span =>
             from admitted in Admit(policy, input)
             from context in Context.Millimeters().ToFin()
             from targets in Targets(admitted.Policy, context)
@@ -691,12 +692,12 @@ public static class Probe {
             from datum in unregistered.Head
                 .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "probe:no-measurements").ToError())
                 .Bind(_ => Reconcile(admitted.Policy.Datum, unregistered, context))
-            let _registered = EngineSpan.Event(span, "datum-registered")
+            let _registered = FabricationTrace.Mark(span, EnginePhase.DatumRegistered)
             let _icp = datum.Alignment.Map(receipt =>
                 FabricationFact.Engine.Of(receipt).Map((tap ?? FabricationTap.Silent).Fire).Strict())
             let transformed = TransformFeatures(unregistered, datum)
             from features in Fits(transformed, admitted.Policy.FeatureFit, context)
-            let _fitted = EngineSpan.Event(span, "features-fitted")
+            let _fitted = FabricationTrace.Mark(span, EnginePhase.FeaturesFitted)
             from capability in admitted.Policy.Capability
                 .Traverse(demand => Capability.Assess(new CapabilityStudy.Variables(features.Map(static row => row.Residual)), demand))
                 .As()

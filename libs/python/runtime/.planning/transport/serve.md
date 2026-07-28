@@ -29,7 +29,7 @@ Entry: the method roster:
 |  [08]   | `CredentialPolicy.server_credentials() -> RuntimeRail[ServerCredentials]` | loopback → `local_server_credentials(UDS)`              |
 |  [09]   | `_stream_invoke(codec_pair, frame, context, handler)`                     | per-frame decode → railed fold → framed encode          |
 
- `serve()` refuses an empty roster with a typed `config` fault — never a silent empty bind — signals readiness through its `ready` hook once the health flips land, and awaits termination directly; supervision is the `[04]-[ENTRY]` composition root's. `inbound` lifts `ServicerContext.time_remaining()` into the admitted `Deadline`, feeding the caller-dialed budget to the deadline rail — never an unbounded handler. `dispatch` runs every route through the `observability/metrics#METRIC` `Metrics.measured(descriptor)` weave minted once at registration, so each method's duration and rail outcome land on the request histogram with no per-handler timing. A `BIDI` row rides the same weave at per-frame grain — each inbound frame drives the railed handler once and its `Block` return frames onto the response stream, a fault aborting mid-stream through the same `settle` trailer egress. `status` is the one worker-facing flip the `execution/workers#SUPERVISION` actuator drives, so pool liveness advertises through the same servicer a calling host polls and no second health surface exists.
+ `serve()` refuses an empty roster with a typed `config` fault — never a silent empty bind — signals readiness through its `ready` hook once the health flips land, and awaits termination directly; supervision is the `[04]-[ENTRY]` composition root's. `inbound` lifts `ServicerContext.time_remaining()` into the admitted `Deadline`, feeding the caller-dialed budget to the deadline rail — never an unbounded handler. `dispatch` runs every route through the `observability/metrics#METRIC` `Metrics.timed(descriptor)` duration aspect minted once at registration, so each method's duration and rail outcome land on the request histogram with no per-handler timing. `BIDI` rows ride the same aspect at per-frame grain — each inbound frame drives the railed handler once and its `Block` return frames onto the response stream, a fault aborting mid-stream through the same `settle` trailer egress. `status` is the one worker-facing flip the `execution/workers#SUPERVISION` actuator drives, so pool liveness advertises through the same servicer a calling host polls and no second health surface exists.
 
 - Auto: this interceptor is the ONE trace-context authority — it extracts the inbound W3C parent and opens the SERVER span natively, so `inbound` re-extracts nothing, `dispatch` opens no second scope, and a `Signals.attach` around the handler body re-roots spans the interceptor already parented. Its health filter suppresses liveness noise from a protocol that is actually served — the registered servicer answers `Check`/`Watch`, so the filter claim is real. `enrich` is `set_attributes` inside the interceptor's active scope, not a hook param on `aio_server_interceptor` (which takes none) and not a hand-rolled tracing interceptor. `dispatch` binds the admitted context onto structlog contextvars for the handler window, so `merge_contextvars` stamps every handler log line with the same admitted identity.
 - Growth: a new servicer method is one `Route` row, a streaming method the same row with its `arity` member; a new wire message is one shapes registry row; a new fault-to-status mapping is one `_FAULT_STATUS` row; a new health surface is automatic with the lifecycle; a new span dimension is one `enrich` key; a new compression algorithm is one `grpc.Compression` member at construction.
@@ -173,7 +173,7 @@ class ServerHost:
 
     def _behavior(self, row: Route, pair: CodecPair) -> Callable[[bytes, grpc.aio.ServicerContext], Awaitable[bytes]]:
         # registration-time weave: every registered method records its request-duration row under its own descriptor label.
-        invoke: Invoke = Metrics.measured(row.descriptor)(ServerHost._invoke)
+        invoke: Invoke = Metrics.timed(row.descriptor)(ServerHost._invoke)
 
         async def method(request: bytes, servicer_context: grpc.aio.ServicerContext) -> bytes:
             return await self.dispatch(servicer_context, request, row.descriptor, pair, row.handler, invoke)
@@ -182,7 +182,7 @@ class ServerHost:
 
     def _streamed(self, row: Route, pair: CodecPair) -> Callable[[AsyncIterator[bytes], grpc.aio.ServicerContext], AsyncIterator[bytes]]:
         # registration-time weave at per-frame grain: each folded frame batch records under the route's descriptor label.
-        invoke: StreamInvoke = Metrics.measured(row.descriptor)(ServerHost._stream_invoke)
+        invoke: StreamInvoke = Metrics.timed(row.descriptor)(ServerHost._stream_invoke)
 
         async def method(request_iterator: AsyncIterator[bytes], servicer_context: grpc.aio.ServicerContext) -> AsyncIterator[bytes]:
             match ServerHost.inbound(servicer_context):
@@ -532,8 +532,8 @@ from rasm.runtime.bundle import BUNDLE_DESCRIPTOR, BUNDLE_METHOD, BUNDLE_SERVICE
 from rasm.runtime.faults import SCOPES, Disposition, RuntimeRail, Scope, async_boundary, boundary, railed, traversed
 from rasm.runtime.hooks import HookPoint, Hooks, Modality
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.logging import LogPipeline
-from rasm.runtime.metrics import Instrumentation, Metrics
+from rasm.runtime.logging import LogPipeline, LogShip
+from rasm.runtime.metrics import TENANT_BUDGET, Instrumentation, Metrics
 from rasm.runtime.profiles import Profiles
 from rasm.runtime.receipts import OPEN, DrainReceipt, Receipt, Signals
 from rasm.runtime.recipe import RecipeExecution, RecipeName, RecipeSpec
@@ -590,12 +590,18 @@ def _booted(bind: str, grace: float, routes: Block[Route]) -> Generator[Any, Any
     # install -> admit -> gate -> bind as one railed bind chain: the first Error short-circuits, the
     # composed host rides the Ok payload; an absent otel or pyroscope endpoint installs nothing — no literal.
     settings = yield from boundary("config", SettingsAdmission)
-    LogPipeline.configure()
+    # one ship value crosses both halves of the log egress — the chain's wire row here, the LoggerProvider registration
+    # at the install — so the daemon can never render lines the provider half declines to export.
+    ship = LogShip.OTLP_CONSOLE
+    LogPipeline.configure(ship=ship)
     # one admitted context serves both installs, so the telemetry and profile gates read the same axis row
     # under one boot correlation; a second admit here would mint a second correlation for the same process.
     ctx = RuntimeContext.admit(RuntimeProfile.SIDECAR)
-    Option.of_optional(settings.otel_endpoint).map(lambda endpoint: Telemetry.install(ctx, str(endpoint)))
-    Metrics.install()  # instruments register against whatever provider the telemetry line set; a silent profile enrolls no-op instruments
+    # Install receipts BIND here, never vanish inside the map: an effective `signal_profile` carries the cardinality
+    # ceiling this enrollment enforces, and an absent endpoint installs no provider, so that arm enrolls no-op
+    # instruments under the standing default.
+    installed = Option.of_optional(settings.otel_endpoint).map(lambda endpoint: Telemetry.install(ctx, str(endpoint), ship=ship))
+    Metrics.install(budget=installed.map(lambda receipt: receipt.signal_profile.cardinality_budget).default_value(TENANT_BUDGET))
     Instrumentation.install()  # contrib train patches under the same gate: no provider, no export cost
     Option.of_optional(settings.pyroscope_endpoint).map(lambda endpoint: Profiles.install(ctx, str(endpoint)))
     install(RetryMode.EMIT)
@@ -783,8 +789,9 @@ def companion_app(routes: Block[Route], drains: Block[tuple[str, DrainStage]] = 
     @app.command
     async def recipe(selector: str, assignments: Path | None = None) -> int:
         # one-shot local bind of the execution/recipe#RECIPE owner: a RecipeName member or an external recipe-folder path;
-        # boot pair mirrors the serve leg so the engine-gate retries ride RETRY_HOOKS.
-        LogPipeline.configure()
+        # boot pair mirrors the serve leg so the engine-gate retries ride RETRY_HOOKS. This leg registers no provider,
+        # so it takes the console ship and arms no wire row rather than projecting onto a no-op logger per line.
+        LogPipeline.configure(ship=LogShip.CONSOLE)
         install(RetryMode.EMIT)
         execution = RecipeExecution(lane=LanePolicy.of(RuntimeContext.admit(RuntimeProfile.TOOL)))
         loaded = (
@@ -808,7 +815,7 @@ def companion_app(routes: Block[Route], drains: Block[tuple[str, DrainStage]] = 
 
 ## [05]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[STATUS]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

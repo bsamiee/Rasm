@@ -8,7 +8,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 <!-- source-only: open task card template:
 [ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
-- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Capability: <the higher-order invariant, owner capability, or concept established — concept grain only, never a page path, row list, or member spelling>.
 - Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
 - Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
 - Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
@@ -21,8 +21,8 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 -->
 
 [ARRANGEMENT_CANCEL_THREAD]-[QUEUED]: Governance for the arrangement fold and the native scale lane.
-- Capability: `CancellationToken` and progress threaded through subdivision, classification, and weld per the synchronous-rail law; the tier-3 lane binds `manifold_execution_context`, `manifold_execution_context_cancel`, `manifold_execution_context_progress`, and `manifold_with_context`, with `MANIFOLD_CANCELLED` lowering onto the typed fault rail beside `NativeAssetMissing`.
-- Shape: an execution-governance band on `libs/csharp/Rasm/.planning/Meshing/arrangement.md` extending `ArrangementPolicy`.
+- Capability: cancellation and progress govern the whole arrangement fold under the synchronous-rail law, and the native tier answers that same governance with its abandonment lowering onto the typed fault rail beside its asset-absence sibling.
+- Shape: an execution-governance band on `libs/csharp/Rasm/.planning/Meshing/arrangement.md` extending `ArrangementPolicy` across subdivision, classification, and weld; the tier-3 lane binds `manifold_execution_context`, `manifold_execution_context_cancel`, `manifold_execution_context_progress`, and `manifold_with_context`, lowering `MANIFOLD_CANCELLED` beside `NativeAssetMissing`.
 - Unlocks: `[NATIVE_LANE_GOVERNANCE]` — governable million-face booleans.
 - Anchors: `libs/csharp/Rasm/.api/api-manifold.md` context rows 09-13, `Meshing/arrangement.md` `ScaleCeiling` gate and fault taxonomy.
 
@@ -45,8 +45,8 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `libs/csharp/.api/api-quikgraph.md` SCC/condensation rows, `Processing/flow.md` tracer.
 
 [MODELUNIT_UNITSNET_BRIDGE]-[QUEUED]: Unit-identity bridge on the context substrate.
-- Capability: `ModelUnit` projects onto the admitted units vocabulary and dynamic conversion rides `UnitConverter.Convert(QuantityValue, Enum, Enum)` with the cached-delegate row for hot paths; cross-context rescale keeps `ScaleTo` as the one scale owner.
-- Shape: a unit-bridge band on `libs/csharp/Rasm/.planning/Domain/context.md`.
+- Capability: the model's unit identity projects onto the admitted units vocabulary, so every dynamic conversion resolves through one bridge while cross-context rescale keeps its single scale owner.
+- Shape: a unit-bridge band on `libs/csharp/Rasm/.planning/Domain/context.md` binding `UnitConverter.Convert(QuantityValue, Enum, Enum)` with the cached-delegate row for hot paths and holding `ScaleTo` as the one scale owner.
 - Unlocks: `[UNIT_CARRIED_MEASURES]` — quantity projections read one bridge.
 - Anchors: `libs/csharp/.api/api-unitsnet.md` conversion rows 01-04, `Domain/context.md` `ModelUnit` meters-per-unit evidence.
 - Atomic: one bridge band on the settled context page.
@@ -75,13 +75,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Unlocks: `[DRAWING_HATCH_PLANE]` — filled sheet drawings from the kernel wire.
 - Anchors: `Drawing/view.md` `Fill` routing `ArrangementOp.PlanarOverlay`, `Meshing/intersect.md` `SegmentSegment` crossings, `Parametric/patternmap.md` symmetry vocabulary.
 
-[CAPSULE_EXTENSION_MINTS]-[QUEUED]: Mint the four capsule extensions on the kernel signal owner — causal frame, package self-identity, instrument spec, burn-rate algebra.
-- Capability: the signal capsule carries every cross-stratum signal primitive the strata law homes at L1, so no emitting package types a twin.
-- Shape: four member bands on `libs/csharp/Rasm/.planning/Domain/telemetry.md` — `CorrelationId`/`TenantId`/`TenantContext`/`ReceiptEnvelope`/`ReceiptSinkPort` beside `TelemetryContributorPort`; the minted `TelemetrySource` package-identity rows beside the causal-frame band, foreign-source rows staying AppHost; `InstrumentSpec` with its kind roster and bind delegates beside `InstrumentRow`; the burn-window/objective carrier and burn fold beside `OpCost`.
-- Unlocks: IDEAS.md `[CAUSAL_FRAME_CAPSULE]`, `[INSTRUMENT_SPEC_CAPSULE]`, and `[BURN_RATE_CAPSULE]` — the folder compose tasks arm the moment these members land.
-- Anchors: `Domain/telemetry.md` capsule dependency law (BCL, LanguageExt, Thinktecture only); `libs/csharp/.planning/RULINGS.md` homing and collapse rows.
-- Ripple: precedes `Rasm.AppHost` `[CAPSULE_PORT_RETARGET]`, `Rasm.AppUi` `[SIGNAL_CAPSULE_COMPOSE]`, `Rasm.Compute` `[SIGNAL_CAPSULE_COMPOSE]`, `Rasm.Persistence` `[RECEIPT_PORT_KERNEL_TYPES]`, `Rasm.Fabrication` `[RECEIPT_PORT_KERNEL_TYPES]`.
-
 [QUANTILE_SEAM_AWARENESS]-[QUEUED]: Kernel quantile prose scopes its anticipated sketch to geometry samples.
 - Capability: the stats page's anticipated P² policy row names its geometry-sample scope and the realized operational sibling, so a sweep never reads the two as one owner.
 - Shape: one clause on `libs/csharp/Rasm/.planning/Domain/stats.md` scoping the `Distribution.Of` sketch row and citing the Compute `StreamMonitor.Quantile` operational owner.
@@ -91,8 +84,8 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Atomic: one clause.
 
 [FIT_DRAWS_DETERMINISTIC]-[QUEUED]: MLESAC sampling on the kernel's one draw owner.
-- Capability: `Solving/fit` MLESAC candidate draws derive from the `Deterministic` owner, so RANSAC replay is byte-stable across runtimes like every other kernel draw.
-- Shape: a draw-derivation edit on the `libs/csharp/Rasm/.planning/Solving/fit.md` sampler fences replacing the seeded `System.Random` mint.
+- Capability: every kernel candidate draw derives from the one deterministic draw owner, so robust-fit replay is byte-stable across runtimes exactly as every other kernel draw is.
+- Shape: a draw-derivation edit on the `libs/csharp/Rasm/.planning/Solving/fit.md` MLESAC sampler fences replacing the seeded `System.Random` mint.
 - Unlocks: the identity owner's one-mint law holds with zero out-of-owner draw mints.
 - Anchors: `Domain/identity.md` `Deterministic` `OrderKey`/`UnitInterval` members, `Solving/fit.md` MLESAC sampler.
 - Tension: `fit.md` declares seeded `System.Random` as deliberate BCL-inbox policy; byte-stable cross-runtime replay is the bet that overrides it.
@@ -125,27 +118,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `atoms.md` `Values` sequence-acceptance case; the `Output`-gate equivalence already proven at the call site.
 - Atomic: one dispatch rewrite, one helper deletion.
 
-[ENV_TELEMETRY_FIELD]-[BLOCKED]: `Env.Telemetry` projections settle on the analysis runtime.
-- Capability: `EnvAsks`/`Asks`/`Taps` projections over the complete `Env.Telemetry` target — runtime capability reads with no service location.
-- Shape: settled projection fences on `libs/csharp/Rasm/.planning/Analysis/query.md` `[03]-[OPERATION_RUNTIME_RESEARCH]`.
-- Unlocks: `[KERNEL_SIGNAL_FABRIC]` — analysis pipelines read telemetry capability through the runtime record.
-- Anchors: `Analysis/query.md` `Env` capsule; `libs/csharp/.api/api-languageext.md` runtime rows.
-- Arms: `api-languageext.md` admits `public static Eff<RT, RT> runtime<RT>()`; until then the projections stay research.
-
-[OP_COST_CAPSULE]-[BLOCKED]: Two-exit cost charge settles onto `Operation.Apply`.
-- Capability: the two-exit charge composing the settled `[04]` `CostMark`/`OpCost` capsule onto `Operation.Apply` — success and failure exits both charge cost evidence.
-- Shape: a settled `Operation.Apply` fence on `libs/csharp/Rasm/.planning/Analysis/query.md`.
-- Unlocks: `[KERNEL_SIGNAL_FABRIC]` — cost evidence rides every operation exit.
-- Anchors: `Domain/telemetry.md` `[04]` cost capsule; `libs/csharp/.api/api-languageext.md` runtime rows.
-- Arms: `api-languageext.md` admits `public static Eff<RT, RT> runtime<RT>()`; until then the charge stays research code.
-
-[EVIDENCE_SERIALIZATION]-[BLOCKED]: Frozen JSON identity settles beside the exact binary evidence blocks.
-- Capability: the frozen `DDoubleJsonConverter` options identity joining the settled count-prefixed exact hi/lo `EvidenceWire.WriteBlock`/`ReadBlock` binary blocks.
-- Shape: one static sealed identity row on `libs/csharp/Rasm/.planning/Drawing/pack.md`.
-- Unlocks: `[COLUMNAR_WIRE_SCHEMA]` — wire consumers verify against a sealed contract identity.
-- Anchors: `Drawing/pack.md` schema-and-evidence law; `libs/csharp/.api/api-system-text-json.md` options rows.
-- Arms: `api-system-text-json.md` admits `public void JsonSerializerOptions.MakeReadOnly()`; until then the frozen identity stays research.
-
 [GEOMETRY_MEASURES_OWNER]-[QUEUED]: Seat the measure bundle two AEC consumers already transcribe as kernel vocabulary.
 - Capability: the kernel metrology surface names the aggregate bundle its consumers compose, so a downstream page transcribes an owned type rather than asserting one the kernel never declares.
 - Shape: a `GeometryMeasures` cluster on `libs/csharp/Rasm/.planning/Analysis/measure.md` beside the `Measure`/`MassKind`/`MassProperty` family, or a paired respelling of the consumers onto that existing surface — the choice belongs to the metrology owner.
@@ -160,6 +132,10 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-[BENCH_CLAIM_ROWS]-[COMPLETE]: landed as `Domain/telemetry.md` `[05]-[BENCH_LEDGER]` with the four registered rows — `Simplify.HausdorffClaim`, `Parametric.FrameDefectClaim`, `Surfaces.CurvatureSummaryClaim`, `Flatten.DistortionClaim`.
+[ENV_TELEMETRY_FIELD]-[COMPLETE]: `Env.EnvAsks`/`Asks`/`Taps` ride settled fences at `Analysis/query.md` `[03]-[OPERATION_RUNTIME]`, each composing the catalogued `Eff.runtime<Env>()`; the card's `[03]-[OPERATION_RUNTIME_RESEARCH]` section name never existed on the page.
+[OP_COST_CAPSULE]-[COMPLETE]: `Operation.Apply` at `Analysis/query.md` `[03]-[OPERATION_RUNTIME]` opens `CostMark.Start()` ahead of the fold and charges the `OpCost` capsule through the `Env` tap on both exits, the fail exit publishing the fault beside the cost.
+[BENCH_CLAIM_ROWS]-[COMPLETE]: landed as `Domain/telemetry.md` `[08]-[BENCH_LEDGER]` with the four registered rows — `Simplify.HausdorffClaim`, `Parametric.FrameDefectClaim`, `Surfaces.CurvatureSummaryClaim`, `Flatten.DistortionClaim`.
+[CAPSULE_EXTENSION_MINTS]-[COMPLETE]: landed as `Domain/telemetry.md` `[03]-[CAUSAL_FRAME]`, `[04]-[INSTRUMENT_MECHANISM]`, and `[06]-[SLO_ALGEBRA]` — causal frame with `TelemetrySource`, `InstrumentSpec` absorbing `InstrumentRow`, and the burn/objective/severity/panel algebra; `NodaTime` joined the kernel manifest touch-point set for the envelope instants and objective windows.
+[EVIDENCE_SERIALIZATION]-[COMPLETE]: `Drawing/pack.md` `[03]-[SCHEMA_AND_EVIDENCE]` seats `PackWireContext` as the kernel evidence resolver and `EvidenceWire.Json` as one options identity sealed by `JsonSerializerOptions.MakeReadOnly()` at type init, with `DDoubleJsonConverter` registered options-level so the exact hi/lo codec outranks any generated `ddouble` contract.
 [PACK_SCHEMA_IDENTITY]-[COMPLETE]: `Drawing/pack.md` `[03]-[SCHEMA_AND_EVIDENCE]` derives the `ContentHash` id from kind and field rows, validates id recomputation, stride/null rows, and the declaration roster, then gates `Describes` on valid schema and geometry carriers.
-[SIGNAL_TAP_OWNER]-[COMPLETE]: `SpanBand` settled at `Domain/telemetry.md` `[04]-[SIGNAL_TAP]` — one `ActivitySource` per `KernelDomain` row, `Traced` the rail-valued bracket — with the activity family catalogued at `libs/csharp/.api/api-diagnostics-activity.md`.
+[SIGNAL_TAP_OWNER]-[COMPLETE]: `SpanBand` settled at `Domain/telemetry.md` `[05]-[SIGNAL_TAP]` — one `ActivitySource` per `KernelDomain` row, `Traced` the rail-valued bracket — with the activity family catalogued at `libs/csharp/.api/api-diagnostics-activity.md`.

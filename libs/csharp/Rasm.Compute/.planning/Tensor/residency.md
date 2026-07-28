@@ -350,23 +350,29 @@ public sealed class BoundFlow : IDisposable {
 
 ## [03]-[GEOMETRY_ENCODING]
 
-- Owner: `EncodedTensor` — the model-lane wrap of the kernel `Rasm.Drawing.EncodedGeometry`; the per-`PackKind` `Wire` mapping is the canonical geometry-ML input vocabulary.
+- Owner: `EncodedTensor` — the model-lane wrap holding the kernel `Rasm.Drawing.EncodedGeometry` WHOLE beside its layout row; the per-`PackKind` `Wire` mapping is the canonical geometry-ML input vocabulary.
 - Entry: `Of(EncodedGeometry, PackKind)` derives only provable dimensions (`N`, point/mesh `V`, channel `C`, and indexed-face `F`), while `Of(EncodedGeometry, PackKind, Option<Seq<(string Name, long Extent)>>, Option<Tensor<long>>)` carries explicit spatial dimensions without default ghosts. `Fin<T>` rejects lossy witnesses, absent wire rows, non-positive or mismatched dimensions, underivable `U`/`V` and `H`/`W` grids, invalid channel ranges, and overflowed interleaving shapes.
 - Receipt: the kernel `EncodedGeometry.Witness` is the lossless-round-trip proof keyed by the `Spatial/reconciliation#RECONCILIATION_BRIDGE` content hash; `Of` admits only a lossless payload, so the residency wrap carries no second witness and mints no second content key.
 - Packages: Rasm (project), Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new representation lands as one kernel `PackKind` row (the kernel `Rasm.Drawing` owner adds it with its active-channel column) and one `Wire` row here carrying its `LayoutForm`/`WireShape`/free-dimension names — the `Field` (`geodesic`+`weight` lanes, positions omitted because the witness digest binds the source mesh) and `Toolpath` (`position`+`weight`, stored order is content) rows the `Rasm.AppHost/Sandbox/solver#SOLVER_KIND` `EncodingKind` contract speaks are landed this way on `NxC`, closing the `Wire` table one-to-one over the kernel's six kinds, never a residency-side packer; a new feature channel is one kernel `EncodingChannel` row, read here through the descriptor set with zero residency edit; zero new surface.
-- Boundary: geometry channel materialization remains in `Rasm.Drawing.Encode.Apply`; residency receives host-neutral `EncodedGeometry`. `EncodedTensor.Channel` returns an admitted zero-copy `ReadOnlyMemory<float>` slice, never a default ref-struct ghost. `ToTensor` validates each descriptor's `Offset`, `Floats`, `Count × Arity`, and aggregate shape before one array allocation interleaves channel-blocked SoA into point-major `[Count, FeatureWidth]`; `Tensor/layout#LAYOUT_ALGEBRA` owns later rank edits. `Wire` maps model shape names to the remote geometry family, and free-dimension rows feed `AddFreeDimensionOverrideByName`. Mesh face indices ride optional `Tensor<long>` topology. `U`/`V` and `H`/`W` never derive by assigning the same flat `Count` to both axes.
+- Growth: a new representation lands as one kernel `PackKind` row (the kernel `Rasm.Drawing` owner adds it with its active-channel column) and one `Wire` row here carrying its `LayoutForm`/`WireShape`/free-dimension names — the `Field` (`geodesic`+`weight` lanes, positions omitted because the witness digest binds the source mesh) and `Toolpath` (`position`+`arc-center`+`arc-sense`+`weight`, so an analytic arc survives packing as content rather than sampled chords) rows the `Rasm.AppHost/Sandbox/solver#SOLVER_KIND` `EncodingKind` contract speaks are landed this way on `NxC`, closing the `Wire` table one-to-one over the kernel's six kinds, never a residency-side packer; a new feature channel is one kernel `EncodingChannel` row, read here through the descriptor set with zero residency edit; zero new surface.
+- Boundary: geometry channel materialization remains in `Rasm.Drawing.Encode.Apply`; residency receives host-neutral `EncodedGeometry` and holds it whole. `EncodedTensor.Channel` returns the admitted zero-copy `ReadOnlyMemory<byte>` slice at the channel's STORED width, never a default ref-struct ghost and never a float re-typing of a dtype-strided arena, whose float16 and unorm8 lanes such a reinterpretation reads as garbage; descriptor tiling, extent, and offset are proved once by the kernel's own `EncodedGeometry.IsValid` claim set, so this wrap re-derives no range check and `ToTensor` widens through `ChannelDtype.Unpack` before one array allocation interleaves channel-blocked SoA into point-major `[Count, FeatureWidth]`; `Tensor/layout#LAYOUT_ALGEBRA` owns later rank edits. `Wire` maps model shape names to the remote geometry family, and free-dimension rows feed `AddFreeDimensionOverrideByName`. Mesh face indices ride optional `Tensor<long>` topology. `U`/`V` and `H`/`W` never derive by assigning the same flat `Count` to both axes.
 
 ```csharp signature
 // --- [MODELS] ------------------------------------------------------------------------------
+// Source is the WHOLE kernel carrier, never a destructured payload triple: the arena is dtype-STRIDED, so a
+// payload re-typed to float reads a float16 curvature lane or a unorm8 colour lane as garbage, and the byte
+// offsets a descriptor carries only address that arena. Every read here therefore composes the kernel's own
+// dtype-dispatched `Channel`/`View<T>` readers, which gate width against the descriptor's own row.
 public sealed record EncodedTensor(
-    ReadOnlyMemory<float> Payload,
-    Seq<EncodingChannelDescriptor> Descriptors,
-    int Count,
+    EncodedGeometry Source,
     LayoutForm Layout,
     string WireShape,
     Seq<(string Name, long Extent)> FreeDimensions,
     Option<Tensor<long>> Indices) {
+
+    public Seq<EncodingChannelDescriptor> Descriptors => Source.Descriptors;
+
+    public int Count => Source.Count;
 
     private static readonly FrozenDictionary<PackKind, (LayoutForm Layout, string WireShape, Seq<string> FreeDimensionNames)> Wire =
         new Dictionary<PackKind, (LayoutForm, string, Seq<string>)> {
@@ -396,38 +402,47 @@ public sealed record EncodedTensor(
             None: () => Derived(row, geometry, indices)).Bind(dims =>
             dims.Exists(static d => d.Extent <= 0) || dims.Map(static d => d.Name) != row.FreeDimensionNames
                 ? TensorFault.Fail<EncodedTensor>("free-dimension-miss", row.WireShape)
-                : Fin.Succ(new EncodedTensor(geometry.Payload, geometry.Descriptors, geometry.Count, row.Layout, row.WireShape, dims, indices)));
+                : Fin.Succ(new EncodedTensor(geometry, row.Layout, row.WireShape, dims, indices)));
 
-    public Fin<ReadOnlyMemory<float>> Channel(EncodingChannel channel) =>
-        Descriptors.Find(descriptor => descriptor.Channel == channel).Match(
-            Some: descriptor => descriptor.Offset < 0 || descriptor.Floats < 0 || descriptor.Offset > Payload.Length - descriptor.Floats
-                ? TensorFault.Fail<ReadOnlyMemory<float>>("channel-range", channel.Key)
-                : Fin.Succ(Payload.Slice(descriptor.Offset, descriptor.Floats)),
-            None: () => TensorFault.Fail<ReadOnlyMemory<float>>("channel-miss", channel.Key));
+    // Raw stored bytes at the channel's own width — an empty span answers an inactive channel, exactly as the
+    // kernel reader defines. A model lane wanting floats takes `ToTensor`, which widens through the dtype row.
+    public Fin<ReadOnlyMemory<byte>> Channel(EncodingChannel channel) =>
+        Source.Channel(channel) is { IsEmpty: false } stored
+            ? Fin.Succ(stored)
+            : TensorFault.Fail<ReadOnlyMemory<byte>>("channel-miss", channel.Key);
 
-    public Fin<Tensor<float>> ToTensor() {
-        try {
-            int width = FeatureWidth;
-            if (Count <= 0 || width <= 0) { return TensorFault.Fail<Tensor<float>>("encoding-shape", $"{Count}x{width}"); }
-            float[] data = new float[checked(Count * width)];
-            Span<float> dst = data;
-            ReadOnlySpan<float> src = Payload.Span;
-            int column = 0;
-            foreach (EncodingChannelDescriptor descriptor in Descriptors) {
-                int arity = descriptor.Channel.Arity;
-                int expected = checked(Count * arity);
-                if (descriptor.Offset < 0 || descriptor.Floats != expected || descriptor.Offset > src.Length - descriptor.Floats) {
-                    return TensorFault.Fail<Tensor<float>>("encoding-descriptor", descriptor.Channel.Key);
-                }
-                ReadOnlySpan<float> block = src.Slice(descriptor.Offset, descriptor.Floats);
-                for (int element = 0; element < Count; element++) {
-                    block.Slice(element * arity, arity).CopyTo(dst.Slice((element * width) + column, arity));
-                }
-                column += arity;
+    // Model ingress is the ONE widening seam. Every channel admits through this row's OWN `Channel` gate before a
+    // byte moves: an inactive channel answers an EMPTY span, `Unpack` then writes nothing, and the interleave copies
+    // whatever the previous descriptor left in the shared staging lane under this channel's columns — one channel's
+    // values silently transcribed onto another. The whole descriptor set therefore admits first, so a miss rails
+    // channel-miss ahead of the staging rent rather than landing as plausible feature data.
+    public Fin<Tensor<float>> ToTensor() =>
+        Count <= 0 || FeatureWidth <= 0
+            ? TensorFault.Fail<Tensor<float>>("encoding-shape", $"{Count}x{FeatureWidth}")
+            : Descriptors.TraverseM(descriptor => Channel(descriptor.Channel)).As().Map(Interleaved);
+
+    // `ChannelDtype.Unpack` is the kernel's own quantization inverse, so float16 and unorm8 lanes restore through
+    // the row that packed them rather than a second conversion policy here. One scoped rent serves every channel
+    // because the widest lane bounds them all, and the fold writes channel-blocked SoA into the point-major AoS the
+    // wire shape declares, descriptor order carrying the column offset and the admitted-byte index together.
+    private Tensor<float> Interleaved(Seq<ReadOnlyMemory<byte>> admitted) {
+        int width = FeatureWidth;
+        float[] data = new float[checked(Count * width)];
+        Span<float> dst = data;
+        using SpanOwner<float> staging = SpanOwner<float>.Allocate(checked(Count * Descriptors.Max(static d => d.Channel.Arity)));
+        int column = 0;
+        int index = 0;
+        foreach (EncodingChannelDescriptor descriptor in Descriptors) {
+            int arity = descriptor.Channel.Arity;
+            Span<float> lane = staging.Span[..checked(Count * arity)];
+            descriptor.Dtype.Unpack(admitted[index].Span, lane);
+            for (int element = 0; element < Count; element++) {
+                lane.Slice(element * arity, arity).CopyTo(dst.Slice((element * width) + column, arity));
             }
-            return Fin.Succ(Tensor.Create(data, [(nint)Count, (nint)width]));
+            column += arity;
+            index++;
         }
-        catch (Exception ex) { return TensorFault.Fail<Tensor<float>>("encoding-projection", ex.Message); }
+        return Tensor.Create(data, [(nint)Count, (nint)width]);
     }
 
     public Fin<OrtValue> Admit() => ToTensor().Bind(static tensor => TensorBridge.Ingress(tensor));

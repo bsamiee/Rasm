@@ -67,9 +67,11 @@
 |  [06]   | `IVirtualResponse`          | interface     | virtual bounds — `StartIndex`/`Size`/`TotalSize`    |
 |  [07]   | `IPageResponse`             | interface     | page bounds — `Page`/`Pages`/`PageSize`/`TotalSize` |
 |  [08]   | `Node<TObject,TKey>`        | class         | tree node — `Item`/`Depth`/`Children`/`Parent`      |
-|  [09]   | `IAggregateChangeSet<T>`    | interface     | aggregate change-set                                |
-|  [10]   | `ChangeStatistics`          | class         | change diagnostics                                  |
-|  [11]   | `ChangeSummary`             | class         | change diagnostics summary                          |
+|  [09]   | `IAggregateChangeSet<T>`    | interface     | `IEnumerable<AggregateItem<T>>` over one change-set |
+|  [10]   | `AggregateItem<T>`          | struct        | one aggregate delta — `Type`/`Item`                 |
+|  [11]   | `AggregateType`             | enum          | delta direction — `Add`/`Remove`                    |
+|  [12]   | `ChangeStatistics`          | class         | change diagnostics                                  |
+|  [13]   | `ChangeSummary`             | class         | change diagnostics summary                          |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -129,19 +131,23 @@
 
 - `ObservableCacheEx.AsyncDisposeMany(source, accessor)`: disposes `IAsyncDisposable` items itself; the accessor hands the one disposals-completed stream a deactivation scope awaits before teardown.
 
-[AGGREGATE_ENTRYPOINTS]: `DynamicData.Aggregation` operators across `CountEx`/`SumEx`/`AvgEx`/`MaxEx`/`StdDevEx`/`AggregationEx`, each taking a `Func<T,TValue>` selector and emitting `IObservable<TValue>`
+[AGGREGATE_ENTRYPOINTS]: `DynamicData.Aggregation` operators across `CountEx`/`SumEx`/`AvgEx`/`MaxEx`/`StdDevEx`/`AggregationEx` — rows [01]-[08] take a `Func<T,TValue>` selector and emit `IObservable<TValue>`, while `AggregationEx` carries the selector-free custom-fold pair
 
-| [INDEX] | [SURFACE]              | [SHAPE] | [CAPABILITY]                                   |
-| :-----: | :--------------------- | :------ | :--------------------------------------------- |
-|  [01]   | `Count`                | fold    | live count `IObservable<int>`                  |
-|  [02]   | `IsEmpty`              | fold    | live emptiness `IObservable<bool>`             |
-|  [03]   | `IsNotEmpty`           | fold    | live non-emptiness `IObservable<bool>`         |
-|  [04]   | `Sum`                  | fold    | int/long/double/decimal/float sum              |
-|  [05]   | `Avg`                  | fold    | double/decimal/float running average           |
-|  [06]   | `Maximum`              | fold    | running maximum over a comparable selector     |
-|  [07]   | `Minimum`              | fold    | running minimum over a comparable selector     |
-|  [08]   | `StdDev`               | fold    | double/decimal standard deviation              |
-|  [09]   | `ToAggregateChangeSet` | fold    | raw `IAggregateChangeSet<T>` for a custom fold |
+| [INDEX] | [SURFACE]                      | [SHAPE] | [CAPABILITY]                                        |
+| :-----: | :----------------------------- | :------ | :-------------------------------------------------- |
+|  [01]   | `Count`                        | fold    | live count `IObservable<int>`                       |
+|  [02]   | `IsEmpty`                      | fold    | live emptiness `IObservable<bool>`                  |
+|  [03]   | `IsNotEmpty`                   | fold    | live non-emptiness `IObservable<bool>`              |
+|  [04]   | `Sum`                          | fold    | int/long/double/decimal/float sum                   |
+|  [05]   | `Avg`                          | fold    | double/decimal/float running average                |
+|  [06]   | `Maximum`                      | fold    | running maximum over a comparable selector          |
+|  [07]   | `Minimum`                      | fold    | running minimum over a comparable selector          |
+|  [08]   | `StdDev`                       | fold    | double/decimal standard deviation                   |
+|  [09]   | `AggregationEx.ForAggregation` | fold    | change-set to `IObservable<IAggregateChangeSet<T>>` |
+|  [10]   | `AggregationEx.InvalidateWhen` | fold    | re-run the aggregation on an external trigger       |
+
+- `AggregationEx.ForAggregation<TObject,TKey>`/`ForAggregation<TObject>`: the keyed and list overloads both project onto `IObservable<IAggregateChangeSet<TObject>>`, whose enumeration yields `AggregateItem<TObject>` deltas — the custom fold discriminates on `AggregateType.Add`/`Remove` and accumulates each `Item` itself, so one scan reduces any number of accumulators.
+- `Accumulate` is `internal` at the admitted pin: a custom fold composes `ForAggregation` with a `Scan`, never that member.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

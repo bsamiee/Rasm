@@ -4,11 +4,11 @@ Rasm.AppUi runs one command rail: a single `CommandIntent` row table is the only
 
 ## [01]-[INDEX]
 
-- [01]-[INTENT_TABLE]: One frozen row table, payload shapes, per-surface deck freeze.
-- [02]-[AVAILABILITY_ALGEBRA]: Typed availability inputs fold into one `CanExecute` stream.
-- [03]-[EXECUTION_RECEIPTS]: Total outcome rail; receipts sealed through the sink envelope.
-- [04]-[PALETTE_AND_REMOTE]: Derivation folds, span-ranked palette search, remote and control verbs.
-- [05]-[TS_PROJECTION]: Intent, availability, invocation, and receipt wire shapes.
+- [02]-[INTENT_TABLE]: One frozen row table, payload shapes, per-surface deck freeze.
+- [03]-[AVAILABILITY_ALGEBRA]: Typed availability inputs fold into one `CanExecute` stream.
+- [04]-[EXECUTION_RECEIPTS]: Total outcome rail; receipts sealed through the sink envelope.
+- [05]-[PALETTE_AND_REMOTE]: Derivation folds, span-ranked palette search, remote and control verbs.
+- [06]-[TS_PROJECTION]: Intent, availability, invocation, and receipt wire shapes.
 
 ## [02]-[INTENT_TABLE]
 
@@ -230,7 +230,7 @@ public static class CommandGate {
 - Auto: the `Catch` rail makes the outcome total, so every execution seals a receipt before any fault surfaces; residual throws ride `ThrownExceptions` into the one screen fault state and the error dialog intent row — never per-control handling; elapsed derives from the injected `TimeProvider` timestamp pair; `Combine` resolves each batch key through one `TryGetValue` probe and a fail-closed `Traverse` into `Fin`, so an unknown intent key aborts the macro rather than silently dropping, and the admitted child rows fold into one `CombinedReactiveCommand` whose availability is the all-true fold over child `CanExecute` — a macro verb spending several rows in one gesture is a `CreateCombined` projection over existing rows, never a new payload case.
 - Receipt: `CommandReceipt` — intent key, surface key, elapsed `Duration`, outcome, payload digest, `CorrelationId` — sealed through `ReceiptSinkPort.Send` as kind `command` with the boot-bound `CommandDeck.Tenant` threaded so the envelope partitions per tenant; the HLC envelope is the only cross-process correlation carrier and `TenantContext` rides the deck as settled AppHost vocabulary, never re-minted; `TelemetryRow` contributes the command-outcome and command-elapsed instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: ReactiveUI, LanguageExt.Core, NodaTime, System.IO.Hashing, Rasm.AppHost (project), BCL inbox
-- Growth: one `CommandOutcome` case absorbs a new result class and breaks every dispatch site at compile time, and one command instrument is one `InstrumentRow` on `CommandExecution.TelemetryRow`; zero new surface.
+- Growth: one `CommandOutcome` case absorbs a new result class and breaks every dispatch site at compile time, and one command instrument is one `InstrumentSpec` row on `CommandExecution.TelemetryRow`; zero new surface.
 - Boundary: the receipt record lands as one `[JsonSerializable]` row on the package wire context merged at app roots; ICommand wrapper classes are the deleted form and a generic receipt or ledger abstraction is the rejected form; the digest is the kernel `ContentHash.Of` hex of the serialized payload (the federation one-hasher; seed zero), so receipt payloads stay fixed-size on the hot path; `Combine` is the only batch-verb spelling — a sibling `Batch` payload case beside the closed four-case union and a per-macro registry are the rejected forms, an unknown batch key aborts the macro on the `Fin` rail rather than dropping under a `ContainsKey` filter, and the combined command's child execution still seals one `CommandReceipt` per child through the same sink so batch evidence never collapses into one opaque receipt.
 
 ```csharp signature
@@ -306,16 +306,16 @@ public static class CommandExecution {
     public const string OutcomeInstrument = "rasm.appui.command.outcome";
     public const string ElapsedInstrument = "rasm.appui.command.elapsed";
 
-    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
-        AppUiTelemetry.Contribute(version, schemaUrl,
-            new(OutcomeInstrument, InstrumentKind.Count, "{command}", "command executions by outcome"),
-            new(ElapsedInstrument, InstrumentKind.Distribution, "s", "command execution wall duration", Buckets.InteractionSeconds));
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            InstrumentSpec.Count(OutcomeInstrument, "{command}", "command executions by outcome", MeasureForm.Whole, AppUiTelemetry.OutcomeSlot),
+            InstrumentSpec.Advised(ElapsedInstrument, "s", "command execution wall duration", MeasureForm.Real, Buckets.InteractionSeconds, AppUiTelemetry.CommandSlot));
 
     // Outcome counts ride the evidence fan's command arm; elapsed records direct off the sealed receipt
     // — composition binds this projection beside the deck's sink send, so the fan never parses duration text.
-    public static Unit Observe(InstrumentSet set, CommandReceipt receipt) =>
-        ignore(set.Record(ElapsedInstrument, receipt.Elapsed.TotalSeconds,
-            new KeyValuePair<string, object?>("key", receipt.Key)));
+    public static Fin<Unit> Observe(InstrumentSet set, CommandReceipt receipt) =>
+        set.Write(ElapsedInstrument, receipt.Elapsed.TotalSeconds,
+            new KeyValuePair<string, object?>(AppUiTelemetry.CommandSlot, receipt.Key));
 }
 ```
 

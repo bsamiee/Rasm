@@ -6,25 +6,25 @@
 
 ## [01]-[INDEX]
 
-- [01]-[DOMAIN]: generated strategy, part, stock-frame, cut, receipt, and run owners.
-- [02]-[ADMISSION]: profile expansion, quarter-turn orientation, stock-frame derivation, and eligibility graph.
-- [03]-[PACKING]: bounded strategy evaluation over every `RectangleBinPack.CSharp` provider.
-- [04]-[PROOF]: containment, overlap, cardinality, area, cut-pattern, and content-identity receipts.
+- [02]-[DOMAIN]: generated strategy, part, stock-frame, cut, receipt, and run owners.
+- [03]-[ADMISSION]: profile expansion, quarter-turn orientation, stock-frame derivation, and eligibility graph.
+- [04]-[PACKING]: bounded strategy evaluation over every `RectangleBinPack.CSharp` provider.
+- [05]-[PROOF]: containment, overlap, cardinality, area, cut-pattern, and content-identity receipts.
 
 ## [02]-[DOMAIN]
 
 - Owner: `NestRun` admits expanded parts, finite inventory, a bounded materialized strategy family, sheet budget, orientation budget, kerf, and edge allowance once.
-- Cases: `NestStrategy` carries maximal-rectangle, skyline, guillotine, shelf, homogeneous mass-cut, and parameterized sweep policies.
-- Rows: `CutAxis` and `CutProof` carry the ordinal every digest and validator reads, so no consumer re-derives a discriminant by case test.
 - Owner: `StockFrame` retains stock identity, source index, coordinate origin, integer provider extent, true area, material, grain, and cost.
+- Cases: `NestStrategy` carries maximal-rectangle, skyline, guillotine, shelf, homogeneous mass-cut, and parameterized sweep policies.
+- Law: `CutAxis` and `CutProof` carry the ordinal every digest and validator reads, so no consumer re-derives a discriminant by case test.
 - Growth: a rectangular provider or heuristic lands as one `NestStrategy` case consumed by `Evaluate`; a stock modality remains a `Stock` case consumed by `Frame`.
 
 ## [03]-[ADMISSION]
 
-- Entry: `NestRun.FromProfiles` expands every `PartRule.Quantity` into stable `(PartId, Instance)` identities, clamps the stock budget to real inventory, and narrows each rotation family to its quarter-turn subset.
 - Law: `NestRun.ResolutionMm` floors stock frames and ceils kerf-bearing part envelopes once; placement egress restores physical coordinates, extents, origins, and rotations.
 - Law: `StockNest.Frames` admits rectangular frames before applying `StockLimit`, so the budget never buys frames the packer rejects.
 - Law: `EligibilityGraph` joins each part instance only to stock frames satisfying material, extent, grain, and exclusion policy, then refuses any component whose part-area demand exceeds its reachable stock supply.
+- Entry: `NestRun.FromProfiles` expands every `PartRule.Quantity` into stable `(PartId, Instance)` identities, clamps the stock budget to real inventory, and narrows each rotation family to its quarter-turn subset.
 - Boundary: nonrectangular regions, interior exclusions, exhausted roll or coil length, unsupported stock modalities, oblique-only rotation families, orphan parts, and strategy expansion beyond its count or depth budget remain typed failures; the bounded queue walk is the strategy-materialization kernel.
 
 ## [04]-[PACKING]
@@ -39,9 +39,9 @@
 
 - Owner: `CutPattern` projects stock-local cut spans, provider-feasibility posture, and free rectangles without inventing a provider cut tree or claiming true-shape feasibility.
 - Law: `CutAxis` rows own the trim projection, so `Pattern` generates every span and `NestPlan.Validate` re-proves it through one correspondence.
-- Receipt: `NestYield` retains requested and placed cardinality, stock count, true and rectangular areas, stock area, utilization, waste, cost, and the continuous sheet lower bound the placed count is proved against.
 - Law: `NestPlan.Validate` proves unique instance subset coverage, source containment, pairwise non-overlap, stock eligibility, finite coordinates, yield cardinality, and the stock-minus-placement area balance; provider free rectangles remain bounded evidence, not an exact complement claim.
-- Egress: `NestPlan.Evidence` retains the `StockSnapshot` kind beside the digest over canonical placements, indexed stock identities, cut spans, free rectangles, run policy, and yield scalars; process-random hashes never enter identity.
+- Output: `NestPlan.Evidence` retains the `StockSnapshot` kind beside the digest over canonical placements, indexed stock identities, cut spans, free rectangles, run policy, and yield scalars; process-random hashes never enter identity.
+- Receipt: `NestYield` retains requested and placed cardinality, stock count, true and rectangular areas, stock area, utilization, waste, cost, and the continuous sheet lower bound the placed count is proved against.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------

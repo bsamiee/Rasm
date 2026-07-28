@@ -350,13 +350,13 @@ public static class ObjectsHooks {
         Op op = key.OrDefault();
         return MountRegistry.MountAll(
             mounts: Seq(
-                Veto(point: HookPoint.ObjectsViewable, plugin: plugin, op: op,
+                Veto(point: RhinoPoint.ObjectsViewable, plugin: plugin, op: op,
                     carries: static program => program.Viewable.IsSome),
-                Veto(point: HookPoint.ObjectsPick, plugin: plugin, op: op,
+                Veto(point: RhinoPoint.ObjectsPick, plugin: plugin, op: op,
                     carries: static program => program.Pick.IsSome),
                 (Func<Fin<IDisposable>>)(() => MountRegistry.Mount(
                     mount: new HookMount(
-                        Point: HookPoint.ObjectsRegrow,
+                        Point: RhinoPoint.ObjectsRegrow,
                         Plugin: plugin,
                         Ask: typeof(GripProgram),
                         Grant: typeof(GripProgram),
@@ -364,19 +364,19 @@ public static class ObjectsHooks {
                     key: op)),
                 (Func<Fin<IDisposable>>)(() => MountRegistry.Mount(
                     mount: new HookMount(
-                        Point: HookPoint.ObjectsFault,
+                        Point: RhinoPoint.ObjectsFault,
                         Plugin: plugin,
                         Ask: typeof(ILogger),
                         Grant: typeof(IDisposable),
                         Bind: ask => ObjectsTelemetry.Configure(plugin: plugin, sink: (ILogger)ask, key: op)
                             .Map(static seat => (object)seat)),
                     key: op)),
-                Tap(point: HookPoint.HostException, plugin: plugin, op: op),
-                Tap(point: HookPoint.HostCloudLog, plugin: plugin, op: op)),
+                Tap(point: RhinoPoint.HostException, plugin: plugin, op: op),
+                Tap(point: RhinoPoint.HostCloudLog, plugin: plugin, op: op)),
             key: op);
     }
 
-    private static Func<Fin<IDisposable>> Veto(HookPoint point, PluginKey plugin, Op op, Func<ObjectProgram, bool> carries) =>
+    private static Func<Fin<IDisposable>> Veto(RhinoPoint point, PluginKey plugin, Op op, Func<ObjectProgram, bool> carries) =>
         () => MountRegistry.Mount(
             mount: new HookMount(
                 Point: point,
@@ -389,7 +389,7 @@ public static class ObjectsHooks {
                     .Map(static program => (object)program)),
             key: op);
 
-    private static Func<Fin<IDisposable>> Tap(HookPoint point, PluginKey plugin, Op op) =>
+    private static Func<Fin<IDisposable>> Tap(RhinoPoint point, PluginKey plugin, Op op) =>
         () => MountRegistry.Mount(
             mount: new HookMount(
                 Point: point,

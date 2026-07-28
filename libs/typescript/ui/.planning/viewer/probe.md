@@ -22,7 +22,7 @@ Probe owns render evidence. Its benchmark lane folds Deck and renderer counters 
 - Law: windows are policy rows — sample count lives at `_WINDOW`, projection kind lives on each bounded measure row, and `_PROJECTION` owns every step/finalize rule; a per-metric bespoke window or reducer is the named defect.
 - Law: the trace renders as a live series, never table rows — `Probe.aligned(trace)` projects the rolling window into the aligned columns `view/chart#SERIES_SURFACE` streams through `setData` (the metric board is a chart cohort synced by one key), and the summary rows feed the claim board; a metric timeline rendered through `view/table` is the named defect.
 - Law: residency metrics tap the scene broadcast — `scene#RESIDENCY_GRAFT`'s `Glb.Loop.facts` discriminant feeds arrival-rate and refusal-rate rows through the adopted `rasm.ui.scene.residency` hook source, so probe boards, history capture, and the app bridge consume one rail without parallel port subscriptions.
-- Boundary: `Deck`/renderer acquisition is `geo`/`scene`'s — the sinks arrive as wiring parameters; React tree, vitals, and long-frame evidence is `system/vital`'s lane rendered on this same board through the shared row shape; render-vital emission to the OTel spine is the runtime plane's, fed by an app-composed `system/hook` tap over these local rows, so this probe stays a display surface and mints no instrument.
+- Boundary: `Deck`/renderer acquisition is `geo`/`scene`'s — the sinks arrive as wiring parameters; React tree, vitals, and long-frame evidence is `system/vital`'s lane rendered on this same board through the shared row shape; render-vital emission to the OTel spine is the runtime plane's, fed by an app-composed `system/hook` tap resolving these local rows onto `runtime:otel/vital`'s closed `frame`/`gpumem`/`capture` carrier set — the per-frame render timing, the gpu-memory peak, and the capture verdict this page alone produces — so this probe stays a display surface and mints no instrument, and a carrier kind landing there without its row here is a wire nobody sends.
 
 ```typescript
 import type { DeckMetrics } from "@deck.gl/core"
@@ -49,7 +49,7 @@ declare namespace Probe {
 }
 
 type _Projection = "mean" | "latest" | "peak"
-type _Measure = { readonly label: string; readonly unit: string; readonly projection: _Projection; readonly read: (sample: Probe.Sample) => number }
+type _Measure = { readonly label: Metric["label"]; readonly unit: Metric["unit"]; readonly projection: _Projection; readonly read: (sample: Probe.Sample) => number }
 
 const _DECK_TIMERS = {
   fps: { label: "fps", unit: "1/s", projection: "mean", read: (s: Probe.Sample) => s.deck.fps },
@@ -73,10 +73,10 @@ const _DECK_COUNTERS = {
 } as const satisfies Record<string, _Measure>
 
 const _DECK_MEMORY = {
-  gpuMemory: { label: "gpu-memory", unit: "bytes", projection: "peak", read: (s: Probe.Sample) => s.deck.gpuMemory },
-  bufferMemory: { label: "buffer-memory", unit: "bytes", projection: "peak", read: (s: Probe.Sample) => s.deck.bufferMemory },
-  textureMemory: { label: "texture-memory", unit: "bytes", projection: "peak", read: (s: Probe.Sample) => s.deck.textureMemory },
-  renderbufferMemory: { label: "renderbuffer-memory", unit: "bytes", projection: "peak", read: (s: Probe.Sample) => s.deck.renderbufferMemory },
+  gpuMemory: { label: "gpu-memory", unit: "By", projection: "peak", read: (s: Probe.Sample) => s.deck.gpuMemory },
+  bufferMemory: { label: "buffer-memory", unit: "By", projection: "peak", read: (s: Probe.Sample) => s.deck.bufferMemory },
+  textureMemory: { label: "texture-memory", unit: "By", projection: "peak", read: (s: Probe.Sample) => s.deck.textureMemory },
+  renderbufferMemory: { label: "renderbuffer-memory", unit: "By", projection: "peak", read: (s: Probe.Sample) => s.deck.renderbufferMemory },
 } as const satisfies Record<string, _Measure>
 
 const _RENDERER_INFO = {
@@ -93,9 +93,9 @@ const _RENDERER_INFO = {
   renderTargets: { label: "render-targets", unit: "1", projection: "latest", read: (s: Probe.Sample) => s.info.memory.renderTargets },
   readbackBuffers: { label: "readback-buffers", unit: "1", projection: "latest", read: (s: Probe.Sample) => s.info.memory.readbackBuffers },
   uniformBuffers: { label: "uniform-buffers", unit: "1", projection: "latest", read: (s: Probe.Sample) => s.info.memory.uniformBuffers },
-  textureBytes: { label: "renderer-texture-memory", unit: "bytes", projection: "peak", read: (s: Probe.Sample) => s.info.memory.texturesSize },
-  attributeBytes: { label: "renderer-attribute-memory", unit: "bytes", projection: "peak", read: (s: Probe.Sample) => s.info.memory.attributesSize },
-  totalBytes: { label: "renderer-memory", unit: "bytes", projection: "peak", read: (s: Probe.Sample) => s.info.memory.total },
+  textureBytes: { label: "renderer-texture-memory", unit: "By", projection: "peak", read: (s: Probe.Sample) => s.info.memory.texturesSize },
+  attributeBytes: { label: "renderer-attribute-memory", unit: "By", projection: "peak", read: (s: Probe.Sample) => s.info.memory.attributesSize },
+  totalBytes: { label: "renderer-memory", unit: "By", projection: "peak", read: (s: Probe.Sample) => s.info.memory.total },
 } as const satisfies Record<string, _Measure>
 
 const _METRICS = { ..._DECK_TIMERS, ..._DECK_COUNTERS, ..._DECK_MEMORY, ..._RENDERER_INFO } as const
@@ -157,12 +157,17 @@ const _host = (
   pipe(
     Option.getOrElse(adapter, () => ({ vendor: "<unavailable>", architecture: "<unavailable>" })),
     (info) =>
+      // Browsers expose no operating-system name through a stable surface, so `os` takes the same
+      // declared-unavailable sentinel the absent adapter facts take, and `stamps` stays empty here
+      // because every host fact this probe reaches already fills a column of its own.
       new Claim.Host({
         print,
         machine: info.vendor,
+        os: "<unavailable>",
         arch: info.architecture,
-        cores: Number.max(1, globalThis.navigator.hardwareConcurrency),
+        processors: Number.max(1, globalThis.navigator.hardwareConcurrency),
         runtime: globalThis.navigator.userAgent,
+        stamps: {},
       }),
   )
 ```
@@ -217,7 +222,7 @@ const _board = (claim: Claim, local: ReadonlyArray<Metric>): ReadonlyArray<Probe
 - Law: the comparison is structural — the local key and the receipt's key compare through `Equal.equals` on the brand; the verdict is `{ view, expected, actual, matched, at }` — a plain data row beside the wire receipt's own C#-computed `matched`/`at`, so the operator reads both proofs.
 - Law: the MRT/post chain feeding a G-buffer capture is the same fold with a different target row — the WebGPU arm's `PostProcessing` pipeline with `three/tsl`'s `mrt({ … })` names the targets, and no second capture fold exists.
 - Growth: hashing graduates to the GPU when readback dominates — a `typegpu` reduction kernel over the capture buffer on the scene-published device (`tgpu.initFromDevice`, `scene#BACKEND_SELECT`'s seam) feeds the same mint delegate; the delegate signature never changes, so the ladder is invisible to consumers.
-- Law: the capture rail is woven — `Effect.withSpan("rasm.ui.probe.capture")` names the readback-mint-compare trip with the view as span attribute and log annotation, so a capture correlates with the residency and pivot spans on the app bridge; the verdict stays display evidence and no metric exists here, because a mismatch is never a fault and never a series.
+- Law: the capture rail is woven — `Effect.withSpan("rasm.ui.probe.capture")` names the readback-mint-compare trip with the view as span attribute and log annotation, so a capture correlates with the residency and pivot spans on the app bridge; the verdict stays display evidence and this module mints no instrument, because a mismatch is never a fault — the `capture` carrier kind at `runtime:otel/vital` is where the app tap grades it into a series, and it does so from this row rather than from a second fold here.
 - Boundary: the wire receipt's decode is the codec's; renderer and scene arrive as parameters from `scene`; verdict transport to any journal is app egress.
 
 ```typescript

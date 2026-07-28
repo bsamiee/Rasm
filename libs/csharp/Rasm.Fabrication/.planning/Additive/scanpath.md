@@ -6,11 +6,11 @@ Wire posture: HOST-LOCAL. `SliceStack`, `ProcessBudget.Powder`, and optional `Su
 
 ## [01]-[INDEX]
 
-- [01]-[DOMAIN]: Unit-bearing exposure, source, field, timing, pattern, sort, and policy owners.
-- [02]-[REGIONS]: `SliceRegion` classification and support projections become typed `ExposureRegion` rows.
-- [03]-[PARTITION]: Relaxed point-site fields assign vectors to calibrated sources and retain overlap adjacency.
-- [04]-[SCHEDULING]: Thermal coloring, gas, parity, spatial locality, plume, synchronization, remelt, delay, and recoater laws emit explicit events.
-- [05]-[IDENTITY]: One canonical codec covers geometry, `Z`, exposure, source, focus, spot, timing, ordering, and policy identity.
+- [02]-[DOMAIN]: Unit-bearing exposure, source, field, timing, pattern, sort, and policy owners.
+- [03]-[REGIONS]: `SliceRegion` classification and support projections become typed `ExposureRegion` rows.
+- [04]-[PARTITION]: Relaxed point-site fields assign vectors to calibrated sources and retain overlap adjacency.
+- [05]-[SCHEDULING]: Thermal coloring, gas, parity, spatial locality, plume, synchronization, remelt, delay, and recoater laws emit explicit events.
+- [06]-[IDENTITY]: One canonical codec covers geometry, `Z`, exposure, source, focus, spot, timing, ordering, and policy identity.
 
 ## [02]-[DOMAIN]
 
@@ -31,18 +31,18 @@ Wire posture: HOST-LOCAL. `SliceStack`, `ProcessBudget.Powder`, and optional `Su
 
 ## [04]-[PARTITION]
 
-- Boundary: `SourcePartition.Build` uses `VoronoiPlane.SetSites`, `Tessellate`, `Relax`, `ClockwisePoints`, `Neighbours`, and `GetNearestSiteTo(..., KDTree)` once per plan because calibrated source fields are invariant across layers.
-- Auto: `MemoryOwner<double>` stages the vector-to-source score plane and `SourcePartition.Elect` walks it as one pooled span kernel; `TensorPrimitives.IndexOfMin`, `Average`, `StdDev`, and `SumOfSquares` derive assignment and balance evidence.
 - Law: a vector no calibrated field admits leaves `Elect` as source `-1` and converts on the rail; no election throws.
 - Law: exclusive vectors stay inside one source field; overlap vectors stitch under one policy and retain both adjacent source identities.
 - Law: source scheduling assigns conflict-free thermal waves from whole-segment separation and emits one `ScanEvent.Synchronize` barrier per wave before recoating.
+- Auto: `MemoryOwner<double>` stages the vector-to-source score plane and `SourcePartition.Elect` walks it as one pooled span kernel; `TensorPrimitives.IndexOfMin`, `Average`, `StdDev`, and `SumOfSquares` derive assignment and balance evidence.
+- Boundary: `SourcePartition.Build` uses `VoronoiPlane.SetSites`, `Tessellate`, `Relax`, `ClockwisePoints`, `Neighbours`, and `GetNearestSiteTo(..., KDTree)` once per plan because calibrated source fields are invariant across layers.
 
 ## [05]-[SCHEDULING]
 
-- Entry: `Scan.Plan` runs audit, region projection, candidate generation, clipping, field assignment, ordering, machine-event projection, canonicalization, and receipt construction in one flat query inside the `EngineSpan.ScanpathDerive` span, so a long derivation traces and its histogram measurements carry exemplars.
 - Law: exposure dwell, jump, layer delay, source synchronization, remelt, and recoater delay are executable values, never receipt-only estimates.
 - Law: gas bearing, layer rotation, thermal separation, source overlap, skywriting, pulse, focus, spot, and distortion compensation are policy values consumed before identity.
 - Law: `Scan.Waves` buckets scheduled vectors by separation cell, so wave election probes only the neighbourhood a vector can contend with and searches at most one wave past the blocked set.
+- Entry: `Scan.Plan` runs audit, region projection, candidate generation, clipping, field assignment, ordering, machine-event projection, canonicalization, and receipt construction in one flat query inside the `FabricationEngine.Scan` bracket the supplied `SpanBand` opens, so a long derivation traces and its histogram measurements carry exemplars while a headless caller passing no band runs the identical query untraced.
 - Receipt: `ScanReceipt` retains audit, source loads, thermal moments, plume conflicts, overlap stitches, field cells, event census, energy, path, and build time; the settled receipt fires the `FabricationFact.Engine.Of` exposure, jump, remelt, and stitch rows through the caller-supplied `FabricationTap`, defaulting silent for headless callers.
 
 ## [06]-[IDENTITY]
@@ -50,7 +50,7 @@ Wire posture: HOST-LOCAL. `SliceStack`, `ProcessBudget.Powder`, and optional `Su
 - Owner: `ScanCodec.Write` is the sole canonical octet projection.
 - Law: `ScanIdentity` carries the complete output-driving `ScanPolicy`; canonical projection orders profile keys and writes generated behavior by content key.
 - Law: every point writes `X`, `Y`, and `Z`; every exposure writes source, class, power, speed, dwell, focus, spot, pulse, and skywriting values.
-- Egress: `ContentKey.Of(EgressKind.ScanVectors, bytes)` mints exactly once over the canonical stored bytes.
+- Output: `ContentKey.Of(EgressKind.ScanVectors, bytes)` mints exactly once over the canonical stored bytes.
 
 ```csharp signature
 extern alias Voronoi;
@@ -370,8 +370,9 @@ public static class Scan {
         ScanPolicy policy,
         ProcessBudget.Powder budget,
         Option<SupportPlan> support,
-        FabricationTap? tap = null) =>
-        EngineSpan.ScanpathDerive.Traced(_ =>
+        FabricationTap? tap = null,
+        SpanBand? band = null) =>
+        band.Traced(FabricationEngine.Scan, Op.Of(), _ =>
         from _policy in (
             Gate(policy.Rotation.Cycle > 0
                 && double.IsFinite(policy.Rotation.LayerIncrement.Radians)
@@ -1171,6 +1172,9 @@ public static class ScanGeometry {
 ---
 config:
   layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
 ---
 flowchart LR
     accTitle: Additive scanpath planning flow

@@ -1,30 +1,35 @@
 # [DATA_OLAP]
 
-Analytical throughput is distinct from transactional durability and owned by engine rows with scoped wraps. DuckDB serves node and browser acceleration, pgDuckDB keeps adjacent analytics in pg, ClickHouse enters only past its scale trigger, and Flight remains its ingress slice. Arrow is the ONE columnar wire; journal facts flow in and verdicts out, never back as authority. Boundary kernels lift promises, and tagged read cases dispatch ONE entry. Admitted evidence arms emit `Pg.Profile`; Convention instruments project gate pressure from receipt truth.
+Engine rows own analytical throughput, never transactional durability: DuckDB accelerates node and browser under one leased session family, pgDuckDB embeds it in live Postgres, ClickHouse enters past its trigger, and FLIGHT carries every remote columnar end. RESIDENCE_ROWS parameterize the durable planes — extensions, credentials, attachments, the identity-stamping fill, and the schemas `Query` renders against. ARROW_WIRE holds each codec pair as the ONE interchange — IPC in memory, Flight on the wire, Parquet at rest — while PROFILE folds escalation evidence and every residence stays derived.
+
+Settled composition: `core/observe/board#QUERY` owns the query algebra and its render-target axis, so this page fills `Query.Residence`, mints `Query.Target`, and renders none. `iac/operate/observe#CHART_ROWS` plants the clickhouse wide-event DDL this page transcribes; the lake plants its own through `Olap.mount`. `Convention.identity` joins signals to the journal's `app`/`tenant` columns, `lane/postgres#PROFILE_HARVEST` owns the `Pg.Profile` each profile arm fills, and `object/store#STORE` owns this lane's object coordinates.
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]     | [OWNS]                                                                              |
-| :-----: | :------------ | :---------------------------------------------------------------------------------- |
-|  [01]   | `ENGINE_ROWS` | the engine decision table — guarantee, storage, ceiling, trigger per engine         |
-|  [02]   | `EMBEDDED`    | the scoped DuckDB wraps — node instance/session, wasm worker engine, the read entry |
-|  [03]   | `LAKE_ROWS`   | the table-format and attachment rows — DuckLake, object-store Parquet, spine ATTACH |
-|  [04]   | `CLICKHOUSE`  | the at-scale driver row and its ingestion surface                                   |
-|  [05]   | `FLIGHT`      | the engine-blind Flight SQL wire row — scoped client, Arrow-native reads and egress |
-|  [06]   | `PROFILE`     | the query-profile harvest arm and the probe-evidence escalation rows                |
-|  [07]   | `ARROW_WIRE`  | the one columnar interchange — Table, IPC both directions, batch streaming, ingest  |
+- [02]-[ENGINE_ROWS] — `_engines` prices guarantee, storage posture, ceiling, and escalation trigger per engine.
+- [03]-[EMBEDDED] — `Olap.node` and `Olap.wasm` lease one governed session family whose ONE entry is `Olap.read`.
+- [04]-[RESIDENCE_ROWS] — `_RESIDENCES` carries each durable plane's extensions, credentials, attachments, schemas, and fill.
+- [05]-[CLICKHOUSE] — `Olap.ingest` and `Olap.wide` bind the at-scale driver behind the lane's one fault rail.
+- [06]-[FLIGHT] — `Olap.flown` carries every Flight SQL modality over one sealed remote coordinate.
+- [07]-[PROFILE] — `Olap.profile` harvests engine profiles and `Olap.armed` grades the escalation evidence.
+- [08]-[ARROW_WIRE] — `Olap.wire` and `Olap.lake` own the one columnar interchange in memory, on the wire, and at rest.
 
 ## [02]-[ENGINE_ROWS]
 
 - Owner: the `_engines` anchor — one row per engine profile carrying its guarantee, storage posture, and scale ceiling; the escalation trigger is data on the row, so an admission argument reads the table instead of relitigating the lane.
-- Packages: none — the rows are decision facts.
-- Growth: a new engine candidate is one row measured against the same columns; a row whose trigger never fires in production is a prune candidate at the next census.
+- Packages: `effect` (`Record`) — the rows are decision facts and the contract check is their only machinery.
+- Growth: a new engine candidate is one row measured against the same columns, and its meter set, fault labelling, and escalation text follow from the key; a row whose trigger never fires in production is a prune candidate at the next census.
 - Law: `duckdbNode` is the default — vectorized execution, out-of-core spill, zero-copy Parquet/CSV/JSON/Arrow, single-file ACID under a single writer; embedded in-process, so the ceiling is one node and one concurrent writer.
 - Law: `duckdbWasm` is the client-side row — the browser queries remote Parquet by HTTP range through presigned grants, results land as Arrow, and compute leaves the service bill entirely; single-threaded by default, CORS-bound, an accelerator over server-minted data.
 - Law: `pgDuckdb` is the analytics-in-OLTP row — the spine's `analytics` grant embeds the same engine inside live Postgres for workloads adjacent to transactional data; no second system, PG durability, bounded by the single PG host; the grant is `lane/postgres.md`'s row and this lane only names the boundary.
 - Law: `clickhouse` is admitted ONLY past the trigger — concurrent high-throughput ingestion, multi-node scale, or high-cardinality real-time serving; below it the embedded rows own the workload, and admitting the cluster early is the named operational waste.
+- Law: `flight` is the one door to a columnar engine this estate does not operate — the server stays opaque behind the wire, so the row prices the wire and never the engine, and a second query transport beside it re-derives admission, auth, and typing at every end.
+- Law: the engine key is threaded, never assumed — every session, fault, and meter carries the row it came from, so an engine's evidence is engine-labelled by construction and a hardcoded engine literal below the row table is the deleted form.
 
 ```typescript signature
+// Escalation order, not alphabetical: the embedded default first, the browser and in-OLTP rows beside it, then the
+// two rows a workload reaches only past a stated trigger. `satisfies` binds every row to the same four columns, so a
+// fifth column fails at this declaration rather than reading as absent on whichever row forgot it.
 const _engines = {
   duckdbNode: {
     guarantee: "vectorized single-node analytics, out-of-core spill",
@@ -50,80 +55,127 @@ const _engines = {
     ceiling: "multi-node",
     trigger: "concurrent high-throughput ingestion OR multi-node scale OR high-cardinality real-time serving",
   },
-} as const
+  flight: {
+    guarantee: "Arrow Flight SQL against an opaque remote engine — the server's guarantee, never this lane's",
+    storage: "the remote engine's",
+    ceiling: "the remote deployment's; this lane holds none",
+    trigger: "a columnar engine operated outside this estate — every columnar query end rides this one wire",
+  },
+} as const satisfies Record.ReadonlyRecord<string, {
+  readonly guarantee: string
+  readonly storage: string
+  readonly ceiling: string
+  readonly trigger: string
+}>
 
 declare namespace Olap {
   type Engine = keyof typeof _engines
-  type _Rows<T extends Record<Engine, {
-    readonly guarantee: string
-    readonly storage: string
-    readonly ceiling: string
-    readonly trigger: string
-  }> = typeof _engines> = T
 }
 ```
 
 ## [03]-[EMBEDDED]
 
-- Owner: scoped `Olap.node` and `Olap.wasm` wraps with `Olap.read`, the ONE leased-session entry whose `Rows`, `Window`, and `Drain` cases select bounded, windowed, or streamed geometry under the owner governor.
-- Packages: `@duckdb/node-api` (`DuckDBInstance.create`, `instance.closeSync`, `instance.connect`, `connection.disconnectSync`, `connection.runAndReadAll`, `connection.stream`, `connection.streamAndReadUntil`, `DuckDBResult.yieldRowObjects`, `quotedIdentifier`, `quotedString`); `@duckdb/duckdb-wasm` (`selectBundle`, `AsyncDuckDB`, `ConsoleLogger`, `db.instantiate`, `db.connect`, `conn.query`, `conn.send`, `db.registerFileURL`, `DuckDBDataProtocol`); `effect` (`Effect`, `Scope`, `Stream`, `Data`, `Schedule`, `Duration`).
-- Entry: a service composes `Olap.node` once per database coordinate and leases sessions per analytical unit of work through `handle.lease`; the browser shell composes `Olap.wasm` over self-hosted bundles at boot and hands connections to the viewer's query surfaces.
-- Receipt: node reads land as row-object projections; wasm queries land as Arrow Tables — the wire cluster's value, zero-copy into the viewer.
-- Growth: an engine knob is an acquire-config field; a read geometry is one `Olap.Read` case with overload and dispatch arm; resilience is a `_GOVERNOR` override.
+- Owner: the embedded driver family — `_EMBEDDED` rows carrying each driver's bind vocabulary, bounded, windowed, and drained members and its own result grain; `Olap.node` and `Olap.wasm` mint one scoped `Olap.Handle` apiece, and `Olap.read` is the ONE leased-session entry whose `Rows`, `Window`, and `Drain` cases select geometry under the owner governor.
+- Packages: `@duckdb/node-api` (`DuckDBInstance.create`, `instance.closeSync`, `instance.connect`, `connection.disconnectSync`, `connection.runAndReadAll`, `connection.stream`, `connection.streamAndReadUntil`, `DuckDBResult.yieldRowObjects`, `DuckDBValue`); `@duckdb/duckdb-wasm` (`selectBundle`, `AsyncDuckDB`, `ConsoleLogger`, `db.instantiate`, `db.connect`, `conn.close`, `conn.query`, `conn.send`, `conn.prepare`, `AsyncPreparedStatement.query`/`.send`/`.close`, `db.terminate`); `apache-arrow` (`RecordBatch`, `Table`); `effect` (`Array`, `Data`, `Duration`, `Effect`, `Metric`, `Pool`, `Record`, `Schedule`, `Scope`, `Stream`, `pipe`); `@rasm/ts/core` (`Convention`).
+- Entry: a service composes `Olap.node` once per database coordinate and the browser shell composes `Olap.wasm` over self-hosted bundles at boot; both hand a `handle.lease` to each analytical unit of work, and every statement, file registration, and Arrow ingest rides that one session.
+- Receipt: each engine answers its own grain off its driver row — the node driver materializes row-object projections, the worker hands Arrow `Table` and `RecordBatch` values straight through to the viewer with no re-encoding.
+- Growth: an embedded driver is one `_EMBEDDED` row answering three members and one grain pair; a read geometry is one `Olap.Read` case with its overload and per-driver member; resilience is a `_GOVERNOR` override; a new measure is one `_meter` row naming a census metric and its axis, whose whole per-engine set follows.
 - Law: lifecycle is `acquireRelease` under `Scope` — instance, worker, and every connection release deterministically; an unscoped engine handle is unspellable because the constructors return scoped effects.
-- Law: every promise lifts through the one boundary kernel `_try` into the reason-discriminated `OlapFault` — `acquire | query | extension | bundle | wire` routes recovery as a fold, never a `detail` string match; extension-load refusal is `extension`, bundle selection is `bundle`, and above the kernel the lane is rails end to end.
-- Law: resilience is owner-internal — the bulkhead semaphore mints inside `Olap.node` (`Effect.makeSemaphore(_GOVERNOR.sessions)`), and `_governed` brackets every statement with the timeout budget; jittered bounded retry admits only `access: "read"` and `fault: "query"`, so an executing write, extension mutation, or profile harvest remains one-shot; the governor values are one policy row, and gate pressure projects onto the `Convention.instrument.olapWait` histogram and `Convention.instrument.olapRetried` counter tagged `Convention.rasm.olapEngine`.
-- Law: the drain path never re-buffers — `DuckDBResult.yieldRowObjects()` yields one native data chunk at a time and does not retain prior chunks, while `Stream.acquireRelease` holds the session permit until downstream termination; a `DuckDBResultReader` is rejected here because its private chunk roster accumulates the full result even when `readUntil` advances incrementally. Acquisition retries before the first emission; an iteration fault fails the stream without replay because a partial-output retry duplicates rows.
-- Law: extension admission is a statement — `INSTALL`/`LOAD` for `httpfs`, `ducklake`, `iceberg`, `delta`, `spatial`, `vss`, `fts` run through the `Rows` geometry; a load failure refuses the capability as a typed `extension` fault, never crashes the lane.
+- Law: every promise lifts through the one boundary kernel `_try` into the reason-discriminated `OlapFault` — `acquire | query | extension | secret | bundle | wire` routes recovery as a fold, never a `detail` string match; extension-load refusal is `extension`, credential refusal is `secret`, bundle selection is `bundle`, and above the kernel the lane is rails end to end.
+- Law: both embedded engines share ONE session family, so the bulkhead semaphore, the budget bracket, the replay rule, and the meter fan reach the browser lane exactly as they reach the node lane; a second ungoverned read entry beside `Olap.read` leaves a single-threaded worker taking unbounded concurrent statements and taps no engine-labelled measure at all.
+- Law: the session carries its engine, so every fault the session mints and every meter it taps is engine-labelled by construction; an operation reading the engine from an enclosing literal mislabels every row the moment a second engine reaches the same operation.
+- Law: driver divergence is a row, never an arm — result grain, bind vocabulary, and the three execution members ride `_EMBEDDED`, so `Olap.read` dispatches on the session's own engine key and no geometry branches on a driver name.
+- Law: instrument construction belongs to `Convention.mount` alone — the census row carries kind, description, UCUM unit, and bucket ladder, so `_tapped` names a metric and an axis and mints nothing; a locally-declared boundary set is the deleted form because it silently disagrees with the ladder the row publishes and drops the unit tag the OTLP bridge reads its descriptor unit from.
+- Law: every tap fans the same row across every engine key, so an operation reading a measure indexes by the engine it already carries and five engines across four measures never become twenty declarations.
+- Law: `_governed` brackets every unit of work a session owns — an embedded statement, a browser file registration, an Arrow ingest — behind one permit and one budget, so `_Governed`'s two columns are the whole vocabulary a governed call answers. That budget is TOTAL over the unit: the deadline seats above the replay stack, so a governed read releases its fiber on the one bound the row declares rather than on that bound multiplied by every attempt the curve admits.
+- Law: replay admits `access: "read"` alone, so an executing write, extension mutation, credential mint, or profile harvest stays one-shot; the governor values are one policy row.
+- Law: transience is the RAISED fault's property, never the statement's, and it rides `_REASONS` as a column beside the reason it qualifies rather than a roster restated beside the union — so a seventh arrival class lands one row and the gate, the union, and the retry meter all follow it. `replay` admits exactly the arrivals a re-issue can resolve: an unreachable coordinate, and an engine arrival that an `access: "read"` statement — idempotent by the same gate that admits the replay — may re-issue where the embedded drivers classify no far-end verdict at all, while the Flight lane's own status algebra routes its non-retryable verdicts onto the classes this column marks terminal. A credential mint, an extension load, a bundle selection, and a codec crossing each answer on their first answer, and the retry meter counts only the arrivals a replay reaches.
+- Law: connection POPULATION rides `Pool` and statement CONCURRENCY rides the semaphore — the pool bounds how many connections exist and hands a scoped lease back for reuse where the gate bounds how many statements run at once, so a lease costs a checkout rather than a fresh `connect`, a burst cannot open unbounded connections against a single-file engine, and both bounds read the one `_GOVERNOR.sessions` row.
+- Law: connection-local state never escapes its lease — the profile bracket sets and clears its own pragma inside one `acquireUseRelease`, so a checked-in connection carries no diagnosis posture and a pooled reuse inherits none.
+- Law: the drain path never re-buffers — `DuckDBResult.yieldRowObjects()` yields one native data chunk at a time and retains none while the worker's own reader pulls one `RecordBatch` at a time, and `Stream.acquireRelease` holds the session permit until downstream termination; a `DuckDBResultReader` is rejected here because its private chunk roster accumulates the full result even when `readUntil` advances incrementally. Acquisition retries before the first emission; an iteration fault fails the stream without replay because a partial-output retry duplicates rows.
+- Law: a window is exact at both drivers — `readUntil` overshoots by chunk granularity and the worker publishes no row cutoff at all, so the node arm slices its reader and the worker arm pulls batches to the target and slices the assembled `Table`; a caller reading the driver's own overshoot receives rows it never asked for.
+- Law: the worker binds through a prepared plan alone — a statement carrying values opens its plan, executes, and closes it on every exit including interruption, while admission text stays bind-free because a multi-statement `INSTALL`/`LOAD` prepares nowhere; splicing a value into browser SQL is the injection surface the node lane already refuses.
+- Law: extension admission is a statement — `INSTALL`/`LOAD` for the whole `_extensions` roster runs through the `Rows` geometry; a load failure refuses the capability as a typed `extension` fault, never crashes the lane.
 - Law: bundles self-host beside the app shell — `selectBundle` over owned artifact coordinates; a CDN bundle load is rejected by the deployment's content policy.
-- Boundary: `_try` and `_wasm` are the marked promise kernels — typed `DuckDBValue` bind values cross without a cast, and the ambient `Worker` construction lives inside `_wasm`; its thrown missing-worker guard is caught by its own `tryPromise` and folds to the `bundle` reason.
+- Boundary: `_try` and the worker acquire are the marked promise kernels — typed bind values cross without a cast, and the ambient `Worker` construction lives inside the acquire arm; its thrown missing-worker guard is caught by its own `tryPromise` and folds to the `bundle` reason.
 
 ```typescript signature
-import { Data, Duration, Effect, Metric, MetricBoundaries, Schedule, type Scope, Stream } from "effect"
-import { DuckDBInstance, quotedIdentifier, quotedString, type DuckDBConnection, type DuckDBValue } from "@duckdb/node-api"
+import { Array, Data, Duration, Effect, Metric, pipe, Pool, Record, Schedule, type Scope, Stream } from "effect"
+import { DuckDBInstance, type DuckDBConnection, type DuckDBValue } from "@duckdb/node-api"
 import * as wasm from "@duckdb/duckdb-wasm"
+import { RecordBatch, Table } from "apache-arrow"
 import { Convention } from "@rasm/ts/core"
 
-const _waited = Metric.tagged(
-  Metric.histogram(
-    Convention.instrument.olapWait.name,
-    MetricBoundaries.exponential({ start: 1, factor: 2, count: 12 }),
-    Convention.instrument.olapWait.description,
-  ),
-  Convention.rasm.olapEngine,
-  "duckdbNode",
-)
-
-const _retried = Metric.tagged(
-  Metric.counter(Convention.instrument.olapRetried.name, {
-    description: Convention.instrument.olapRetried.description,
-    incremental: true,
-  }),
-  Convention.rasm.olapEngine,
-  "duckdbNode",
-)
+// One row per arrival class, each carrying whether a REPLAY can resolve it: an unreachable coordinate and an engine
+// arrival an idempotent read may re-issue are the two, while a credential mint, an extension load, a bundle selection,
+// and a codec crossing each answer on their first answer. The keys derive the fault's own reason union, so a seventh
+// arrival class is ONE row the gate, the retry meter, and the union all follow from — a roster hand-listed beside the
+// union is the second spelling that drifts the moment either moves.
+const _REASONS = {
+  acquire: { replay: true },
+  query: { replay: true },
+  extension: { replay: false },
+  secret: { replay: false },
+  bundle: { replay: false },
+  wire: { replay: false },
+} as const satisfies Record.ReadonlyRecord<string, { readonly replay: boolean }>
 
 class OlapFault extends Data.TaggedError("OlapFault")<{
   readonly engine: Olap.Engine
-  readonly reason: "acquire" | "query" | "extension" | "bundle" | "wire"
+  readonly reason: keyof typeof _REASONS
   readonly detail: string
 }> {}
 
-const _GOVERNOR = {
-  budget: Duration.seconds(30),
-  retry: Schedule.exponential("100 millis").pipe(
-    Schedule.jittered,
-    Schedule.intersect(Schedule.recurs(3)),
-    Schedule.whileInput((fault: OlapFault) => fault.reason === "query"),
-  ),
-  sessions: 8,
+// Census rows decide each tap's input through the carrier they materialize into: a millisecond-coded histogram row
+// takes the `Duration` its own scale multiplies, a dimensionless counter row takes the number the site holds.
+// `Mounted` keeps that correspondence with the row rather than restating it per measure.
+type _Tap<N extends Convention.MetricName> = Convention.Mounted<N> extends Metric.Metric<infer _Type, infer In, infer _Out> ? In
+  : never
+
+// `Convention.mount` owns kind, description, ladder, and the UCUM tag the OTLP bridge computes its descriptor unit
+// from, so a tap names a census metric and the axis it fans on. `profiled` fans every engine key including those with
+// no landed harvest arm — the tap exists the day an arm lands rather than the day someone remembers its constant.
+const _tapped = <N extends Convention.MetricName>(metric: N, axis: Convention.Key) =>
+  Record.map(_engines, (_row, engine: Olap.Engine) =>
+    pipe(
+      Metric.tagged(Convention.mount(metric), axis, engine),
+      (held) => (value: _Tap<N>): Effect.Effect<void> => Metric.update(held, value),
+    ))
+
+const _meter = {
+  deferred: _tapped(Convention.metric.olapDeferred, Convention.rasm.olapEngine),
+  profiled: _tapped(Convention.metric.profileDuration, Convention.rasm.profileEngine),
+  retried: _tapped(Convention.metric.olapRetried, Convention.rasm.olapEngine),
+  waited: _tapped(Convention.metric.olapWait, Convention.rasm.olapEngine),
 } as const
 
-type _Statement = {
+// One budget, one curve, one permit count — replayability is NOT a fourth field here, because it is a property of the
+// arrival and `_REASONS` already carries it as a column; a roster restated beside that table admits a reason the
+// union never declared and drops one it does.
+const _GOVERNOR = {
+  budget: Duration.seconds(30),
+  retry: Schedule.exponential("100 millis").pipe(Schedule.jittered, Schedule.intersect(Schedule.recurs(3))),
+  sessions: 8,
+} as const satisfies {
+  readonly budget: Duration.Duration
+  readonly retry: Schedule.Schedule<unknown>
+  readonly sessions: number
+}
+
+const _transient = (fault: OlapFault): boolean => _REASONS[fault.reason].replay
+
+// Two columns the governor reads off every governed unit of work, whatever surface raised it: an embedded
+// statement, a browser file registration, a ClickHouse fragment, and a Flight intent each answer them, so one budget
+// and one replay rule govern this whole lane and no engine row grows a private resilience posture.
+type _Governed = {
+  readonly access: "read" | "write"
+  readonly fault: OlapFault["reason"]
+}
+
+type _Statement = _Governed & {
   readonly sql: string
   readonly values?: ReadonlyArray<DuckDBValue>
-  readonly fault: "query" | "extension"
-  readonly access: "read" | "write"
+  readonly fault: "query" | "extension" | "secret"
 }
 
 type OlapRead = Data.TaggedEnum<{
@@ -134,284 +186,1516 @@ type OlapRead = Data.TaggedEnum<{
 
 const _Read = Data.taggedEnum<OlapRead>()
 
+// One fault mint for every promise, iterator, and codec crossing this lane holds: engine and reason arrive from the
+// site already carrying them, so no crossing spells its own constructor and the cause prints exactly once.
+const _fault = (engine: Olap.Engine, reason: OlapFault["reason"]) => (cause: unknown): OlapFault =>
+  new OlapFault({ engine, reason, detail: String(cause) })
+
 const _try = <A>(engine: Olap.Engine, reason: OlapFault["reason"], run: () => Promise<A>): Effect.Effect<A, OlapFault> =>
-  Effect.tryPromise({ try: run, catch: (cause) => new OlapFault({ engine, reason, detail: String(cause) }) })
+  Effect.tryPromise({ try: run, catch: _fault(engine, reason) })
 
-const _resilient = <A>(statement: _Statement, work: Effect.Effect<A, OlapFault>): Effect.Effect<A, OlapFault> => {
-  const timed = work.pipe(
-    Effect.timeoutFail({
-      duration: _GOVERNOR.budget,
-      onTimeout: () => new OlapFault({ engine: "duckdbNode", reason: statement.fault, detail: "<budget>" }),
-    }),
-  )
-  return statement.access === "read" && statement.fault === "query"
-    ? timed.pipe(
-        Effect.tapError(() => Metric.increment(_retried)),
-        Effect.retry(_GOVERNOR.retry),
-      )
-    : timed
-}
-
-const _governed = (gate: Effect.Semaphore) =>
-  <A>(statement: _Statement, work: Effect.Effect<A, OlapFault>): Effect.Effect<A, OlapFault> =>
-    Effect.acquireUseRelease(
-      Effect.tap(Effect.timed(gate.take(1)), ([span]) => Metric.update(_waited, Duration.toMillis(span))), // Gate wait projects onto Convention; permit state stays truth.
-      () => _resilient(statement, work),
-      () => gate.release(1),
+const _resilient = <A, R>(
+  engine: Olap.Engine,
+  governed: _Governed,
+  work: Effect.Effect<A, OlapFault, R>,
+): Effect.Effect<A, OlapFault, R> =>
+  (governed.access === "read"
+    // `_meter.retried` counts REPLAYS, so the tap reads the same row the gate does: a terminal refusal answers once
+    // and records nothing, where an unconditional tap reports every one-shot failure as a retry that never ran.
+    ? work.pipe(
+      Effect.tapError((fault: OlapFault) => _transient(fault) ? _meter.retried[engine](1) : Effect.void),
+      Effect.retry({ schedule: _GOVERNOR.retry, while: _transient }),
+    )
+    : work).pipe(
+      // ONE budget, and it bounds the WHOLE governed unit. Seated UNDER the retry it bounded each attempt alone, so a
+      // replayed read against a stalled engine spent four budgets plus its backoff before releasing the fiber the
+      // bound exists to release. The surface declares one budget, so the transformer sits where that budget is total
+      // rather than where pipe order happened to put it.
+      Effect.timeoutFail({
+        duration: _GOVERNOR.budget,
+        onTimeout: () => new OlapFault({ engine, reason: governed.fault, detail: "<budget>" }),
+      }),
     )
 
-const _values = (values: ReadonlyArray<DuckDBValue> | undefined): Array<DuckDBValue> | undefined =>
-  values === undefined ? undefined : Array.from(values)
+const _governed = <E extends Olap.Embedded>(session: Olap.Session<E>) =>
+  <A, R>(governed: _Governed, work: Effect.Effect<A, OlapFault, R>): Effect.Effect<A, OlapFault, R> =>
+    Effect.acquireUseRelease(
+      Effect.tap(Effect.timed(session.gate.take(1)), ([span]) => _meter.waited[session.engine](span)), // Gate wait projects onto Convention; permit state stays truth.
+      () => _resilient(session.engine, governed, work),
+      () => session.gate.release(1),
+    )
 
-declare namespace Olap {
-  type Session = { readonly connection: DuckDBConnection; readonly gate: Effect.Semaphore }
-  type Handle = { readonly lease: Effect.Effect<Session, OlapFault, Scope.Scope> }
-  type Row = Record<string, unknown>
+// `runAndReadAll` takes a mutable bind list, so this copy IS the boundary; `fromIterable` is effect's own spelling,
+// and the global `from` is unreachable under the module import that shadows it.
+const _values = (values: ReadonlyArray<DuckDBValue> | undefined): Array<DuckDBValue> | undefined =>
+  values === undefined ? undefined : Array.fromIterable(values)
+
+// Each embedded driver answers one geometry family through its own members, its own bind vocabulary, and its own
+// result grain — the node driver types every cell and materializes row objects, the worker clones binds over
+// `postMessage` and hands Arrow through. Keying that correspondence to the engine is what lets one lease, one gate,
+// one budget, and one meter fan serve both without a single geometry branching on a driver name.
+type _Driver = {
+  duckdbNode: {
+    readonly bind: DuckDBValue
+    readonly bounded: ReadonlyArray<Olap.Row>
+    readonly connection: DuckDBConnection
+    readonly element: Olap.Row
+  }
+  duckdbWasm: {
+    readonly bind: Olap.Scalar
+    readonly bounded: Table
+    readonly connection: wasm.AsyncDuckDBConnection
+    readonly element: RecordBatch
+  }
 }
 
-const _node = (path: string, config?: Record<string, string>): Effect.Effect<Olap.Handle, OlapFault, Scope.Scope> =>
+declare namespace Olap {
+  // Engine rides as a type parameter, never a field read at runtime: a member demanding a profiling engine says so
+  // in its signature, so the harvest arm's admitted set is a compile fact rather than a literal it re-asserts.
+  type Embedded = keyof _Driver
+  type Scalar = Extract<DuckDBValue, null | boolean | number | bigint | string>
+  type Bind<E extends Embedded> = _Driver[E]["bind"]
+  type Bounded<E extends Embedded> = _Driver[E]["bounded"]
+  type Element<E extends Embedded> = _Driver[E]["element"]
+  type Session<E extends Embedded = Embedded> = { readonly connection: _Driver[E]["connection"]; readonly engine: E; readonly gate: Effect.Semaphore }
+  // `Handle` carries its engine beside the lease, so a fold labelling evidence, a fault, or a meter before any
+  // session exists reads the key rather than paying a connection to learn what the handle's own type already fixes.
+  type Handle<E extends Embedded = Embedded> = { readonly engine: E; readonly lease: Effect.Effect<Session<E>, OlapFault, Scope.Scope> }
+  type Row = Record.ReadonlyRecord<string, unknown>
+  // `Bound` narrows binds by the session's own engine, so a driver value class no structured clone survives is
+  // unspellable on a statement a worker session runs — the divergence closes at the type, never at a runtime probe.
+  type Bound<E extends Embedded, K extends OlapRead["_tag"]> = Extract<OlapRead, { readonly _tag: K }> & { readonly values?: ReadonlyArray<Bind<E>> }
+  type _Drivers<K extends Engine = Embedded> = K // a driver keyed off the engine table refuses right here, so no fault, meter, or trigger reads an unrostered key
+}
+
+// `AsyncPreparedStatement` is the worker's ONE bind seam: a statement carrying values acquires its plan on the
+// enclosing scope so a streamed read outlives the call that opened it, while bind-free admission text runs on the
+// connection outright because a multi-statement `INSTALL`/`LOAD` prepares nowhere.
+const _worker = <A>(
+  session: Olap.Session<"duckdbWasm">,
+  op: _Statement,
+  bare: (connection: wasm.AsyncDuckDBConnection, sql: string) => Promise<A>,
+  bound: (plan: wasm.AsyncPreparedStatement, values: ReadonlyArray<DuckDBValue>) => Promise<A>,
+): Effect.Effect<A, OlapFault, Scope.Scope> =>
+  op.values === undefined
+    ? _try(session.engine, op.fault, () => bare(session.connection, op.sql))
+    : Effect.flatMap(
+      Effect.acquireRelease(
+        _try(session.engine, op.fault, () => session.connection.prepare(op.sql)),
+        (plan) => Effect.orDie(_try(session.engine, op.fault, () => plan.close())),
+      ),
+      (plan) => _try(session.engine, op.fault, () => bound(plan, op.values ?? [])),
+    )
+
+// Worker readers pull one `RecordBatch` at a time, so the drain and the window share one acquisition and neither
+// materializes more than the caller asked for.
+const _batched = (
+  session: Olap.Session<"duckdbWasm">,
+  op: _Statement,
+): Effect.Effect<Stream.Stream<RecordBatch, OlapFault>, OlapFault, Scope.Scope> =>
+  Effect.map(
+    _worker(session, op, (connection, sql) => connection.send(sql), (plan, values) => plan.send(...values)),
+    (reader) => Stream.fromAsyncIterable(reader, _fault(session.engine, "query")),
+  )
+
+// Dispatch stays cast-free because the session's engine is a BOUND parameter, not a runtime tag over a union: the
+// mapped record's indexed access correlates each member to the session that selected it, so nothing rejoins by hand.
+const _DRIVERS: {
+  readonly [E in Olap.Embedded]: {
+    readonly bounded: (session: Olap.Session<E>, op: _Statement) => Effect.Effect<Olap.Bounded<E>, OlapFault, Scope.Scope>
+    readonly drained: (session: Olap.Session<E>, op: _Statement) => Effect.Effect<Stream.Stream<Olap.Element<E>, OlapFault>, OlapFault, Scope.Scope>
+    readonly windowed: (
+      session: Olap.Session<E>,
+      op: _Statement & { readonly take: number },
+    ) => Effect.Effect<Olap.Bounded<E>, OlapFault, Scope.Scope>
+  }
+} = {
+  duckdbNode: {
+    bounded: (session, op) =>
+      Effect.map(_try(session.engine, op.fault, () => session.connection.runAndReadAll(op.sql, _values(op.values))), (reader) => reader.getRowObjects()),
+    drained: (session, op) =>
+      Effect.map(
+        _try(session.engine, op.fault, () => session.connection.stream(op.sql, _values(op.values))),
+        (result) => Stream.mapConcat(Stream.fromAsyncIterable(result.yieldRowObjects(), _fault(session.engine, "query")), (rows) => rows),
+      ),
+    // `readUntil` advances by chunk grain and overshoots the target, so the take is what makes the window exact
+    windowed: (session, op) =>
+      Effect.map(
+        _try(session.engine, op.fault, () => session.connection.streamAndReadUntil(op.sql, op.take, _values(op.values))),
+        (reader) => Array.take(reader.getRowObjects(), op.take),
+      ),
+  },
+  duckdbWasm: {
+    bounded: (session, op) => _worker(session, op, (connection, sql) => connection.query(sql), (plan, values) => plan.query(...values)),
+    drained: _batched,
+    // Worker readers publish no row cutoff at all, so the window pulls batches until the target is met and slices the
+    // assembled Table — the same exactness the node arm buys after its own reader overshoots.
+    windowed: (session, op) =>
+      Effect.map(
+        Effect.flatMap(_batched(session, op), (batches) =>
+          Stream.runFold(
+            Stream.takeUntil(
+              Stream.mapAccum(batches, 0, (held, batch) => [held + batch.numRows, { batch, taken: held + batch.numRows }] as const),
+              ({ taken }) => taken >= op.take,
+            ),
+            Array.empty<RecordBatch>(),
+            (held, { batch }) => Array.append(held, batch),
+          )),
+        (batches) => new Table(batches).slice(0, op.take),
+      ),
+  },
+}
+
+const _node = (
+  path: string,
+  config?: Record.ReadonlyRecord<string, string>,
+): Effect.Effect<Olap.Handle<"duckdbNode">, OlapFault, Scope.Scope> =>
   Effect.gen(function* () {
     const gate = yield* Effect.makeSemaphore(_GOVERNOR.sessions)
     const instance = yield* Effect.acquireRelease(
       _try("duckdbNode", "acquire", () => DuckDBInstance.create(path, config)),
       (held) => Effect.sync(() => held.closeSync()),
     )
-    return {
-      lease: Effect.acquireRelease(
+    const pool = yield* Pool.make({
+      acquire: Effect.acquireRelease(
         _try("duckdbNode", "acquire", () => instance.connect()),
         (held) => Effect.sync(() => held.disconnectSync()),
-      ).pipe(Effect.map((connection) => ({ connection, gate }))),
+      ),
+      size: _GOVERNOR.sessions,
+    })
+    return {
+      engine: "duckdbNode" as const,
+      lease: Effect.map(pool.get, (connection) => ({ connection, engine: "duckdbNode" as const, gate })),
     }
   })
 
-const _wasm = (bundles: wasm.DuckDBBundles): Effect.Effect<wasm.AsyncDuckDB, OlapFault, Scope.Scope> =>
-  Effect.acquireRelease(
-    _try("duckdbWasm", "bundle", async () => {
-      const bundle = await wasm.selectBundle(bundles)
-      if (bundle.mainWorker === null) throw new Error("<bundle:no-worker>")
-      const worker = new Worker(bundle.mainWorker)
-      const db = new wasm.AsyncDuckDB(new wasm.ConsoleLogger(), worker)
-      await db.instantiate(bundle.mainModule, bundle.pthreadWorker)
-      return db
-    }),
-    (db) => Effect.promise(() => db.terminate()),
+// `Olap.wasm` mints the same handle shape `Olap.node` does, so the browser lane leases, gates, budgets, and
+// meters exactly like the service lane and the viewer reaches analytics through one entry rather than a private path.
+const _wasm = (bundles: wasm.DuckDBBundles): Effect.Effect<Olap.Handle<"duckdbWasm">, OlapFault, Scope.Scope> =>
+  Effect.gen(function* () {
+    const gate = yield* Effect.makeSemaphore(_GOVERNOR.sessions)
+    const db = yield* Effect.acquireRelease(
+      _try("duckdbWasm", "bundle", async () => {
+        const bundle = await wasm.selectBundle(bundles)
+        if (bundle.mainWorker === null) throw new Error("<bundle:no-worker>")
+        const worker = new Worker(bundle.mainWorker)
+        const held = new wasm.AsyncDuckDB(new wasm.ConsoleLogger(), worker)
+        await held.instantiate(bundle.mainModule, bundle.pthreadWorker)
+        return held
+      }),
+      (held) => Effect.promise(() => held.terminate()),
+    )
+    const pool = yield* Pool.make({
+      acquire: Effect.acquireRelease(
+        _try("duckdbWasm", "acquire", () => db.connect()),
+        (held) => Effect.orDie(_try("duckdbWasm", "acquire", () => held.close())),
+      ),
+      size: _GOVERNOR.sessions,
+    })
+    return {
+      engine: "duckdbWasm" as const,
+      lease: Effect.map(pool.get, (connection) => ({ connection, engine: "duckdbWasm" as const, gate })),
+    }
+  })
+
+// Acquisition retries before the first emission and the permit holds until downstream termination; an iteration fault
+// fails the stream without replay because a partial-output retry duplicates rows the consumer already took, and the
+// scope the acquisition registers on is the stream's own, so a worker plan lives exactly as long as its batches.
+const _paged = <E extends Olap.Embedded>(session: Olap.Session<E>, op: _Statement): Stream.Stream<Olap.Element<E>, OlapFault> =>
+  Stream.flatMap(
+    Stream.acquireRelease(session.gate.take(1), () => session.gate.release(1)),
+    () => Stream.unwrapScoped(_resilient(session.engine, op, _DRIVERS[session.engine].drained(session, op))),
   )
 
-const _paged = (session: Olap.Session, op: Extract<OlapRead, { _tag: "Drain" }>): Stream.Stream<Olap.Row, OlapFault> =>
-  Stream.acquireRelease(session.gate.take(1), () => session.gate.release(1)).pipe(
-    Stream.flatMap(() =>
-      Stream.unwrap(
-        _resilient(op, _try("duckdbNode", op.fault, () => session.connection.stream(op.sql, _values(op.values)))).pipe(
-          Effect.map((result) =>
-            Stream.fromAsyncIterable(
-              result.yieldRowObjects(),
-              (cause) => new OlapFault({ engine: "duckdbNode", reason: "query", detail: String(cause) }),
-            ).pipe(Stream.mapConcat((rows) => rows))),
-        ),
-      )),
-  )
-
-function _read(session: Olap.Session, op: Extract<OlapRead, { _tag: "Rows" }>): Effect.Effect<ReadonlyArray<Olap.Row>, OlapFault>
-function _read(session: Olap.Session, op: Extract<OlapRead, { _tag: "Window" }>): Effect.Effect<ReadonlyArray<Olap.Row>, OlapFault>
-function _read(session: Olap.Session, op: Extract<OlapRead, { _tag: "Drain" }>): Stream.Stream<Olap.Row, OlapFault>
-function _read(session: Olap.Session, op: OlapRead): Effect.Effect<ReadonlyArray<Olap.Row>, OlapFault> | Stream.Stream<Olap.Row, OlapFault> {
+function _read<E extends Olap.Embedded>(session: Olap.Session<E>, op: Olap.Bound<E, "Rows" | "Window">): Effect.Effect<Olap.Bounded<E>, OlapFault>
+function _read<E extends Olap.Embedded>(session: Olap.Session<E>, op: Olap.Bound<E, "Drain">): Stream.Stream<Olap.Element<E>, OlapFault>
+function _read<E extends Olap.Embedded>(
+  session: Olap.Session<E>,
+  op: OlapRead,
+): Effect.Effect<Olap.Bounded<E>, OlapFault> | Stream.Stream<Olap.Element<E>, OlapFault> {
   return _Read.$is("Drain")(op)
     ? _paged(session, op)
-    : _governed(session.gate)(
-        op,
-        _Read.$is("Window")(op)
-          ? _try("duckdbNode", op.fault, () => session.connection.streamAndReadUntil(op.sql, op.take, _values(op.values))).pipe(
-              Effect.map((reader) => reader.getRowObjects().slice(0, op.take)), // readUntil may overshoot by chunk granularity; the window is exact
-            )
-          : _try("duckdbNode", op.fault, () => session.connection.runAndReadAll(op.sql, _values(op.values))).pipe(
-              Effect.map((reader) => reader.getRowObjects()),
-            ),
-      )
+    : Effect.scoped(_governed(session)(
+      op,
+      _Read.$is("Window")(op) ? _DRIVERS[session.engine].windowed(session, op) : _DRIVERS[session.engine].bounded(session, op),
+    ))
 }
 ```
 
-## [04]-[LAKE_ROWS]
+## [04]-[RESIDENCE_ROWS]
 
-- Owner: the attachment and table-format rows — the statements that bind the embedded engine to the object plane, the pg spine, and the lake catalog; each is data (a statement mint over the `Rows` read geometry), never a new engine surface.
-- Packages: none beyond `[3]`'s — the rows are SQL forms.
-- Entry: a maintenance fold attaches the spine read-only for offload analytics; the fact rollup egresses Parquet to the object plane through the spine's `parquet` grant or the embedded engine's `httpfs` write; the lake row attaches a DuckLake catalog whose snapshots live in a SQL database and whose data lives as Parquet on the object plane.
-- Growth: a new lake format is one attach row; a new offload source is one `ATTACH` mint; a new extension is one `_extensions` seed consumed by the single `extension(name)` statement generator.
-- Law: `attach.pg` is read-offload only — the embedded engine reads the spine's tables without a second wire format, and no write path exists from the lane back into the OLTP transaction.
+- Owner: the durable-plane family — `_extensions` and its one statement generator, the `_SECRETS` credential rail, the `_attach` statements, the `_D`/`_METRIC_HEAD`/`_POINTS`/`_WIDE` column rosters and the `_mount` attach-and-create projection over them, the `_RESIDENCES` rows answering the estate residence floor (`fits`, `ingest`, `tenancy`, `retain`, `degrade`, `cap` false) beside this plane's own read extension — relations, dialect, and fill — `_residence`/`_target` projecting a row into the core query algebra, `_KIND`/`_relation`/`_absorbed`/`_recorded` filling a plane from the object plane and the live registry, and `_joined` folding signal to evidence; each is data over the `Rows` read geometry, never a new engine surface.
+- Packages: `@aws-sdk/client-s3` (`GetObjectCommand`); `@duckdb/node-api` (`quotedIdentifier`, `quotedString`); `@duckdb/duckdb-wasm` (`db.registerFileURL`, `DuckDBDataProtocol`); `@rasm/ts/core` (`AppIdentity`, `ContentKey`, `Convention`, `DashboardModel`, `Query`); `effect` (`Array`, `DateTime`, `Duration`, `Match`, `Option`, `Record`, `Redacted`); `../object/store.ts` (`ObjectStore`).
+- Entry: a maintenance fold attaches the spine read-only for offload analytics and the lake catalog for evidence reads, spending `Olap.mount` once, which attaches the catalog and creates its relations in one statement; the signal egress calls `Olap.absorb` once per written object batch and a scheduled fold calls `Olap.recorded` once per scrape to fill the derived plane; the composition root calls `Olap.target(residence, identity, source)` once per board and hands the value to `core/observe/board#QUERY`, which renders every tile against it; `Olap.joined` answers a trace-to-receipt reconstruction as one statement.
+- Growth: a new residence is one `_RESIDENCES` row answering the floor beside every read column; a new credential kind is one `_SECRETS` row; a new extension is one `_extensions` seed the single `extension(name)` generator consumes; a new metric point is one `_POINTS` row its DDL and fill both follow from; a new fillable plane is one `Olap.Plane` shape; a new join correspondence is one `_JOIN` pair.
+- Law: TRUTH is the journal alone — every residence is a DERIVED plane carrying zero authority, rebuilt from the fact stream at warm-up cost, so a residence read never settles billing, admission, or erasure; the rebuild route is the journal window replayed through the same egress that filled the plane, and the retention floor below which rebuild fails is the journal's own `Retain.Policy` window, never the residence TTL.
+- Law: residences carry NO cardinality ceiling and each row STATES that — a metrics store caps series because a TSDB indexes every one, while unbounded dimensionality IS the reason a residence exists, so a cap landed here deletes the capability; the `cap` column is typed `false` rather than omitted, because a declared value is what a later pass has to overwrite instead of a gap it can helpfully fill, and `_stores` answers health and alerting while residences answer evidence and history under one board owner.
+- Law: which residence a fold reaches ARRIVES, never defaults — the fill, the recorded roll-up, the evidence join, and the wide-event read each take the row key as a required field, because the deploy plane already published which residence this stack REALIZED and a member-local default answers for a plane that stack may never have planted; two members defaulting differently in one file is that defect made visible, one arm writing the cold tail while its sibling reads the interactive plane on a stack running exactly one of them.
+- Law: the lake's catalog name and its data path are the DEPLOY plane's published coordinates — `iac/operate/observe#ENDPOINT_PROJECTION` publishes the object-plane prefix its own cold-tail anchor names and `Olap.mount` attaches that same name over that path, so the planter names the catalog once and this reader spells it back; a prefix derived here, or spelled off the interactive plane's database at either end, addresses a tree nothing ever wrote and answers empty rather than raising.
+- Law: one query algebra spans both planes — `Olap.target` mints a `Query.Target` and `core/observe/board#QUERY` renders it, so this page fills a residence schema and never spells an expression; a raw-SQL tile, a second query owner, and a per-residence dialect branch each have no seat.
+- Law: a residence answering fewer projections says so in its row rather than growing a second path — `metrics` is `Option`-carried because the wide-event plane holds no correspondence from `Convention.MetricName` to a span or log relation, so `Olap.target` returns `None` there and the tile degrades visibly instead of rendering an expression that matches nothing.
+- Law: the clickhouse plane's names are transcribed, never coined — `iac/operate/observe#CHART_ROWS` plants its wide-event relations and columns, so a rename there breaks this row at its declaration rather than emptying a tile at runtime.
+- Law: the attribute plane derives from the identity projection — a key `Convention.identity` stamps reads off the resource map and every other key off the relation's own signal map, so the split follows the one projection both ends already agree on and no second roster drifts against it.
+- Law: credentials never cross into engine SQL for an object plane — the `s3` and `azure` rows take `credential_chain`, so the row carries coordinates the object plane already publishes and the process's ambient grant carries material; `object/store.ts`'s sealed provider record stays sealed and this lane opens no second unwrap of it.
+- Law: the `postgres` row is the one credential mint that carries material, and `_secret` is its single unwrap seam — the statement mints `fault: "secret"` and `access: "write"`, so it never rides the retry rail and the fault names the SECRET, never the statement, keeping the DSN out of every receipt, log, and fault detail.
+- Law: `attach.pg` is read-offload only and binds through a minted secret rather than an inline DSN — the embedded engine reads the spine's tables without a second wire format, and no write path exists from the lane back into the OLTP transaction.
 - Law: the lake is ACID over object storage with a SQL catalog — multi-table transactions, time travel, and schema evolution ride the catalog database; the object plane holds immutable Parquet, exactly the content-addressed posture the folder's object rows already enforce.
-- Law: range-read Parquet is the browser's only remote source — `Olap.lakeSource` mints the presigned grant through `ObjectStore.grant` and registers it via `registerFileURL(name, url, DuckDBDataProtocol.HTTP, false)`, so the browser-analytics loop is one wired seam bounded by the grant's TTL; no service proxy re-streams rows.
+- Law: a residence names its own ingest owner on the row — `absorb` carries the fill dialect where this lane writes the plane and `None` where the collector's exporter does, so exactly one writer fills each plane and a second path cannot mint rows a retention owner never sees.
+- Law: a fill dialect obligates a DDL projection at the same owner — the `plant` column carries every relation the lake's own fills write into and `Olap.mount` attaches and creates them in ONE statement, so a plane this lane writes exists on a clean catalog and `Olap.absorb` lands its first insert; a residence the collector plants carries neither column, which is what makes the pair total.
+- Law: the lake spells the exporter's own column names and ORDER in DuckDB types, so a Parquet object written for either plane absorbs into the other `BY NAME` and neither plane forks the wide-event vocabulary.
+- Law: the metric relation roster is the OTLP data model's, never the mount roster — `_POINTS` carries one row per point type and `_KIND` projects `Convention.InstrumentKind` onto three of them, so `summary` and `exponentialHistogram` plant and read while no instrument reaches them; deleting the two unreached relations strands a foreign producer's rows in a relation nothing created, and mapping a kind onto one forges a series no mount emits.
+- Law: `exponentialHistogram` and `summary` carry no mount path in this estate — the branch metric owner mints explicit-bucket histograms and no `Convention` row declares a summary kind — so both relations answer reads alone and the absence is the roster's stated fact rather than a gap a later pass rediscovers.
+- Law: the metric plane keys its own instant — OTLP metric relations carry `TimeUnix` where the wide-event relations carry `Timestamp`, so the bucket column rides the `metrics` record and the row-level `time` answers wide events alone; one shared column empties every metric tile against a name its relation never declared.
+- Law: the metric scalar is per KIND, never per residence — a sum relation reads `Value` and a histogram relation reads `Sum`, so `Query.Residence.value` arrives as the same kind-keyed record `table` does and a fold over a bucket relation reads the column that relation genuinely carries.
+- Law: the lake's metric upstream is this process's OWN registry — `Olap.recorded` folds `DashboardModel.snapshot` rows into the point relation each live state names, so the cold tail no metrics store retains lands without a second exporter, a second wire, or an object round trip, and the fill stamps identity exactly as the object fill does.
+- Law: the Parquet writer the object fill presupposes is this page's own — `Olap.lake.write` and `Olap.lake.sink` at `[08]-[ARROW_WIRE]` mint the bytes `object/store#CONDITIONAL` addresses and puts, so "the data planes" the deploy tier credits for lake ingest names these two members and no surface owes a writer.
+- Law: the fill stamps identity, so the derived plane is joinable on arrival — every absorbed row leaves carrying the whole `Convention.identity` projection on its resource map, which is the same key `_JOIN` reads back; a plane filled without it answers no reconstruction until a second pass rewrites every row.
+- Law: the signal-to-evidence join rides SQL `ATTACH`, never a TypeScript import — the lake relations and the spine's `fact_journal` meet inside one embedded statement, so the strata direction this page holds against `journal` survives a join that reads both.
+- Law: range-read Parquet is the browser's only remote source — `Olap.lakeSource` mints the presigned grant through `ObjectStore.grant` and registers it on the leased session's own engine bindings, so the browser-analytics loop is one wired seam bounded by the grant's TTL, rides the same permit and budget every worker statement rides, and no service proxy re-streams rows.
 
 ```typescript signature
 import { GetObjectCommand } from "@aws-sdk/client-s3"
-import { ContentKey } from "@rasm/ts/core"
+import { quotedIdentifier, quotedString } from "@duckdb/node-api"
+import { Array, DateTime, Duration, Match, Option, pipe, Record, Redacted } from "effect"
+import { type AppIdentity, type ContentKey, Convention, DashboardModel, Query } from "@rasm/ts/core"
 import { ObjectStore } from "../object/store.ts"
 
-const _extensions = ["httpfs", "ducklake", "iceberg", "delta", "spatial", "vss", "fts"] as const
+// One DuckDB `MAP` literal spelling for every attribute plane this lane writes — the identity overlay, the recorded
+// fill's resource and signal maps — so a key or value never reaches a statement unescaped and no fill re-spells it.
+const _mapped = (pairs: Record.ReadonlyRecord<string, string | undefined>): string =>
+  pipe(
+    Array.filterMap(Record.toEntries(pairs), ([key, value]) => Option.map(Option.fromNullable(value), (held) => [key, held] as const)),
+    (present) => `MAP {${Array.join(Array.map(present, ([key, value]) => `${quotedString(key)}: ${quotedString(value)}`), ", ")}}`,
+  )
+
+// Roster order is admission concern — transport and credential, lake formats, foreign attach, index families.
+// `postgres` and `sqlite` are the engine's own aliases for `postgres_scanner`/`sqlite_scanner` and the spelling its
+// `ATTACH ... (TYPE …)` clause takes, so roster and clause name one token and the generator serves both.
+const _extensions = ["httpfs", "aws", "azure", "ducklake", "iceberg", "delta", "postgres", "sqlite", "spatial", "vss", "fts"] as const
+
+// One row per `CREATE SECRET` type: the provider that resolves credentials, the URI prefix its scope clause binds,
+// and the storage the persistent form writes into. The object-plane rows take `credential_chain`, so their config
+// carries only coordinates and the ambient grant carries material.
+const _SECRETS = {
+  azure: { prefix: "azure://", provider: "credential_chain", storage: "local_file" },
+  postgres: { prefix: "", provider: "config", storage: "local_file" },
+  s3: { prefix: "s3://", provider: "credential_chain", storage: "local_file" },
+} as const satisfies Record.ReadonlyRecord<string, {
+  readonly prefix: string
+  readonly provider: string
+  readonly storage: string
+}>
 
 declare namespace Olap {
   type Extension = (typeof _extensions)[number]
+  type Secret = keyof typeof _SECRETS
+  type SecretValue = Redacted.Redacted<string> | boolean | number | string
+  type Custody = "persistent" | "session"
 }
 
+// `CREATE SECRET` takes scalars bare and strings single-quoted, and the redacted arm is the ONE unwrap on this lane.
+const _spliced = Match.type<Olap.SecretValue>().pipe(
+  Match.when(Match.string, quotedString),
+  Match.when(Match.boolean, (held) => `${held}`),
+  Match.when(Match.number, (held) => `${held}`),
+  Match.orElse((held) => quotedString(Redacted.value(held))),
+)
+
+const _secret = (row: {
+  readonly config: ReadonlyArray<readonly [key: string, value: Olap.SecretValue]>
+  readonly custody?: Olap.Custody
+  readonly name: string
+  readonly scope?: string
+  readonly type: Olap.Secret
+}): OlapRead =>
+  _Read.Rows({
+    // Persistent custody writes the secret into the engine's own credential store, so a reconnect resolves it
+    // without a second mint; session custody dies with the connection, which is what an ephemeral lane wants.
+    sql: `CREATE OR REPLACE ${row.custody === "persistent" ? "PERSISTENT " : ""}SECRET ${quotedIdentifier(row.name)}`
+      + `${row.custody === "persistent" ? ` IN ${_SECRETS[row.type].storage}` : ""} (${
+        Array.join(
+          [
+            `TYPE ${row.type}`,
+            `PROVIDER ${_SECRETS[row.type].provider}`,
+            ...Option.match(Option.fromNullable(row.scope), {
+              onNone: () => [],
+              onSome: (held) => [`SCOPE ${quotedString(`${_SECRETS[row.type].prefix}${held}`)}`],
+            }),
+            ...Array.map(row.config, ([key, value]) => `${quotedIdentifier(key)} ${_spliced(value)}`),
+          ],
+          ", ",
+        )
+      })`,
+    fault: "secret",
+    access: "write",
+  })
+
+// Object-plane rows read the store's published coordinates and never its sealed keys: `credential_chain` walks
+// this process's own grant, which is why no `Redacted` value appears on the path at all.
+const _objectSecret = Effect.map(ObjectStore, (store) =>
+  _secret({
+    config: [
+      ["CHAIN", "env;config;instance"],
+      ["ENDPOINT", store.provider.endpoint],
+      ["REGION", store.provider.region],
+      ["URL_STYLE", store.provider.forcePathStyle ? "path" : "vhost"],
+    ],
+    name: "olap_object",
+    scope: store.bucket,
+    type: "s3",
+  }))
+
 const _attach = {
-  pg: (dsn: string) => _Read.Rows({ sql: `ATTACH ${quotedString(dsn)} AS spine (TYPE postgres, READ_ONLY)`, fault: "extension", access: "write" }),
-  sqlite: (path: string) => _Read.Rows({ sql: `ATTACH ${quotedString(path)} AS lane (TYPE sqlite)`, fault: "extension", access: "write" }),
-  ducklake: (catalog: string, dataPath: string) =>
-    _Read.Rows({
-      sql: `ATTACH ${quotedString(`ducklake:${catalog}`)} AS lake (DATA_PATH ${quotedString(dataPath)})`,
-      fault: "extension",
-      access: "write",
-    }),
-  extensions: _extensions,
   extension: (name: Olap.Extension) =>
     _Read.Rows({ sql: `INSTALL ${quotedIdentifier(name)}; LOAD ${quotedIdentifier(name)};`, fault: "extension", access: "write" }),
-  httpfs: _Read.Rows({ sql: "INSTALL httpfs; LOAD httpfs;", fault: "extension", access: "write" }),
+  extensions: _extensions,
+  object: _objectSecret,
+  // Empty paths are the engine's own spelling for "the named secret carries every coordinate", which keeps the DSN
+  // out of the statement text a fault, receipt, or query log otherwise carries.
+  pg: (secret: string) =>
+    _Read.Rows({ sql: `ATTACH '' AS spine (TYPE postgres, SECRET ${quotedIdentifier(secret)}, READ_ONLY)`, fault: "extension", access: "write" }),
+  secret: _secret,
+  secrets: _SECRETS,
+  sqlite: (path: string) => _Read.Rows({ sql: `ATTACH ${quotedString(path)} AS lane (TYPE sqlite)`, fault: "extension", access: "write" }),
 } as const
 
-const _lakeSource = (db: wasm.AsyncDuckDB, name: string, key: ContentKey) =>
+// Worker sessions reach their own engine off the leased connection, so the registration takes a session like every other
+// unit of work the browser lane owns and no second handle crosses into this fold.
+const _lakeSource = (session: Olap.Session<"duckdbWasm">, name: string, key: ContentKey) =>
   Effect.gen(function* () {
     const store = yield* ObjectStore
     const grant = yield* store.grant(key, new GetObjectCommand({ Bucket: store.bucket, Key: key }))
-    yield* _try("duckdbWasm", "wire", () => db.registerFileURL(name, grant.url, wasm.DuckDBDataProtocol.HTTP, false))
+    return yield* _governed(session)(
+      { access: "write", fault: "wire" },
+      _try(session.engine, "wire", () => session.connection.bindings.registerFileURL(name, grant.url, wasm.DuckDBDataProtocol.HTTP, false)),
+    )
   })
+
+// --- [RESIDENCE_FAMILY]
+
+// DuckDB spellings for the exporter's own column vocabulary. The lake plants the same NAMES in its own types, so an
+// object written against either plane absorbs `BY NAME` and no fill re-maps a column on the way in.
+const _D = {
+  bool: "BOOLEAN",
+  flag: "UINTEGER",
+  low: "VARCHAR",
+  map: "MAP(VARCHAR, VARCHAR)",
+  maps: "MAP(VARCHAR, VARCHAR)[]",
+  real: "DOUBLE",
+  reals: "DOUBLE[]",
+  small: "UTINYINT",
+  span: "UBIGINT",
+  stamp: "TIMESTAMP_NS",
+  stamps: "TIMESTAMP_NS[]",
+  text: "VARCHAR",
+  texts: "VARCHAR[]",
+  whole: "UBIGINT",
+  wholes: "UBIGINT[]",
+} as const
+
+// Every metric relation opens on one head — identity, scope, and descriptor columns the exporter writes ahead of the
+// point payload — so a point row carries only what genuinely differs and no relation drifts its own head.
+const _METRIC_HEAD: ReadonlyArray<readonly [name: string, type: string]> = [
+  ["ResourceAttributes", _D.map], ["ResourceSchemaUrl", _D.low], ["ScopeName", _D.text], ["ScopeVersion", _D.text],
+  ["ScopeAttributes", _D.map], ["ScopeSchemaUrl", _D.low], ["ServiceName", _D.low], ["MetricName", _D.low],
+  ["MetricDescription", _D.text], ["MetricUnit", _D.low], ["Attributes", _D.map], ["StartTimeUnix", _D.stamp],
+  ["TimeUnix", _D.stamp],
+]
+
+// One row per OTLP metric POINT type: the relation holding it, the payload columns past the shared head, and the
+// scalar a query fold reads off it. `value` differs by point because a bucket relation carries no per-point value.
+const _POINTS = {
+  exponentialHistogram: {
+    columns: [
+      ["Count", _D.whole], ["Sum", _D.real], ["Scale", _D.small], ["ZeroCount", _D.whole],
+      ["PositiveOffset", _D.small], ["PositiveBucketCounts", _D.wholes], ["NegativeOffset", _D.small],
+      ["NegativeBucketCounts", _D.wholes], ["Min", _D.real], ["Max", _D.real], ["Flags", _D.flag],
+      ["AggregationTemporality", _D.small],
+    ],
+    relation: "otel_metrics_exponential_histogram",
+    value: "Sum",
+  },
+  gauge: { columns: [["Value", _D.real], ["Flags", _D.flag]], relation: "otel_metrics_gauge", value: "Value" },
+  histogram: {
+    columns: [
+      ["Count", _D.whole], ["Sum", _D.real], ["BucketCounts", _D.wholes], ["ExplicitBounds", _D.reals],
+      ["Min", _D.real], ["Max", _D.real], ["Flags", _D.flag], ["AggregationTemporality", _D.small],
+    ],
+    relation: "otel_metrics_histogram",
+    value: "Sum",
+  },
+  sum: {
+    columns: [["Value", _D.real], ["Flags", _D.flag], ["AggregationTemporality", _D.small], ["IsMonotonic", _D.bool]],
+    relation: "otel_metrics_sum",
+    value: "Value",
+  },
+  summary: {
+    columns: [
+      ["Count", _D.whole], ["Sum", _D.real], ["ValueAtQuantiles.Quantile", _D.reals],
+      ["ValueAtQuantiles.Value", _D.reals], ["Flags", _D.flag],
+    ],
+    relation: "otel_metrics_summary",
+    value: "Sum",
+  },
+} as const satisfies Record.ReadonlyRecord<string, {
+  readonly columns: ReadonlyArray<readonly [name: string, type: string]>
+  readonly relation: string
+  readonly value: string
+}>
+
+// Wide-event relations transcribe `iac/operate/observe#CHART_ROWS`'s column list and ORDER verbatim into DuckDB
+// types; a rename or reorder there breaks this roster at its declaration rather than emptying a tile at read time.
+const _WIDE = {
+  logs: {
+    columns: [
+      ["Timestamp", _D.stamp], ["TraceId", _D.text], ["SpanId", _D.text], ["TraceFlags", _D.small],
+      ["SeverityText", _D.low], ["SeverityNumber", _D.small], ["ServiceName", _D.low], ["Body", _D.text],
+      ["ResourceSchemaUrl", _D.low], ["ResourceAttributes", _D.map], ["ScopeSchemaUrl", _D.low],
+      ["ScopeName", _D.text], ["ScopeVersion", _D.low], ["ScopeAttributes", _D.map], ["LogAttributes", _D.map],
+      ["EventName", _D.text],
+      ["ResourceAttributesKeys", _D.texts], ["ScopeAttributesKeys", _D.texts], ["LogAttributesKeys", _D.texts],
+    ],
+    plane: "LogAttributes",
+    table: "otel_logs",
+    text: "Body",
+  },
+  traces: {
+    columns: [
+      ["Timestamp", _D.stamp], ["TraceId", _D.text], ["SpanId", _D.text], ["ParentSpanId", _D.text],
+      ["TraceState", _D.text], ["SpanName", _D.low], ["SpanKind", _D.low], ["ServiceName", _D.low],
+      ["ResourceAttributes", _D.map], ["ScopeName", _D.text], ["ScopeVersion", _D.text], ["SpanAttributes", _D.map],
+      ["Duration", _D.span], ["StatusCode", _D.low], ["StatusMessage", _D.text],
+      ["Events.Timestamp", _D.stamps], ["Events.Name", _D.texts], ["Events.Attributes", _D.maps],
+      ["Links.TraceId", _D.texts], ["Links.SpanId", _D.texts], ["Links.TraceState", _D.texts],
+      ["Links.Attributes", _D.maps],
+      ["ResourceAttributesKeys", _D.texts], ["SpanAttributesKeys", _D.texts],
+    ],
+    plane: "SpanAttributes",
+    table: "otel_traces",
+    text: "SpanName",
+  },
+} as const satisfies Record.ReadonlyRecord<"logs" | "traces", {
+  readonly columns: ReadonlyArray<readonly [name: string, type: string]>
+  readonly plane: string
+  readonly table: string
+  readonly text: string
+}>
+
+// Two durable planes, one row shape. `relations` names the wide-event tables and the attribute map each carries;
+// `metrics` is Option-carried because only a plane holding OTLP metric relations answers the metric-series algebra,
+// and a row that cannot answer says so here instead of exposing a second query path. `plant` is Some exactly where
+// `absorb` is, because a plane this lane fills is a plane this lane must first create. Every column that differs by
+// dialect — the map accessor, the identity concatenation — is a row function, so no render arm branches on a key.
+const _RESIDENCES = {
+  clickhouse: {
+    // Collector exporters fill this plane, so nothing here writes it: an `absorb` arm beside the exporter
+    // double-writes the same wide events under two retention owners with no way to tell which row is which.
+    absorb: Option.none(),
+    access: (map: string, key: Query.Key) => `${map}[${quotedString(key)}]`,
+    cap: false,
+    catalog: "rasm",
+    degrade: "wide events only — no metric relation exists here, so a metric tile renders against the lake plane",
+    engine: "clickhouse",
+    fits: "interactive wide-event at any cardinality",
+    ingest: "the deploy plane's collector `clickhouse` exporter against branch-owned DDL",
+    retain: "table TTL with `ttl_only_drop_parts` on the engine's own merge schedule",
+    tenancy: "tenant leads the sort key",
+    metrics: Option.none(),
+    plant: Option.none(),
+    relations: {
+      logs: { plane: _WIDE.logs.plane, table: _WIDE.logs.table, text: _WIDE.logs.text },
+      traces: { plane: _WIDE.traces.plane, table: _WIDE.traces.table, text: _WIDE.traces.text },
+    },
+    resolution: Duration.seconds(30),
+    resource: "ResourceAttributes",
+    series: (parts: ReadonlyArray<string>) => `concat_ws(char(31), ${Array.join(parts, ", ")})`,
+    time: "Timestamp",
+  },
+  lake: {
+    // This lane fills the plane itself, so the row carries the two dialect spellings the fill needs and nothing else:
+    // `scan` reads object-plane objects by URI and `merge` overlays the identity pairs onto the resource map.
+    absorb: Option.some({
+      merge: (plane: string, pairs: Record.ReadonlyRecord<string, string | undefined>) => `map_concat(${plane}, ${_mapped(pairs)})`,
+      scan: (uris: ReadonlyArray<string>) => `read_parquet([${Array.join(Array.map(uris, quotedString), ", ")}], union_by_name = true)`,
+    }),
+    // Missing map keys read NULL on this engine, and a NULL operand poisons every comparison the predicate fold
+    // builds, so the accessor coalesces to the empty string exactly as an absent attribute means on the wire.
+    access: (map: string, key: Query.Key) => `COALESCE(${map}[${quotedString(key)}], '')`,
+    cap: false,
+    catalog: "lake",
+    degrade: "batch scan over object storage — a tile here reads as a report, never an interactive panel, and no Grafana driver reads the tree, so a board reaches it through a report this lane renders",
+    engine: "duckdb",
+    fits: "cold tail, cheapest per byte, batch scan",
+    ingest: "this lane's own `Olap.lake.sink` mints the objects and `Olap.absorb` lands them",
+    retain: "table-format retention on the object plane's own lifecycle",
+    tenancy: "partition column",
+    // Keyed by OTLP point, never by instrument kind: the roster is the data model's, so the two points this estate
+    // mounts nothing onto still relate and a foreign producer's rows land where the plane already declares them.
+    metrics: Option.some({
+      name: "MetricName",
+      plane: "Attributes",
+      tables: Record.map(_POINTS, (point) => point.relation),
+      time: "TimeUnix",
+    }),
+    // Every relation the lake's own fills write into, planted on the attach fold that mounts the catalog.
+    plant: Option.some([
+      ...Array.map(Record.values(_WIDE), (row) => ({ columns: row.columns, table: row.table })),
+      ...Array.map(Record.values(_POINTS), (point) => ({ columns: [..._METRIC_HEAD, ...point.columns], table: point.relation })),
+    ]),
+    relations: {
+      logs: { plane: _WIDE.logs.plane, table: _WIDE.logs.table, text: _WIDE.logs.text },
+      traces: { plane: _WIDE.traces.plane, table: _WIDE.traces.table, text: _WIDE.traces.text },
+    },
+    resolution: Duration.minutes(5),
+    resource: "ResourceAttributes",
+    series: (parts: ReadonlyArray<string>) => `concat_ws(chr(31), ${Array.join(parts, ", ")})`,
+    time: "Timestamp",
+  },
+} as const satisfies Record.ReadonlyRecord<string, {
+  readonly absorb: Option.Option<{
+    readonly merge: (plane: string, pairs: Record.ReadonlyRecord<string, string | undefined>) => string
+    readonly scan: (uris: ReadonlyArray<string>) => string
+  }>
+  readonly access: (map: string, key: Query.Key) => string
+  // Floor column stated and permanently false: unbounded dimensionality IS why a residence exists, so a declared
+  // `false` is what a later pass has to overwrite instead of a gap it can helpfully fill.
+  readonly cap: false
+  readonly catalog: string
+  readonly degrade: string
+  readonly engine: Query.Engine
+  readonly fits: string
+  readonly ingest: string
+  readonly retain: string
+  readonly tenancy: string
+  readonly metrics: Option.Option<{
+    readonly name: string
+    readonly plane: string
+    readonly tables: Record.ReadonlyRecord<Olap.Point, string>
+    readonly time: string
+  }>
+  readonly plant: Option.Option<ReadonlyArray<{ readonly columns: ReadonlyArray<readonly [name: string, type: string]>; readonly table: string }>>
+  readonly relations: Record.ReadonlyRecord<"logs" | "traces", { readonly plane: string; readonly table: string; readonly text: string }>
+  readonly resolution: Duration.Duration
+  readonly resource: string
+  readonly series: (parts: ReadonlyArray<string>) => string
+  readonly time: string
+}>
+
+declare namespace Olap {
+  type Point = keyof typeof _POINTS
+  type Residence = keyof typeof _RESIDENCES
+  type Relation = keyof (typeof _RESIDENCES)[Residence]["relations"]
+  // Two plane shapes a residence relation takes: a wide-event signal names its own relation key, a metric series
+  // names the instrument kind whose table the row maps it onto, so one fill entry reaches both without a second member.
+  type Plane = { readonly signal: Relation } | { readonly kind: Convention.InstrumentKind }
+}
+
+// OTLP carries a monotonic sum, a non-monotonic sum, and a word census into the ONE sum relation, so three kinds share
+// a point rather than the roster losing the two that would otherwise read as unrepresentable and drop their series.
+const _KIND = {
+  counter: "sum",
+  frequency: "sum",
+  gauge: "gauge",
+  histogram: "histogram",
+  updown: "sum",
+} as const satisfies Record.ReadonlyRecord<Convention.InstrumentKind, Olap.Point>
+
+// Mount and create are ONE statement, so the first `Olap.absorb` after a clean attach lands instead of failing at a
+// relation nobody created; `IF NOT EXISTS` makes the whole fold idempotent, and a residence carrying no `plant` row
+// answers `None` here exactly as it answers `None` for the fill, so no caller can mount a plane this lane cannot own.
+const _mount = (key: Olap.Residence, dataPath: string): Option.Option<OlapRead> =>
+  Option.map(_RESIDENCES[key].plant, (rows) =>
+    _Read.Rows({
+      sql: Array.join([
+        `ATTACH IF NOT EXISTS ${quotedString(`ducklake:${_RESIDENCES[key].catalog}`)}`
+        + ` AS ${quotedIdentifier(_RESIDENCES[key].catalog)} (DATA_PATH ${quotedString(dataPath)});`,
+        ...Array.map(rows, (row) =>
+          `CREATE TABLE IF NOT EXISTS ${_RESIDENCES[key].catalog}.${quotedIdentifier(row.table)} (`
+          + `${Array.join(Array.map(row.columns, ([name, type]) => `${quotedIdentifier(name)} ${type}`), ", ")});`),
+      ], " "),
+      fault: "extension",
+      access: "write",
+    }))
+
+// Resource and signal split off the ONE identity projection both ends already agree on: a key the resource stamps
+// reads off the resource map, every other key off the relation's own map. Hand-listing that roster here drifts the
+// first time an identity dimension lands or leaves.
+const _planed = (row: (typeof _RESIDENCES)[Olap.Residence], identity: AppIdentity, plane: string) =>
+  (key: Query.Key): string =>
+    row.access(Record.has(Convention.identity(identity), key) ? row.resource : plane, key)
+
+const _residence = (key: Olap.Residence, identity: AppIdentity): Option.Option<Query.Residence> =>
+  Option.map(_RESIDENCES[key].metrics, (metrics) =>
+    pipe(_planed(_RESIDENCES[key], identity, metrics.plane), (attribute) => ({
+      attribute,
+      degrade: _RESIDENCES[key].degrade,
+      identity: (keys: ReadonlyArray<Query.Key>) =>
+        keys.length === 0 ? "''" : _RESIDENCES[key].series(Array.map(keys, attribute)),
+      name: metrics.name,
+      table: Record.map(_KIND, (point) => `${_RESIDENCES[key].catalog}.${metrics.tables[point]}`),
+      time: metrics.time,
+      // Bucket relations carry no per-point value column, so the scalar rides the KIND rather than the residence and
+      // a fold over a histogram reads `Sum` where a fold over a counter reads `Value`.
+      value: Record.map(_KIND, (point) => _POINTS[point].value),
+    })))
+
+const _target = (key: Olap.Residence, identity: AppIdentity, source: string): Option.Option<Query.Target> =>
+  Option.map(_residence(key, identity), (residence) =>
+    Query.sql({
+      engine: _RESIDENCES[key].engine,
+      residence,
+      resolution: Query.span(_RESIDENCES[key].resolution),
+      source,
+    }))
+
+// --- [RESIDENCE_FILL]
+
+// One relation resolution over both plane shapes: a wide-event key reads the row's own relation entry and a metric
+// kind reads the metric table map, so a residence holding no metric relation answers `None` here exactly as it does
+// for the query target and no caller learns the difference through a second member.
+const _relation = (held: (typeof _RESIDENCES)[Olap.Residence]) =>
+  Match.type<Olap.Plane>().pipe(
+    Match.when(
+      { signal: Match.string },
+      ({ signal }) => Option.some({ plane: held.relations[signal].plane, table: held.relations[signal].table }),
+    ),
+    Match.orElse(({ kind }) => Option.map(held.metrics, (metrics) => ({ plane: metrics.plane, table: metrics.tables[_KIND[kind]] }))),
+  )
+
+// Filling IS what keeps the derived plane joinable: every absorbed row leaves carrying the whole
+// `Convention.identity` projection on its resource map, which is the same key the evidence join reads back, so a
+// plane rebuilt from object storage answers the reconstruction on its first read rather than after a second pass
+// stamps identity onto it. `BY NAME` binds the Parquet footer's columns to the relation by name, so a producer
+// adding a column ahead of the residence widens nothing here; an unresolved identity dimension contributes no pair.
+const _absorbed = (row: {
+  readonly identity: AppIdentity
+  readonly objects: ReadonlyArray<ContentKey>
+  readonly plane: Olap.Plane
+  readonly residence: Olap.Residence
+}): Effect.Effect<Option.Option<OlapRead>, never, ObjectStore> =>
+  Effect.map(ObjectStore, (store) =>
+    pipe(_RESIDENCES[row.residence], (held) =>
+      Option.map(
+        Option.all({ fill: held.absorb, relation: _relation(held)(row.plane) }),
+        ({ fill, relation }) =>
+          _Read.Rows({
+            sql: `INSERT INTO ${held.catalog}.${relation.table} BY NAME SELECT * EXCLUDE (${held.resource}),`
+              + ` ${fill.merge(held.resource, Convention.identity(row.identity))} AS ${held.resource}`
+              + ` FROM ${fill.scan(Array.map(row.objects, (key) => `s3://${store.bucket}/${key}`))}`,
+            fault: "query",
+            access: "write",
+          }),
+      )))
+
+// One INSERT per point relation the snapshot reached: `DashboardModel.snapshot` filters the live registry to
+// `Convention.metric` rows and its `Signal` family discriminates exactly the point types the plane relates, so the
+// projection is a total match and a state shape with no relation is unrepresentable rather than silently dropped.
+// Frequency states fan one row per occurrence under the owned word axis, which is why every arm yields an array.
+const _CELLS = {
+  // Effect stores a signed level as a counter state, so monotonicity reads the signal's own DECLARED wire form —
+  // a `updown` row planting `is_monotonic` true files a level that falls as a total that only rises.
+  Counter: (row: Extract<DashboardModel.Signal, { readonly _tag: "Counter" }>) => [{
+    attributes: row.labels,
+    cells: [`${row.value}`, "0", "2", `${row.declared !== "updown"}`],
+    name: row.name,
+    point: "sum" as const,
+  }],
+  Frequency: (row: Extract<DashboardModel.Signal, { readonly _tag: "Frequency" }>) =>
+    Array.map(Array.fromIterable(row.values), ([word, count]) => ({
+      attributes: { ...row.labels, [Convention.wire.occurrence]: word },
+      cells: [`${count}`, "0", "2", "true"],
+      name: row.name,
+      point: "sum" as const,
+    })),
+  Gauge: (row: Extract<DashboardModel.Signal, { readonly _tag: "Gauge" }>) => [{
+    attributes: row.labels,
+    cells: [`${row.value}`, "0"],
+    name: row.name,
+    point: "gauge" as const,
+  }],
+  // Effect states buckets as CUMULATIVE counts against their upper bound where OTLP states per-bucket counts against
+  // that bound roster minus its overflow edge, so this arm deltas the counts and drops the trailing edge exactly once.
+  Histogram: (row: Extract<DashboardModel.Signal, { readonly _tag: "Histogram" }>) => [{
+    attributes: row.labels,
+    cells: [
+      `${row.count}`,
+      `${row.sum}`,
+      `[${Array.join(Array.map(row.buckets, ([, held], index) => `${held - (index === 0 ? 0 : row.buckets[index - 1][1])}`), ", ")}]`,
+      `[${Array.join(Array.map(Array.dropRight(row.buckets, 1), ([bound]) => `${bound}`), ", ")}]`,
+      `${row.min}`,
+      `${row.max}`,
+      "0",
+      "2",
+    ],
+    name: row.name,
+    point: "histogram" as const,
+  }],
+  // Unmeasured quantiles contribute to neither list, so both stay index-aligned by construction.
+  Summary: (row: Extract<DashboardModel.Signal, { readonly _tag: "Summary" }>) =>
+    pipe(Array.filterMap(row.quantiles, ([at, held]) => Option.map(held, (present) => [at, present] as const)), (measured) => [{
+      attributes: row.labels,
+      cells: [
+        `${row.count}`,
+        `${row.sum}`,
+        `[${Array.join(Array.map(measured, ([at]) => `${at}`), ", ")}]`,
+        `[${Array.join(Array.map(measured, ([, held]) => `${held}`), ", ")}]`,
+        "0",
+      ],
+      name: row.name,
+      point: "summary" as const,
+    }]),
+  // Registry states carrying no OTLP point shape relate to no relation, so they contribute no row at all.
+  Unknown: () => [],
+} as const
+
+// Lake METRICS rise from this process's own registry, folded into the point relations the plane plants. Identity
+// merges here exactly as the object fill merges it onto a scanned object, so both fills leave the plane joinable on
+// arrival and `_JOIN` reads one key set whichever fill wrote the row. `_recorded` is the cold tail a metrics store's
+// retention cannot hold, minted with no second exporter, no second wire, and no object round trip.
+const _recorded = (row: {
+  readonly identity: AppIdentity
+  readonly at: DateTime.Utc
+  readonly residence: Olap.Residence
+}): Effect.Effect<ReadonlyArray<OlapRead>, never, never> =>
+  Effect.map(DashboardModel.snapshot, (signals) =>
+    pipe({ held: _RESIDENCES[row.residence], scope: Convention.scope("data", row.identity.build.version) }, ({ held, scope }) =>
+      Option.match(held.metrics, {
+        onNone: () => [],
+        onSome: (metrics) =>
+          pipe(
+            Array.flatMap(signals, (signal) => _CELLS[signal._tag](signal as never)),
+            Array.groupBy((entry) => entry.point),
+            Record.toEntries,
+            Array.map(([point, entries]) =>
+              _Read.Rows({
+                sql: `INSERT INTO ${held.catalog}.${metrics.tables[point as Olap.Point]} BY NAME SELECT * FROM (VALUES ${
+                  Array.join(
+                    Array.map(entries, (entry) =>
+                      `(${
+                        Array.join([
+                          _mapped(Convention.identity(row.identity)),
+                          `${quotedString(scope.schemaUrl)}`,
+                          `${quotedString(scope.name)}`,
+                          `${quotedString(scope.version)}`,
+                          "MAP {}",
+                          `${quotedString(scope.schemaUrl)}`,
+                          `${quotedString(row.identity.app)}`,
+                          `${quotedString(entry.name)}`,
+                          `${quotedString(Convention.named[entry.name].description)}`,
+                          `${quotedString(Convention.named[entry.name].unit)}`,
+                          _mapped(entry.attributes),
+                          `${quotedString(DateTime.formatIso(row.at))}::${_D.stamp}`,
+                          `${quotedString(DateTime.formatIso(row.at))}::${_D.stamp}`,
+                          ...entry.cells,
+                        ], ", ")
+                      })`),
+                    ", ",
+                  )
+                }) AS t(${
+                  Array.join(
+                    Array.map([..._METRIC_HEAD, ..._POINTS[point as Olap.Point].columns], ([name]) => quotedIdentifier(name)),
+                    ", ",
+                  )
+                })`,
+                fault: "query",
+                access: "write",
+              })),
+          ),
+      })))
+
+// --- [EVIDENCE_JOIN]
+
+// Identity is the join key, spelled once per side: the signal plane carries the whole `Convention.identity`
+// projection on its resource map and the journal declares two columns, so the correspondence is a row table rather
+// than a predicate re-derived per call site. A caller extending the correspondence — a content-key attribute the
+// span plane stamps against the receipt key the journal payload carries — passes one more pair and nothing else moves.
+const _JOIN: ReadonlyArray<readonly [key: Query.Key, column: string]> = [
+  [Convention.attr.serviceName, "app"],
+  [Convention.rasm.tenant, "tenant"],
+]
+
+// One statement, two planes: the DuckLake-attached relation and the ATTACH-mounted `fact_journal`. The window bounds
+// both sides so neither scans past the reconstruction the caller asked for, and the evidence side stays the truth —
+// this fold reads it, never writes it.
+const _joined = (row: {
+  readonly identity: AppIdentity
+  readonly on?: ReadonlyArray<readonly [key: Query.Key, column: string]>
+  readonly relation?: Olap.Relation
+  readonly residence: Olap.Residence
+  readonly window: Duration.Duration
+}): OlapRead =>
+  pipe(
+    {
+      held: _RESIDENCES[row.residence],
+      // Evidence compares in millis and the span side in seconds, so both bounds derive from the ONE window
+      // through its own duration projections rather than a hand-scaled literal drifting from its twin.
+      millis: Duration.toMillis(row.window),
+      relation: _RESIDENCES[row.residence].relations[row.relation ?? "traces"],
+      seconds: Duration.toSeconds(row.window),
+    },
+    ({ held, millis, relation, seconds }) =>
+      pipe(_planed(held, row.identity, relation.plane), (attribute) =>
+        _Read.Rows({
+          sql: `SELECT s.TraceId AS trace, s.SpanId AS span, s.${relation.text} AS name, s.${held.time} AS at,`
+            + ` f.sequence AS evidence, f.stream AS stream, f.payload AS payload`
+            + ` FROM ${held.catalog}.${relation.table} s JOIN spine.fact_journal f ON ${
+              Array.join(
+                [
+                  // Journals write NULL for an absent tenant while the wire writes no attribute at all, so both
+                  // sides normalize to the empty string; comparing NULL to '' drops every single-tenant row silently.
+                  ...Array.map(row.on ?? _JOIN, ([key, column]) => `${attribute(key)} = COALESCE(f.${column}, '')`),
+                  // Window bounds close on the fact's OWN stamp, never on `recorded_at`: a row landing late under
+                  // a dead database carries a write time hours past its span and drops out of this join silently.
+                  // Both sides reduce to epoch millis, so the comparison is integer and the correlation exact.
+                  `f.stamp_physical BETWEEN epoch_ms(s.${held.time}) - ${millis}`
+                  + ` AND epoch_ms(s.${held.time}) + ${millis}`,
+                ],
+                " AND ",
+              )
+            } WHERE s.${held.time} >= now() - INTERVAL '${seconds} seconds'`,
+          fault: "query",
+          access: "read",
+        })),
+  )
 ```
 
 ## [05]-[CLICKHOUSE]
 
-- Owner: the at-scale driver row — the `ClickhouseClient` Layer mint and `Olap.ingest`, the quota-governed `insertQuery` seam every replication stream rides; neutral analytical reads, command-mode effects, typed parameters, query IDs, and scoped settings remain members of the concrete client held inside the owner rather than parallel lane entries.
-- Packages: `@effect/sql-clickhouse` (`ClickhouseClient.layerConfig`, `insertQuery`, `asCommand`, `param`, `withQueryId`, `withClickhouseSettings`); `@effect/experimental` (`RateLimiter.makeWithRateLimiter`, `RateLimiterStore`); `effect` (`Config`).
-- Entry: admitted at the composition root only where the `_engines.clickhouse.trigger` condition is real; the fact journal's high-cardinality rollups replicate into MergeTree through `Olap.ingest`, whose intent carries the query id and settings posture applied on the concrete client fiber; dashboards read the cluster, never the OLTP spine.
-- Growth: a new ingestion stream is one `ingest` call site over the same layer; a new settings posture is a `withClickhouseSettings` scope; a quota posture is an `_INGEST_QUOTA` override keyed per app, never a consumer wrap.
-- Law: the driver extends the neutral `SqlClient`, so analytical reads ride the same `sql` DSL and typed decode as every lane — `clickhouse` is an `onDialect` arm-KEY; only ingestion and command routing reach the concrete Tag.
+- Owner: the at-scale driver row — the `ClickhouseClient` Layer mint, `Olap.ingest`'s quota-governed `insertQuery` seam, and `Olap.wide`, the residence read end folding the neutral `sql` DSL onto the lane's one fault rail; typed parameters, command-mode routing, query IDs, and scoped settings stay members of the concrete client held inside the owner rather than parallel lane entries.
+- Packages: `@effect/sql-clickhouse` (`ClickhouseClient.layerConfig`, `insertQuery`, `asCommand`, `param`, `withQueryId`, `withClickhouseSettings`); `@effect/sql` (`SqlClient`, `SqlError`); `@effect/experimental` (`RateLimiter.makeWithRateLimiter`, `RateLimiterStore`); `effect` (`Clock`, `Config`, `Duration`, `Layer`).
+- Entry: admitted at the composition root only where the `_engines.clickhouse.trigger` condition is real; the fact journal's high-cardinality rollups replicate into MergeTree through `Olap.ingest`, whose intent carries the query id and settings posture applied on the concrete client fiber; `Olap.wide` answers the residence's logs and traces relations, and dashboards read the cluster, never the OLTP spine.
+- Growth: a new ingestion stream is one `ingest` call site over the same layer; a new settings posture is a `withClickhouseSettings` scope; a quota posture is a `quota` field on the intent overriding the standing row, never a consumer wrap.
+- Law: the driver extends the neutral `SqlClient`, so analytical reads ride the same `sql` DSL and typed decode as every lane and the concrete Tag is reached for ingestion, command routing, typed params, and per-query settings alone; the compiler self-reports the `sqlite` dialect, so ClickHouse divergence rides those members and never an `onDialect` arm a reader goes looking for.
+- Law: the read end is a fold, not a second lane — `Olap.wide` takes a residence relation and a `Statement.Fragment`, so a wide-event read composes the same `_RESIDENCES` row the query target reads and no consumer hand-spells a table name. Its projection admits against that relation's own `_WIDE` column roster and crosses each accepted name as an escaped identifier, so an undeclared column refuses by name and no caller string reaches statement text — a comma-joined projection spliced raw is the injection surface the browser lane already refuses, and it also mis-parses every dotted attribute column the roster declares.
+- Law: every foreign rail folds at this owner — `SqlError` from the driver and `RateLimiterError` from the quota each land as `OlapFault` before leaving, so `Olap` is one error channel end to end and a consumer never catches three error families to reach one recovery.
+- Law: both ends ride the lane governor — the read and the admitted insert each carry `_GOVERNOR.budget`, so a stalled cluster releases its fiber on the same bound an embedded statement holds; the quota wait sits OUTSIDE that bracket because `onExceeded: "delay"` is deliberate back-pressure, and timing it out makes the suspend disposition lossy exactly where it exists not to be.
 - Law: ingestion is load-shed at the owner — the token-bucket limiter keys by app so one tenant's replication burst cannot starve siblings, `onExceeded: "delay"` suspends instead of dropping (replication is re-runnable, never lossy by quota), and a durable `RateLimiterStore` composes at a multi-replica root; `withQueryId` and `withClickhouseSettings` scope correlation and server policy to the admitted insert fiber, never process state.
-- Law: the quota hold is measured at the owner — the span between entering `_ingest` and the insert's admission past the limiter projects onto the `Convention.instrument.olapDeferred` histogram tagged `clickhouse`, so token-bucket deferral pressure is dashboard-visible while the limiter's suspend disposition stays the behavioral truth.
+- Law: the quota vocabulary is the limiter's OWN options row minus its key — a standing posture is the `_INGEST_QUOTA` default and a stream whose rows cost more than one draws its weight through `tokens` on the intent's `quota`, so an oversized batch prices itself instead of a second limiter growing beside the first; the bucket key stays the owner's, because a caller keying its own bucket escapes the per-app isolation this quota exists to hold.
+- Law: the quota hold is measured at the owner — the span between entering `_ingest` and the insert's admission past the limiter projects onto the `olapDeferred` meter tagged `clickhouse`, so token-bucket deferral pressure is dashboard-visible while the limiter's suspend disposition stays the behavioral truth.
 - Law: the cluster is correctness-adjacent — facts replicate IN, and a lost analytical row is a re-replication, never a billing defect; the journal remains the sole truth.
 
 ```typescript signature
 import { Clock, Config, type ConfigError, type Layer } from "effect"
 import { ClickhouseClient } from "@effect/sql-clickhouse"
 import { RateLimiter } from "@effect/experimental"
-import type { SqlClient, SqlError } from "@effect/sql"
+import { SqlClient, type SqlError, type Statement } from "@effect/sql"
 import type { AppIdentity } from "@rasm/ts/core"
 
 const _clickhouse: Layer.Layer<ClickhouseClient.ClickhouseClient | SqlClient.SqlClient, ConfigError.ConfigError | SqlError.SqlError> =
   ClickhouseClient.layerConfig({
     url: Config.string("DATA_CLICKHOUSE_URL"),
-    password: Config.redacted("DATA_CLICKHOUSE_PASSWORD"),
+    // this driver declares `password?: string`, so a `Redacted` config value refuses at the wrap and custody rides the env read
+    password: Config.string("DATA_CLICKHOUSE_PASSWORD"),
   })
 
-const _INGEST_QUOTA = { algorithm: "token-bucket", onExceeded: "delay", window: "1 second", limit: 50 } as const
+// `RateLimiter` publishes the quota vocabulary as its own options row — `Effect.Effect.Success` reaches the factory and
+// `Parameters` its options — so a posture override names fields the package already declares and no lane-local mirror
+// drifts on the next release; the bucket key subtracts because the owner alone decides it.
+type _Quota = Omit<Parameters<Effect.Effect.Success<typeof RateLimiter.makeWithRateLimiter>>[0], "key">
 
-const _deferred = Metric.tagged(
-  Metric.histogram(
-    Convention.instrument.olapDeferred.name,
-    MetricBoundaries.exponential({ start: 1, factor: 2, count: 12 }),
-    Convention.instrument.olapDeferred.description,
-  ),
-  Convention.rasm.olapEngine,
-  "clickhouse",
-)
+const _INGEST_QUOTA = { algorithm: "token-bucket", limit: 50, onExceeded: "delay", window: "1 second" } as const satisfies _Quota
+
+// Three rails converge here: the driver's `SqlError` and the limiter's tagged refusal each carry a `message` one fold
+// reads, and a fault the governor already minted on the inner statement passes through untouched so a budget timeout
+// keeps the reason its own bracket named. Above this owner the lane holds exactly one error channel.
+const _lifted = <A, R>(
+  reason: OlapFault["reason"],
+  work: Effect.Effect<A, OlapFault | SqlError.SqlError | RateLimiter.RateLimiterError, R>,
+): Effect.Effect<A, OlapFault, R> =>
+  Effect.mapError(work, (cause) =>
+    cause._tag === "OlapFault" ? cause : new OlapFault({ engine: "clickhouse", reason, detail: cause.message }))
 
 declare namespace Olap {
+  // `Parameters` resolves an overloaded member against its LAST signature, which is the data-first arm here — so the
+  // settings type derives from the driver instead of re-importing `@clickhouse/client`, a package no manifest admits.
   type Ingest = Parameters<ClickhouseClient.ClickhouseClient["insertQuery"]>[0] & {
     readonly app: AppIdentity.Key
     readonly queryId: string
+    readonly quota?: Partial<_Quota>
     readonly settings: Parameters<ClickhouseClient.ClickhouseClient["withClickhouseSettings"]>[1]
   }
+  type Wide = {
+    // a projection names at least one column, so an empty request is unspellable rather than a `SELECT` with nothing
+    // between it and its `FROM`; which names are legal is the relation roster's answer at the fold below.
+    readonly columns: Array.NonEmptyReadonlyArray<string>
+    readonly identity: AppIdentity
+    readonly labels?: Query.Labels
+    readonly relation?: Relation
+    readonly residence: Residence
+    readonly where?: Statement.Fragment
+  }
 }
+
+// Residence rows spell the table, the attribute plane, and the accessor, so a wide-event read names a relation
+// and a label set and never a schema; the caller's own `Fragment` carries every remaining predicate parameterized,
+// and the projection admits against the relation's declared column roster before a single name reaches the statement.
+const _wide = (row: Olap.Wide) =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    const held = _RESIDENCES[row.residence]
+    const signal = row.relation ?? "traces"
+    const relation = held.relations[signal]
+    const attribute = _planed(held, row.identity, relation.plane)
+    const matched = Array.filterMap(
+      Convention.keys,
+      (key) => Option.map(Option.fromNullable(row.labels?.[key]), (value) => sql`${sql.literal(attribute(key))} = ${String(value)}`),
+    )
+    // The relation's OWN roster is the whole projection vocabulary: a caller-supplied name reaches statement text
+    // nowhere, an undeclared one refuses BY NAME rather than dropping out of a result the caller still reads as
+    // complete, and every admitted one crosses as an `Identifier` the compiler escapes — which is also what makes a
+    // dotted attribute column read as one name instead of a table reference the parser then cannot resolve.
+    const [unknown, admitted] = Array.partition(row.columns, (name) => Array.some(_WIDE[signal].columns, ([declared]) => declared === name))
+    const projected = yield* Array.match(unknown, {
+      onEmpty: () => Effect.succeed(sql.csv(Array.map(admitted, (name) => sql`${sql(name)}`))),
+      onNonEmpty: (missing) =>
+        Effect.fail(new OlapFault({ engine: "clickhouse", reason: "query", detail: `<column:${Array.join(missing, ",")}>` })),
+    })
+    return yield* _resilient(
+      "clickhouse",
+      { access: "read", fault: "query" },
+      _lifted(
+        "query",
+        sql`SELECT ${projected} FROM ${sql.literal(`${held.catalog}.${relation.table}`)} WHERE ${
+          sql.and([...matched, ...Option.match(Option.fromNullable(row.where), { onNone: () => [], onSome: (held) => [held] })])
+        }`,
+      ),
+    )
+  })
 
 const _ingest = (intent: Olap.Ingest) =>
   Effect.gen(function* () {
     const client = yield* ClickhouseClient.ClickhouseClient
     const limit = yield* RateLimiter.makeWithRateLimiter
-    const { app, queryId, settings, ...insert } = intent
+    const { app, queryId, quota, settings, ...insert } = intent
     const opened = yield* Clock.currentTimeMillis
-    return yield* limit({ ..._INGEST_QUOTA, key: `olap:ingest:${app}` })(
-      Effect.zipRight(
-        Effect.flatMap(Clock.currentTimeMillis, (started) => Metric.update(_deferred, started - opened)), // Delta is the quota hold before insert admission.
-        client.insertQuery(insert).pipe(
-          client.withClickhouseSettings(settings),
-          client.withQueryId(queryId),
+    return yield* _lifted(
+      "query",
+      // Per-stream posture narrows the standing row and never the key: an oversized batch draws its own `tokens`
+      // while the bucket stays the app's, so weighting a stream cannot leak it into a sibling tenant's window.
+      limit({ ..._INGEST_QUOTA, ...quota, key: `olap:ingest:${app}` })(
+        Effect.zipRight(
+          Effect.flatMap(Clock.currentTimeMillis, (started) => _meter.deferred.clickhouse(Duration.millis(started - opened))), // Delta is the quota hold before insert admission.
+          // Budgets bracket the ADMITTED insert alone: bracketing the limiter too converts a deliberate quota
+          // suspension into a fault and makes the delay disposition lossy exactly where it exists not to be.
+          _resilient(
+            "clickhouse",
+            { access: "write", fault: "query" },
+            _lifted("query", client.insertQuery(insert).pipe(client.withClickhouseSettings(settings), client.withQueryId(queryId))),
+          ),
         ),
       ),
     )
   })
 ```
 
-## [06]-[PROFILE]
+## [06]-[FLIGHT]
 
-- Owner: the admitted embedded profile arm and escalation evidence — `_profile` leases one disposable session and holds one permit across enable, one-shot `EXPLAIN ANALYZE`, and teardown; `_probe` folds bounded serial measurements; `_armed` compares evidence against the engine trigger; `Olap` assembles the export.
-- Packages: `./postgres.ts` (`Pg.Profile` — the shared receipt schema; profile parity across pg, sqlite, and this lane is one class); `effect` (`Schema`, `Array`, `Option`, `Metric`).
-- Entry: an explicit diagnosis call runs `Olap.profile(handle, readStatement, label)`; the maintenance composition runs `Olap.probe` in idle windows per the budget row, holds the prior evidence beside the engine row, and folds `Olap.armed` — an armed verdict fans through the `rasm.data.lane.escalate` hook point at that composition seam, so this lane keeps its single `ObjectStore` value seam beside the profile-schema read and never imports the hook registry.
-- Receipt: `Pg.Profile` with `engine: "duckdbNode"`, operator rows carrying timing and cardinality from the profile tree, and `counters` holding `cpuTime` and `resultSetSize` when the tree carries them; `Olap.Evidence` — `{ engine, statement, runs, wallP50, wallMax, rows }`; `Olap.Escalation` — `{ engine, trigger, delta, armed }`, the row's trigger text riding as data so the review argues from the table.
-- Growth: a profile engine enters `_PROFILE_ENGINES` only with its landed harvest arm; a probe budget posture is a `_PROBE` field override; a new profile counter is one optional field on `_ProfileTree`.
+- Owner: the engine-blind Flight SQL wire — the scoped `FlightSqlClient` over one sealed coordinate, `Olap.flown` as the ONE call entry over a closed intent family, the `_ANSWERS` and `_STREAMS` dispatch halves, the prepared-plan and transaction brackets, `_dataset`'s server-echoed descriptor, `_fanned`'s location-checked endpoint fan, and `_faulted`'s fold of the refusal classes this pin mints onto the lane's own reasons; the server engine stays opaque behind the wire and no per-engine driver enters.
+- Packages: `@qualithm/arrow-flight-client` (`createFlightSqlClient`, `FlightClient`, `FlightSqlClient`, `AuthOptions`, `TlsOptions`, `FlightAction`, `FlightClientOptions`, `FlightCriteria`, `FlightData`, `FlightDescriptor`, `FlightDescriptorInput`, `FlightEndpoint`, `FlightInfo`, `PollInfo`, `PreparedStatement`, `SchemaResult`, `Transaction`, `UpdateResult`, `ActionType`, `Result`, `FlightAuthError`/`FlightConnectionError`/`FlightServerError`); `apache-arrow` (`RecordBatch`, `Table`); `@rasm/ts/core` (`Hops`); `effect` (`Array`, `Data`, `Effect`, `Exit`, `Match`, `Option`, `Record`, `Redacted`, `Stream`).
+- Entry: a service composes `Olap.flight` once per remote coordinate and calls `Olap.flown(client, intent)` per unit of work; `Fetch` fans every endpoint of a published plan, `Frames` hands the wire's own messages through undecoded, `Put` uploads Arrow frames through `doPut`, `Bound` binds parameters to a server-side plan, `Act` reaches the server's own action vocabulary, and `Olap.transacted` brackets a sequence needing atomicity at the far end.
+- Receipt: reads land as `apache-arrow` `Table` or a `RecordBatch` stream — the same plane `Olap.wire` and `Olap.ingest` carry, so a Flight result reaches the viewer with no re-encoding; `Frames` lands raw `FlightData`, `Bound` and `Update` land the server's own `recordCount`, `Put` streams its upload acknowledgements, and `Plan`, `Poll`, and `Schema` land `FlightInfo`, `PollInfo`, and `SchemaResult` whole so a caller reads schema, endpoints, and progress without executing.
+- Growth: a new Flight capability is one `OlapFlown` case with its row in the matching dispatch half; a new zero-argument catalog read is one `_METADATA` row; a new writing case is one `_WRITES` entry; a refusal class the package starts minting is one `_faulted` arm; nothing here grows a second client or a second transport.
+- Law: transport is the package's own — one `@connectrpc/connect` stack over `node:http2` carries every RPC, so this lane imports no connect module, mints no channel, and admits no second gRPC client beside it.
+- Law: construction is synchronous and lifecycle is `acquireRelease` under `Scope` like every engine row — `createFlightSqlClient` returns the client outright, so the acquire arm is `Effect.try` and the release arm `Effect.sync` over a `void` `close()`; a promise lift on either end invents a suspension the package never has and swallows a disposal fault.
+- Law: credential material crosses as `Redacted` and unwraps at `_sealed` alone — the bearer token, the handshake password, the client key, and its passphrase reach the package's own options record there and nowhere else, so no fault detail, receipt, or structured log on this lane can print any of them; a certificate and a CA chain are public material and cross bare, which is what makes the sealed set exactly the four.
+- Law: the bound is the lane's alone — the package resolves `timeoutMs` onto its options record and applies it to nothing, so the field passes through for the pin that wires it while `_resilient` bounds every answer and `Stream.timeoutFail` bounds every emission; a design resting on the package's own timeout leaves a stalled far end holding its fiber forever.
+- Law: an emitting case bounds on IDLE, never on total elapsed — a legitimately long partitioned read outlives any whole-stream budget, so the governor budget bounds the gap between frames and the resulting fault answers once; a total-elapsed bound kills the exact reads the fan exists to serve.
+- Law: the refusal fold reads the ONE gRPC status algebra the estate already owns — `core/interchange/codec#LANDING_WIRE`'s `Hops` rows carry the numeric code, its retryability, and its fault class, so `_faulted` projects those columns onto this lane's reasons and a retryability edit lands at that owner with no edit here; a second code roster spelled beside the client forks the classification the first hop already settled.
+- Law: the classifier keys on the refusal classes this pin mints — `FlightServerError` carries every transport and far-end verdict because the package's own auth branch compares `code` against status NAMES while ConnectRPC hands it the numeric `Code`, `FlightAuthError` reaches only a handshake answering nothing, and `FlightConnectionError` only a raw socket error carrying no `code`; `FlightTimeoutError` and `FlightCancelledError` are exported and never thrown, so an arm for either is dead the day it lands.
+- Law: `FlightServerError.code` is DECLARED `string` and POPULATED with a number, so it reads through one numeric coercion — a code resolving to a `Hops` row takes that row's verdict, and a non-numeric value is a node syscall string off a raw socket error, which is transport by construction and replays like any unreachable coordinate.
+- Law: arm order IS dispatch order — every subclass precedes the base, because `FlightError.isError` answers true for each of them and a base-first ladder swallows every arm whose recovery genuinely differs.
+- Law: dispatch is two mapped halves over one closed family — `_ANSWERS` keys every single-value case and `_STREAMS` every emitting case, each total over its own key set, so a new case fails at the record that must hold it rather than falling into a residue arm; the answer half rides `_resilient`, the emitting half never does, because a partial-output replay duplicates rows the consumer already took.
+- Law: replay admits a read alone — `_WRITES` names the two cases that land rows at a far end this lane cannot roll back, so a re-sent DML statement is unspellable while every answering read shares one budget and one backoff.
+- Law: the upload descriptor is read back, never assembled — `doPut` reads it off the first frame as a protobuf message whose schema value the package keeps behind an unexported subpath, so `_dataset` takes the plain `FlightDescriptorInput` shape to `getFlightInfo` and stamps the message the server itself echoed; a caller already holding that message hands it back and the echo is skipped on its own `$typeName`, so a bulk run pays one plan read rather than one per frame set.
+- Law: the whole flight is every endpoint consumed — a partitioned plan publishes one endpoint per split and `FlightInfo.ordered` is the server's own statement that the splits carry a sequence, so it decides the fan width; a reader taking the first endpoint alone silently returns a fraction of the result.
+- Law: a split this lane cannot redeem FAILS the fan — an endpoint whose location roster names foreign services carries a ticket only those services honor, and an endpoint publishing no ticket at all answers no `doGet`, so each raises rather than contributing nothing; skipping either returns a fraction of the result under a success exit, which is the defect the whole-flight law already names.
+- Law: the empty location roster and the `arrow-flight-reuse-connection://?` sentinel are the two spellings of "redeem where the ticket was minted", so both admit the held client while every other authority refuses by URI — this lane holds one coordinate and one credential set, and a server publishing per-node locations earns a coordinate per node at the composition root, where the credential set is already decided.
+- Law: prepared statements and transactions are server-side resources their brackets own — a plan closes on every exit, a streamed plan lives exactly as long as its stream through `Stream.acquireRelease`, and the commit runs on the USE arm so a failed commit lands on the typed rail and its rollback still runs, where a release-arm commit only dies.
+- Law: the wire is a read and ingest surface, never a record of truth — a Flight result is correctness-adjacent evidence and a lost row is a re-read; the journal keeps sole authority and nothing folds back through this wire as truth.
+- Law: streamed reads never materialize — `queryBatches`, `queryStream`, `doGet`, and `executePreparedStream` each cross in `RecordBatch` or raw `FlightData` grain through `Olap.wire.flight`, so a result larger than memory rides the same one wire every engine seam requires.
+- Boundary: a Flight result crosses column-untyped — the package's `TypeMap` parameter is an unchecked phantom it never validates, so threading it here publishes a claim the wire cannot make; a consumer needing typed columns decodes through its own `Schema` at its own boundary.
+- Boundary: `@qualithm/arrow-flight-client` throws and returns promises; `_flew` is the only crossing and `_faulted` the only classifier, so above this cluster the lane is rails end to end.
+
+```typescript signature
+import { Exit, Match, Redacted } from "effect"
+import type { RecordBatch, Table } from "apache-arrow"
+import { Hops } from "@rasm/ts/core"
+import {
+  createFlightSqlClient,
+  FlightAuthError,
+  FlightConnectionError,
+  FlightServerError,
+  type ActionType,
+  type AuthOptions,
+  type FlightAction,
+  type FlightClient,
+  type FlightClientOptions,
+  type FlightCriteria,
+  type FlightData,
+  type FlightDescriptor,
+  type FlightDescriptorInput,
+  type FlightEndpoint,
+  type FlightInfo,
+  type FlightSqlClient,
+  type PollInfo,
+  type PreparedStatement,
+  type Result,
+  type SchemaResult,
+  type TlsOptions,
+  type Transaction,
+  type UpdateResult,
+} from "@qualithm/arrow-flight-client"
+
+// Recovery reads the hop row's own columns rather than a second status roster: an unreachable coordinate is the
+// acquire the governor already replays, a denied verdict routes the credential rail, every other retryable arrival
+// replays as a query, and each terminal verdict answers once — so a retryability edit at `interchange/codec` lands
+// here unedited. Field patterns subtract, and the residue is genuinely open because `class` is `FaultClass`-wide.
+const _hopped = Match.type<Hops.Row & { readonly reason: Hops.Reason }>().pipe(
+  Match.when({ reason: "unavailable" }, () => "acquire" as const),
+  Match.when({ class: "denied" }, () => "secret" as const),
+  Match.when({ retryable: true }, () => "query" as const),
+  Match.orElse(() => "wire" as const),
+)
+
+// Subclasses first: each also answers `FlightError.isError`, so a base-first ladder would swallow every arm whose
+// recovery differs. Only these three mint at this pin, and the server arm carries every transport and far-end verdict
+// — its `code` is declared a `string` and populated with ConnectRPC's numeric `Code`, so one coercion resolves it and
+// a non-numeric value is the node syscall string the package's own raw-socket branch admits.
+const _faulted = Match.type<unknown>().pipe(
+  Match.when(FlightConnectionError.isError, () => "acquire" as const),
+  Match.when(FlightAuthError.isError, () => "secret" as const),
+  Match.when(FlightServerError.isError, ({ code }) =>
+    Number.isNaN(Number(code))
+      ? ("acquire" as const)
+      : pipe(Hops.fromCode(Number(code)), (reason) => _hopped({ ...Hops[reason], reason }))),
+  Match.orElse(() => "wire" as const),
+)
+
+// `FlightServerError` alone carries a far-end diagnostic — `details` holds `ConnectError.rawMessage`, server text
+// stripped of the status prefix the thrown message already repeats — so both survive on one detail; a fold reading
+// `String(cause)` alone discards the only field the far end wrote for a reader.
+const _detailed = (cause: unknown): string =>
+  FlightServerError.isError(cause) && cause.details !== undefined ? `${String(cause)} ${cause.details}` : String(cause)
+
+const _flightFault = (cause: unknown): OlapFault =>
+  new OlapFault({ engine: "flight", reason: _faulted(cause), detail: _detailed(cause) })
+
+const _flew = <A>(run: () => Promise<A>): Effect.Effect<A, OlapFault> =>
+  Effect.tryPromise({ try: run, catch: _flightFault })
+
+// `exactOptionalPropertyTypes` makes a present-but-undefined key a different value from an absent one, and every
+// filter the package declares is absent-or-present — an explicit `undefined` reaches the server as a supplied empty
+// pattern. BOUNDARY ADAPTER: `Record.filter` erases the per-key correlation the mapped return type re-states.
+const _present = <T extends Record.ReadonlyRecord<string, unknown>>(row: T): { readonly [K in keyof T]?: NonNullable<T[K]> } =>
+  Record.filter(row, (value) => value !== undefined) as { readonly [K in keyof T]?: NonNullable<T[K]> }
+
+declare namespace Olap {
+  // Custody widens the package's two material-bearing records and nothing else: the token, the password, the client
+  // key, and its passphrase arrive `Redacted` so material has exactly one unwrap on this lane, and every remaining
+  // coordinate IS the package's own options record, because a lane-local mirror drifts on the first upstream field.
+  type Auth =
+    | { readonly type: "bearer"; readonly token: Redacted.Redacted<string> }
+    | { readonly type: "basic"; readonly credentials: { readonly password: Redacted.Redacted<string>; readonly username: string } }
+    | { readonly type: "none" }
+  // Certificates and CA chains are published material and stay bare; a private key and its passphrase are the two
+  // fields a coordinate printed into a log must never hold, so the seal covers exactly those.
+  type Tls = Omit<TlsOptions, "key" | "passphrase"> & {
+    readonly key?: Redacted.Redacted<string | Buffer>
+    readonly passphrase?: Redacted.Redacted<string>
+  }
+  type Flight = Omit<FlightClientOptions, "auth" | "tls"> & { readonly auth?: Auth; readonly tls?: Tls }
+  type Dataset = FlightDescriptorInput
+  type Prepared = PreparedStatement
+  type Update = UpdateResult
+  // Upload acknowledgements are the one Flight message the package's root leaves unexported, so this type derives
+  // from the member that yields it rather than from an import nothing resolves.
+  type Ack = ReturnType<FlightClient["doPut"]> extends AsyncIterable<infer P> ? P : never
+}
+
+// Remote coordinates answer on the lane's own budget, so one governor row bounds an embedded statement, a Flight
+// answer, and the gap between two Flight frames alike; `endpoints` is the fan width an unordered plan reads at.
+const _FLIGHT = { endpoints: 4, timeoutMs: Duration.toMillis(_GOVERNOR.budget) } as const
+
+const _authed = Match.type<Olap.Auth>().pipe(
+  Match.when({ type: "bearer" }, ({ token }) => ({ type: "bearer", token: Redacted.value(token) }) satisfies AuthOptions),
+  Match.when({ type: "basic" }, ({ credentials }) =>
+    ({
+      type: "basic",
+      credentials: { password: Redacted.value(credentials.password), username: credentials.username },
+    }) satisfies AuthOptions),
+  Match.orElse(() => ({ type: "none" }) satisfies AuthOptions),
+)
+
+const _tls = ({ key, passphrase, ...rest }: Olap.Tls): TlsOptions => ({
+  ...rest,
+  ..._present({
+    key: Option.getOrUndefined(Option.map(Option.fromNullable(key), Redacted.value)),
+    passphrase: Option.getOrUndefined(Option.map(Option.fromNullable(passphrase), Redacted.value)),
+  }),
+})
+
+// ONE unwrap on the wire: every sealed field crosses into the package's own options record here and nowhere else, so
+// a coordinate value reaching a fault detail, a receipt, or a structured log carries wrappers rather than material.
+// `timeoutMs` leads so a coordinate naming its own budget still wins the spread; the package applies neither today.
+const _sealed = ({ auth, tls, ...coordinate }: Olap.Flight): FlightClientOptions => ({
+  timeoutMs: _FLIGHT.timeoutMs,
+  ...coordinate,
+  ..._present({
+    auth: Option.getOrUndefined(Option.map(Option.fromNullable(auth), _authed)),
+    tls: Option.getOrUndefined(Option.map(Option.fromNullable(tls), _tls)),
+  }),
+})
+
+const _flight = (coordinate: Olap.Flight): Effect.Effect<FlightSqlClient, OlapFault, Scope.Scope> =>
+  Effect.acquireRelease(
+    Effect.try({ try: () => createFlightSqlClient(_sealed(coordinate)), catch: _flightFault }),
+    (held) => Effect.sync(() => held.close()), // close() is void on both clients — a promise lift here would hide a disposal fault
+  )
+
+// Two zero-argument catalog reads keyed by their own name: a ternary would restate a correspondence the table already
+// carries, and a third catalog the server publishes is one row.
+const _METADATA = {
+  catalogs: (client: FlightSqlClient) => client.getCatalogs(),
+  tableTypes: (client: FlightSqlClient) => client.getTableTypes(),
+} as const satisfies Record.ReadonlyRecord<string, (client: FlightSqlClient) => Promise<Table>>
+
+// One closed intent family over every Flight modality — reads, lazy batch streams, the endpoint fan a partitioned
+// plan demands, DML, bulk upload, plan and progress inspection, catalog discovery, and the server's own action
+// vocabulary — so a capability is a case rather than a suffix family, and the transaction handle rides the case so an
+// atomic sequence needs no second entry.
+type OlapFlown = Data.TaggedEnum<{
+  Act: { readonly action: FlightAction }
+  Actions: Record<string, never>
+  Batches: { readonly sql: string; readonly transaction?: Transaction }
+  // Binds ride the package's own union rather than a materialized array, so a generator-produced parameter set larger
+  // than memory is spellable on exactly the leg that takes one.
+  Bound: {
+    readonly binds: AsyncIterable<RecordBatch> | Iterable<RecordBatch>
+    readonly sql: string
+    readonly transaction?: Transaction
+  }
+  Catalogs: { readonly kind: keyof typeof _METADATA }
+  Fetch: { readonly dataset: Olap.Dataset }
+  Flights: { readonly criteria?: FlightCriteria }
+  Frames: { readonly sql: string; readonly transaction?: Transaction }
+  Keys: { readonly catalog?: string; readonly schema?: string; readonly table: string }
+  Plan: { readonly sql: string; readonly transaction?: Transaction }
+  Poll: { readonly dataset: Olap.Dataset }
+  Prepared: { readonly sql: string; readonly transaction?: Transaction }
+  // Descriptors already echoed ride straight through, so a bulk run stamps every frame set off one plan read
+  Put: { readonly dataset: Olap.Dataset | FlightDescriptor; readonly source: Olap.Frame }
+  Query: { readonly sql: string; readonly transaction?: Transaction }
+  Schema: { readonly dataset: Olap.Dataset }
+  Schemas: { readonly catalog?: string; readonly schema?: string }
+  Streamed: { readonly sql: string; readonly transaction?: Transaction }
+  // Both filter patterns and the schema fetch are the caller's: a discovery walk over a warehouse narrows by table
+  // name, and pulling every table's Arrow schema is a cost the roster read alone never wants.
+  Tables: {
+    readonly catalog?: string
+    readonly columns?: boolean
+    readonly kinds?: ReadonlyArray<string>
+    readonly schema?: string
+    readonly table?: string
+  }
+  Update: { readonly sql: string; readonly transaction?: Transaction }
+}>
+
+const _Flown = Data.taggedEnum<OlapFlown>()
+
+// Two halves of the family, each keyed by its own tags: one value per case on the left, one element grain per case
+// on the right. `Olap.flown` derives its return type from these maps, so an overload never restates a case's shape.
+type _Answered = {
+  Bound: Olap.Update
+  Catalogs: Table
+  Keys: Table
+  Plan: FlightInfo
+  Poll: PollInfo
+  Prepared: Table
+  Query: Table
+  Schema: SchemaResult
+  Schemas: Table
+  Tables: Table
+  Update: Olap.Update
+}
+
+type _Emitted = {
+  Act: Result
+  Actions: ActionType
+  Batches: RecordBatch
+  Fetch: RecordBatch
+  Flights: FlightInfo
+  Frames: FlightData
+  Put: Olap.Ack
+  Streamed: RecordBatch
+}
+
+// Replay lands rows twice at a far end this lane cannot roll back, so the writing cases name themselves and every
+// other answer replays under the shared budget.
+const _WRITES: ReadonlyArray<keyof _Answered> = ["Bound", "Update"]
+
+// Prepared plans are server-side resources: the release arm closes one on every exit, interruption included, so an
+// abandoned fiber never strands a plan at the far end.
+const _planned = <A>(
+  client: FlightSqlClient,
+  row: { readonly sql: string; readonly transaction?: Transaction },
+  use: (statement: PreparedStatement) => Effect.Effect<A, OlapFault>,
+): Effect.Effect<A, OlapFault> =>
+  Effect.acquireUseRelease(
+    _flew(() => client.prepare(row.sql, row.transaction?.id)),
+    use,
+    (statement) => Effect.orDie(_flew(() => client.closePreparedStatement(statement))),
+  )
+
+// Uploads carry the descriptor on their first frame, and that descriptor is a protobuf message whose schema value
+// this package keeps behind an unexported subpath — so the server's own echo supplies it. A message the caller already
+// holds passes through on its own `$typeName`, which is what lets a bulk run pay one plan read rather than one per
+// frame set; a plain input still buys its echo, because an assembled literal is unspellable at this pin.
+const _dataset = (client: FlightSqlClient, dataset: Olap.Dataset | FlightDescriptor): Effect.Effect<FlightDescriptor, OlapFault> =>
+  "$typeName" in dataset
+    ? Effect.succeed(dataset)
+    : Effect.flatMap(
+      _flew(() => client.flight.getFlightInfo(dataset)),
+      (info) =>
+        Option.match(Option.fromNullable(info.flightDescriptor), {
+          onNone: () => Effect.fail(new OlapFault({ engine: "flight", reason: "wire", detail: "<no-descriptor>" })),
+          onSome: Effect.succeed,
+        }),
+    )
+
+// Flight spells "redeem where the ticket was minted" two ways — an empty roster and this sentinel — and every other
+// authority names a service holding splits this coordinate cannot reach.
+const _REUSE = ["", "arrow-flight-reuse-connection://?"] as const
+
+const _reused = (endpoint: FlightEndpoint): boolean =>
+  Array.length(endpoint.location) === 0 || Array.some(endpoint.location, (held) => Array.contains(_REUSE, held.uri))
+
+// `ordered` is the server's own statement that the splits carry a sequence, so it decides the fan width rather than a
+// knob. An endpoint IS a portion of the result, so one this coordinate cannot redeem raises: skipping a foreign
+// location or a ticketless publication returns a fraction under a success exit, which is the whole-flight defect.
+const _fanned = (client: FlightSqlClient, info: FlightInfo): Stream.Stream<RecordBatch, OlapFault> =>
+  Stream.flatMap(
+    Stream.fromIterable(info.endpoint),
+    (endpoint) =>
+      _reused(endpoint)
+        ? Option.match(Option.fromNullable(endpoint.ticket), {
+          onNone: () => Stream.fail(new OlapFault({ engine: "flight", reason: "wire", detail: "<endpoint:no-ticket>" })),
+          onSome: (ticket) => _wire.flight.streamed(client.flight.doGet(ticket)), // the `Ticket` message satisfies `FlightTicket` structurally
+        })
+        : Stream.fail(
+          new OlapFault({
+            engine: "flight",
+            reason: "wire",
+            detail: `<endpoint:located ${Array.join(Array.map(endpoint.location, (held) => held.uri), " ")}>`,
+          }),
+        ),
+    { concurrency: info.ordered ? 1 : _FLIGHT.endpoints },
+  )
+
+const _ANSWERS: {
+  readonly [K in keyof _Answered]: (
+    client: FlightSqlClient,
+    intent: Extract<OlapFlown, { readonly _tag: K }>,
+  ) => Effect.Effect<_Answered[K], OlapFault>
+} = {
+  // `executePrepared` takes no parameters at this pin, so a bind sequence IS the update leg: the plan carries the
+  // statement, the batches carry the values, and the server answers its own affected count.
+  Bound: (client, { binds, sql, transaction }) =>
+    _planned(client, { sql, transaction }, (statement) => _flew(() => client.executePreparedUpdate(statement, binds))),
+  Catalogs: (client, { kind }) => _flew(() => _METADATA[kind](client)),
+  Keys: (client, { catalog, schema, table }) => _flew(() => client.getPrimaryKeys(table, _present({ catalog, dbSchema: schema }))),
+  // `getQueryInfo` answers the plan, schema, and endpoints WITHOUT executing, so a cost check never pays for rows
+  Plan: (client, { sql, transaction }) => _flew(() => client.getQueryInfo(sql, _present({ transactionId: transaction?.id }))),
+  Poll: (client, { dataset }) => _flew(() => client.flight.pollFlightInfo(dataset)), // progress on a long-running plan
+  Prepared: (client, { sql, transaction }) =>
+    _planned(client, { sql, transaction }, (statement) => _flew(() => client.executePrepared(statement))),
+  Query: (client, { sql, transaction }) => _flew(() => client.query(sql, _present({ transactionId: transaction?.id }))),
+  Schema: (client, { dataset }) => _flew(() => client.flight.getSchema(dataset)),
+  Schemas: (client, { catalog, schema }) => _flew(() => client.getDbSchemas(_present({ catalog, dbSchemaFilterPattern: schema }))),
+  Tables: (client, { catalog, columns, kinds, schema, table }) =>
+    _flew(() =>
+      client.getTables(_present({
+        catalog,
+        dbSchemaFilterPattern: schema,
+        includeSchema: columns,
+        tableNameFilterPattern: table,
+        tableTypes: kinds === undefined ? undefined : [...kinds],
+      }))
+    ),
+  Update: (client, { sql, transaction }) => _flew(() => client.executeUpdate(sql, _present({ transactionId: transaction?.id }))),
+}
+
+const _STREAMS: {
+  readonly [K in keyof _Emitted]: (
+    client: FlightSqlClient,
+    intent: Extract<OlapFlown, { readonly _tag: K }>,
+  ) => Stream.Stream<_Emitted[K], OlapFault>
+} = {
+  Act: (client, { action }) => Stream.fromAsyncIterable(client.flight.doAction(action), _flightFault),
+  Actions: (client) => Stream.fromAsyncIterable(client.flight.listActions(), _flightFault),
+  Batches: (client, { sql, transaction }) =>
+    Stream.fromAsyncIterable(client.queryBatches(sql, _present({ transactionId: transaction?.id })), _flightFault),
+  Fetch: (client, { dataset }) =>
+    Stream.unwrap(Effect.map(_flew(() => client.flight.getFlightInfo(dataset)), (info) => _fanned(client, info))),
+  Flights: (client, { criteria }) => Stream.fromAsyncIterable(client.flight.listFlights(criteria), _flightFault),
+  // Frames cross undecoded: a schema read that never materializes rows takes `Olap.wire.flight.header` off this
+  // grain, and a relay onward re-frames nothing because the messages never left their encoding.
+  Frames: (client, { sql, transaction }) =>
+    Stream.fromAsyncIterable(client.queryStream(sql, _present({ transactionId: transaction?.id })), _flightFault),
+  Put: (client, { dataset, source }) =>
+    Stream.unwrap(Effect.map(
+      _dataset(client, dataset),
+      (descriptor) => Stream.fromAsyncIterable(client.flight.doPut(_wire.flight.framed(source, descriptor)), _flightFault),
+    )),
+  // Plans live exactly as long as their stream, so an abandoned consumer closes the plan instead of stranding it
+  Streamed: (client, { sql, transaction }) =>
+    Stream.flatMap(
+      Stream.acquireRelease(
+        _flew(() => client.prepare(sql, transaction?.id)),
+        (statement) => Effect.orDie(_flew(() => client.closePreparedStatement(statement))),
+      ),
+      (statement) => _wire.flight.streamed(client.executePreparedStream(statement)),
+    ),
+}
+
+function _flown<K extends keyof _Answered>(
+  client: FlightSqlClient,
+  intent: Extract<OlapFlown, { readonly _tag: K }>,
+): Effect.Effect<_Answered[K], OlapFault>
+function _flown<K extends keyof _Emitted>(
+  client: FlightSqlClient,
+  intent: Extract<OlapFlown, { readonly _tag: K }>,
+): Stream.Stream<_Emitted[K], OlapFault>
+function _flown(
+  client: FlightSqlClient,
+  intent: OlapFlown,
+): Effect.Effect<_Answered[keyof _Answered], OlapFault> | Stream.Stream<_Emitted[keyof _Emitted], OlapFault> {
+  // BOUNDARY ADAPTER: the keyed dispatch erases the case-to-arm correlation each mapped record declares, so one cast
+  // per half rejoins the arm to the case its own discriminant selected; the halves are disjoint by construction and
+  // each is total over its own keys, so no arm can go missing and no residue arm exists to go stale.
+  // Emission bounds on the gap between frames, never on total elapsed: a partitioned read outlives any whole-stream
+  // budget, and the fault answers once because a partial-output replay duplicates rows the consumer already took.
+  return Record.has(_STREAMS, intent._tag)
+    ? Stream.timeoutFail(
+      (_STREAMS[intent._tag as keyof _Emitted] as (
+        client: FlightSqlClient,
+        intent: OlapFlown,
+      ) => Stream.Stream<_Emitted[keyof _Emitted], OlapFault>)(client, intent),
+      () => new OlapFault({ engine: "flight", reason: "wire", detail: "<idle-budget>" }),
+      _GOVERNOR.budget,
+    )
+    : _resilient(
+      "flight",
+      { access: Array.contains(_WRITES, intent._tag as keyof _Answered) ? "write" : "read", fault: "query" },
+      (_ANSWERS[intent._tag as keyof _Answered] as (
+        client: FlightSqlClient,
+        intent: OlapFlown,
+      ) => Effect.Effect<_Answered[keyof _Answered], OlapFault>)(client, intent),
+    )
+}
+
+// Atomicity at the far end: the commit rides the USE arm so its own failure lands on the typed rail and the release
+// arm still rolls back, where a release-arm commit only dies and leaves the caller reading success.
+const _transacted = <A, E, R>(
+  client: FlightSqlClient,
+  work: (transaction: Transaction) => Effect.Effect<A, E, R>,
+): Effect.Effect<A, E | OlapFault, R> =>
+  Effect.acquireUseRelease(
+    _flew(() => client.beginTransaction()),
+    (transaction) => Effect.tap(work(transaction), () => _flew(() => client.commit(transaction))),
+    (transaction, exit) => Exit.isSuccess(exit) ? Effect.void : Effect.orDie(_flew(() => client.rollback(transaction))),
+  )
+```
+
+## [07]-[PROFILE]
+
+- Owner: the profile band across every engine this lane reaches — `_profile` is the ONE entry, leasing a disposable session and holding one permit across enable, one-shot `EXPLAIN ANALYZE`, and teardown for an embedded source, and reading the cluster's own log for a source naming the id its statement already ran under; `_probe` folds bounded serial measurements; `_armed` compares evidence against the engine trigger; `Olap` assembles the export.
+- Packages: `./postgres.ts` (`Pg.Profile` — the shared receipt schema; profile parity across pg, sqlite, and this lane is one class); `@effect/sql` (`SqlClient`); `@effect/sql-clickhouse` (`ClickhouseClient`, `asCommand`); `effect` (`Array`, `Exit`, `Option`, `Order`, `Record`, `Schema`, `pipe`).
+- Entry: an explicit diagnosis call runs `Olap.profile({ handle, label, statement })` against an embedded handle or `Olap.profile({ label, queryId })` against the cluster; the maintenance composition runs `Olap.probe` in idle windows per the budget row, holds the prior evidence beside the engine row, and folds `Olap.armed` — an armed verdict fans through the `rasm.data.lane.escalate` hook point at that composition seam, so this lane keeps its single `ObjectStore` value seam beside the profile-schema read and never imports the hook registry.
+- Receipt: `Pg.Profile` with `engine: "duckdbNode"`, operator rows carrying timing and cardinality from the plan tree, and `counters` carrying every `_COUNTERS` measure the root reported; `Olap.Evidence` — `{ engine, statement, runs, wallP50, wallMax, rows }`; `Olap.Escalation` — `{ candidate, trigger, delta, armed }`, the row's trigger text riding as data so the review argues from the table.
+- Growth: a profile engine enters `_PROFILE_ENGINES` only with its landed harvest arm; a probe budget posture is a `_PROBE` field override; a new profile counter is one `_COUNTERS` row whose decode field and receipt key both follow.
 - Law: profiling toggles are per-connection state — one permit spans enable, execution, and disable, so concurrent users cannot interleave inside the bracket; `_profileRowsOnce` bypasses the retry governor because `EXPLAIN ANALYZE` executes its statement; the `access: "read"` statement case is the only admitted diagnosis input; disable failure remains on the typed rail, and the enclosing scope disposes the leased session on every exit.
-- Law: under `enable_profiling='json'` the `EXPLAIN ANALYZE` result carries the profile as its JSON cell — the harvest decodes that cell through `Schema.parseJson`; root latency and returned rows are required receipt evidence, while operator-local measures remain `Option`-carried, so absence fails the wire instead of forging zero.
-- Law: probes run beside production lanes — `_PROBE.runs` bounds the repetition, the run rides the same governed session gate as every statement so a probe cannot starve live work, the whole profile bracket (enable, EXPLAIN ANALYZE, disable, release) rides one `_GOVERNOR.budget` timeout so a stalled diagnosis releases its permit, and each harvest's `wallMillis` projects onto the `Convention.instrument.profileDuration` histogram tagged `Convention.rasm.profileEngine` — embedded engines expose no scrape surface, so this harvest is their whole observability.
-- Law: escalation is evidence-driven row data — `_armed` compares evidence receipts by their p50 wall ratio against the `_PROBE.floor`, names the engine row's own trigger text, and never mutates the row; admitting ClickHouse below its trigger remains the named operational waste the table refuses.
+- Law: under `enable_profiling='json'` the result is ONE row of two `VARCHAR` cells — `explain_key` reading `analyzed_plan` and `explain_value` carrying the profile — so the harvest decodes that one string through `Schema.parseJson`; root latency and the plan root's own cardinality are required receipt evidence and each absence fails the wire, while operator measures and the counter roster stay `Option`-carried so a missing measure is omission rather than a forged zero.
+- Law: BOTH embedded drivers profile — the harvest runs through `_DRIVERS.bounded` and `_ROWED` normalizes the two answers, so the browser lane fills the same `Pg.Profile` band the node lane does and a band tile reads one comparable receipt whichever driver produced it.
+- Law: the worker cell reads by NAME off the Arrow schema, never by position — `enable_profiling` fixes the column names and nothing fixes their order, so a positional read forges whichever cell the engine happened to emit first.
+- Law: returned rows read the plan root BENEATH the harvest's own `EXPLAIN_ANALYZE` operator — the profile root reports the OUTER statement, whose returned value is the plan text, so its `rows_returned` reads zero on every harvest and an operator walk starting above the wrapper credits the statement with the harvest's own machinery.
+- Law: the counter roster is the one owner of root evidence — decode fields and receipt keys both project from `_COUNTERS`, so an engine's added measure lands as a row and no receipt grows a hand-spelled arm that silently disagrees with the schema beside it.
+- Law: probes run beside production lanes — `_PROBE.runs` bounds the repetition, the run rides the same governed session gate as every statement so a probe cannot starve live work, the whole profile bracket (enable, EXPLAIN ANALYZE, disable, release) rides one `_GOVERNOR.budget` timeout so a stalled diagnosis releases its permit, and each harvest's wall span projects onto the census `profileDuration` histogram tagged `Convention.rasm.profileEngine` — the row codes its unit milliseconds, so the tap takes a `Duration` and the row's own scale carries it, and embedded engines expose no scrape surface, so this harvest is their whole observability.
+- Law: escalation is evidence-driven row data — `_armed` compares evidence receipts by their p50 wall ratio against the `_PROBE.floor`, names the CANDIDATE row's own trigger text, and never mutates the row; the receipts carry the incumbent that produced them, so the verdict reads as an argument for a move rather than a claim about the engine measured, and admitting ClickHouse below its trigger remains the named operational waste the table refuses.
+- Law: the cluster publishes no result-side profile at all — the driver answers rows for a read and its own insert result for an ingest — so cluster evidence is a SECOND read of `system.query_log` keyed by the statement's id, gated on the flush that makes the asynchronous log deterministic; a design expecting cost on the answer reads a surface the driver never carries.
+- Law: a query id scopes exactly ONE statement — `withQueryId` binds a `FiberRef` for its whole effect, so a scope wrapping several statements files them under one log key and hands the driver's own interrupt arm a `KILL QUERY` that reaches every sibling sharing the id; `Olap.Ingest` carrying `queryId` per intent is what keeps the scope honest, and an id minted above a batch loses both the attribution and the isolation.
+- Law: the harvest never re-runs the measured statement — the embedded arm profiles the one `EXPLAIN ANALYZE` execution and the cluster arm reads a log row for an execution that already happened, so a profile costs a plan decode or a log read, never a second run of the query whose cost is the subject.
+- Law: counter vocabulary is shared across engines — `_COUNTERS` and `_LOGGED` key their own wire fields onto ONE receipt-key set, so a band tile reads `bytesRead` or `resultSetSize` whichever engine answered and no consumer branches on the producer to find a measure.
 
 ```typescript signature
 import { Pg } from "./postgres.ts"
-import { Array, Exit, Option, Order, Schema } from "effect"
+import { Array, Exit, Option, Order, pipe, Record, Schema } from "effect"
+import { SqlClient } from "@effect/sql"
+import { ClickhouseClient } from "@effect/sql-clickhouse"
 
 const _PROBE = { runs: 5, floor: 1.5 } as const // bounded repeatable measurement; the p50 ratio that arms a trigger
 
-const _profiled = Metric.tagged(
-  Metric.histogram(
-    Convention.instrument.profileDuration.name,
-    MetricBoundaries.exponential({ start: 1, factor: 2, count: 14 }),
-    Convention.instrument.profileDuration.description,
-  ),
-  Convention.rasm.profileEngine,
-  "duckdbNode",
-)
+// Harvest statements wrap the profiled plan, so its tree carries an `EXPLAIN_ANALYZE` operator above it, and this row
+// names the second of the two `VARCHAR` columns the result publishes.
+const _WRAPPED = { cell: "explain_value", wrapper: "EXPLAIN_ANALYZE" } as const
+
+// Root evidence keyed wire-field to receipt-key: ONE roster drives the decode fields and the receipt projection alike,
+// so an engine's added measure is a row rather than a schema field beside a hand-spelled arm that drifts from it.
+// Every entry is `Option`-carried because an absent counter is omission where a zero is a measurement.
+const _COUNTERS = {
+  blocked_thread_time: "blockedThreadTime",
+  cpu_time: "cpuTime",
+  cumulative_cardinality: "cumulativeCardinality",
+  cumulative_rows_scanned: "cumulativeRowsScanned",
+  result_set_size: "resultSetSize",
+  system_peak_buffer_memory: "peakBufferMemory",
+  system_peak_temp_dir_size: "peakTempDirSize",
+  total_bytes_read: "bytesRead",
+  total_bytes_written: "bytesWritten",
+  total_memory_allocated: "memoryAllocated",
+} as const
 
 interface _ProfileTreeEncoded {
+  readonly operator_name?: string
   readonly operator_type?: string
   readonly operator_timing?: number
   readonly operator_cardinality?: number
-  readonly latency?: number
-  readonly rows_returned?: number
-  readonly cpu_time?: number
-  readonly result_set_size?: number
   readonly children?: ReadonlyArray<_ProfileTreeEncoded>
 }
 
 interface _ProfileTree {
+  readonly operator_name: Option.Option<string>
   readonly operator_type: Option.Option<string>
   readonly operator_timing: Option.Option<number>
   readonly operator_cardinality: Option.Option<number>
-  readonly latency: Option.Option<number>
-  readonly rows_returned: Option.Option<number>
-  readonly cpu_time: Option.Option<number>
-  readonly result_set_size: Option.Option<number>
   readonly children: Option.Option<ReadonlyArray<_ProfileTree>>
 }
 
 const _Tree: Schema.Schema<_ProfileTree, _ProfileTreeEncoded> = Schema.Struct({
+  operator_name: Schema.optionalWith(Schema.String, { as: "Option" }),
   operator_type: Schema.optionalWith(Schema.String, { as: "Option" }),
   operator_timing: Schema.optionalWith(Schema.Number, { as: "Option" }),
   operator_cardinality: Schema.optionalWith(Schema.Number, { as: "Option" }),
-  latency: Schema.optionalWith(Schema.Number, { as: "Option" }),
-  rows_returned: Schema.optionalWith(Schema.Number, { as: "Option" }),
-  cpu_time: Schema.optionalWith(Schema.Number, { as: "Option" }),
-  result_set_size: Schema.optionalWith(Schema.Number, { as: "Option" }),
   children: Schema.optionalWith(Schema.Array(Schema.suspend((): Schema.Schema<_ProfileTree, _ProfileTreeEncoded> => _Tree)), { as: "Option" }),
 })
 
+// Roots hold no operator identity — each names its query, reports wall latency, and answers the counter roster.
+// Its own `rows_returned` measures the outer statement, whose returned value is the plan text, so no field reads it.
 const _Root = Schema.Struct({
-  operator_type: Schema.optionalWith(Schema.String, { as: "Option" }),
-  operator_timing: Schema.optionalWith(Schema.Number, { as: "Option" }),
-  operator_cardinality: Schema.optionalWith(Schema.Number, { as: "Option" }),
-  latency: Schema.Number,
-  rows_returned: Schema.Number,
-  cpu_time: Schema.optionalWith(Schema.Number, { as: "Option" }),
-  result_set_size: Schema.optionalWith(Schema.Number, { as: "Option" }),
   children: Schema.optionalWith(Schema.Array(_Tree), { as: "Option" }),
+  latency: Schema.Number,
+  query_name: Schema.optionalWith(Schema.String, { as: "Option" }),
+  ...Record.map(_COUNTERS, () => Schema.optionalWith(Schema.Number, { as: "Option" })),
 })
 
-type _OperatorTree = Pick<_ProfileTree, "operator_type" | "operator_timing" | "operator_cardinality" | "children">
+// One descent past the wrapper the harvest itself introduced: the profiled statement's plan root is that operator's
+// own first child, and it is where returned rows and the operator walk both begin.
+const _planRoot = (root: typeof _Root.Type): Option.Option<_ProfileTree> =>
+  Option.flatMap(Option.flatMap(Option.flatMap(root.children, Array.head), (wrapper) => wrapper.children), Array.head)
 
-const _steps = (node: _OperatorTree): ReadonlyArray<Pg.Profile["operators"][number]> => [
-  ...Option.match(node.operator_type, {
+// `operator_name` is the concrete implementation the engine chose and `operator_type` its plan category, so the name
+// takes the sharper of the two; a node answering neither is structural and contributes no row.
+const _steps = (node: _ProfileTree): ReadonlyArray<Pg.Profile["operators"][number]> => [
+  ...Option.match(Option.orElse(node.operator_name, () => node.operator_type), {
     onNone: () => [],
     onSome: (name) => [{
       name,
@@ -422,16 +1706,51 @@ const _steps = (node: _OperatorTree): ReadonlyArray<Pg.Profile["operators"][numb
   ...Option.match(node.children, { onNone: () => [], onSome: Array.flatMap(_steps) }),
 ]
 
-type _ReadStatement = _Statement & { readonly access: "read" }
-
-const _profileRowsOnce = (session: Olap.Session, statement: _Statement): Effect.Effect<ReadonlyArray<Olap.Row>, OlapFault> =>
-  _try("duckdbNode", statement.fault, () => session.connection.runAndReadAll(statement.sql, _values(statement.values))).pipe(
-    Effect.map((reader) => reader.getRowObjects()),
+// Every counter field carries one type, so the roster's key union indexes the decoded root without a cast and the
+// filter is what keeps a measure the engine never reported out of the receipt.
+const _countered = (root: typeof _Root.Type): Record.ReadonlyRecord<string, number> =>
+  Record.fromEntries(
+    Array.filterMap(Record.toEntries(_COUNTERS), ([wire, key]) => Option.map(root[wire], (value) => [key, value] as const)),
   )
 
-const _profileOnce = (session: Olap.Session, statement: _ReadStatement, label: string): Effect.Effect<Pg.Profile, OlapFault> =>
+type _ReadStatement = _Statement & { readonly access: "read" }
+
+declare namespace Olap {
+  // Intersection IS the roster: an embedded engine profiles exactly when `lane/postgres#PROFILE_HARVEST` admits its
+  // key, so a landed harvest arm widens this set at its owner and no second roster drifts against it.
+  type ProfileEngine = Extract<Embedded, Pg.ProfileEngine>
+}
+
+// Drivers answer different bounded grains, so this projection is the ONE place the harvest crosses them: node hands row
+// objects already and the worker hands an Arrow `Table` whose schema names every column, so a cell reads by NAME on
+// both sides and no arm indexes a position the engine never promised to hold.
+const _ROWED: { readonly [E in Olap.Embedded]: (bounded: Olap.Bounded<E>) => ReadonlyArray<Olap.Row> } = {
+  duckdbNode: (bounded) => bounded,
+  duckdbWasm: (bounded) =>
+    Array.makeBy(bounded.numRows, (index) =>
+      Record.fromEntries(
+        Array.map(bounded.schema.fields, (field) => [field.name, bounded.getChild(field.name)?.get(index) ?? null] as const),
+      )),
+}
+
+const _profileRowsOnce = <E extends Olap.ProfileEngine>(
+  session: Olap.Session<E>,
+  statement: _Statement,
+): Effect.Effect<ReadonlyArray<Olap.Row>, OlapFault, Scope.Scope> =>
+  Effect.map(_DRIVERS[session.engine].bounded(session, statement), _ROWED[session.engine])
+
+// Required receipt evidence fails the wire on absence — one lift serves the profile cell, the plan root, and the
+// returned-row count alike, so no arm quietly substitutes a zero for a measure the engine never reported.
+const _required = <A>(engine: Olap.Engine, detail: string) => (held: Option.Option<A>): Effect.Effect<A, OlapFault> =>
+  Option.match(held, { onNone: () => Effect.fail(new OlapFault({ engine, reason: "wire", detail })), onSome: Effect.succeed })
+
+const _profileOnce = <E extends Olap.ProfileEngine>(
+  session: Olap.Session<E>,
+  statement: _ReadStatement,
+  label: string,
+): Effect.Effect<Pg.Profile, OlapFault, Scope.Scope> =>
   Effect.acquireUseRelease(
-    Effect.tap(Effect.timed(session.gate.take(1)), ([span]) => Metric.update(_waited, Duration.toMillis(span))),
+    Effect.tap(Effect.timed(session.gate.take(1)), ([span]) => _meter.waited[session.engine](span)),
     () =>
       Effect.gen(function* () {
         yield* _profileRowsOnce(session, { sql: "PRAGMA enable_profiling='json'", fault: "query", access: "write" })
@@ -446,28 +1765,27 @@ const _profileOnce = (session: Olap.Session, statement: _ReadStatement, label: s
           onFailure: Effect.failCause,
           onSuccess: Effect.succeed,
         })
-        const cell = yield* Option.match(
-          Option.flatMap(Array.head(raw), (row) => Option.fromNullable(row["explain_value"])),
-          {
-            onNone: () => Effect.fail(new OlapFault({ engine: "duckdbNode", reason: "wire", detail: "<no-profile-cell>" })),
-            onSome: (held) => Effect.succeed(String(held)),
-          },
+        // `explain_value` is the second column of the one answered row and the engine declares it `VARCHAR`, so this
+        // coercion narrows the driver's own cell union rather than guessing a shape.
+        const cell = yield* pipe(
+          Option.flatMap(Array.head(raw), (row) => Option.fromNullable(row[_WRAPPED.cell])),
+          Option.map(String),
+          _required(session.engine, "<no-profile-cell>"),
         )
         const tree = yield* Schema.decodeUnknown(Schema.parseJson(_Root))(cell).pipe(
-          Effect.mapError((fault) => new OlapFault({ engine: "duckdbNode", reason: "wire", detail: String(fault) })),
+          Effect.mapError((fault) => new OlapFault({ engine: session.engine, reason: "wire", detail: String(fault) })),
         )
+        const plan = yield* pipe(_planRoot(tree), _required(session.engine, `<no-plan-root:${_WRAPPED.wrapper}>`))
+        const rows = yield* pipe(Option.map(plan.operator_cardinality, Math.trunc), _required(session.engine, "<no-cardinality>"))
         const wallMillis = tree.latency * 1000
-        yield* Metric.update(_profiled, wallMillis)
+        yield* _meter.profiled[session.engine](Duration.millis(wallMillis))
         return new Pg.Profile({
-          engine: "duckdbNode",
+          engine: session.engine,
           statement: label,
           wallMillis,
-          rows: Math.trunc(tree.rows_returned),
-          operators: _steps(tree),
-          counters: {
-            ...Option.match(tree.cpu_time, { onNone: () => ({}), onSome: (held) => ({ cpuTime: held }) }),
-            ...Option.match(tree.result_set_size, { onNone: () => ({}), onSome: (held) => ({ resultSetSize: held }) }),
-          },
+          rows,
+          operators: _steps(plan),
+          counters: _countered(tree),
           window: Option.none(),
         })
       }),
@@ -477,100 +1795,349 @@ const _profileOnce = (session: Olap.Session, statement: _ReadStatement, label: s
     // governor timeout together, so a stalled profile can never hold a session permit past the budget.
     Effect.timeoutFail({
       duration: _GOVERNOR.budget,
-      onTimeout: () => new OlapFault({ engine: "duckdbNode", reason: statement.fault, detail: "<profile-budget>" }),
+      onTimeout: () => new OlapFault({ engine: session.engine, reason: statement.fault, detail: "<profile-budget>" }),
     }),
   )
 
-const _profile = (handle: Olap.Handle, statement: _ReadStatement, label: string): Effect.Effect<Pg.Profile, OlapFault> =>
-  Effect.scoped(Effect.flatMap(handle.lease, (session) => _profileOnce(session, statement, label)))
+// --- [CLUSTER_HARVEST]
+
+// Clusters publish NO profile on their own answer — a read lands rows and an insert lands its own result — so
+// evidence is a SECOND read of the server's log keyed by the id the statement already carried. Log columns key to the
+// same receipt names the embedded roster publishes, so one band reads one counter vocabulary whichever engine answered.
+const _LOGGED = {
+  memory_usage: "memoryAllocated",
+  read_bytes: "bytesRead",
+  read_rows: "cumulativeRowsScanned",
+  result_bytes: "resultSetSize",
+  written_bytes: "bytesWritten",
+} as const
+
+// Decode owners ARE the projection list: each SELECT reads its own field keys, so a column added to the roster
+// travels to the statement and the receipt together and neither can name a column the other does not.
+const _Logged = Schema.Struct({
+  query_duration_ms: Schema.Number,
+  result_rows: Schema.Number,
+  ...Record.map(_LOGGED, () => Schema.Number),
+})
+
+const _harvested = (row: { readonly label: string; readonly queryId: string }): Effect.Effect<
+  Pg.Profile,
+  OlapFault,
+  ClickhouseClient.ClickhouseClient | SqlClient.SqlClient
+> =>
+  Effect.gen(function* () {
+    const client = yield* ClickhouseClient.ClickhouseClient
+    const sql = yield* SqlClient.SqlClient
+    // Log rows land asynchronously, so the flush is what makes the read deterministic; it returns no rows of its own
+    // and therefore runs in command mode, where a query-mode send would decode an empty result as a failure to answer.
+    yield* _lifted("query", client.asCommand(sql`SYSTEM FLUSH LOGS query_log`))
+    const answered = yield* _lifted(
+      "query",
+      sql`SELECT ${sql.literal(Array.join(Record.keys(_Logged.fields), ", "))} FROM system.query_log
+          WHERE query_id = ${row.queryId} AND type = 'QueryFinish' ORDER BY event_time_microseconds DESC LIMIT 1`,
+    )
+    const logged = yield* pipe(
+      Array.head(answered),
+      _required("clickhouse", `<no-query-log:${row.queryId}>`),
+      Effect.flatMap((held) =>
+        Schema.decodeUnknown(_Logged)(held).pipe(
+          Effect.mapError((fault) => new OlapFault({ engine: "clickhouse", reason: "wire", detail: String(fault) })),
+        )
+      ),
+    )
+    yield* _meter.profiled.clickhouse(Duration.millis(logged.query_duration_ms))
+    return new Pg.Profile({
+      engine: "clickhouse",
+      statement: row.label,
+      wallMillis: logged.query_duration_ms,
+      rows: Math.trunc(logged.result_rows),
+      // Log rows answer cost, never a plan tree — `EXPLAIN` is a second execution whose cost is the measured thing —
+      // so the operator roster is empty by construction and the band reads depth off the engine that publishes one.
+      operators: [],
+      counters: Record.fromEntries(Array.map(Record.toEntries(_LOGGED), ([wire, key]) => [key, logged[wire]] as const)),
+      window: Option.none(),
+    })
+  })
+
+// One entry over both harvest modalities, discriminating on the source value: an embedded source carries the handle
+// whose session the diagnosis leases, and a cluster source carries the id its statement already ran under.
+function _profile<E extends Olap.ProfileEngine>(
+  source: { readonly handle: Olap.Handle<E>; readonly label: string; readonly statement: _ReadStatement },
+): Effect.Effect<Pg.Profile, OlapFault>
+function _profile(
+  source: { readonly label: string; readonly queryId: string },
+): Effect.Effect<Pg.Profile, OlapFault, ClickhouseClient.ClickhouseClient | SqlClient.SqlClient>
+function _profile(
+  source:
+    | { readonly handle: Olap.Handle<Olap.ProfileEngine>; readonly label: string; readonly statement: _ReadStatement }
+    | { readonly label: string; readonly queryId: string },
+): Effect.Effect<Pg.Profile, OlapFault, ClickhouseClient.ClickhouseClient | SqlClient.SqlClient> {
+  return "handle" in source
+    ? Effect.scoped(Effect.flatMap(source.handle.lease, (session) => _profileOnce(session, source.statement, source.label)))
+    : _harvested(source)
+}
 
 declare namespace Olap {
+  // Evidence names the engine that PRODUCED it, so its key is the profiled set alone; the escalation below names the
+  // candidate the evidence argues for, which is any engine row the table carries.
   type Evidence = {
-    readonly engine: Engine
+    readonly engine: ProfileEngine
     readonly statement: string
     readonly runs: number
     readonly wallP50: number
     readonly wallMax: number
     readonly rows: number
   }
-  type Escalation = { readonly engine: Engine; readonly trigger: string; readonly delta: number; readonly armed: boolean }
+  type Escalation = { readonly candidate: Engine; readonly trigger: string; readonly delta: number; readonly armed: boolean }
 }
 
-const _probe = (handle: Olap.Handle, statement: _ReadStatement, label: string): Effect.Effect<Olap.Evidence, OlapFault> =>
-  Effect.flatMap(
-    Effect.forEach(Array.range(1, _PROBE.runs), () => _profile(handle, statement, label), { concurrency: 1 }),
+// `Array.range` mints a non-empty tuple and `Effect.forEach` carries that arity through, so head, crest, and midpoint
+// read a roster whose inhabitance is a type fact: three fabricated faults for an impossible empty fold leave with it,
+// and the engine rides the handle's own key rather than a literal the row table already owns.
+const _probe = <E extends Olap.ProfileEngine>(
+  handle: Olap.Handle<E>,
+  statement: _ReadStatement,
+  label: string,
+): Effect.Effect<Olap.Evidence, OlapFault> =>
+  Effect.map(
+    Effect.forEach(Array.range(1, _PROBE.runs), () => _profile({ handle, label, statement }), { concurrency: 1 }),
     (receipts) =>
-      Effect.gen(function* () {
-        const first = yield* Effect.fromOption(
-          Array.head(receipts),
-          () => new OlapFault({ engine: "duckdbNode", reason: "wire", detail: "<empty-probe>" }),
-        )
-        const walls = Array.sort(Array.map(receipts, (receipt) => receipt.wallMillis), Order.number)
-        const wallP50 = yield* Effect.fromOption(
-          Array.get(walls, Math.trunc(walls.length / 2)),
-          () => new OlapFault({ engine: "duckdbNode", reason: "wire", detail: "<empty-p50>" }),
-        )
-        const wallMax = yield* Effect.fromOption(
-          Array.last(walls),
-          () => new OlapFault({ engine: "duckdbNode", reason: "wire", detail: "<empty-maximum>" }),
-        )
-        return {
-          engine: "duckdbNode" as const,
-          statement: label,
-          runs: receipts.length,
-          wallP50,
-          wallMax,
-          rows: first.rows,
-        }
-      }),
+      pipe(Array.sort(Array.map(receipts, (receipt) => receipt.wallMillis), Order.number), (walls) => ({
+        engine: handle.engine,
+        statement: label,
+        runs: receipts.length,
+        // Midpoint indexing stays in range for every non-empty roster, so the crest fallback is unreachable by
+        // construction and keeps the fold total without minting a fault for a state the arity already forecloses.
+        wallP50: Option.getOrElse(Array.get(walls, Math.trunc(walls.length / 2)), () => Array.lastNonEmpty(walls)),
+        wallMax: Array.lastNonEmpty(walls),
+        rows: Array.headNonEmpty(receipts).rows,
+      })),
   )
 
-const _armed = (engine: Olap.Engine, prior: Olap.Evidence, next: Olap.Evidence): Olap.Escalation => {
-  const delta = next.wallP50 / Math.max(prior.wallP50, 1)
-  return { engine, trigger: _engines[engine].trigger, delta, armed: delta >= _PROBE.floor }
-}
+// `candidate` names the engine the evidence ARGUES FOR while the receipts carry the incumbent producing them, so a
+// duckdb probe arms the cluster's own trigger text and the verdict never reads as a claim about the measured engine.
+const _armed = (candidate: Olap.Engine, prior: Olap.Evidence, next: Olap.Evidence): Olap.Escalation =>
+  pipe(next.wallP50 / Math.max(prior.wallP50, 1), (delta) => ({
+    candidate,
+    trigger: _engines[candidate].trigger,
+    delta,
+    armed: delta >= _PROBE.floor,
+  }))
 ```
 
-## [07]-[ARROW_WIRE]
+## [08]-[ARROW_WIRE]
 
-- Owner: the one columnar interchange — typed decode and encode, bounded batch streaming, wasm lazy pull, source-shaped ingest, and the assembled `Olap` export.
-- Packages: `apache-arrow` (`tableFromIPC`, `tableToIPC`, `RecordBatchReader`, `Table`); `@duckdb/duckdb-wasm` (`conn.send`, `conn.insertArrowTable`, `conn.insertArrowFromIPCStream`).
-- Entry: wasm query results are already Tables; node results and ClickHouse Arrow output decode through `tableFromIPC`; the viewer's geoarrow plane consumes the same Tables downstream; the wasm ingest entry closes the loop for locally staged frames.
-- Growth: a new engine row joins the wire by emitting or accepting IPC — no per-engine result shape is ever admitted.
+- Owner: the one columnar interchange — the IPC codec pair, the Flight frame codec pair over one grain adapter, `Olap.lake`'s engine-free Parquet codec at rest, bounded batch streaming, the worker ingest entry, and the assembled `Olap` export.
+- Packages: `apache-arrow` (`RecordBatch`, `RecordBatchReader`, `Schema`, `Table`, `tableFromIPC`, `tableToIPC`); `@qualithm/arrow-flight-client` (`createFlightDataFromIpc`, `decodeFlightDataStream`, `decodeFlightDataToTable`, `encodeRecordBatchesToFlightData`, `encodeTableToFlightData`, `getSchemaFromFlightData`); `parquet-wasm` (`readParquet`, `readSchema`, `writeParquet`, `ParquetFile.fromUrl`/`.fromFile`/`.stream`/`.free`, `Table.fromIPCStream`, `RecordBatch.intoIPCStream`, `Schema.intoIPCStream`, `WriterPropertiesBuilder`, `WriterProperties`, `Compression`, `EnabledStatistics`, `ReaderOptions`); `@duckdb/duckdb-wasm` (`conn.insertArrowTable`, `conn.insertArrowFromIPCStream`); `effect` (`Sink`).
+- Entry: node reads land as row objects and worker reads as Arrow, so only ClickHouse output and foreign IPC cross `tableFromIPC`; every Flight read and upload crosses `_wire.flight`; a lake object decodes through `Olap.lake.read` or streams through `Olap.lake.batches`, and `Olap.lake.write`/`.sink` mint the bytes `object/store#CONDITIONAL` addresses and puts; the viewer's geoarrow plane consumes the same Tables downstream.
+- Growth: a new engine row joins the wire by emitting or accepting IPC — no per-engine result shape is ever admitted; a new frame source is one `_frames` arm; a writer economics posture is a `_PARQUET` override, never a per-call flag list.
 - Law: one wire — an analytical result crossing any engine seam travels as Arrow; a JSON or row-object re-encoding between engines is the named defect, and the only row-shaped egress is the final consumer projection.
-- Law: streams stay bounded — large interchange rides `RecordBatchReader` batch iteration lifted to `Stream`, and the wasm side pulls lazily through `conn.send` so a browser result larger than memory never materializes as one Table.
-- Law: ingest is ONE entry discriminating on the source value — a live `Table` rides `insertArrowTable`, IPC bytes ride `insertArrowFromIPCStream`; a per-format sibling pair is the deleted spelling.
+- Law: Parquet is the format AT REST and Arrow IPC the format in flight, so a lake object decodes and encodes with no engine booted — booting DuckDB or dialling a Flight server to transcode a stored object pays a query engine for codec work this row already owns.
+- Law: the Flight frame is the same interchange inside a protobuf envelope, so BOTH directions live here and the Flight cluster owns no codec — a decode pair beside the client is a second wire the one-wire law refuses.
+- Law: the frame codec admits either grain — the package hands `AsyncIterable`, this lane hands `Stream` — so `_framed` normalizes once on the value's own async-iterator key and a `Frames` intent composes straight into `header`, `landed`, and `streamed` with no consumer bridging the two.
+- Law: streams stay bounded — large interchange rides `RecordBatchReader` batch iteration lifted to `Stream`, `decodeFlightDataStream` rides the same lift, a lake object past the bounded floor rides `ParquetFile.stream` range reads, and streamed egress rides the weighted row-group window, so an object larger than memory never materializes as one Table in either direction.
+- Law: the range reader is the WHOLE remote read on both builds — opening a URL costs three bounded requests (the footer length suffix, the footer metadata suffix, and the page-index span), and the stream then draws ONE request per row group, so a cold-tail scan pays the object's metadata and the groups it reads, never the object; a whole-object GET means the source reached `read` instead of `batches`.
+- Law: read economics ride ONE policy row beside the writer's — `_READING` states the batch grain and the in-flight range fan a scan opens, and the fan bounds concurrent requests exactly as declared, so a caller narrowing either passes a row and no call site spells a bare option object.
+- Law: a parquet container never escapes as a value — bytes and `apache-arrow` values are the only egress, so no linear-memory view crosses this seam and the codec's own `Table`, `Schema`, and `RecordBatch` stay inside the expression that minted them.
+- Law: custody follows the member's own ownership, not a blanket bracket — `intoIPCStream`, `writeParquet`, and `build` each CONSUME their handle, so a release arm around one frees a pointer the call already took; `ParquetFile` is the one container outliving its mint, and it alone acquires under a bracket that frees.
+- Law: writer economics ride ONE policy row — compression, dictionary posture, statistics depth, row-group width, and the patience a partial window waits decide every later read's cost, so a stream wanting different economics passes a row and no call site spells a builder chain.
+- Law: streamed egress weights its window by ROWS, never by batch count — a feed of uneven batches otherwise lands objects whose row-group width swings with arrival shape, and the row-group column is the one number a later scan prunes against.
+- Law: the codec build arrives by exports-map condition — the node entry inlines its wasm and the async entries resolve theirs once — so the composition root hands `Olap.lake` only the initializer its own build publishes and no call site branches on runtime.
+- Law: ingest is ONE entry discriminating on the source value — a live `Table` rides `insertArrowTable`, IPC bytes ride `insertArrowFromIPCStream` — and it rides the leased worker session like every other unit of work the browser lane owns, so a staged frame set cannot outrun the engine's own permit.
+- Law: framing is ONE entry over three source shapes — a `Table`, a batch stream carrying its own schema because the encoder writes the schema message first, and raw IPC bytes an Arrow writer already framed; the descriptor stamps the FIRST message alone, which is exactly where `DoPut` reads it.
+- Boundary: `parquet-wasm`'s own `Table` meets `apache-arrow`'s across the IPC stream buffer alone — the two containers share no class identity, so every crossing spells `intoIPCStream`/`fromIPCStream` and a shared-instance assumption is unspellable.
+- Boundary: `transformParquetStream` is declined — its input grain is the codec's OWN `RecordBatch`, reachable from an Arrow batch only through a per-batch round trip whose intermediate container no fold on this side can free, so the weighted window above buys the same bounded egress with no orphaned handle.
 
 ```typescript signature
-import { RecordBatchReader, Table, tableFromIPC, tableToIPC } from "apache-arrow"
+import { Sink } from "effect"
+import { RecordBatch, RecordBatchReader, type Schema as ArrowSchema, Table, tableFromIPC, tableToIPC } from "apache-arrow"
+import {
+  createFlightDataFromIpc,
+  decodeFlightDataStream,
+  decodeFlightDataToTable,
+  encodeRecordBatchesToFlightData,
+  encodeTableToFlightData,
+  getSchemaFromFlightData,
+} from "@qualithm/arrow-flight-client"
+import * as parquet from "parquet-wasm"
+
+declare namespace Olap {
+  // Three source shapes one wire admits: a materialized Table, a batch stream carrying its own schema because
+  // encoders write the schema message first, and raw IPC bytes an Arrow writer already framed.
+  type Frame =
+    | Table
+    | Uint8Array
+    | { readonly batches: AsyncIterable<RecordBatch> | Iterable<RecordBatch>; readonly schema: ArrowSchema }
+  // Both grains one Flight codec admits: the package's own iterator and this lane's stream.
+  type Frames = AsyncIterable<FlightData> | Stream.Stream<FlightData, OlapFault>
+  // Three lake residencies: bytes already in hand, a remote object read by range request, a picked local file.
+  type Stored = Uint8Array | { readonly url: string } | { readonly blob: Blob }
+  // Read cost is fixed at the write, so the row carries the axes a later scan pays for and the patience a partial
+  // window waits before it lands — five decisions one policy value states, never a builder chain at a call site.
+  type Writing = {
+    readonly compression: keyof typeof parquet.Compression
+    readonly dictionary: boolean
+    readonly patience: Duration.Duration
+    readonly rowGroup: number
+    readonly statistics: keyof typeof parquet.EnabledStatistics
+  }
+  type Lake = {
+    readonly batches: (source: Stored, read?: parquet.ReaderOptions) => Stream.Stream<RecordBatch, OlapFault>
+    readonly read: (bytes: Uint8Array, read?: parquet.ReaderOptions) => Effect.Effect<Table, OlapFault>
+    readonly schema: (bytes: Uint8Array) => Effect.Effect<ArrowSchema, OlapFault>
+    readonly sink: (batches: Stream.Stream<RecordBatch, OlapFault>, policy?: Writing) => Stream.Stream<Uint8Array, OlapFault>
+    readonly write: (table: Table, policy?: Writing) => Effect.Effect<Uint8Array, OlapFault>
+  }
+}
+
+// ZSTD over page statistics at a 128k row group is the cold-tail default: the compression a scan decompresses once
+// against the statistics that let it skip whole groups, sized so a predicate prunes before it reads.
+const _PARQUET = {
+  compression: "ZSTD",
+  dictionary: true,
+  patience: Duration.seconds(5),
+  rowGroup: 128_000,
+  statistics: "Page",
+} as const satisfies Olap.Writing
+
+// Reads take the writer row's counterpart: `batchSize` fixes the grain a scan emits at and `concurrency` bounds the
+// range requests a row-group fan holds in flight, so a cold-tail read states both instead of inheriting the codec's
+// silent defaults. The fan matches the Flight endpoint fan, because both spend the same remote-request budget.
+const _READING = { batchSize: 65_536, concurrency: _FLIGHT.endpoints } as const satisfies parquet.ReaderOptions
+
+const _frames = Match.type<Olap.Frame>().pipe(
+  Match.when(Match.instanceOf(Table), (table) => Stream.fromAsyncIterable(encodeTableToFlightData(table), _flightFault)),
+  Match.when(
+    Match.instanceOf(Uint8Array),
+    (bytes) => Stream.fromEffect(Effect.try({ try: () => createFlightDataFromIpc(bytes), catch: _flightFault })),
+  ),
+  Match.orElse(({ batches, schema }) => Stream.fromAsyncIterable(encodeRecordBatchesToFlightData(batches, schema), _flightFault)),
+)
+
+// `Stream` carries no async-iterator key and every package-minted frame source does, so the value answers which grain
+// it is and the codec below never publishes a second entry per grain.
+const _framed = (source: Olap.Frames): AsyncIterable<FlightData> =>
+  Symbol.asyncIterator in source ? source : Stream.toAsyncIterable(source)
 
 const _wire = {
   decode: (engine: Olap.Engine, bytes: Uint8Array): Effect.Effect<Table, OlapFault> =>
-    Effect.try({
-      try: () => tableFromIPC(bytes),
-      catch: (cause) => new OlapFault({ engine, reason: "wire", detail: String(cause) }),
-    }),
+    Effect.try({ try: () => tableFromIPC(bytes), catch: _fault(engine, "wire") }),
   encode: (engine: Olap.Engine, table: Table): Effect.Effect<Uint8Array, OlapFault> =>
-    Effect.try({
-      try: () => tableToIPC(table),
-      catch: (cause) => new OlapFault({ engine, reason: "wire", detail: String(cause) }),
-    }),
+    Effect.try({ try: () => tableToIPC(table), catch: _fault(engine, "wire") }),
   batches: (engine: Olap.Engine, source: AsyncIterable<Uint8Array>) =>
     Stream.unwrap(
-      _try(engine, "wire", () => RecordBatchReader.from(source)).pipe(
-        Effect.map((reader) => Stream.fromAsyncIterable(reader, (cause) =>
-          new OlapFault({ engine, reason: "wire", detail: String(cause) }))),
+      Effect.map(
+        _try(engine, "wire", () => RecordBatchReader.from(source)),
+        (reader) => Stream.fromAsyncIterable(reader, _fault(engine, "wire")),
       )),
-  pull: (conn: wasm.AsyncDuckDBConnection, sql: string) =>
-    Stream.unwrap(
-      _try("duckdbWasm", "query", () => conn.send(sql)).pipe(
-        Effect.map((reader) => Stream.fromAsyncIterable(reader, (cause) =>
-          new OlapFault({ engine: "duckdbWasm", reason: "query", detail: String(cause) }))),
-      )),
-  feed: (conn: wasm.AsyncDuckDBConnection, name: string, source: Table | Uint8Array) =>
-    _try("duckdbWasm", "wire", () =>
-      source instanceof Uint8Array ? conn.insertArrowFromIPCStream(source, { name }) : conn.insertArrowTable(source, { name })),
+  // Flight half of the one wire: `framed` stamps the descriptor onto the first message and leaves every later one
+  // untouched, `streamed` and `landed` are the grain pair a consumer picks between, and `header` answers the schema
+  // without taking the batches — same IPC bytes in every direction, never a second encoding.
+  flight: {
+    framed: (source: Olap.Frame, descriptor: FlightDescriptor): AsyncIterable<FlightData> =>
+      Stream.toAsyncIterable(
+        Stream.mapAccum(_frames(source), true, (first, data) => [false, first ? { ...data, flightDescriptor: descriptor } : data]),
+      ),
+    // `getSchemaFromFlightData` CONSUMES its stream, so a caller wanting both takes the batches and reads the schema
+    // off the first one; this member exists for the schema-only round trip the `Frames` intent serves.
+    header: (source: Olap.Frames): Effect.Effect<Option.Option<ArrowSchema>, OlapFault> =>
+      Effect.map(_flew(() => getSchemaFromFlightData(_framed(source))), Option.fromNullable),
+    landed: (source: Olap.Frames): Effect.Effect<Table, OlapFault> => _flew(() => decodeFlightDataToTable(_framed(source))),
+    streamed: (source: Olap.Frames): Stream.Stream<RecordBatch, OlapFault> =>
+      Stream.fromAsyncIterable(decodeFlightDataStream(_framed(source)), _flightFault),
+  },
+  // Locally staged frames enter the worker through its own leased session, so the ingest holds a permit and answers the
+  // one budget every worker statement answers.
+  feed: (session: Olap.Session<"duckdbWasm">, name: string, source: Table | Uint8Array) =>
+    _governed(session)(
+      { access: "write", fault: "wire" },
+      _try(session.engine, "wire", () =>
+        source instanceof Uint8Array
+          ? session.connection.insertArrowFromIPCStream(source, { name })
+          : session.connection.insertArrowTable(source, { name })),
+    ),
 } as const
+
+// --- [PARQUET_AT_REST]
+
+// Every codec member this lane composes CONSUMES its handle — `intoIPCStream`, `writeParquet`, and `build` each take
+// its pointer and destroy it — so a container lives inside one expression and a release bracket around one would free
+// a pointer the call already took. `ParquetFile` alone outlives its mint, so it alone brackets.
+const _lake = (ready?: () => Promise<unknown>): Effect.Effect<Olap.Lake, OlapFault> =>
+  Effect.gen(function* () {
+    // Async builds resolve their module once here and the node build resolves nothing, so no read or write below
+    // can reach an uninstantiated codec and no call site branches on which build the exports map selected.
+    yield* ready === undefined ? Effect.void : _try("duckdbWasm", "bundle", ready)
+    const propertied = (policy: Olap.Writing): parquet.WriterProperties =>
+      new parquet.WriterPropertiesBuilder()
+        .setCompression(parquet.Compression[policy.compression])
+        .setDictionaryEnabled(policy.dictionary)
+        .setMaxRowGroupSize(policy.rowGroup)
+        .setStatisticsEnabled(parquet.EnabledStatistics[policy.statistics])
+        .build()
+    // One IPC hop per direction is the whole crossing: the two `Table` classes share no identity, so the stream buffer
+    // is the seam and a shared-instance shortcut does not exist to reach for.
+    const written = (table: Table, policy: Olap.Writing = _PARQUET): Effect.Effect<Uint8Array, OlapFault> =>
+      Effect.try({
+        try: () => parquet.writeParquet(parquet.Table.fromIPCStream(tableToIPC(table, "stream")), propertied(policy)),
+        catch: _fault("duckdbWasm", "wire"),
+      })
+    // Bytes in hand still open as a file, because the range reader is the only member that yields row groups lazily.
+    const opened = (source: Olap.Stored): Effect.Effect<parquet.ParquetFile, OlapFault, Scope.Scope> =>
+      Effect.acquireRelease(
+        _try("duckdbWasm", "wire", () =>
+          "url" in source
+            ? parquet.ParquetFile.fromUrl(source.url)
+            : parquet.ParquetFile.fromFile("blob" in source ? source.blob : new Blob([source]))),
+        (file) => Effect.sync(() => file.free()),
+      )
+    return {
+      // Whole-buffer decode admits only where the object is provably bounded; everything else takes `batches`.
+      read: (bytes, read) =>
+        Effect.try({ try: () => tableFromIPC(parquet.readParquet(bytes, read).intoIPCStream()), catch: _fault("duckdbWasm", "wire") }),
+      schema: (bytes) =>
+        Effect.try({ try: () => tableFromIPC(parquet.readSchema(bytes).intoIPCStream()).schema, catch: _fault("duckdbWasm", "wire") }),
+      // BOUNDARY ADAPTER: the package types its readers element-free, so the element the stream carries is stated here
+      // rather than inferred; range requests pull one row group at a time, so an object past the bounded floor never
+      // lands whole and the file handle releases with the stream's own scope.
+      batches: (source, read) =>
+        Stream.unwrapScoped(Effect.map(
+          Effect.flatMap(opened(source), (file) => _try("duckdbWasm", "wire", () => file.stream({ ..._READING, ...read }))),
+          (readable) =>
+            Stream.mapConcat(
+              Stream.mapEffect(
+                Stream.fromReadableStream<parquet.RecordBatch, OlapFault>({
+                  evaluate: () => readable,
+                  onError: _fault("duckdbWasm", "wire"),
+                }),
+                (batch) => Effect.try({ try: () => tableFromIPC(batch.intoIPCStream()), catch: _fault("duckdbWasm", "wire") }),
+              ),
+              (landed) => landed.batches,
+            ),
+        )),
+      // Streamed egress lands ONE object per row-group window, weighted by the rows a batch actually carries and
+      // flushed on the policy's own patience, so a cold tail larger than memory writes as a content-addressed object
+      // set and no fold ever holds more than a window.
+      sink: (batches, policy = _PARQUET) =>
+        Stream.mapEffect(
+          Stream.filter(
+            Stream.aggregateWithin(
+              batches,
+              Sink.foldWeighted({
+                initial: Array.empty<RecordBatch>(),
+                maxCost: policy.rowGroup,
+                cost: (_held, batch: RecordBatch) => batch.numRows,
+                body: (held, batch: RecordBatch) => Array.append(held, batch),
+              }),
+              Schedule.spaced(policy.patience),
+            ),
+            Array.isNonEmptyReadonlyArray,
+          ),
+          (window) => written(new Table(window), policy),
+        ),
+      write: written,
+    }
+  })
 
 const Olap = {
   engines: _engines,
@@ -579,9 +2146,22 @@ const Olap = {
   Read: _Read,
   read: _read,
   attach: _attach,
+  mount: _mount,
+  points: _POINTS,
+  lake: _lake,
   lakeSource: _lakeSource,
+  absorb: _absorbed,
+  recorded: _recorded,
+  joined: _joined,
+  residences: _RESIDENCES,
+  target: _target,
   clickhouse: _clickhouse,
   ingest: _ingest,
+  wide: _wide,
+  flight: _flight,
+  Flown: _Flown,
+  flown: _flown,
+  transacted: _transacted,
   wire: _wire,
   profile: _profile,
   probe: _probe,
@@ -594,7 +2174,6 @@ const Olap = {
 export { Olap, OlapFault }
 ```
 
-## [08]-[RESEARCH]
+## [09]-[RESEARCH]
 
-- [PROFILE_ROW_SHAPE]-[OPEN]: which typed cell shape does `runAndReadAll(...).getRowObjects()` yield for the `explain_value` column of `EXPLAIN ANALYZE` under `PRAGMA enable_profiling='json'`; `libs/typescript/data/.api/duckdb-node-api.md` `[02]` (`DuckDBResultReader.getRowObjects`) and `[03]` (`runAndReadAll`), armed on the exact declarations and one decoded profile-row fixture pinning the `explain_value` cell the `_Root` decode consumes.
-- [CLICKHOUSE_PROFILE_SCOPE]-[OPEN]: which query-id scope yields ClickHouse profile evidence; `libs/typescript/data/.api/effect-sql-clickhouse.md` `[02]`, armed on exact scope and result declarations.
+(none)

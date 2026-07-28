@@ -1,15 +1,15 @@
 # [APPHOST_IDENTITY_AND_TRUST]
 
-One authentication boundary for the runtime spine: a per-issuer OIDC trust anchor folds discovery and rotating JWKS into the validation policy, an inbound-token rail validates a compact JWT to one canonical `Principal`, a flow-discriminated acquisition surface obtains machine-to-machine and device credentials over the relying-party client, and a claims-policy gate evaluates a `Principal` against an `AuthorizationPolicy` with no HTTP pipeline. The page produces the one validated `Principal` whose `TenantContext` the `Agent/capability#GRANT_BROKER` `ScopeOf` reads — authentication owns *who*, the grant broker owns *what* and *how much* — and it owns the issuer-trust registry, the token-validation rail, the credential-acquisition flow family, and the policy gate. The page additionally owns the `#PRINCIPAL` ambient slot every in-process caller reads, the `TokenLease` expiry/refresh custody over the acquired bundle, and the `PolicyDescriptor` `[SmartEnum]` naming every authorization requirement as a row. It consumes `TenantContext`, `CorrelationId`, `ClockPolicy`, `ReceiptSinkPort`, `DataClassification`, the resilient `HttpClient` seam from `Wire/outbound`, and the `CredentialPem` material `Runtime/secrets#CREDENTIAL_PEM` admits under the `Runtime/secrets#SECRET_LEASE` custody, minting no eighth port. `Microsoft.IdentityModel.JsonWebTokens` owns the JWT engine, `Microsoft.IdentityModel.Tokens` the validation contract and key hierarchy, `Microsoft.IdentityModel.Protocols.OpenIdConnect` the discovery leg, `OpenIddict.Client` the acquisition leg, and `Microsoft.AspNetCore.Authorization` the ABAC evaluation core; Thinktecture owns the vocabularies and LanguageExt the rails.
+One authentication boundary for the runtime spine: a per-issuer OIDC trust anchor folds discovery and rotating JWKS into the validation policy, an inbound-token rail validates a compact JWT to one canonical `Principal`, a flow-discriminated acquisition surface obtains machine-to-machine and device credentials over the relying-party client, and a claims-policy gate evaluates a `Principal` against an `AuthorizationPolicy` with no HTTP pipeline. This page produces the one validated `Principal` whose `TenantContext` the `Agent/capability#GRANT_BROKER` `ScopeOf` reads — authentication owns *who*, the grant broker owns *what* and *how much* — and it owns the issuer-trust registry, the token-validation rail, the credential-acquisition flow family, and the policy gate. Owned axes also cover the `#PRINCIPAL` ambient slot every in-process caller reads, the `TokenLease` expiry/refresh custody over the acquired bundle, and the `PolicyDescriptor` `[SmartEnum]` naming every authorization requirement as a row. It consumes `TenantContext`, `CorrelationId`, `ClockPolicy`, `ReceiptSinkPort`, `DataClassification`, the resilient `HttpClient` seam from `Wire/outbound`, and the `CredentialPem` material `Runtime/secrets#CREDENTIAL_PEM` admits under the `Runtime/secrets#SECRET_LEASE` custody, minting no eighth port. `Microsoft.IdentityModel.JsonWebTokens` owns the JWT engine, `Microsoft.IdentityModel.Tokens` the validation contract and key hierarchy, `Microsoft.IdentityModel.Protocols.OpenIdConnect` the discovery leg, `OpenIddict.Client` the acquisition leg, and `Microsoft.AspNetCore.Authorization` the ABAC evaluation core; Thinktecture owns the vocabularies and LanguageExt the rails.
 
 ## [01]-[INDEX]
 
-- [01]-[ISSUER_TRUST]: Per-issuer OIDC discovery anchor — refreshing JWKS configuration, last-known-good fallback, and protocol-invariant validation.
-- [02]-[TOKEN_VALIDATION]: Inbound JWT validation rail folding one handler result to the canonical `Principal`.
-- [03]-[PRINCIPAL]: The one validated identity record and its ambient slot every in-process caller reads.
-- [04]-[CREDENTIAL_FLOW]: Flow-discriminated token acquisition and the `TokenLease` expiry/refresh custody.
-- [05]-[POLICY_GATE]: `PolicyDescriptor` rows over the standalone ABAC core.
-- [06]-[TS_PROJECTION]: Principal, issuer, and policy-verdict wire shapes the dashboard consumes.
+- [02]-[ISSUER_TRUST]: Per-issuer OIDC discovery anchor — refreshing JWKS configuration, last-known-good fallback, and protocol-invariant validation.
+- [03]-[TOKEN_VALIDATION]: Inbound JWT validation rail folding one handler result to the canonical `Principal`.
+- [04]-[PRINCIPAL]: One validated identity record and its ambient slot every in-process caller reads.
+- [05]-[CREDENTIAL_FLOW]: Flow-discriminated token acquisition and the `TokenLease` expiry/refresh custody.
+- [06]-[POLICY_GATE]: `PolicyDescriptor` rows over the standalone ABAC core.
+- [07]-[TS_PROJECTION]: Principal, issuer, and policy-verdict wire shapes the dashboard consumes.
 
 ## [02]-[ISSUER_TRUST]
 
@@ -173,21 +173,22 @@ public sealed record Principal(
     public bool Expired(Instant now) => now >= Expiry;
 }
 
-// The ambient identity slot: the validated Principal rides the runtime context exactly as the
-// TenantContext does — an explicit scope stack restores it LIFO under top-only disposal,
-// unauthenticated is None, never a synthetic anonymous.
+// Ambient identity rides AsyncLocal exactly as the kernel tenancy slot does — a process-wide named slot
+// registry faults on a second composition, and an app root beside a plugin ALC capsule is that second one.
+// Scope stacks restore LIFO under top-only disposal; unauthenticated is None, never a synthetic
+// anonymous.
 public static class IdentityPrincipal {
-    static readonly RuntimeContextSlot<Principal> Ambient = RuntimeContext.RegisterSlot<Principal>(nameof(Principal));
-    static readonly RuntimeContextSlot<PrincipalScope> Scopes = RuntimeContext.RegisterSlot<PrincipalScope>(nameof(PrincipalScope));
+    static readonly AsyncLocal<Principal?> Ambient = new();
+    static readonly AsyncLocal<PrincipalScope?> Scopes = new();
 
-    public static Option<Principal> Current => Optional(Ambient.Get());
+    public static Option<Principal> Current => Optional(Ambient.Value);
 
     public static IDisposable Stamp(Principal principal) {
-        Principal? prior = Ambient.Get();
-        PrincipalScope? parent = Scopes.Get();
+        Principal? prior = Ambient.Value;
+        PrincipalScope? parent = Scopes.Value;
         var scope = new PrincipalScope(prior, parent);
-        Ambient.Set(principal);
-        Scopes.Set(scope);
+        Ambient.Value = principal;
+        Scopes.Value = scope;
         return scope;
     }
 
@@ -196,11 +197,11 @@ public static class IdentityPrincipal {
 
         public void Dispose() {
             if (Volatile.Read(ref disposed) != 0) return;
-            if (!ReferenceEquals(Scopes.Get(), this))
+            if (!ReferenceEquals(Scopes.Value, this))
                 throw new InvalidOperationException("Principal scopes must be disposed in LIFO order.");
             if (Interlocked.Exchange(ref disposed, 1) != 0) return;
-            Ambient.Set(prior);
-            Scopes.Set(parent);
+            Ambient.Value = prior;
+            Scopes.Value = parent;
         }
     }
 }
@@ -237,7 +238,7 @@ public sealed record TokenBundle(
 
 public sealed record DeviceChallenge(string UserCode, string DeviceCode, Uri VerificationUri, TimeSpan Interval, TimeSpan Timeout);
 
-// The expiry/refresh custody: one lease per registration holds the live bundle, its refresh
+// Expiry and refresh take one custody: each registration's lease holds the live bundle, its refresh
 // ScheduleEntry, and the refresh flow that re-acquires ahead of expiry. RefreshFraction is the
 // policy value (refresh at 80% of lifetime); DPoP binding is the recorded growth line.
 public sealed record TokenLease(string RegistrationId, TokenBundle Bundle, ScheduleEntry Refresh) {
@@ -288,13 +289,13 @@ public static class Acquisition {
 - Auto: the evaluation runs over `AddAuthorizationCore()` — the HTTP-coupled `AddAuthorization()` and middleware surface stay out of the host, so authorization is an injected `IAuthorizationService` capability evaluating a `ClaimsPrincipal`, a domain resource, and registered handlers with no `HttpContext`; the `Principal.Identity` is the `ClaimsIdentity` the validation rail projected, so the policy reads the same raw JWT claim types the token carried (`MapInboundClaims = false` keeps `scope`/`azp` un-remapped); a requirement is the built-in `ClaimsAuthorizationRequirement`/`OperationAuthorizationRequirement`/`AssertionRequirement` or one custom `IAuthorizationRequirement` paired with an `AuthorizationHandler<TRequirement>`, never a hand-rolled claim/role check; the verdict reads `AuthorizationResult.Succeeded` (non-null `Failure` exactly when `false` under `[MemberNotNullWhen]`) so the boolean and the nullable failure flow through the typed result without a throw.
 - Receipt: the verdict rides the `IdentityReceipt` correlation — a denied policy stamps the registry-derived `PolicyDenied` fault code and the failed-requirement reasons; no parallel authorization receipt.
 - Packages: Microsoft.AspNetCore.Authorization, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox
-- Growth: one access rule is one `IAuthorizationRequirement` plus its handler; a new policy is one `PolicyDescriptor` row composing its requirements through the builder; a resource-typed rule is the `AuthorizationHandler<TRequirement, TResource>` arity; zero new surface.
+- Growth: one access rule is one `IAuthorizationRequirement` and its handler; a new policy is one `PolicyDescriptor` row composing its requirements through the builder; a resource-typed rule is the `AuthorizationHandler<TRequirement, TResource>` arity; zero new surface.
 - Boundary: the policy gate is the suite's only claims-policy owner — a hand-rolled role check, an HTTP-pipeline authorization attribute, and a string-policy-name lookup where an explicit `AuthorizationPolicy` value serves are the deleted forms; the policy gate and the `Agent/capability#GRANT_BROKER` are distinct concerns layered in order — the gate answers *is this principal permitted to attempt the op* off claims, the broker answers *does the tenant's scope and budget admit the op* off cost, so a principal that passes the policy gate still meters every op through the broker and a denied policy never reaches the broker; the gate evaluates a `ClaimsPrincipal` the validation rail produced, so authentication, authorization-policy, and capability-metering are three ordered seams over the one `Principal`, never a merged predicate; the resource-bound rail routes through `PolicyDescriptor` rows and `OperationAuthorizationRequirement` — a raw requirement span at a call site and a string-policy-name lookup are both the deleted forms, so a policy edit is one row change and the verdict evidence keys on the row.
 
 ```csharp signature
 // --- [TYPES] ----------------------------------------------------------------------------
-// The closed policy vocabulary: each row NAMES a policy and carries its composed requirements —
-// the raw IAuthorizationRequirement gate stays the mechanism, the row is the discoverable law.
+// Policy vocabulary closes here: each row NAMES a policy and carries its composed requirements —
+// raw IAuthorizationRequirement gates stay the mechanism, and the row is the discoverable law.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -333,6 +334,9 @@ public static class PolicyGate {
 ---
 config:
   layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
 ---
 flowchart LR
     accTitle: One identity boundary feeding the capability metering
@@ -349,9 +353,9 @@ flowchart LR
 - Owner: `PrincipalWire`, `IssuerTrustWire`, and `PolicyVerdictWire` transcribe the validated identity, the issuer-trust state, and the authorization verdict the dashboard ingests; the token bundle never crosses the wire.
 - Packages: BCL inbox
 - Growth: one claim row on the principal, one issuer field, or one verdict field, zero new surface.
-- Boundary: the access token and refresh token never cross the wire — only the validated `Principal` projection (subject, tenant, scopes, expiry) and the trust/verdict state cross, so a secret never leaves the host; instants cross as extended-ISO text; the issuer key crosses as the issuer URI string; scopes cross as a string array; the policy verdict crosses as a granted flag plus the failed-requirement names, mirroring `PolicyVerdict`; a `null` failed-requirement list is the granted case.
+- Boundary: the access token and refresh token never cross the wire — only the validated `Principal` projection (subject, tenant, scopes, expiry) with the trust/verdict state cross, so a secret never leaves the host; instants cross as extended-ISO text; the issuer key crosses as the issuer URI string; scopes cross as a string array; the policy verdict crosses as a granted flag and the failed-requirement names, mirroring `PolicyVerdict`; a `null` failed-requirement list is the granted case.
 
-```ts contract
+```ts signature
 interface PrincipalWire {
   readonly subject: string;
   readonly issuer: string;
@@ -376,6 +380,6 @@ interface PolicyVerdictWire {
 
 ## [08]-[RESEARCH]
 
-- [TENANT_CLAIM]: the `tenant` payload claim the `Project` fold reads to mint `TenantContext` resolves against the issued-token claim schema the identity provider stamps — the claim name and the scope-claim shape (`scope` space-delimited string vs `scp` array) settle against the provider's token format before the projection finalizes; the `Principal.TenantContext` is the value `Agent/capability#GRANT_BROKER` `ScopeOf` and `Runtime/ports` causal-frame stamping consume.
-- [SIGNING_MATERIAL]: the client-assertion `SigningCredentials` the `OpenIddictClientRegistration` carries map from the `Runtime/secrets#CREDENTIAL_PEM` `CredentialPem` bundle the host admits once — the `X509SigningCredentials` vs `RsaSecurityKey` form and the registration-time `AddSigningCredentials`/`AddSigningCertificate` wiring confirm against the app-root OpenIddict registration the `Wire/companion` control host owns; the post-quantum `MlDsaSecurityKey` (FIPS-204, net10 BCL `MLDsa`) is the forward signing path when a provider advertises it.
-- [IDENTITY_STORE]: the tenant-membership and revocation read the `Principal` resolves against is the `Rasm.Persistence` identity store under the `TenantId` RLS predicate (`Agent/identity ⇄ csharp:Rasm.Persistence`), consumed at the seam and never an AppHost-owned store; the introspection leg (`OpenIddictClientService.IntrospectTokenAsync`) is the active-revocation check against the provider for a long-lived token the local validation cannot otherwise revoke.
+- [TENANT_CLAIM]-[OPEN]: which `tenant` payload claim the `Project` fold reads to mint `TenantContext` resolves against the issued-token claim schema the identity provider stamps — the claim name and the scope-claim shape (`scope` space-delimited string vs `scp` array) settle against the provider's token format before the projection finalizes; the `Principal.TenantContext` is the value `Agent/capability#GRANT_BROKER` `ScopeOf` and `Runtime/ports` causal-frame stamping consume.
+- [SIGNING_MATERIAL]-[OPEN]: which client-assertion `SigningCredentials` the `OpenIddictClientRegistration` carries map from the `Runtime/secrets#CREDENTIAL_PEM` `CredentialPem` bundle the host admits once — the `X509SigningCredentials` vs `RsaSecurityKey` form and the registration-time `AddSigningCredentials`/`AddSigningCertificate` wiring confirm against the app-root OpenIddict registration the `Wire/companion` control host owns; the post-quantum `MlDsaSecurityKey` (FIPS-204, net10 BCL `MLDsa`) is the forward signing path when a provider advertises it.
+- [IDENTITY_STORE]-[OPEN]: which tenant-membership and revocation read the `Principal` resolves against is the `Rasm.Persistence` identity store under the `TenantId` RLS predicate (`Agent/identity ⇄ csharp:Rasm.Persistence`), consumed at the seam and never an AppHost-owned store; the introspection leg (`OpenIddictClientService.IntrospectTokenAsync`) is the active-revocation check against the provider for a long-lived token the local validation cannot otherwise revoke.

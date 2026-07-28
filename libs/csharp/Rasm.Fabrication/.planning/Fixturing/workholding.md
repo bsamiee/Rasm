@@ -13,9 +13,9 @@
 ## [02]-[ELEMENTS]
 
 - Owner: `FixtureElement` closes locating, support, and clamping under one element identity and aggregate admission; `ContactLaw` owns friction, pressure, stiffness, deflection, pull-off, and contact-field invariants.
+- Owner: `Actuation` carries typed energy source, transmission geometry, fail state, lock, response, and release behavior as data, and `FixtureState` carries which elements and zones are active.
 - Cases: locating covers plane, round-pin, diamond-pin, nest, center, mandrel, and optical alignment; support covers fixed, adjustable, hydraulic, compliant, steady-rest, and sacrificial contact; clamping covers toe, vise, chuck, collet, expanding arbor, vacuum, magnetic, adhesive, freeze, center, tailstock, and bed mechanisms.
 - Law: element identity, `FixtureRole`, `WorkholdingKind`, and optional `Actuation` ride the `FixtureElement` base constructor, so each case declares classification and loss-of-energy custody once; a case omitting any column fails to compile.
-- Policy: `Actuation` carries typed energy source, transmission geometry, fail state, lock, response, and release behavior as data, and `FixtureState` carries which elements and zones are active.
 - Growth: a new element mechanism is one generated case supplying its base classification and its contact and body projections; consumers remain exhaustive through generated `Switch`.
 - Boundary: locating, support, and clamping remain cases because each contributes a distinct constraint role; template cases survive beside realized elements only because their payload arrives before geometry realization and aggregate admission.
 
@@ -335,14 +335,14 @@ public sealed record FixtureCandidate(
 ## [03]-[FIXTURE]
 
 - Owner: `FixtureSpec` is raw aggregate ingress; `Fixture` is the admitted owner carrying datum lineage, element identity, activation sequence, exact keep-outs, motion partition, and stock witness.
-- Admission: independent element, topology, state, geometry, contact, and six-degree constraint failures accumulate before the `Fin<Fixture>` rail resumes.
-- State: each `FixtureStep` activates and releases elements against one `FixtureState`; cutting states require settled location, support, and clamp custody before any move conditions.
-- Keep-out: `ExclusionZone` carries lower and upper height, active states, exact loops, once-densified walls, source element, role, and mechanism; every physical element contributes a zone, while optical alignment remains geometry-free.
-- Datum: `DatumFrame` records primary, secondary, and tertiary contact evidence with the work coordinate system transform and repeatability budget.
-- Constraint: `ConstraintReceipt` preserves both closure ranks and redundancy — `Rank` over the friction-cone wrench set, `Frictionless` over normals alone — so underconstraint, overconstraint, and the form-versus-force closure distinction remain separable from holding-force sufficiency.
-- Fault: `FixturingWitness` closes the admission rejection reasons and lowers through one `FabricationFault.FixtureInadmissible` band arm; degenerate geometry stays on `GeometryFault.DegenerateInput`.
-- Growth: a fixture-wide invariant becomes one aggregate gate; no consumer revalidates element fields or reconstructs datum lineage.
+- Owner: `ExclusionZone` carries lower and upper height, active states, exact loops, once-densified walls, source element, role, and mechanism; every physical element contributes a zone, while optical alignment remains geometry-free.
+- Law: each `FixtureStep` activates and releases elements against one `FixtureState`; cutting states require settled location, support, and clamp custody before any move conditions.
+- Law: `ConstraintReceipt` preserves both closure ranks and redundancy — `Rank` over the friction-cone wrench set, `Frictionless` over normals alone — so underconstraint, overconstraint, and the form-versus-force closure distinction remain separable from holding-force sufficiency.
 - Exemption: `ConstraintRank` is the bounded six-column contact-wrench kernel; its span loops are the measured numeric exemption.
+- Entry: independent element, topology, state, geometry, contact, and six-degree constraint failures accumulate before the `Fin<Fixture>` rail resumes.
+- Receipt: `DatumFrame` records primary, secondary, and tertiary contact evidence with the work coordinate system transform and repeatability budget.
+- Growth: a fixture-wide invariant becomes one aggregate gate; no consumer revalidates element fields or reconstructs datum lineage.
+- Boundary: `FixturingWitness` closes the admission rejection reasons and lowers through one `FabricationFault.FixtureInadmissible` band arm; degenerate geometry stays on `GeometryFault.DegenerateInput`.
 
 ```csharp signature
 // --- [FIXTURE] ------------------------------------------------------------------------------------------------------------------------------------
@@ -529,17 +529,13 @@ public sealed partial class FixtureSet {
 ## [04]-[EVALUATION]
 
 - Owner: `WorkholdingOp` closes admission, conditioning, clearance, machined-stock, restraint, state, and projection modalities; `WorkholdingResult` closes their typed outcomes.
+- Cases: `LoadCase` covers cutting, gravity, acceleration, probing, handling, thermal, and process-pressure demand; regional cases transfer their resultant through the region center, and each cutting operation matches the admitted fixture operation.
+- Law: one scale-normalized six-DOF reaction solve resolves force, moment, friction, pull-off, and lift together; contact pressure and elastic limits derive beside its reaction distribution, and `TipMargin` resolves each support-polygon edge against its own restoring reactions.
+- Law: tool-corridor clearance uses every cutter and holder station; chip and coolant corridors use the same zone algebra with their own radius and active state. `Clearance` carries the blocking zone alone and derives clearness from its absence.
+- Law: `ClampTemplate` generates boundary layouts, evaluates every candidate through the same restraint and corridor algebra, ranks the survivors, and derives soft-jaw negatives from the part silhouette. `Programs` enumerates only the admitted cardinalities under `CandidateBudget`, so template-roster growth never costs a powerset.
+- Exemption: statements stay inside the bounded kernels alone — `Canonical`, `ZoneIdentity`, `Frame`, and the typed `Write` overloads serialize the boundary with every union case, optional value, string, and adjacent collection framed and `ZoneIdentity` reusing the complete zone writer; `GateSequence` and `GateDatum` fold aggregate admission; `Rank`, `Hull`, and `Chain` score synthesis and close the support polygon; `ContactPatch.Field`, `Support`, `TangentialSupport`, `NormalSupport`, `MomentSupport`, and `TipMargin` measure contact; `Zone`, `Below`, `Crosses`, `Intersection`, and `ArcSegments` measure geometry.
 - Entry: `Workholding.Apply` is the sole public operation surface; each case carries every discriminant and parameter its arm consumes.
-- Loads: `LoadCase` covers cutting, gravity, acceleration, probing, handling, thermal, and process-pressure demand; regional cases transfer their resultant through the region center, and each cutting operation matches the admitted fixture operation.
-- Stability: one scale-normalized six-DOF reaction solve resolves force, moment, friction, pull-off, and lift together; contact pressure and elastic limits derive beside its reaction distribution, and `TipMargin` resolves each support-polygon edge against its own restoring reactions.
-- Access: tool-corridor clearance uses every cutter and holder station; chip and coolant corridors use the same zone algebra with their own radius and active state. `Clearance` carries the blocking zone alone and derives clearness from its absence.
-- Synthesis: `ClampTemplate` generates boundary layouts, evaluates every candidate through the same restraint and corridor algebra, ranks the survivors, and derives soft-jaw negatives from the part silhouette. `Programs` enumerates only the admitted cardinalities under `CandidateBudget`, so template-roster growth never costs a powerset.
-- Projection: `FixtureProjection` selects machine, setup-sheet, inspection, and evidence payloads; `Canonical` dispatches on that family and writes every field of the selected payload before `ContentKey.Of` mints its identity.
-- Exemption: `Canonical`, `ZoneIdentity`, `Frame`, and the typed `Write` overloads are the boundary serialization kernel; every union case, optional value, string, and adjacent collection is framed, and `ZoneIdentity` reuses the complete zone writer.
-- Exemption: `GateSequence` and `GateDatum` are bounded aggregate-admission folds; statements remain inside those validation kernels.
-- Exemption: `Rank`, `Hull`, and `Chain` are the bounded synthesis-scoring and support-polygon kernels; statements remain inside those numeric bodies.
-- Exemption: `ContactPatch.Field`, `Support`, `TangentialSupport`, `NormalSupport`, `MomentSupport`, and `TipMargin` are measured contact kernels; statements remain inside those bounded numeric bodies.
-- Exemption: `Zone`, `Below`, `Crosses`, `Intersection`, and `ArcSegments` are measured geometry kernels; statements remain inside those bounded numeric bodies.
+- Output: `FixtureProjection` selects machine, setup-sheet, inspection, and evidence payloads; `Canonical` dispatches on that family and writes every field of the selected payload before `ContentKey.Of` mints its identity.
 - Boundary: geometry, aggregate, and stability failures remain typed; no failure becomes an empty fixture, a clear path, or a passing margin.
 
 ```csharp signature
@@ -787,7 +783,7 @@ public static class Workholding {
             Math.Max(0, closure.Count - rank), reactions));
     }
 
-    // A frictional contact spans three wrench directions, not one: dropping the tangential pair
+    // Frictional contact spans three wrench directions, not one: dropping the tangential pair
     // caps an opposed-jaw fixture at rank 3 and reports every valid vise as underconstrained.
     static Seq<Wrench> Friction(ContactReaction reaction) {
         if (reaction.TangentialCapacity.As(ForceUnit.Newton) <= 0.0) return Seq<Wrench>();

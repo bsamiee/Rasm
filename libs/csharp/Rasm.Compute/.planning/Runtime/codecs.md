@@ -6,16 +6,16 @@ Owner types are `FieldCodec`/`DeltaCodec`, the `TessellationRequest` companion b
 
 ## [01]-[INDEX]
 
-- [01]-[TWO_HOP_TESSELLATION]: IFC/AP242/native geometry crosses to the companion, never in-proc; ifctester IDS-audit oracle and GeoArrow-buffer consume ride the same companion rpc.
-- [02]-[FIELD_RESULT_CODEC]: chunked simulation-field layout; error-bounded lossy/lossless; zero-copy.
-- [03]-[GEOMETRY_DELTA]: FastCDC chunking; structural mesh/B-rep/point-cloud/NURBS delta; progressive.
-- [04]-[TILE_PARTITION]: 3D-Tiles octree partition; streamable LOD over the content-keyed geometry.
-- [05]-[CONTENT_ADDRESSING]: policy-seeded canonical-form `XxHash128` interchange-cache key (the GLB geometry-content identity is the kernel seed-zero `GeometryHash` composed, distinct); empty-artifact sentinel; HLC two-half compose.
-- [06]-[ARROW_BATCH]: `Solver/sweep` `DoeDataset` and `Runtime/receipts` `ChargebackDataset` project into a self-describing Arrow `RecordBatch` — per-axis/objective bulk-span `DoubleArray` columns, the `OnFront` `BooleanArray`, content-key/strategy/window as `Schema` metadata; the surrogate-training and billing lake egress the Persistence Flight-SQL landing redeems.
+- [02]-[TWO_HOP_TESSELLATION]: IFC/AP242/native geometry crosses to the companion, never in-proc; ifctester IDS-audit oracle and GeoArrow-buffer consume ride the same companion rpc.
+- [03]-[FIELD_RESULT_CODEC]: chunked simulation-field layout; error-bounded lossy/lossless; zero-copy.
+- [04]-[GEOMETRY_DELTA]: FastCDC chunking; structural mesh/B-rep/point-cloud/NURBS delta; progressive.
+- [05]-[TILE_PARTITION]: 3D-Tiles octree partition; streamable LOD over the content-keyed geometry.
+- [06]-[CONTENT_ADDRESSING]: policy-seeded canonical-form `XxHash128` interchange-cache key (the GLB geometry-content identity is the kernel seed-zero `GeometryHash` composed, distinct); empty-artifact sentinel; HLC two-half compose.
+- [07]-[ARROW_BATCH]: `Solver/sweep` `DoeDataset`, `Runtime/receipts` `ChargebackDataset`, and the `GeometryDataset` kernel-encode corpus project into self-describing Arrow batches — bulk-span columns for the row-major pair, arena-borrowed `FixedSizeList` channel columns for geometry, receipt facts as `Schema` metadata; the surrogate-training, billing, and geometry lake egress one `Landing` projection hands the Persistence custodian.
 
 ## [02]-[TWO_HOP_TESSELLATION]
 
-- Owner: `TessellationRequest` — the two-hop bridge crossing IFC geometry evaluation to the IfcOpenShell companion (`IfcConvert` producing GLB) and re-importing the GLB through the Bim glTF path, host-local and riding the existing companion rpc, never a new transport; `IdsAuditRequest` the companion-rpc leg passing IDS-XML to the Python ifctester oracle and projecting the per-specification pass/fail `GlobalId` set into the Bim `IdsAudit` shape (one invocation beside `IfcConvert`); `ImportedGeometry` the decoded mesh-scene carrier the re-import lands and the tile partition reads; `TessellationPolicy` the deflection/tolerance/tile-partition policy folded into the content-key.
+- Owner: `TessellationRequest` — the two-hop bridge crossing IFC geometry evaluation to the IfcOpenShell companion (`python:geometry/mesh/daemon` `TessellationDaemon.tessellate`, evaluating in-process and serializing GLB to a file sink) and re-importing the GLB through the Bim glTF path, host-local and riding the existing companion rpc, never a new transport; `IdsAuditRequest` the companion-rpc leg passing IDS-XML to the Python ifctester oracle and projecting the per-specification pass/fail `GlobalId` set into the Bim `IdsAudit` shape (one invocation beside `IfcConvert`); `ImportedGeometry` the decoded mesh-scene carrier the re-import lands and the tile partition reads; `TessellationPolicy` the deflection/tolerance/tile-partition policy folded into the content-key.
 - Entry: `public static Fin<TessellationRequest> Plan(string formatKey, bool requiresCompanion, ReadOnlyMemory<byte> ifcBytes, TessellationPolicy policy)` builds the request keyed on the IFC content and the deflection/tolerance policy; the companion round-trip rides the existing `Runtime/wire#PROTO_VOCABULARY` `Solve`/artifact transport, and the GLB re-enters the Bim glTF import rail as an `ImportedGeometry`.
 - Auto: `Plan` gates the hop on the source format's companion-tessellation flag so a non-IFC format never crosses; the request carries the IFC bytes, deflection, tolerance, and content-key so a re-cross at the same policy is gated. Durable GLB residence is keyed by the Bim `Exchange/tessellation#TESSELLATION_BRIDGE` dual `SourceKey`/`ContentKey` (kernel seed-zero content-hash, never a policy seed) with the Persistence object-store `ContentAddress`, the Bim bridge performing that durable reuse before crossing; this leg's policy-seeded `IfcContentKey` is the companion-rpc cache-partition over source IFC and evaluation policy that gates re-crossing — distinct cache layers, neither re-minting the other's key.
 - Receipt: the `RemoteCall` receipt carries the companion transport, the IFC content-key, the deflection, and the elapsed; a cache hit on the prior GLB stamps a `Cache` receipt instead of crossing.
@@ -237,7 +237,7 @@ public static class FieldCodec {
         bool shape = field.Components > 0 && field.Count >= 0L && field.ChunkShape.Length > 0 && field.ChunkShape.All(static extent => extent > 0)
             && field.GridChunks.Length == field.ChunkShape.Length && field.GridChunks.All(static extent => extent > 0)
             && chunkElements is > 0 and <= int.MaxValue && gridCount == field.ChunkCount && field.Chunks.Length % sizeof(float) == 0;
-        // A pinned policy shape GOVERNS: the artifact's layout must equal it exactly; an empty policy shape inherits.
+        // Pinned policy shape GOVERNS: artifact layout equals it exactly, while an empty policy shape inherits.
         bool layout = policy.ChunkShape.Length == 0 || policy.ChunkShape.AsSpan().SequenceEqual(field.ChunkShape);
         return residence && shape && layout
             ? Fin.Succ((field, policy))
@@ -650,7 +650,7 @@ public static class DeltaCodec {
 - Receipt: the `StreamSegment` receipt carries the leaf-reference count, the root geometric error, the max depth, the node count, and the per-leaf property-column count; emission rides the sink port.
 - Packages: System.IO.Hashing, CommunityToolkit.HighPerformance, SharpGLTF.Core, SharpGLTF.Toolkit, SharpGLTF.Ext.3DTiles (the `Schema2.Tiles3D` EXT_structural_metadata/EXT_mesh_features leaf-body schema surface, admitted via `Tiles3DExtensions.RegisterExtensions()` once at composition — the settled Compute admission; models no tileset.json manifest tree), meshoptimizer, LanguageExt.Core, NodaTime, Rasm.Persistence (project), BCL inbox (`System.Text.Json` Utf8JsonWriter tileset-manifest emit, `System.Buffers` ArrayBufferWriter)
 - Growth: a new tile-partition parameter is one column on `TessellationPolicy` folded into the partition; a new metadata property is one `MetadataProperty` case folded into the property table; a new styling band is one `FeatureBand` row; a new leaf-tile content format is one row on the Bim format axis the leaf emit reads; zero new surface — a `TileMetadataStore`/`FeatureAttributeTable` sibling owner is collapsed onto the one `TileMetadata`/`PropertyTable` family on the leaf-tile content emit.
-- Boundary: 3D-Tiles partition is the streamable-LOD octree over content-keyed geometry the compute lane owns — riding `InterchangeIdentity.Key` and the imported-geometry carrier — while the b3dm/glTF tile content encode is the Bim glTF codec the leaf emit composes; the metadata layer is one content-keyed schema column on the leaf-tile emit, never a parallel attribute store or second tiling owner, each `TileMetadata` carrying its own tile content-key (independently addressable) and `ReplayKey` composing it with the causal stamp so a leaf tile is cache-replayable without rebuilding the octree; the IFC classification reads the `Rasm.Bim` IFC semantic graph at the shared content-key (companion seam, never reaching into the Bim interior) and the per-element field values read the `Solver/discretization#DISCRETIZATION_MESH` `FieldSpace` achieved value (never a recomputed metric), so the IFC graph and the tessellated geometry stay two projections of one content-keyed IFC artifact joined at the tile boundary, a re-tessellation at a new deflection re-keying both together; `EXT_structural_metadata` property tables and the `EXT_mesh_features` feature-id are vendor glTF extensions SharpGLTF.Core does not model natively — its in-box framework is `ExtensionsFactory.RegisterExtension<TParent,TExt>(string name)` over a caller-supplied `JsonSerializable`-derived class (the material-PBR surface being the separate string-keyed `MaterialChannel` API in Core and `KnownChannel` enum in Toolkit) — so the schema, property-table buffer-view columns, and feature-id vertex attribute emit through that write surface against a `JsonSerializable`-derived class registered before write, the binary layout the `[EXT_STRUCTURAL_METADATA]` RESEARCH leaf against the SharpGLTF API and the 3D-Tiles 1.1 spec (never an assumed helper); meshoptimizer owns the leaf-tile `Meshopt.Simplify`/`OptimizeVertexCache` LOD, never a hand-rolled simplifier; the leaf-tile content body is NOT emitted here — `ExportTiles` yields one typed `LeafContent` per leaf (content-key, `{contentKey:x32}.glb` URI, metadata-column count), the octree, metadata schema, and quantization-bit policy owned here while the b3dm/glTF body each URI names is the Bim tile-emit cross-package product against the Persistence index, a public leaf-body entry that can only decline the rejected honesty defect and a partition that re-derives the glTF body in-place or a metadata layer that re-reads the IFC parser the rejected form.
+- Boundary: 3D-Tiles partition is the streamable-LOD octree over content-keyed geometry the compute lane owns — riding `InterchangeIdentity.Key` and the imported-geometry carrier — while the b3dm/glTF tile content encode is the Bim glTF codec the leaf emit composes; the metadata layer is one content-keyed schema column on the leaf-tile emit, never a parallel attribute store or second tiling owner, each `TileMetadata` carrying its own tile content-key (independently addressable) and `ReplayKey` composing it with the causal stamp so a leaf tile is cache-replayable without rebuilding the octree; the IFC classification reads the `Rasm.Bim` IFC semantic graph at the shared content-key (companion seam, never reaching into the Bim interior) and the per-element field values read the `Solver/discretization#DISCRETIZATION_MESH` `FieldSpace` achieved value (never a recomputed metric), so the IFC graph and the tessellated geometry stay two projections of one content-keyed IFC artifact joined at the tile boundary, a re-tessellation at a new deflection re-keying both together; `EXT_structural_metadata` property tables and the `EXT_mesh_features` feature-id ride the admitted `SharpGLTF.Ext.3DTiles` package, whose `Tiles3DExtensions.RegisterExtensions()` seats the types on Core's `ExtensionsFactory` and whose `UseStructuralMetadata`/`AddMeshFeatureIds` surface owns the property-table buffer-view layout through `PropertyTableProperty.SetValues<T>` — a hand-authored `JsonSerializable` extension class over the raw registration is the form `Rasm.Bim` `Exchange/export` already deletes, and Core's name-only `RegisterExtension<TParent,TExt>(string)` overload is `[Obsolete]` in favour of the factory-taking one (the material-PBR surface being the separate string-keyed `MaterialChannel` API in Core and `KnownChannel` enum in Toolkit); meshoptimizer owns the leaf-tile `Meshopt.Simplify`/`OptimizeVertexCache` LOD, never a hand-rolled simplifier; the leaf-tile content body is NOT emitted here — `ExportTiles` yields one typed `LeafContent` per leaf (content-key, `{contentKey:x32}.glb` URI, metadata-column count), the octree, metadata schema, and quantization-bit policy owned here while the b3dm/glTF body each URI names is the Bim tile-emit cross-package product against the Persistence index, a public leaf-body entry that can only decline the rejected honesty defect and a partition that re-derives the glTF body in-place or a metadata layer that re-reads the IFC parser the rejected form.
 
 ```csharp signature
 // Compute-lane geometry-quality + tile-partition policy, RENAMED off `InterchangePolicy` — the Bim
@@ -913,11 +913,11 @@ public static class TilePartition {
 
 - Owner: `ComparerAccessors.StringOrdinalIgnoreCase` accessor; `CanonicalForm` the static byte-normalization kernel reducing every keyed input to one machine-independent canonical byte form before the hash seed; `InterchangeIdentity` the interchange CACHE-PARTITION key derivation folding canonicalized source bytes with the complete ordered output-policy vector into one policy-seeded `XxHash128` identity (distinct from the kernel seed-zero `GeometryHash` the seam/Bim/Persistence/peers share), mirroring the model-lane `ModelIdentity.Snapshot` precedent, with `Compose` sealing the content key and HLC two-half stamp into one frame key and `SeedZero` minting the empty-artifact sentinel; `ComputeArtifact` the emitted-bytes carrier the field, tile, and Bim export rails feed, landing content-addressed on the Persistence blob lane through `ArtifactIndexRow.Admit` with no second cache.
 - Entry: `public static UInt128 Key(...)` — pure value; the contiguous and pooled-sequence cases derive identity from canonical bytes and the complete ordered policy vector, while the geometry case frames vertices, indices, and normals by ordinal and byte length before one incremental hash; `public static UInt128 Compose(UInt128 contentKey, Instant physical, ulong logical)` folds the content key with the causal stamp in the fixed (physical, logical) half order; `public static UInt128 SeedZero(string formatKey, ReadOnlySpan<double> policy)` is the empty-artifact sentinel identity; `ComputeArtifact.Of` is the one emit-carrier mint deriving the content key from bytes with its complete policy vector.
-- Auto: every keyed input passes through `CanonicalForm` before the seed — `CanonicalForm.Tag` lower-cases invariant culture and trims the format/codec tag so `"GLB"` and `" glb "` key one identity, `CanonicalForm.Scalar` collapses negative zero to positive zero and maps every NaN pattern to one quiet-NaN payload, and `CanonicalForm.Write` lays the length-prefixed tag, the policy scalar count, and every ordered policy scalar little-endian — injective framing, so distinct `(formatKey, policy)` tuples never share a canonical byte vector; artifact bytes pass into the byte hash verbatim. `Key` seeds `XxHash128.HashToUInt128` with the `XxHash3.HashToUInt64` of that canonical vector, so tessellation folds deflection, tolerance, angle tolerance, tile depth, root geometric error, and split threshold while field residence folds bits and bound. A zero-length artifact routes to `SeedZero` over the same policy vector so absent and present-but-empty remain distinct. `Compose` lays the physical half first and logical half second, both little-endian, matching `Rasm.AppHost/Runtime/ports#PORT_RECORDS`; `Admit` projects onto `ArtifactIndexRow.Admit` under the interchange classification and retention columns.
+- Auto: every keyed input passes through `CanonicalForm` before the seed — `CanonicalForm.Tag` lower-cases invariant culture and trims the format/codec tag so `"GLB"` and `" glb "` key one identity, `CanonicalForm.Scalar` collapses negative zero to positive zero and maps every NaN pattern to one quiet-NaN payload, and `CanonicalForm.Write` lays the length-prefixed tag, the policy scalar count, and every ordered policy scalar little-endian — injective framing, so distinct `(formatKey, policy)` tuples never share a canonical byte vector; artifact bytes pass into the byte hash verbatim. `Key` seeds `XxHash128.HashToUInt128` with the `XxHash3.HashToUInt64` of that canonical vector, so tessellation folds deflection, tolerance, angle tolerance, tile depth, root geometric error, and split threshold while field residence folds bits and bound. Zero-length artifact bytes route to `SeedZero` over the same policy vector, so absent and present-but-empty stay distinct. `Admit` projects onto `ArtifactIndexRow.Admit` under the interchange classification and retention columns.
 - Receipt: the `Cache` receipt carries the content-key and the hit/miss/store outcome; a stored artifact rides the `ArtifactIndexRow` checksum and byte size into the receipt; a sentinel-keyed empty artifact stamps the `SeedZero` identity so an absent-versus-empty distinction is auditable.
 - Packages: System.IO.Hashing, NodaTime, LanguageExt.Core, Rasm.Persistence (project), BCL inbox
 - Growth: a new evaluation parameter that changes the artifact is one canonical-scalar column folded into the seed; a new keyed-input kind is one `CanonicalForm` arm; zero new surface.
-- Boundary: interchange-cache identity is `XxHash128` over the canonical source bytes — the suite hash law the `Runtime/transport#ARTIFACT_FRAMES` whole-artifact identity and the model-lane `ModelIdentity` checksum hold, never a second hashing pass and never a path-keyed identity; canonical-form normalization is the cross-machine reproducibility floor — case-folded trimmed tag, little-endian policy scalars, negative-zero collapsed to positive zero, every NaN payload mapped to one quiet NaN — so two semantically-equal source artifacts on osx-arm64, linux-x64, and win-x64 cache-key one identity (the `lang:python:runtime/evidence/identity#IDENTITY` `ContentIdentity` folds the same format/deflection/tolerance, the cross-runtime peer), a raw-string-interpolated seed (`$"{formatKey}|{deflection:R}|..."`) the rejected drift defect keying distinctly across cultures and float renderings; the SHARED geometry WIRE hash is a DISTINCT key — the GLB geometry-content identity the seam `Rasm.Element/Graph/element#NODE_MODEL` `RepresentationContentHash`, the Persistence `Store/blobstore#OBJECT_STORE` blob name, and the `lang:typescript:core/interchange/frame#GEOMETRY_PLANE` + `lang:typescript:data/object/store` `ObjectKey` peers reproduce is the KERNEL seed-zero (`seed=0`) `XxHash128` `GeometryHash` over the canonical bytes (`tests/contracts/MANIFEST.md` `MESH_ADJACENCY_GOLDEN` the golden vector anchoring C#/Python/TypeScript byte-parity), composed here and never re-minted with a policy seed — a policy-seeded GLB geometry-content hash the named cross-runtime defect, the two keys coexisting by design; the empty-artifact `SeedZero` sentinel is the absent-versus-empty law (policy-seeded empty case, distinct from the kernel `seed=0`) — empty bytes key to `SeedZero` over the policy alone, never the byte hash of an empty span, so a cache key never collides absent against present-but-empty; the HLC compose order is byte-identical to `Rasm.AppHost/Runtime/ports#PORT_RECORDS` (physical half first, logical second, both little-endian), a logical-half-first composition the named defect folding a fresh op as stale; the key takes a format-key string rather than the Bim `InterchangeFormat` owner so the content identity stays a Compute concern decoupled from the moved format axis; every output-affecting scalar folds in owner order, so deflection, tolerance, angle tolerance, tile depth, root error, or split-threshold movement partitions a tileset key and prevents cross-setting hits; addressed bytes land on the Persistence blob lane through `ArtifactIndexRow.Admit` under the content-key string `Path`, so the IFC semantic graph (Bim), the tessellated GLB, the field artifact, and a re-exported glTF are rows under the ONE kernel seed-zero `XxHash128` residence identity the Persistence index re-derives (`ArtifactIndexRow.Admit` -> `ContentAddress.Of`) — Compute owning only the policy-seeded cache-key derivation (the logical label), the kernel/seam the seed-zero residence identity, Persistence the blob residence, none re-declaring another; the export-rail field/tile/re-exported-glTF artifacts self-key (their `SourceKey` their own `ContentHash`, single-projection) while the tessellated GLB and the IFC-semantic graph of one source IFC share one cross-projection `sourceKey` — the kernel seed-zero `SourceKey` the Bim `Exchange/tessellation#TESSELLATION_BRIDGE` mints purely over the source bytes (tolerance-independent, so the in-process semantic-graph ingest re-derives it without the deflection), NOT the policy-seeded cache key — so the Persistence `Query/cache#ARTIFACT_BLOB_INDEX` `ArtifactIndexRow.Project` returns the two-projection family under that kernel-seed-zero key, the `Option<UInt128> sourceKey` admission carrying the pure key and each row's blob residence the kernel seed-zero `ContentAddress.Of` (`ArtifactIndexRow.Admit`), never a GLB self-key off the policy-seeded partition stranding the geometry projection off the semantic one; a managed copy of the artifact bytes beside the blob lane is the rejected form.
+- Boundary: interchange-cache identity is `XxHash128` over the canonical source bytes — the suite hash law the `Runtime/transport#ARTIFACT_FRAMES` whole-artifact identity and the model-lane `ModelIdentity` checksum hold, never a second hashing pass and never a path-keyed identity; canonical-form normalization is the cross-machine reproducibility floor — case-folded trimmed tag, little-endian policy scalars, negative-zero collapsed to positive zero, every NaN payload mapped to one quiet NaN — so two semantically-equal source artifacts on osx-arm64, linux-x64, and win-x64 cache-key one identity (the `lang:python:runtime/evidence/identity#IDENTITY` `ContentIdentity` folds the same format/deflection/tolerance, the cross-runtime peer), a raw-string-interpolated seed (`$"{formatKey}|{deflection:R}|..."`) the rejected drift defect keying distinctly across cultures and float renderings; the SHARED geometry WIRE hash is a DISTINCT key — the GLB geometry-content identity the seam `Rasm.Element/Graph/element#NODE_MODEL` `RepresentationContentHash`, the Persistence `Store/blobstore#OBJECT_STORE` blob name, and the `lang:typescript:core/interchange/frame#GEOMETRY_PLANE` + `lang:typescript:data/object/store` `ObjectKey` peers reproduce is the KERNEL seed-zero (`seed=0`) `XxHash128` `GeometryHash` over the canonical bytes (`tests/contracts/MANIFEST.md` `MESH_ADJACENCY_GOLDEN` the golden vector anchoring C#/Python/TypeScript byte-parity), composed here and never re-minted with a policy seed — a policy-seeded GLB geometry-content hash the named cross-runtime defect, the two keys coexisting by design; the empty-artifact `SeedZero` sentinel is the absent-versus-empty law (policy-seeded empty case, distinct from the kernel `seed=0`) — empty bytes key to `SeedZero` over the policy alone, never the byte hash of an empty span, so a cache key never collides absent against present-but-empty; the HLC compose order seals the kernel `Rasm/Domain/telemetry#CAUSAL_FRAME` `ReceiptSinkPort.Advance` stamp byte-identical — physical half first as the `Instant` Unix-tick `long`, logical half second as the monotone `ulong`, both little-endian, the layout `tests/contracts/MANIFEST.md` `HLC_TWO_HALF` freezes across the three runtimes — so `Compose` re-derives no ordering the capsule already fixed, a logical-half-first composition the named defect folding a fresh op as stale; the key takes a format-key string rather than the Bim `InterchangeFormat` owner so the content identity stays a Compute concern decoupled from the moved format axis; every output-affecting scalar folds in owner order, so deflection, tolerance, angle tolerance, tile depth, root error, or split-threshold movement partitions a tileset key and prevents cross-setting hits; addressed bytes land on the Persistence blob lane through `ArtifactIndexRow.Admit` under the content-key string `Path`, so the IFC semantic graph (Bim), the tessellated GLB, the field artifact, and a re-exported glTF are rows under the ONE kernel seed-zero `XxHash128` residence identity the Persistence index re-derives (`ArtifactIndexRow.Admit` -> `ContentAddress.Of`) — Compute owning only the policy-seeded cache-key derivation (the logical label), the kernel/seam the seed-zero residence identity, Persistence the blob residence, none re-declaring another; the export-rail field/tile/re-exported-glTF artifacts self-key (their `SourceKey` their own `ContentHash`, single-projection) while the tessellated GLB and the IFC-semantic graph of one source IFC share one cross-projection `sourceKey` — the kernel seed-zero `SourceKey` the Bim `Exchange/tessellation#TESSELLATION_BRIDGE` mints purely over the source bytes (tolerance-independent, so the in-process semantic-graph ingest re-derives it without the deflection), NOT the policy-seeded cache key — so the Persistence `Query/cache#ARTIFACT_BLOB_INDEX` `ArtifactIndexRow.Project` returns the two-projection family under that kernel-seed-zero key, the `Option<UInt128> sourceKey` admission carrying the pure key and each row's blob residence the kernel seed-zero `ContentAddress.Of` (`ArtifactIndexRow.Admit`), never a GLB self-key off the policy-seeded partition stranding the geometry projection off the semantic one; a managed copy of the artifact bytes beside the blob lane is the rejected form.
 
 ```csharp signature
 
@@ -1031,22 +1031,70 @@ public static class InterchangeIdentity {
 
 ## [07]-[ARROW_BATCH]
 
-- Owner: `ArrowBatch` — the one columnar-construction owner projecting the `Solver/sweep` `DoeDataset` and the `Runtime/receipts` `ChargebackDataset` into a self-describing `Apache.Arrow` `RecordBatch`; `Doe`/`Chargeback` the two producers, `Strided`/`Doubles` the shared column folds. Core `Apache.Arrow` is the sole reference: the IPC writer, the LZ4/Zstd `CompressionCodecFactory`, the ADBC query surface, and the Flight-SQL transport are the Persistence `api-arrow` overlay's egress rails, absent from the Compute closure.
-- Entry: `public static Fin<RecordBatch> Doe(DoeDataset dataset, MemoryAllocator? allocator = null)` admits checked row-major dimensions and a non-empty, ordinal-unique field vocabulary excluding `on_front`, then projects the `Coordinates`/`Responses` blocks into one `DoubleArray` column per axis and per objective and the `OnFront` mask into one `BooleanArray` column, `ContentKey`/`Strategy`/`At`/`points` riding `Schema.Builder.Metadata`; `public static Fin<RecordBatch> Chargeback(ChargebackDataset dataset, MemoryAllocator? allocator = null)` folds the tenant-partitioned rows into `tenant`/`route` `StringArray`, four `CostVector` `DoubleArray`, and a `facts` `Int64Array` column, window bounds and content-key as metadata.
-- Auto: each column bulk-appends one span — `OnFront` drives `BooleanArray.Builder.Append(onFront.Span)`, which copies the span once into the allocator-owned BooleanArray buffer, and each axis/objective column drives one `DoubleArray.Builder.Append(ReadOnlySpan<double>)` after a single row-major→columnar strided gather pre-sized by `Reserve(points)`, never a per-element `Append(T)` loop; the `Schema` field order and the batch column order are the one append sequence so the reader recovers columns positionally, and `ContentKey` rides `Schema` metadata so a batch whose metadata omits the content key is the drift defect.
-- Receipt: none new — the batch is a projection of the standing `DoeDataset`/`ChargebackDataset` shapes; the sealed `RecordBatch` crosses to Persistence over the existing `Runtime/transport` wire plane and the Persistence `Query/columnar` `Land(LandingArm.Doe, …)` port redeems it.
-- Packages: Apache.Arrow, NodaTime (`InstantPattern.ExtendedIso` the metadata instant), Thinktecture.Runtime.Extensions (`DoeDesign`/`Substrate` `.Key`), LanguageExt.Core, BCL inbox (`CultureInfo.InvariantCulture`)
-- Growth: a new dataset producer is one `ArrowBatch` method reusing the shared column folds, never a per-dataset columnar encoder; a per-row-instant lake producer (the receipt-journal egress) adds one `TimestampArray` column under `TimestampType.Default`, the NodaTime clock seam the metadata instant already shares; a new column is one `Field` and its bulk-span fold; the `MemoryAllocator` injects per lane so a staging-bounded arena charges the batch buffers against the lane budget rather than the shared `MemoryAllocator.Default` fallback.
-- Boundary: Compute BUILDS the columnar table; the Persistence `api-arrow` overlay OWNS everything that CARRIES it — `ArrowStreamWriter`/`ArrowFileWriter` IPC, the `Apache.Arrow.Compression.CompressionCodecFactory` LZ4/Zstd codec, the ADBC query surface, and the `FlightClient`/`FlightSqlClient` — so Compute holds one core `Apache.Arrow` reference, references none of the four egress packages, and opens no Flight listener; the row-major→columnar transpose is the one unavoidable gather (a `Reserve`+`Append(span)` per column, never a per-element builder loop); a bare `DateTime` where the NodaTime instant crosses, the shared `MemoryAllocator.Default` where a lane arena is available, a schema field order diverging from the column order, or a hand-rolled columnar byte layout `RecordBatch` already owns are the rejected forms; the sealed `RecordBatch` stops at the Compute edge — `[08]-[RESEARCH]` `FLIGHT_SQL_PUSH` (the Persistence `Query/columnar` landing over `Apache.Arrow.Flight.Sql`) is the reciprocal obligation, and the opaque `GeoArrowRequest.ArrowIpc` relay bytes are never decoded or re-encoded here.
+- Owner: `ArrowBatch` — the one columnar-construction owner projecting the `Solver/sweep` `DoeDataset`, the `Runtime/receipts` `ChargebackDataset`, and the `GeometryDataset` kernel-encode corpus into self-describing `Apache.Arrow` batches; `Doe`/`Chargeback`/`Geometry` the three producers, `Strided`/`Doubles` the row-major column folds and `Lanes`/`ArenaLane` the quantization-row wrap the geometry arm borrows arena memory through. `GeometryDataset` — the lake-bound corpus pairing one `PackKind` with its model segment and encoded instances, deriving both its schema identity and its generation key from content. Core `Apache.Arrow` is the sole reference: the IPC writer, the LZ4/Zstd `CompressionCodecFactory`, the ADBC query surface, and the Flight-SQL transport are the Persistence `api-arrow` overlay's egress rails, absent from the Compute closure.
+- Entry: `public static Fin<(LakeGeneration Generation, Schema Schema, Seq<RecordBatch> Batches)> Landing(…)` overloads on the dataset shape and hands the custodian its `FlatTableEgress.Land` triple; `public static Fin<RecordBatch> Doe(DoeDataset dataset, MemoryAllocator? allocator = null)` admits checked row-major dimensions and a non-empty, ordinal-unique field vocabulary excluding `on_front`, then projects the `Coordinates`/`Responses` blocks into one `DoubleArray` column per axis and per objective and the `OnFront` mask into one `BooleanArray` column, `ContentKey`/`Strategy`/`At`/`points` riding `Schema.Builder.Metadata`; `public static Fin<RecordBatch> Chargeback(ChargebackDataset dataset, MemoryAllocator? allocator = null)` folds the tenant-partitioned rows into `tenant`/`route` `StringArray`, four `CostVector` `DoubleArray`, and a `facts` `Int64Array` column, window bounds and content-key as metadata; `public static Fin<(Schema Schema, Seq<RecordBatch> Batches)> Geometry(GeometryDataset dataset, MemoryAllocator? allocator = null)` admits a non-empty corpus whose every quantization row has a lane and whose every instance the kernel's own `PackSchema.Describes` accepts, then emits ONE batch per instance whose channel columns wrap the arena verbatim beside the `source`/`ordinal` join pair, `content_key`/`schema_id`/`kind`/`instances` riding `Schema.Builder.Metadata`.
+- Auto: each column bulk-appends one span — `OnFront` drives `BooleanArray.Builder.Append(onFront.Span)`, which copies the span once into the allocator-owned BooleanArray buffer, and each axis/objective column drives one `DoubleArray.Builder.Append(ReadOnlySpan<double>)` after a single row-major→columnar strided gather pre-sized by `Reserve(points)`, never a per-element `Append(T)` loop; the `Schema` field order and the batch column order are the one append sequence so the reader recovers columns positionally, and `ContentKey` rides `Schema` metadata so a batch whose metadata omits the content key is the drift defect; the geometry arm gathers NOTHING — the kernel tiled each channel contiguously at its own descriptor offset, so an `ArrowBuffer` borrows that slice and a `FixedSizeListType` of the channel's arity states the interleave already in the bytes, leaving the two identity columns as the only material a landing allocates.
+- Receipt: none new — each batch is a projection of a standing dataset shape, and the landed generation's evidence rides the custodian's own `store.doe.land`/`store.cost.land`/`store.geometry.land` slots, never a second Compute row; the geometry corpus carries the kernel `RoundTripWitness` per instance, so quantization evidence is already proved upstream and no landing re-measures it.
+- Packages: Apache.Arrow, NodaTime (`InstantPattern.ExtendedIso` the metadata instant, `LocalDatePattern.CreateWithInvariantCulture` over `Instant.InUtc().Date` the billing-month segment), Thinktecture.Runtime.Extensions (`DoeDesign`/`Substrate` `.Key`), System.IO.Hashing (`XxHash128` the schema-identity digest), Rasm.Persistence (project — `LandingArm`/`LakeGeneration`/`Identifier`), Rasm (project — `TenantContext`, `ContentHash.Of`, and the `Rasm.Drawing` encode wire `EncodedGeometry`/`PackKind`/`PackSchema`/`EncodingChannel`/`ChannelDtype`), LanguageExt.Core, CommunityToolkit.HighPerformance (`SpanOwner<byte>` the generation-preimage rent), BCL inbox (`CultureInfo.InvariantCulture`, `FrozenDictionary`, `BinaryPrimitives.WriteUInt128BigEndian`)
+- Growth: a new dataset producer is one `ArrowBatch` method reusing the shared column folds beside one `Landing` overload naming its arm row, never a per-dataset columnar encoder; a per-row-instant lake producer (the receipt-journal egress) adds one `TimestampArray` column under `TimestampType.Default`, the NodaTime clock seam the metadata instant already shares; a new column is one `Field` and its bulk-span fold; a new kernel `ChannelDtype` is one `Lanes` row carrying its Arrow type and arena wrap, and a new `EncodingChannel` or `PackKind` reaches the geometry columns with ZERO edit here because the kind's own declared active set generates the schema; the `MemoryAllocator` injects per lane so a staging-bounded arena charges the batch buffers against the lane budget rather than the shared `MemoryAllocator.Default` fallback.
+- Boundary: Compute BUILDS the columnar table; the Persistence `api-arrow` overlay OWNS everything that CARRIES it — `ArrowStreamWriter`/`ArrowFileWriter` IPC, the `Apache.Arrow.Compression.CompressionCodecFactory` LZ4/Zstd codec, the ADBC query surface, and the `FlightClient`/`FlightSqlClient` — so Compute holds one core `Apache.Arrow` reference, references none of the four egress packages, and opens no Flight listener; the row-major→columnar transpose is the one unavoidable gather (a `Reserve`+`Append(span)` per column, never a per-element builder loop); a bare `DateTime` where the NodaTime instant crosses, the shared `MemoryAllocator.Default` where a lane arena is available, a schema field order diverging from the column order, or a hand-rolled columnar byte layout `RecordBatch` already owns are the rejected forms; the geometry arm adds three of its own — a per-component scalar fan-out of an arity-3 channel, which re-keys the tree on every arity edit and reinstates the strided copy the kernel's tiling deletes; a half or unorm lane widened to float at the wrap, which re-spells values the round-trip witness certified at their stored width; and a schema key re-digested off the Arrow field list, which keys the hive tree on a projection the kernel never published while `PackSchema.SchemaId` is the identity the custodian's geometry row names by law; the sealed `RecordBatch` stops at the Compute edge — `Landing` hands the custodian a `LakeGeneration` coordinate and `FlatTableEgress.Land` writes it, so byte framing exists only where the `topology` axis puts the custodian in another process and the composition root frames it there through the Persistence overlay's IPC writer, never here, and the opaque `GeoArrowRequest.ArrowIpc` relay bytes are never decoded or re-encoded.
 
 ```csharp signature
 
-// One Arrow construction owner, two dataset producers (Solver/sweep DoeDataset, Runtime/receipts ChargebackDataset)
+// GeometryDataset carries one lake-bound corpus: one PackKind, one model segment, and the encoded instances
+// sharing that kind's declared channel set. It homes HERE and not at a producing page because it has no life
+// outside this landing — a corpus assembled only to cross the columnar seam is the landing owner's noun, where
+// DoeDataset and ChargebackDataset each answer a question of their own before any batch exists. Schema identity and generation
+// identity both DERIVE, so neither is forgeable at a call site and a retry re-lands the same bytes under the same
+// key; the encode instant is deliberately absent, since a wall-clock stamp would re-key an unchanged corpus.
+public sealed record GeometryDataset(PackKind Kind, string Model, Seq<EncodedGeometry> Instances) {
+    public PackSchema Schema => PackSchema.Of(Kind);
+
+    // Preimage seats the schema identity ahead of every instance digest in landed order: order IS content because
+    // its row ordinal joins a scan back to the encode, and the schema is identity-bearing because it decides which
+    // columns each generation carries. Sixteen-byte fixed-width digests concatenate injectively, so the spine needs
+    // no length framing; big-endian is the estate's one persisted spelling where `MemoryMarshal` writes host order.
+    // Corpus size is unbounded, so the spine rents rather than `stackalloc`s, and the write loop is a fold no rail
+    // combinator can carry — a `Span` cannot be captured by any lambda, which is the named statement seam here.
+    public UInt128 ContentKey {
+        get {
+            using SpanOwner<byte> rent = SpanOwner<byte>.Allocate(checked((Instances.Count + 1) * 16));
+            Span<byte> spine = rent.Span;
+            BinaryPrimitives.WriteUInt128BigEndian(spine, Schema.SchemaId);
+            int offset = 16;
+            foreach (EncodedGeometry instance in Instances) {
+                BinaryPrimitives.WriteUInt128BigEndian(spine[offset..], instance.Witness.ContentHash.Value);
+                offset += 16;
+            }
+            return ContentHash.Of(spine);   // every byte overwritten, so the pooled rent needs no clear
+        }
+    }
+}
+
+// One physical lane per kernel quantization row: the Arrow type the column declares beside the wrap that borrows
+// an arena slice at that width. The wrap is a delegate column rather than a generic `new()` bound because the
+// builder families are foreign sealed types with no shared constructible contract, and a constructed-generic
+// factory over them lowers to the activator form this stack rejects. No span enters or leaves the delegate — the
+// buffer is `ReadOnlyMemory`-backed, so nothing stack-only crosses a lambda seam.
+sealed record ArenaLane(IArrowType Type, Func<ArrowBuffer, int, IArrowArray> Wrap);
+
+// One Arrow construction owner, three dataset producers (Solver/sweep DoeDataset, Runtime/receipts
+// ChargebackDataset, and the GeometryDataset above)
 // — never a per-dataset bespoke columnar encoder. Compute BUILDS the columnar table; the Persistence api-arrow
 // overlay OWNS everything that carries it (IPC writer, LZ4/Zstd codec, ADBC, Flight-SQL). Every builder takes a
 // per-lane MemoryAllocator; a null allocator falls back to the process-global MemoryAllocator.Default, so a
 // staging-bounded lane charges its own arena.
 public static class ArrowBatch {
+    // Quantization rows map to Arrow at their STORED width, so a landed generation carries exactly the bits the
+    // kernel's round-trip witness certified. A new kernel ChannelDtype row is one entry here and the geometry
+    // admission gate refuses the whole corpus by schema tag until it lands.
+    static readonly FrozenDictionary<ChannelDtype, ArenaLane> Lanes =
+        new Dictionary<ChannelDtype, ArenaLane> {
+            [ChannelDtype.Float32] = new(FloatType.Default, static (buffer, length) => new FloatArray(buffer, ArrowBuffer.Empty, length, 0, 0)),
+            [ChannelDtype.Float16] = new(HalfFloatType.Default, static (buffer, length) => new HalfFloatArray(buffer, ArrowBuffer.Empty, length, 0, 0)),
+            [ChannelDtype.Unorm8] = new(UInt8Type.Default, static (buffer, length) => new UInt8Array(buffer, ArrowBuffer.Empty, length, 0, 0)),
+        }.ToFrozenDictionary();
+
     // Surrogate-training egress: the DoeDataset row-major Coordinates/Responses blocks project to one DoubleArray
     // column PER axis and PER objective (the tabular training shape), the OnFront mask to one allocator-owned BooleanArray
     // column, and ContentKey/Strategy/At/shape ride Schema metadata so the batch is self-describing across the wire.
@@ -1086,6 +1134,75 @@ public static class ArrowBatch {
         return Fin.Succ(new RecordBatch(schema, columns.Map(static column => column.Array), rows));
     }
 
+    // Geometry egress is the ZERO-GATHER producer: the kernel already tiled each channel contiguously at its own
+    // descriptor offset, so an ArrowBuffer wraps that slice verbatim and a FixedSizeList of the channel's arity
+    // states the interleave the arena already carries. A per-component scalar fan-out would re-key the tree on
+    // every arity edit AND force the strided copy the kernel's tiling exists to delete. Row grain is the packed
+    // ELEMENT — vertex, cell, or path station — so a batch is one instance and `source`/`ordinal` carry the join
+    // back to the encode. Both identity columns are wide in memory and near-free on disk (dictionary and RLE
+    // encoding), which is the deliberate trade for channel columns that cost no copy at all.
+    public static Fin<(Schema Schema, Seq<RecordBatch> Batches)> Geometry(
+        GeometryDataset dataset, MemoryAllocator? allocator = null) {
+        Seq<EncodingChannel> channels = dataset.Kind.Channels;
+        PackSchema schema = dataset.Schema;
+        // Admission runs WHOLE before the first buffer is wrapped, so a refusal frees nothing and the build below
+        // is total — a rail faulting mid-construction abandons every column already allocated and `Fin` carries no
+        // release arm. `Describes` is the KERNEL's own oracle over declaration versus packed instance, so this
+        // producer proves conformance with the encoder's law instead of re-deriving a second descriptor check.
+        if (dataset.Instances.IsEmpty) { return Fin.Fail<(Schema, Seq<RecordBatch>)>(ComputeFault.Create("<arrow-geometry-empty>")); }
+        if (!channels.ForAll(static channel => Lanes.ContainsKey(channel.Dtype))) {
+            return Fin.Fail<(Schema, Seq<RecordBatch>)>(ComputeFault.Create($"<arrow-geometry-dtype:{schema.Tag}>"));
+        }
+        return dataset.Instances
+            .TraverseM(instance => schema.Describes(instance).MapFail(_ => (Error)ComputeFault.Create(
+                $"<arrow-geometry-schema:{instance.Witness.ContentHash.Value:x32}>")))
+            .As()
+            .Map(_ => {
+                Schema wire = channels.Fold(new Schema.Builder(), static (builder, channel) => builder.Field(Column(channel)))
+                    .Field(new Field("source", StringType.Default, nullable: false))
+                    .Field(new Field("ordinal", Int32Type.Default, nullable: false))
+                    .Metadata("content_key", $"{dataset.ContentKey:x32}")
+                    .Metadata("schema_id", schema.Tag)
+                    .Metadata("kind", dataset.Kind.Key)
+                    .Metadata("instances", dataset.Instances.Count.ToString(CultureInfo.InvariantCulture))
+                    .Build();
+                return (wire, dataset.Instances.Map(instance => Batch(wire, channels, instance, allocator)));
+            });
+    }
+
+    // One instance, one batch: every channel array borrows the arena slice the kernel already owns, so the only
+    // material this fold allocates is the two identity columns. Column order IS the kind's declared active-set
+    // order, so the schema and the array sequence share one declaration and cannot drift apart.
+    static RecordBatch Batch(Schema wire, Seq<EncodingChannel> channels, EncodedGeometry instance, MemoryAllocator? allocator) {
+        string source = $"{instance.Witness.ContentHash.Value:x32}";
+        Seq<IArrowArray> columns = channels.Map(channel => Lane(channel, instance)) + Seq<IArrowArray>(
+            new StringArray.Builder().Reserve(instance.Count)
+                .AppendRange(Enumerable.Repeat(source, instance.Count)).Build(allocator),
+            new Int32Array.Builder().Reserve(instance.Count)
+                .Append(Enumerable.Range(0, instance.Count).ToArray()).Build(allocator));
+        return new RecordBatch(wire, columns, instance.Count);
+    }
+
+    // Every channel slice rides the kernel's own `Channel` reader rather than a re-slice of `Payload`: this arena
+    // is MIXED dtype — a mesh patch tiles float32 positions beside float16 curvature — so one width reinterpreted
+    // across the whole payload reads its neighbours as garbage. Each wrap keeps the quantized bits its round-trip
+    // witness measured, since widening a half or a unorm lane here re-spells values that tolerance proof already
+    // certified at their stored width.
+    static IArrowArray Lane(EncodingChannel channel, EncodedGeometry instance) {
+        ArenaLane lane = Lanes[channel.Dtype];
+        ArrowBuffer buffer = new(instance.Channel(channel));
+        return channel.Arity == 1
+            ? lane.Wrap(buffer, instance.Count)
+            : new FixedSizeListArray(new FixedSizeListType(lane.Type, channel.Arity), instance.Count,
+                lane.Wrap(buffer, checked(instance.Count * channel.Arity)), ArrowBuffer.Empty);
+    }
+
+    // Hyphenated channel keys normalize the same way a hive segment does, so a scan spells one identifier bare.
+    static Field Column(EncodingChannel channel) =>
+        new(channel.Key.Replace('-', '_'),
+            channel.Arity == 1 ? Lanes[channel.Dtype].Type : new FixedSizeListType(Lanes[channel.Dtype].Type, channel.Arity),
+            nullable: false);
+
     // Billing egress folds the same construction surface: one row per (tenant, route), the CostVector lanes as
     // DoubleArray columns, facts as an Int64Array, tenant/route as StringArray, window+content-key as metadata.
     public static Fin<RecordBatch> Chargeback(ChargebackDataset dataset, MemoryAllocator? allocator = null) {
@@ -1115,6 +1232,56 @@ public static class ArrowBatch {
         return Fin.Succ(new RecordBatch(schema, columns.Map(static column => column.Array), rows));
     }
 
+    // ONE lake-landing projection over both producers, overloaded on the dataset shape so no `LandDoe`/
+    // `LandCost` verb family arises: each fold seals its batch, names its LandingArm row and the readable
+    // segment that arm's hive key spells, and derives the generation coordinate the custodian writes under.
+    // Compute owns the batch shape and this coordinate ALONE — `Rasm.Persistence` `Query/columnar
+    // #FLAT_TABLE_EGRESS` `Land` holds writers, residence, slots, index custody, and batch-metadata
+    // preservation, so a Compute-side Parquet write, generation directory, artifact-index stamp, or Flight
+    // dial to push bytes forks lake custody the branch settled on one custodian. Tenancy arrives as the
+    // frame's own TenantContext because the hive tree's `tenant=` segment is what makes a tenant-scoped scan
+    // prune rather than answer zero rows.
+    public static Fin<(LakeGeneration Generation, Schema Schema, Seq<RecordBatch> Batches)> Landing(
+        DoeDataset dataset, TenantContext tenant, MemoryAllocator? allocator = null) =>
+        Doe(dataset, allocator).Map(batch => (
+            new LakeGeneration(LandingArm.Doe, tenant, Segment(dataset.Strategy.Key), SchemaKey(batch.Schema), dataset.ContentKey),
+            batch.Schema, Seq1(batch)));
+
+    // Geometry is the one arm whose SCHEMA KEY is not derived from the Arrow field list: the kernel already mints
+    // a content-keyed schema identity over its own kind and field roster, and the custodian's geometry landing row
+    // names that law by name. Re-digesting the Arrow projection here keys the hive tree on a spelling the kernel
+    // never published, splitting the tree on projection detail two encoders agreeing on geometry already share.
+    public static Fin<(LakeGeneration Generation, Schema Schema, Seq<RecordBatch> Batches)> Landing(
+        GeometryDataset dataset, TenantContext tenant, MemoryAllocator? allocator = null) =>
+        Geometry(dataset, allocator).Map(built => (
+            new LakeGeneration(LandingArm.Geometry, tenant, Segment(dataset.Model),
+                dataset.Schema.SchemaId, dataset.ContentKey),
+            built.Schema, built.Batches));
+
+    public static Fin<(LakeGeneration Generation, Schema Schema, Seq<RecordBatch> Batches)> Landing(
+        ChargebackDataset dataset, TenantContext tenant, MemoryAllocator? allocator = null) =>
+        Chargeback(dataset, allocator).Map(batch => (
+            new LakeGeneration(
+                LandingArm.Cost, tenant, Segment(MonthSegment.Format(dataset.WindowStart.InUtc().Date)),
+                SchemaKey(batch.Schema), dataset.ContentKey),
+            batch.Schema, Seq1(batch)));
+
+    // `Identifier` admits ASCII letters, digits, and underscore under a NON-DIGIT lead, so every hive segment
+    // normalizes through one projection: a hyphenated smart-enum key or a bare ISO date reaches `Create` as a
+    // refusal and kills the landing at a directory name rather than at a schema. The month token carries its
+    // own leading letter for exactly that reason and stays the readable value a board spells.
+    static readonly LocalDatePattern MonthSegment = LocalDatePattern.CreateWithInvariantCulture("'m'uuuu'_'MM");
+
+    static Identifier Segment(string value) => Identifier.Create(value.Replace('-', '_'));
+
+    // Schema identity is the ORDERED field vocabulary — each field's name beside its Arrow TypeId in append
+    // order — so an additive column lands a compatible generation under its own schema key while a reordered
+    // or retyped column lands a distinct tree the reader's positional ordinals never mis-bind. Field metadata
+    // stays out of the digest: a receipt fact rides Schema.Metadata and never re-keys the tree.
+    static UInt128 SchemaKey(Schema schema) =>
+        XxHash128.HashToUInt128(Encoding.UTF8.GetBytes(string.Join(
+            '|', schema.FieldsList.Select(static field => $"{field.Name}:{field.DataType.TypeId}"))));
+
     // Row-major → columnar transpose: ONE bulk Append(ReadOnlySpan<double>) per column after a strided gather,
     // never a per-element Append(T) loop; Reserve pre-sizes the buffer to the known row count before the span append.
     static DoubleArray Strided(ReadOnlyMemory<double> block, int stride, int lane, int rows, MemoryAllocator? allocator) {
@@ -1135,10 +1302,4 @@ public static class ArrowBatch {
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [COMPANION_PROTOCOL]-[OPEN]: what is the IfcOpenShell companion-daemon request/response protocol for the two-hop hop — the `IfcConvert`-to-GLB invocation shape, the deflection/tolerance argument mapping, and the GLB streaming-back contract; the `python:geometry/ifc-companion` over the remote-lane companion rpc.
-- [FIELD_FORMAT]-[OPEN]: what are the CGNS/EnSight/VTK/Zarr chunked-field decode member spellings; the admitted field-format library surface (row vocabulary owned by the Bim format axis), verified at the field-codec admission gate.
-- [RESIDUAL_PREDICTOR]-[OPEN]: what are the trained field model's input/output tensor names, the face radius (`ResidualPredictor.NeighbourStencil`), and the component interleave; the companion-published model signature (the model fit offline by the `python:geometry` science companion, arriving as one content-addressed ONNX artifact over `Runtime/wire#PROTO_VOCABULARY` and warmed from the `Model/inference#RESULT_CACHE`), at the residual-codec admission gate.
-- [TILE_CONTENT]-[OPEN]: what is the Bim tile-emit codec entry the leaf-tile b3dm/glTF content encode grounds against; the `Rasm.Bim` glTF/tile codec surface at cross-package alignment.
-- [EXT_STRUCTURAL_METADATA]-[OPEN]: what is the `EXT_structural_metadata` property-table buffer-view binary layout and the `EXT_mesh_features` `_FEATURE_ID_0` vertex-attribute emit against the SharpGLTF `ExtensionsFactory`/`JsonSerializable` write surface; the SharpGLTF extension API (`Rasm.Compute/.api` catalogue) and the 3D-Tiles 1.1 / glTF `EXT_structural_metadata` spec at the leaf-emit admission gate.
-- [ARTIFACT_INDEX_ROW]-[OPEN]: what classification value the interchange artifact carries at `InterchangeIdentity.Admit`; `ArtifactKind.Interchange` owns retention and `sourceKey` is explicit at the Persistence seam.
-- [FLIGHT_SQL_PUSH]-[BLOCKED]: Persistence `Query/columnar` `Land(LandingArm.Doe, …)` already redeems the content-keyed DOE batch server-side over `Apache.Arrow.Flight.Sql`, and Compute crosses the sealed `RecordBatch` over the existing `Runtime/transport` wire plane (no Compute Flight listener) — unresolved is the exact transport framing of the batch bytes and a reciprocal `LandingArm` for the `ChargebackDataset` billing batch; bind the framing, add the billing landing arm.
+- [FIELD_FORMAT]-[BLOCKED]: which chunked-field container the `FieldCodec` gate accepts beside its own 64-byte header, and which managed library decodes it; no CGNS, EnSight, VTK, Zarr, netCDF, or HDF5 package holds a `Directory.Packages.props` row and `Rasm.Bim` `Exchange/format` declares no such `InterchangeFormat` — this unblocks on a package admission, never a member spelling.

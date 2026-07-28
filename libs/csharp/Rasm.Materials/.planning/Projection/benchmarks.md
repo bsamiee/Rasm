@@ -2,12 +2,12 @@
 
 KERNEL benchmark identity is a `BenchKernel` row with a `BenchInput` pin and its resolved content key. `Suite` derives as `rasm.materials.<kernel>`, and `Case` carries both the pin token and content key, so catalogue or library content changes fork claim lineage without requiring a new row spelling.
 
-Settled composition: Materials owns workload vocabulary and content-bound identity. AppHost receipt minting, tracing, gating, and sink fan stay outside settled code until their exact members enter an admitted API catalogue. BenchmarkDotNet binds in the branch bench project and never this package's csproj.
+Settled composition: Materials owns workload vocabulary and content-bound identity. `BenchmarkReceipt`, `BenchMeasurement`, `GatePolicy`, and `BenchmarkGate` arrive settled from `Rasm.AppHost/Observability/benchmarks#BENCHMARK_RECEIPT` under the branch benchmark-peer up-reference ruling; `ReceiptSinkPort` and `CorrelationId` arrive from the kernel signal capsule. BenchmarkDotNet binds in the branch bench project and never this package's csproj.
 
 ## [01]-[INDEX]
 
-- [02]-[WORKLOAD_ROWS]: the `BenchKernel` vocabulary, the `BenchInput` pin union, and the `BenchWorkload` corpus.
-- [03]-[GATE_COMPOSITION]: the content-bound corpus and blocked AppHost receipt composition.
+- [02]-[WORKLOAD_ROWS]: `BenchKernel` vocabulary, `BenchInput` pin union, and `BenchWorkload` corpus.
+- [03]-[GATE_COMPOSITION]: content-bound corpus, fresh-receipt projection, and corpus gate pass.
 
 ## [02]-[WORKLOAD_ROWS]
 
@@ -20,6 +20,17 @@ Settled composition: Materials owns workload vocabulary and content-bound identi
 - Boundary: workload rows pin inputs and derive identity — kernel bodies stay on their owning pages, and a workload never re-implements the kernel it measures.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using System;
+using LanguageExt;
+using Rasm.AppHost.Observability;   // BenchmarkReceipt, BenchMeasurement, BenchmarkGate, GatePolicy
+using Rasm.Domain;                  // CorrelationId, ReceiptSinkPort
+using Thinktecture;
+using static LanguageExt.Prelude;
+
+namespace Rasm.Materials.Projection;
+
+// --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class BenchKernel {
     public static readonly BenchKernel SectionSolve = new("section.solve");
@@ -43,19 +54,31 @@ public abstract partial record BenchInput {
     public sealed record Synthetic(int Seed, int Count) : BenchInput;
 }
 
+// --- [MODELS] -------------------------------------------------------------------------------
 public sealed record BenchWorkload(BenchKernel Kernel, BenchInput Input, UInt128 ContentKey);
 ```
 
 ## [03]-[GATE_COMPOSITION]
 
-- Owner: `MaterialsBench` — the content-bound corpus roster and case identity; AppHost owns receipt minting, tracing, gating, and sink fan.
-- Entry: `Corpus(contentKey)` resolves every logical pin to current content, and `CaseOf(workload)` emits the logical token with its fixed-width content key.
-- Auto: catalogue reseeds and library edits change `ContentKey` even when their designation or material key is stable.
+- Owner: `MaterialsBench` — the content-bound corpus roster, case identity, and the gate pass over that corpus; AppHost owns receipt minting, host evidence, tracing, judging, and sink fan.
+- Entry: `Corpus(contentKey)` resolves every logical pin to current content, `CaseOf(workload)` emits the logical token with its fixed-width content key, `Fresh(workload, measured, correlation)` projects one workload and its harness columns through `BenchmarkReceipt.Of`, and `Gate(...)` runs the whole corpus through `BenchmarkGate.Gate` and returns every verdict rail.
+- Auto: catalogue reseeds and library edits change `ContentKey` even when their designation or material key is stable, so the gate re-baselines structurally rather than comparing two different programs; a regressed workload rides its own `Fin` and never aborts the corpus pass, so one pass grades every kernel.
+- Law: identity columns are this folder's and measurement columns are the harness's — host evidence, verdict, artifact key, and correlation belong to the AppHost mint, and spelling any of them here forks the gate's own truth. Materials claims no relative lane, so `Reference` stays absent and `GatePolicy.SpeedupFloor` stays `None`.
 - Packages: LanguageExt.Core, BCL inbox.
-- Growth: a new corpus entry is one logical pin row; a new measured receipt axis remains an AppHost owner change.
-- Boundary: `[APPHOST_BENCHMARK_CATALOG]` blocks receipt code. Raw BenchmarkDotNet artifacts stay at the bench-project edge.
+- Growth: a new corpus entry is one logical pin row; a new measured receipt axis remains an AppHost owner change threading `BenchMeasurement`; harness residence and claim residence arrive as functions, so the bench project moves either without touching this page.
+- Boundary: raw BenchmarkDotNet artifacts stay at the bench-project edge, which supplies `harness` and `claim` — this page composes the gate and never opens a measurement session, a durable claim store, or an `ActivitySource`.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using System;
+using LanguageExt;
+using Rasm.AppHost.Observability;   // BenchmarkReceipt, BenchMeasurement, BenchmarkGate, GatePolicy
+using Rasm.Domain;                  // CorrelationId, ReceiptSinkPort
+using static LanguageExt.Prelude;
+
+namespace Rasm.Materials.Projection;
+
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class MaterialsBench {
     public static Seq<BenchWorkload> Corpus(Func<BenchInput, UInt128> contentKey) =>
         Seq<(BenchKernel Kernel, BenchInput Input)>(
@@ -73,9 +96,28 @@ public static class MaterialsBench {
         catalogueLeast: static c => $"catalogue:{c.FamilyKey}",
         libraryRow: static l => $"library:{l.MaterialKey}",
         synthetic: static s => $"synthetic:{s.Seed}x{s.Count}")}@{workload.ContentKey:x32}";
+
+    // Corpus identity is bound, so Corpus is Some on every row — a workload with no corpus key would
+    // let a held claim judge a different program under the same case token.
+    public static BenchmarkReceipt Fresh(BenchWorkload workload, BenchMeasurement measured, CorrelationId correlation) =>
+        BenchmarkReceipt.Of(suite: workload.Kernel.Suite, @case: CaseOf(workload),
+            corpus: Some(workload.ContentKey), measured: measured, correlation: correlation);
+
+    // Applicative Traverse, never TraverseM: a regressed kernel rides its own Fin, and short-circuiting
+    // on first regression leaves every later kernel ungraded and unfanned.
+    public static IO<Seq<Fin<BenchmarkReceipt>>> Gate(
+        ReceiptSinkPort sink,
+        Func<BenchInput, UInt128> contentKey,
+        Func<BenchWorkload, BenchMeasurement> harness,
+        Func<BenchWorkload, Option<BenchmarkReceipt>> claim,
+        CorrelationId correlation,
+        GatePolicy policy) =>
+        Corpus(contentKey)
+            .Traverse(workload => BenchmarkGate.Gate(sink, Fresh(workload, harness(workload), correlation), claim(workload), policy))
+            .As();
 }
 ```
 
 ## [04]-[RESEARCH]
 
-- [APPHOST_BENCHMARK_CATALOG]-[BLOCKED]: which exact signatures admit the corpus-bearing receipt and gate rail? Route: `/Users/bardiasamiee/Documents/99.Github/Rasm/libs/csharp/Rasm.Materials/.api/api-rasm-apphost.md`, then `/Users/bardiasamiee/Documents/99.Github/Rasm/libs/csharp/.api/api-rasm-apphost.md`, against `/Users/bardiasamiee/Documents/99.Github/Rasm/libs/csharp/Rasm.AppHost/.planning/Observability/benchmarks.md`.
+(none)

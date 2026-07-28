@@ -1,6 +1,6 @@
 # [SECURITY_SECRET]
 
-Leased-secret custody: one `DopplerSDK` client built behind a `Layer.scoped`, of which exactly four surfaces are admitted — `secrets.download` (the leased env-set fetch), `secrets.get`/`secrets.names` (the targeted single-secret read and the name census a partial refresh rides), `dynamicSecrets.issueLease`/`revokeLease` (the explicit dynamic-lease lifecycle), and `auth.me`/`auth.revoke` (the boot liveness probe and the credential-rotation retirement). Projects/configs/integrations administration stays out of scope: a runtime folder that reached for it re-implements Doppler administration, which belongs to the deploy plane. TTL leasing is Doppler-side (`dynamicSecretsTtlSec`): the custodian refetches on a spaced cadence under the lease window, with an inner jittered-exponential retry gated on `FaultClass.retryable` re-driving a transient fault inside the tick and a per-call deadline bounding every SDK promise; an `effect` `Cache` collapses concurrent refetches of the one `(project, config)` coordinate to a single in-flight download. Rotation republishes through a serialized `SubscriptionRef` transition — custody state lands before its metric, fact, and log taps — and `changes` is the feed the composition root's `Reloadable.auto` row consumes to rebuild `Jwt.Default(keyset)` without a graph teardown. Every fetched value is `Redacted` from the first decode, the `DOPPLER_TOKEN` is a `Config.redacted`, and fetched key material leaves this page only as the core `Credential` landing — `credential` folds a named PEM/JWK value into the sealed carrier `crypt/sign`'s `Material.admit` terminates, so the folder has one admission path for wire-carried and fetched keys alike. `SecretFault` instantiates the folder fault shape with the guard pair closed in both directions: every `BaseHTTPError` status subclass folds to one reason family whose rows carry the core `FaultClass` kind.
+Leased-secret custody: one `DopplerSDK` client built behind a `Layer.scoped` admits a closed surface set — `secrets.download` (the leased env-set fetch), `secrets.get`/`secrets.list`/`secrets.names` (the targeted single-secret read, the full-object census a partial refresh diffs against custody, and the name-only enumeration), `dynamicSecrets.issueLease`/`revokeLease` (the explicit dynamic-lease lifecycle), and `auth.me`/`auth.revoke` (the boot liveness probe and the credential-rotation retirement). Projects/configs/integrations administration stays out of scope: a runtime folder that reached for it re-implements Doppler administration, which belongs to the deploy plane. TTL leasing is Doppler-side (`dynamicSecretsTtlSec`): the custodian refetches on a spaced cadence under the lease window, with an inner jittered-exponential retry gated on `FaultClass.retryable` re-driving a transient fault inside the tick and a per-call deadline bounding every SDK promise; an `effect` `Cache` collapses concurrent refetches of the one `(project, config)` coordinate to a single in-flight download. Rotation republishes through a serialized `SubscriptionRef` transition — custody state lands before its metric, fact, and log taps — and `changes` is the feed the composition root's `Reloadable.auto` row consumes to rebuild `Jwt.Default(keyset)` without a graph teardown. Every fetched value is `Redacted` from the first decode, the `DOPPLER_TOKEN` is a `Config.redacted`, and fetched key material leaves this page only as the core `Credential` landing — `credential` folds a named PEM/JWK value into the sealed carrier `crypt/sign`'s `Material.admit` terminates, so the folder has one admission path for wire-carried and fetched keys alike. `SecretFault` instantiates the folder fault shape with the guard pair closed in both directions: every `BaseHTTPError` status subclass folds to one reason family whose rows carry the core `FaultClass` kind.
 
 ## [01]-[INDEX]
 
@@ -21,7 +21,7 @@ Leased-secret custody: one `DopplerSDK` client built behind a `Layer.scoped`, of
 ```typescript
 import DopplerSDK from "@dopplerhq/node-sdk"
 import { Convention, Credential, FaultClass } from "@rasm/ts/core"
-import { Cache, Config, DateTime, Duration, Effect, Equal, HashMap, Metric, Option, Predicate, Record, Redacted, Ref, Schedule, Schema, Stream, SubscriptionRef } from "effect"
+import { Cache, Cause, Config, DateTime, Duration, Effect, Equal, HashMap, Metric, Option, Predicate, Record, Redacted, Ref, Schedule, Schema, Stream, SubscriptionRef } from "effect"
 import { SecurityFact, Witness } from "../access/audit.ts"
 import { Crypto } from "./sign.ts"
 
@@ -96,22 +96,21 @@ const _set = (raw: unknown): Effect.Effect<SecretSet, SecretFault> =>
 ## [03]-[LEASED_CUSTODY]
 
 [LEASED_CUSTODY]:
-- Owner: `LeaseSpec` — the encoded app-custody boundary: `scope` names the isolated custody cell, `keys` is its unique non-empty allowlist, `ttl` encodes as milliseconds and admits only whole seconds of at least one — the remote `ttl_sec`, cache expiry, renewal cadence, and bounded clear all read one exact second count — `renewal` is `rolling | bounded`, and `epoch` is the replacement identity. `Secret` is the `Layer.scoped` custodian holding one client, publishing the current set through a `SubscriptionRef`, renewing or expiring it by posture, and revoking every still-held lease in an `addFinalizer`. `get` reads the current cell; `probe` refreshes one admitted name; `names` is the census; `changes` is the rotation feed; `lease` issues one admitted dynamic key and registers its revocable handle; `revoke` retires that handle after remote success; `retire` revokes a superseded service token.
+- Owner: `LeaseSpec` — the encoded app-custody boundary: `scope` names the isolated custody cell, `keys` is its unique non-empty allowlist, `ttl` encodes as milliseconds and admits only whole seconds of at least one — the remote `ttl_sec`, cache expiry, renewal cadence, and bounded clear all read one exact second count — `renewal` is `rolling | bounded`, and `epoch` is the replacement identity. `Secret` is the `Layer.scoped` custodian holding one client, publishing the current set through a `SubscriptionRef`, renewing or expiring it by posture, and revoking every still-held lease in an `addFinalizer`. `get` reads the current cell; `probe` refreshes one admitted name; `census` refreshes the whole allowlist in one read; `names` enumerates membership alone; `changes` is the rotation feed; `lease` issues one admitted dynamic key and registers its revocable handle; `revoke` retires that handle after remote success; `retire` revokes a superseded service token.
 - Boundary: the app root provides `SECURITY_LEASE_SPEC` as the encoded `LeaseSpec` and `DOPPLER_TOKEN` from one namespace custody cell, then composes `Secret.Default`. The deploy plane realizes each spec as a config containing only `keys`, a read-only service token scoped to that config, and one namespace secret; `scope + epoch` keys replacement, so the new token and cell land before the prior token retires. Security owns the value and renewal semantics; deployment owns the Doppler and Kubernetes resources.
 - Law: two schedules are orthogonal and both explicit — the outer `Schedule.spaced` cadence paces refresh across ticks, and the inner `Effect.retry` (jittered exponential, bounded by `Schedule.recurs`, gated on `FaultClass.retryable`) re-drives a transient fault inside the tick, so a Doppler blip costs milliseconds, never a full stale interval; a tick whose retries exhaust keeps the last good set.
 - Law: the download de-dupes — an `effect` `Cache` keyed by `(project, config, scope, epoch)` with a TTL below the refresh cadence collapses concurrent allowlisted reads to one in-flight request; targeted `probe` rejects names outside `LeaseSpec.keys`. Every SDK promise carries the per-call deadline and `_lift` hands `tryPromise`'s interruption-wired `AbortSignal` to its runner — the SDK transport is signal-blind, so the deadline bounds the caller as a typed `transient` while an orphaned read settles harmlessly — and the lease issue rides a shielded `disconnect` window, so a grant landing after its deadline still registers and teardown revokes it, never an orphaned lease.
 - Law: the boot probe (`auth.me`) and the first fetch gate construction under a bounded jittered retry — a transient boot blip re-drives, a dead token fails the layer, not the first read; the composition root wraps `Secret.Default` in `Layer.retry` under the branch boot budget.
 - Law: a rotation is observed, never silent — the custody semaphore serializes only the full or targeted compare/set transition, and the `SubscriptionRef.changes` stream serially increments `Convention.instrument.securitySecretRotation`, publishes the `Rotation` fact through `Witness`, and logs the audit line after custody releases. `probe` enters the same revision fold, so consumers observe one ordered rotation stream regardless of refresh grain; a blocked tap cannot stop later custody transitions, and an interrupted tap never rolls custody back.
 - Receipt: `SecretSet` — a missing key is a `SecretFault`, never `undefined`; every value is `Redacted`, so a log or error never carries plaintext.
-- Growth: a new fetched secret is a new name in the same response; a new refresh grain is a caller-composed diff over `names` and `probe`, never a second custody service.
+- Law: refresh grain is a member, never a planner — `census` reads the whole allowlist in one call and enters the same revision fold `probe` and the rolling tick enter, so custody's own equality check is what decides whether a rotation event fires and a name whose bytes never moved costs no republish; a caller diffing `names` re-fetches values to learn membership changed, which is the round trip this member deletes. Dynamic leasing stays off every read path — an inline lease surfaces no handle, so only the explicit `lease` seam can register one for revocation.
+- Law: generated response shapes are claims, never contracts — `SecretsListResponse` types its map as four fixed example key names, so every read on this page decodes the wire through `Schema` and no member is read off the declared shape.
+- Growth: a new fetched secret is a new name in the same response; a new refresh grain is one member on this custodian, never a second custody service.
 - Law: `rolling` refreshes at four-fifths of `ttl`; `bounded` performs no renewal and clears the cell at `ttl`, so a one-shot scope cannot retain material past its lease. Every epoch change replaces the deploy-side token and custody cell regardless of posture.
-- Packages: `@dopplerhq/node-sdk` (`secrets.download`/`get`/`names`, `dynamicSecrets.issueLease`/`revokeLease`, `auth.me`/`revoke`); `effect` (`Cache`, `Schedule`, `SubscriptionRef`, `Metric`); `@rasm/ts/core` (`Convention`); `access/audit` (`Witness`, `SecurityFact`).
+- Packages: `@dopplerhq/node-sdk` (`secrets.download`/`get`/`list`/`names`, `dynamicSecrets.issueLease`/`revokeLease`, `auth.me`/`revoke`); `effect` (`Cache`, `Schedule`, `SubscriptionRef`, `Metric`); `@rasm/ts/core` (`Convention`); `access/audit` (`Witness`, `SecurityFact`).
 
 ```typescript
-const _rotation = Metric.counter(Convention.instrument.securitySecretRotation.name, {
-  description: Convention.instrument.securitySecretRotation.description,
-  incremental: true,
-})
+const _rotation = Convention.mount(Convention.metric.securitySecretRotation)
 
 const _retryable = Schedule.exponential(Duration.seconds(1)).pipe(Schedule.jittered, Schedule.intersect(Schedule.recurs(4)))
 
@@ -171,6 +170,12 @@ class Secret extends Effect.Service<Secret>()("security/crypt/Secret", {
           fetch.pipe(
             Effect.retry({ schedule: _retryable, while: (fault) => FaultClass.retryable(fault.class) }),
             Effect.flatMap((set) => _publish(() => set)),
+            // Discrimination runs INTERRUPT-FIRST: a scope teardown ends this loop cleanly while an exhausted
+            // retry is custody that stopped refreshing, and a bare swallow reports the two identically — so a
+            // permanently dead refresh reads exactly like a clean shutdown and every later `get` serves the
+            // last set nothing renewed. The tick still survives its own failure; only the silence goes.
+            Effect.tapErrorCause((cause) =>
+              Cause.isInterruptedOnly(cause) ? Effect.void : Effect.logError("secret refresh exhausted", cause)),
             Effect.ignore,
           ),
           Schedule.spaced(Duration.seconds(Math.max(1, Math.floor(ttl * 0.8)))),
@@ -197,6 +202,32 @@ class Secret extends Effect.Service<Secret>()("security/crypt/Secret", {
             Effect.tap((value) => _publish(HashMap.set(name, value))),
           )
         : Effect.fail(new SecretFault({ reason: "missing", detail: name }))
+    // Census answers membership AND value for the WHOLE allowlist in one read, so its answer IS custody rather
+    // than a delta over it: publication REPLACES, and a name Doppler stopped serving stops resolving through
+    // `get` instead of surviving as a value nothing refreshes and no rotation event mentions. `_publish`'s
+    // equality fold still suppresses the rotation event where nothing changed. `includeDynamicSecrets` stays
+    // OFF: an inline lease surfaces no handle, so a census issuing one could never revoke it, and the dynamic
+    // lifecycle keeps its explicit `lease` seam.
+    const census = (): Effect.Effect<SecretSet, SecretFault> =>
+      _lift(() => sdk.secrets.list(project, config, {
+        includeDynamicSecrets: false,
+        includeManagedSecrets: false,
+        secrets: leaseSpec.keys.join(","),
+      })).pipe(
+        // Codegen fixed four example key names onto this response type, so its real name-keyed map decodes here
+        // exactly as every other read on this page decodes rather than off a shape the SDK only claims
+        Effect.flatMap((response) =>
+          Schema.decodeUnknown(Schema.Struct({
+            secrets: Schema.Record({ key: Schema.String, value: Schema.Struct({ raw: Schema.String }) }),
+          }))(response).pipe(
+            Effect.mapError((cause) => new SecretFault({ reason: "missing", detail: String(cause) })))),
+        // `leaseSpec.keys` is the one positive admission boundary on BOTH faces — `probe` and `lease` already
+        // refuse an unlisted name, so a response row beyond it never enters the set custody serves.
+        Effect.map((decoded) =>
+          Record.reduce(decoded.secrets, HashMap.empty<string, Redacted.Redacted<string>>(), (held, row, name) =>
+            leaseSpec.keys.includes(name) ? HashMap.set(held, name, Redacted.make(row.raw)) : held)),
+        Effect.tap((set) => _publish(() => set)),
+      )
     const names = (): Effect.Effect<ReadonlyArray<string>, SecretFault> =>
       _lift(() => sdk.secrets.names(project, config)).pipe(
         Effect.flatMap((response) =>
@@ -226,7 +257,7 @@ class Secret extends Effect.Service<Secret>()("security/crypt/Secret", {
       )
     const retire = (spent: Redacted.Redacted<string>): Effect.Effect<void, SecretFault> =>
       _lift(() => sdk.auth.revoke({ token: Redacted.value(spent) }), "credential").pipe(Effect.asVoid)
-    return { get, probe, names, lease, revoke, retire, changes: cell.changes } as const
+    return { get, probe, census, names, lease, revoke, retire, changes: cell.changes } as const
   }),
   accessors: true,
 }) {}

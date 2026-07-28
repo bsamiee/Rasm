@@ -104,9 +104,9 @@ public sealed record PerfBudget {
 
     public const string TierInstrument = "rasm.appui.governor.tier";
 
-    public static TelemetryContributorPort TelemetryRow(LevelCells cells, string version, string schemaUrl) =>
-        AppUiTelemetry.Contribute(version, schemaUrl,
-            new(TierInstrument, InstrumentKind.Level, "1", "active quality tier rank", Level: cells.Reader(TierInstrument)));
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            InstrumentSpec.Level(TierInstrument, "1", "active quality tier rank", MeasureForm.Whole));
 
     // Asymmetric hysteresis: a breach descends one grade immediately and zeroes calm; ascent takes
     // CalmWindow consecutive within-hysteresis samples, so the tier never oscillates per frame.
@@ -156,6 +156,13 @@ public sealed record Governor(Atom<GovernorState> Cell) {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     FrameReceipt --> PerfSample
     HudSample --> PerfSample
@@ -269,9 +276,9 @@ public sealed record GpuTimeline(long FrameOrdinal, Seq<PassTiming> Passes, Seq<
     public const string Kind = "gpu-timeline";
     public const string DivergenceInstrument = "rasm.appui.governor.gpu.divergence";
 
-    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
-        AppUiTelemetry.Contribute(version, schemaUrl,
-            new(DivergenceInstrument, InstrumentKind.Distribution, "1", "per-pass projected-to-measured GPU divergence ratio", Buckets.DivergenceRatio));
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            InstrumentSpec.Advised(DivergenceInstrument, "1", "per-pass projected-to-measured GPU divergence ratio", MeasureForm.Real, Buckets.DivergenceRatio));
 
     public Seq<double> DivergenceRatios() =>
         Passes.Bind(static pass => pass.Measured.Map(gpu => pass.Projected > Duration.Zero
@@ -279,9 +286,11 @@ public sealed record GpuTimeline(long FrameOrdinal, Seq<PassTiming> Passes, Seq<
             : 0d).ToSeq());
 
     // Composition binds this projection at Resolve, so divergence lands per pass on the distribution
-    // while the timeline's own evidence rides the gpu-frame envelope untouched.
-    public Unit Observe(InstrumentSet set) =>
-        ignore(DivergenceRatios().Iter(ratio => ignore(set.Record(DivergenceInstrument, ratio))));
+    // while the timeline's own evidence rides the gpu-frame envelope untouched. Every ratio writes the
+    // ONE instrument, so the first refusal already proves every later one — short-circuiting the traverse
+    // reports the mount defect without repeating it once per resolved pass.
+    public Fin<Unit> Observe(InstrumentSet set) =>
+        DivergenceRatios().TraverseM(ratio => set.Write(DivergenceInstrument, ratio)).As().Map(static _ => unit);
 
     public bool FullyResolved => Passes.ForAll(static pass => pass.Measured.IsSome);
 

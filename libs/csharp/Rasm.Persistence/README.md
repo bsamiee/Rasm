@@ -2,7 +2,7 @@
 
 `Rasm.Persistence` is the content-addressed durable system of record for the `ElementGraph`; the version-control engine over it — commit-DAG, CRDT merge, AS-OF time travel, three-way merge, attested provenance, classification-driven retention, verified recovery; the consistency-split read lanes; the content-keyed geometry object store; and the fenced coordination substrate. Its bar: a Type re-key reads as a rename, a million-event model scrubs at the cost of its delta, and every cross-runtime reuse key resolves bit-identically against the kernel content-hash.
 
-It persists the graph over a Marten append substrate, depends up on the `Rasm.Element` seam and the `Rasm` kernel content-hash, and consumes the AppHost port vocabulary as settled contract.
+It persists the graph over a Marten append substrate and depends up on the `Rasm.Element` seam for the `ElementGraph` and the `Rasm` kernel alone for the content hash and the signal capsule's causal frame, instrument mechanism, and hook vocabulary, each a settled contract. Its instrument roster and its lifecycle points contribute as `TelemetryContributorPort` and `HookPoint` values the app-platform root binds, so no app-platform package is referenced.
 
 ## [01]-[ROUTER]
 
@@ -27,7 +27,7 @@ It persists the graph over a Marten append substrate, depends up on the `Rasm.El
 - [14]-[LANE](.planning/Query/lane.md): Read router discriminating authoritative from analytical over the selection algebra.
 - [15]-[RETRIEVAL](.planning/Query/retrieval.md): ANN retrieval subsystem fusing the vector and text branches.
 - [16]-[TOPOLOGY](.planning/Query/topology.md): In-process QuikGraph view owning default synchronous traversal.
-- [17]-[COLUMNAR](.planning/Query/columnar.md): DuckDB analytical lane and its flat-table projection.
+- [17]-[COLUMNAR](.planning/Query/columnar.md): DuckDB analytical lane, flat-table projection, and the analytics residence family.
 - [18]-[CYPHER](.planning/Query/cypher.md): Optional self-hosted openCypher and pgrouting lane.
 - [19]-[CACHE](.planning/Query/cache.md): Compute-result reuse index with its benchmark gate and invalidation.
 - [20]-[FEDERATION](.planning/Query/federation.md): Substrait federation router lowering portable plans onto the standing lanes.
@@ -43,7 +43,7 @@ It persists the graph over a Marten append substrate, depends up on the `Rasm.El
 - [26]-[SCHEMA](.planning/Store/schema.md): Owns the canonical backend contract and generation algebra.
 - [27]-[PROVISIONING](.planning/Store/provisioning.md): Verify-only extension tier and provider materializer rows.
 - [28]-[COORDINATION](.planning/Store/coordination.md): Token-fenced lease store owning budget, CAS, lease, membership, and outbox.
-- [29]-[OBSERVABILITY](.planning/Store/observability.md): Engine-stat and plan-shape harvests, hook rail, and instrument contributor.
+- [29]-[OBSERVABILITY](.planning/Store/observability.md): Store telemetry over harvests, hook rail, chargeback residence, and contributor port.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -111,10 +111,11 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Apache.Arrow.Compression` — Arrow-IPC `Lz4Frame`/`Zstd` codec factory.
 - `ParquetSharp` — native libparquet Parquet read and write.
 - `ParquetSharp.Dataset` — partitioned multi-file Parquet lake scanner streaming `Apache.Arrow` batches with predicate and column pushdown.
-- `FlowtideDotNet.Substrait` — Substrait portable query-plan IR backing the federation rail.
+- `FlowtideDotNet.Substrait` — Substrait portable query-plan IR backing the federation rail and the one residence lowering.
 - `FastCDC.Net`
 - `Ara3D.BimOpenSchema`
 - `Ara3D.BimOpenSchema.IO`
+- `Parquet.Net` — pure-managed Parquet codec under the BimOpenSchema Parquet-zip leg, version-governed as a central transitive pin.
 - `Chr.Avro` — Avro schema model, resolution, evolution, and POCO mapping.
 - `Chr.Avro.Binary`
 - `Chr.Avro.Confluent` — binds the Confluent Schema Registry serdes leg.
@@ -130,8 +131,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 
 [APPEND_AND_EGRESS]: Marten append substrate, the out-of-Rhino sync transports, and the CDC change-egress pipeline.
 - `Marten` — PostgreSQL event store; `GraphDelta` bodies fold `ElementGraph` via `AggregateStreamAsync` AS-OF.
-- `Microsoft.Extensions.Compliance.Redaction`
-- `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
 - `Speckle.Sdk`
 - `Speckle.Objects`
 - `PollinationSDK` — cloud-run transport, sidecar-only; the durable `Version/provenance` `CloudRunFact` half.
@@ -149,7 +148,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `NATS.Net` — Core pub/sub and JetStream durable streams; backs `EgressSink.Nats`.
 - `RabbitMQ.Client` — AMQP 0-9-1 with publisher confirms; backs `EgressSink.RabbitMq`.
 - `DotPulsar` — Apache Pulsar binary-protocol client; backs `EgressSink.Pulsar`.
-- `MQTTnet` — MQTT v5 client with QoS-1 `PublishAsync` PUBACK evidence and the v5 UserProperties tracing carrier; backs `EgressSink.Mqtt`.
 
 [OBJECT_CACHE_KMS]: Cloud object stores, the Redis cache backplane, and KMS custody.
 - `AWSSDK.S3`
@@ -167,6 +165,9 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 ## [03]-[SUBSTRATE_PACKAGES]
 
 Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
+
+[MACHINE_CONNECTIVITY]:
+- `MQTTnet` — QoS-1 `PublishAsync` PUBACK evidence and the v5 UserProperties tracing carrier; backs `EgressSink.Mqtt`.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
@@ -187,12 +188,23 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 [GRAPH_ALGORITHM]:
 - `QuikGraph` — models the in-process topology the synchronous `Query/topology` lane composes.
 
+[PLANAR_GEOMETRY]:
+- `NetTopologySuite` — `Geometry` currency and WKB/WKT core codecs behind every spatial column, satellite codec, and geometry content key.
+
 [RECENCY_CACHE]:
 - `Microsoft.Extensions.Caching.Hybrid` — L2-store and serializer half of the AppHost-owned two-tier cache.
+
+[DATA_CLASSIFICATION]:
+- `Microsoft.Extensions.Compliance.Redaction` — classification attributes on egressed members; redactor binding stays at the app root.
 
 [WIRE_CODEGEN]:
 - `Riok.Mapperly` — generated seam-to-wire and columnar marshal.
 - `Generator.Equals` — generated structural equality and content-key preimage.
+- `Microsoft.AspNetCore.JsonPatch.SystemTextJson` — RFC 6902 document mutation over the STJ wire.
+
+[RUNTIME_INBOX]:
+- `System.Net.Http` — blob-store client, ranged reads, and multipart upload legs of the object plane.
+- `System.Text.Json` — generated wire contexts and the `JsonDocument`/`JsonElement` payload plane behind the element codec, version records, and registry seams.
 
 [TEST_SUBSTRATE]: Rows bind in branch test and benchmark projects, never the package csproj.
 - `Verify.XunitV3`

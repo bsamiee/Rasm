@@ -42,10 +42,10 @@ Pixel truth closes the paint loop: a capture session and the paint hooks it audi
 
 ## [05]-[PROOF]
 
-- Owner: `PaintProof` — the regression and correlation projections over already-minted evidence. `Judge(CaptureFrame frame, PaintReceipt receipt, MonotonicTimeline timeline, CapturePace pace, Op? key = null)` → `Fin<Option<CaptureBreach>>` — a receipt claiming `Drawn > 0` whose settlement precedes the frame within two pace periods expects a bearing frame; a non-bearing frame there is the breach, carrying the frame sequence, the receipt operation, the drawn claim, and the measured lag.
+- Owner: `PaintProof` — the regression and correlation projections over already-minted evidence. `Judge(CaptureFrame frame, PaintReceipt receipt, MonotonicTimeline timeline, CapturePace pace, Op? key = null)` → `Fin<Option<CaptureBreach>>` — a receipt claiming `Drawn > 0` whose settlement precedes the frame within two pace periods expects a bearing frame; a non-bearing frame there is the breach, carrying the frame sequence, the receipt operation, the drawn claim, the measured lag, and the two-period bound that judged it.
 - Owner: `CaptureTie` — one journal-to-frame pairing: the journal row sequence, the frame sequence, and the settlement-to-frame lag. `Correlate(CaptureExport capture, JournalExport journal, MonotonicTimeline timeline, CapturePace pace, Op? key = null)` → `Fin<Seq<CaptureTie>>` pairs every journal row carrying a `JournalFact.EvidenceCase` with a `GhEvidence.PaintCase` receipt to the first exported frame at or after that receipt's settlement inside the window.
 - Law: one timeline is the correlation precondition — `Judge` and `Correlate` compare stamps through `timeline.Elapsed`, so the capture session, the paint mounts it audits, and the judgment share the injected timeline; journal row stamps stay journal-local per `Shell/journal.md` law, and correlation reads the receipt-borne stamps inside the fact, never the row stamp.
-- Law: judgment reads, never samples — the proof owns no clock, no host reach, and no mutation; a breach is shaped beside the `Canvas/motion.md` `BudgetBreach` precedent so the estate benchmark rail consumes capture regressions as typed claims without re-measuring.
+- Law: judgment reads, never samples — the proof owns no clock, no host reach, and no mutation; a breach carries its producing bound beside its measurement exactly as `Canvas/motion.md` `BudgetBreach` does, so the estate benchmark rail consumes capture regressions as typed claims without re-measuring and without re-deriving a threshold from capture policy it never sees.
 - Packages: LanguageExt.Core, `Rasm.Domain` (`Op`, `ValidityClaim`), `Rasm.Parametric` (`MonotonicTimeline`), `Canvas/paint.md` (`PaintReceipt` — inert evidence under the strata model-only exemption), `Shell/journal.md` (`JournalExport`), `Shell/telemetry.md` (`GhEvidence`).
 - Growth: a new visual claim is one judgment arm over existing evidence; a new correlation family is one fact-pattern filter over the same export pair.
 
@@ -127,11 +127,18 @@ public sealed record CaptureStill(int Width, int Height, int RowBytes, Immutable
 
 public sealed record CaptureExport(Seq<CaptureFrame> Frames, long Published, long Shed, MonotonicStamp Captured);
 
+// `Bound` is the two-period window the judgment measured `Lag` against, carried BESIDE the measurement
+// exactly as `Canvas/motion.md` `BudgetBreach` carries its own: a claim consumer grades overrun off the row
+// it holds, so an estate benchmark rail never re-derives a threshold from a capture pace it does not own,
+// and a retuned pace moves the recorded bound with the breach rather than silently regrading old evidence.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct CaptureBreach(long FrameSequence, Op Operation, int Drawn, TimeSpan Lag) : IValidityEvidence {
+public readonly record struct CaptureBreach(long FrameSequence, Op Operation, int Drawn, TimeSpan Lag, TimeSpan Bound) : IValidityEvidence {
+    public TimeSpan Overrun => Lag - Bound;
+
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Of(holds: FrameSequence >= 0L && Drawn > 0),
-        ValidityClaim.Nonnegative(value: Lag.TotalSeconds));
+        ValidityClaim.Nonnegative(value: Lag.TotalSeconds),
+        ValidityClaim.Positive(value: Bound.TotalSeconds));
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -576,7 +583,7 @@ public static class PaintProof {
                from lag in clock.Elapsed(start: claim.Settled, end: sample.Stamp, key: op)
                let window = TimeSpan.FromSeconds(value: 2.0 / rate)
                select lag >= TimeSpan.Zero && lag <= window && claim.Drawn > 0 && !sample.Bearing
-                   ? Some(new CaptureBreach(FrameSequence: sample.Sequence, Operation: claim.Operation, Drawn: claim.Drawn, Lag: lag))
+                   ? Some(new CaptureBreach(FrameSequence: sample.Sequence, Operation: claim.Operation, Drawn: claim.Drawn, Lag: lag, Bound: window))
                    : Option<CaptureBreach>.None;
     }
 

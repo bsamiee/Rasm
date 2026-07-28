@@ -4,10 +4,10 @@ Rasm.AppUi composes one shell: a five-case `NavRequest` union dispatches over th
 
 ## [01]-[INDEX]
 
-- [01]-[ROUTING_SPINE]: One route union over the shell root; two view-resolution hosts.
-- [02]-[DOCK_LAYOUTS]: Dockables fold from route rows; checkpoint, restore, external dock.
-- [03]-[SHELL_CHROME]: Chrome rows derive from intent keys per surface row.
-- [04]-[ADAPTIVE_LAYOUT]: One breakpoint table; behavior-attached responsive policy values.
+- [02]-[ROUTING_SPINE]: One route union over the shell root; two view-resolution hosts.
+- [03]-[DOCK_LAYOUTS]: Dockables fold from route rows; checkpoint, restore, external dock.
+- [04]-[SHELL_CHROME]: Chrome rows derive from intent keys per surface row.
+- [05]-[ADAPTIVE_LAYOUT]: One breakpoint table; behavior-attached responsive policy values.
 
 ## [02]-[ROUTING_SPINE]
 
@@ -16,7 +16,7 @@ Rasm.AppUi composes one shell: a five-case `NavRequest` union dispatches over th
 - Entry: `public IO<Unit> Navigate(NavRequest request)` — `IO` carries the navigation effect; an unknown route key aborts on the `Error` rail.
 - Auto: `RoutedViewHost` re-resolves the view on every router transition; deep links and remote verbs enter through `Parse` with no second admission path.
 - Packages: ReactiveUI, ReactiveUI.Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: a new navigation verb is one case on `NavRequest`, a new screen is one `ScreenCatalog` row whose route the index projects through `Freeze`, and a new navigation instrument is one `InstrumentRow` on `ShellRoot.TelemetryRow`; zero new surface.
+- Growth: a new navigation verb is one case on `NavRequest`, a new screen is one `ScreenCatalog` row whose route the index projects through `Freeze`, and a new navigation instrument is one `InstrumentSpec` row on `ShellRoot.TelemetryRow`; zero new surface.
 - Boundary: `Freeze` projects the route index off the frozen `ScreenCatalog` roster — keys are `row.RouteKey` by construction, so an independently authored route pair is unrepresentable; each `Navigate` dispatch folds one observation into the `ShellRoot.NavigateInstrument` count and an unknown-route abort folds one into the `ShellRoot.RouteMissInstrument` count through the composition-bound `Count` delegate, both declared through the one `AppUiTelemetry.Contribute` spine, so navigation volume and route-miss rate are attributable and a router-local meter is the deleted form; `ShellRoot` is the named boundary capsule — ReactiveUI command execution awaits inside its private kernels and nowhere else; `RoutedViewHost` and `ViewModelViewHost` are the only view-resolution surfaces, binding `Router` and `ViewModel` from the shell root, and view lookup beside the two hosts is the deleted pattern; the `ViewContract` value on `RoutedViewHost` carries `profile.HostKey` so one screen resolves a host-specific template; route keys are ordinal strings shared by deep links, remote invocation, the dock factory, and the web projection, so the same grammar admits every caller today; modal presentation crosses to the dialog-session owner through the `PresentModal` delegate; viewport-scoped navigation rides the same five-verb grammar — a `Push`/`Pop` over a `ZoomBorder`-hosted screen drives `ZoomBorder.NavigateBack`/`NavigateForward` view history and `ClearViewHistory` on a `Reset`, so a per-canvas back-stack is the deleted pattern and viewport history is one verb dispatch, never a second navigation owner; a second router beside the router cell and a region framework are the rejected forms.
 
 ```csharp signature
@@ -95,10 +95,10 @@ public sealed class ShellRoot(
     public const string NavigateInstrument = "rasm.appui.nav.navigated";
     public const string RouteMissInstrument = "rasm.appui.nav.route.miss";
 
-    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
-        AppUiTelemetry.Contribute(version, schemaUrl,
-            new(NavigateInstrument, InstrumentKind.Count, "{navigation}", "navigation dispatches by verb"),
-            new(RouteMissInstrument, InstrumentKind.Count, "{navigation}", "unknown-route aborts"));
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            InstrumentSpec.Count(NavigateInstrument, "{navigation}", "navigation dispatches by verb", MeasureForm.Whole),
+            InstrumentSpec.Count(RouteMissInstrument, "{navigation}", "unknown-route aborts", MeasureForm.Whole));
 
     // The route index is a projection of the frozen screen roster: keys are row.RouteKey by construction,
     // so deep links, dock rows, palette listings, and screens cannot disagree — an independently authored
@@ -163,7 +163,7 @@ public sealed class ShellRoot(
 - Auto: the cadence, drain, support, and telemetry rows register once at composition — flush fires on the `Every` cadence and again on the drain row inside `DrainBand.Interaction` at `ShellPolicy.DrainRank`, the support capture reads the latest blob, the telemetry row contributes the layout-flush instruments inward, and boot restore runs once from the fault-spine probe consequence, re-materializing the dock graph and setting the router stack through `ShellRoot.Restore` in one pass — an unresolvable saved route key folds to the fallback row with a `RouteRestoreFact` receipt, so first-run, restore, and upgrade are one total fold; zero UI timers.
 - Receipt: `Flush` yields `Option<LayoutCheckpoint>` — Some on a persisted blob, None on the unchanged-hash skip; the checkpoint record is the restore evidence and the support artifact body; `RouteRestoreFact` rows are the per-key restore evidence.
 - Packages: Dock.Avalonia, Dock.Model.ReactiveUI, Dock.Serializer.SystemTextJson, NodaTime, LanguageExt.Core, Rasm.AppHost (project), BCL inbox
-- Growth: a new dockable is one `DockableRow` row registered from the screen catalog with its title resolving through the catalog title cell, a new cadence, rank, retention, proportion, drop-selector, or external-surface bound is one policy value on `ShellPolicy`, and a new layout instrument is one `InstrumentRow` on `LayoutLedger.TelemetryRow`; zero new surface.
+- Growth: a new dockable is one `DockableRow` row registered from the screen catalog with its title resolving through the catalog title cell, a new cadence, rank, retention, proportion, drop-selector, or external-surface bound is one policy value on `ShellPolicy`, and a new layout instrument is one `InstrumentSpec` row on `LayoutLedger.TelemetryRow`; zero new surface.
 - Boundary: `ShellDockFactory` is the named boundary capsule for the statement carve-out — the Dock model graph is mutable host-owned state assembled only through `Factory` create entrypoints, and view-layer mutation of dock structure is the rejected form; `DockControl` binds `Build`'s root through `Layout` with `InitializeLayout` and `InitializeFactory` false so the factory owns initialization, the dock chrome variant resolves through the `IDockThemeManager` bound at composition from the theme-token variant subscription so dock-owned brushes flip with the one theme resolution and a per-dock brush literal is the deleted form, floating hosts ride `HostWindowFactory` with `EnableManagedWindowLayer` under the `FloatingWindows` gate, and rows where `ShellPolicy.ExternalSurface` holds register the embedded host root through `DockControl.RegisterExternalDockSurface(IExternalDockSurface)` (the surface exposes `DockControl? DockControl { get; set; }` and `Control SurfaceControl { get; }`, paired with `bool UnregisterExternalDockSurface(IExternalDockSurface)` at teardown) so a docked panel drags across the host boundary while `GlobalDockTarget` and the `DockSelectorMode`-typed selector drive the `DockControl.ShowSelector(DockSelectorMode mode)`/`HideSelector()` drop overlay under the `ShellPolicy.DropSelector` gate — `DockSelectorMode` is the three-member `Documents | Tools | All` domain, and a per-host drag-handler fork is the rejected form; dockable `Context` resolves through the same `ShellRoot.Resolve` admission as navigation — `Build` traverses the rows on the `Fin` rail so a stale `DockableRow.RouteKey` yields the identical `NavFault.UnknownRoute` evidence, a direct route-index access is the deleted form, a dockable is a screen, and a second viewmodel system is the deleted pattern; the `Serialize` and `Restore` delegates bind the concrete `DockSerializer` from `Dock.Serializer.SystemTextJson` at composition — `DockSerializer()` constructs the default `ObservableCollection<>`-list reflection resolver, or `DockSerializer(IJsonTypeInfoResolver)` takes the source-generated `DockSystemTextJsonContext` the `[assembly: DockJsonSourceGenerationAttribute]` analyzer emits for AOT-safe metadata; its `IDockSerializer` contract `Serialize<T>(T)->string`, `Deserialize<T>(string)->T?`, `Load<T>(Stream)->T?`, `Save<T>(Stream, T)` carries the package-owned `JsonSerializerOptions` (`ReferenceHandler.Preserve`, `WhenWritingNull`, `AllowNamedFloatingPointLiterals`, the `JsonConverterFactoryList` `IList<T>` factory) and the `DockModelPolymorphicTypeResolver` that resolves `IDockable`/`IDock`/`IRootDock`/`IDockWindow`/`IDocumentTemplate`/`IToolTemplate` by `$type`, so a hand-rolled `IDockSerializer` or a replacement `JsonSerializerOptions` set is the rejected form; the payload crosses the Persistence port as an opaque versioned blob — the serializer round-trips dockable identity by `Id` so structure survives restore, file I/O is caller-side `Load<T>(Stream)`/`Save<T>(Stream, T)` construction since no file-path overload ships, AppUi issues no store queries, the `ContentHash` delegate carries the Persistence snapshot hash vocabulary, and the persist route prunes to `RetainedCheckpoints` generations; crash offer consumes the fault-spine crashes — a `HostCrashMarker` case gates the confirm route while a clean boot restores the warm blob silently; multi-window coordination and session restore ride the same blob; the dashboard-board snapshot is `Charts/dashboards#STREAM_BINDING`'s `BoardState`, which round-trips through the same concrete `DockSerializer` bound here — the dock graph and the board arrangement-plus-brush are two independent blobs over one serializer; the checkpoint row shares the health-probe deadline bound, so a flush past it is the dispatcher-starvation signal; the drain row ranks after the screens teardown row inside `DrainBand.Interaction`, so the flushed layout captures post-suspension state; pin, auto-hide, float, and close states are `DockableRow` policy values rendered through `PinnedDockControl`/`ToolPinnedControl`, never control state.
 
 ```csharp signature
@@ -341,10 +341,10 @@ public static class LayoutLedger {
                 Produce: window => port.Latest.Map(latest =>
                     (latest.Map(port.Support).IfNone(ReadOnlyMemory<byte>.Empty), 0)))));
 
-    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
-        AppUiTelemetry.Contribute(version, schemaUrl,
-            new(ShellPolicy.FlushInstrument, InstrumentKind.Count, "{flush}", "layout ledger flushes"),
-            new(ShellPolicy.RestoreInstrument, InstrumentKind.Count, "{restore}", "layout ledger restores"));
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            InstrumentSpec.Count(ShellPolicy.FlushInstrument, "{flush}", "layout ledger flushes", MeasureForm.Whole),
+            InstrumentSpec.Count(ShellPolicy.RestoreInstrument, "{restore}", "layout ledger restores", MeasureForm.Whole));
 }
 ```
 
@@ -407,7 +407,7 @@ Visibility matrix — the value source for every `Visible` predicate and for `Fl
 - Owner: `BreakpointRow` responsive tier row; `AdaptiveLayout` resolve fold over the ascending table.
 - Entry: `public static BreakpointRow Resolve(double width)` — pure fold; the widest admitted row wins.
 - Packages: Xaml.Behaviors.Avalonia, LanguageExt.Core, BCL inbox
-- Growth: a new responsive tier is one `BreakpointRow` row; a new adaptive instrument is one `InstrumentRow` on `AdaptiveLayout.TelemetryRow`; zero new surface.
+- Growth: a new responsive tier is one `BreakpointRow` row; a new adaptive instrument is one `InstrumentSpec` row on `AdaptiveLayout.TelemetryRow`; zero new surface.
 - Boundary: `AdaptiveBehavior` and `AspectRatioBehavior` attach the resolved row key at each surface root, so per-view width literals are the deleted pattern; a resolved-tier flip folds one observation into the `AdaptiveLayout.BreakpointInstrument` count keyed by the row `Key` through the one `AppUiTelemetry.Contribute` spine, so responsive-tier transitions are attributable and a layout-local meter is the deleted form; density-aware spacing arrives from the theme token resolve as settled vocabulary and composes orthogonally to breakpoints; the row keys are serializable strings, so the designed-only WebBrowser growth case consumes the same vocabulary with zero live surface.
 
 ```csharp signature
@@ -429,9 +429,9 @@ public static class AdaptiveLayout {
 
     public const string BreakpointInstrument = "rasm.appui.layout.breakpoint";
 
-    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
-        AppUiTelemetry.Contribute(version, schemaUrl,
-            new(BreakpointInstrument, InstrumentKind.Count, "{transition}", "responsive-tier transitions by row key"));
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            InstrumentSpec.Count(BreakpointInstrument, "{transition}", "responsive-tier transitions by row key", MeasureForm.Whole));
 }
 ```
 

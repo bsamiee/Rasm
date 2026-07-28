@@ -7,7 +7,7 @@ Compute wraps `EncodedGeometry.Payload` and its descriptors as an `EncodedTensor
 ## [01]-[INDEX]
 
 - [02]-[ENCODING]: `PackOp` fold over its channel, dtype, and kind vocabulary into the descriptor-tiled `EncodedGeometry` with round-trip witness.
-- [03]-[SCHEMA_AND_EVIDENCE]: `PackSchema` columnar schema identity and `EvidenceWire` exact-hi/lo evidence block.
+- [03]-[SCHEMA_AND_EVIDENCE]: `PackSchema` columnar schema identity, the frozen `EvidenceWire.Json` wire identity, and the `EvidenceWire` exact-hi/lo binary block.
 
 ## [02]-[ENCODING]
 
@@ -44,7 +44,7 @@ namespace Rasm.Drawing;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 // Width is the residency fact (bytes per scalar); the span arms are the ONE quantization seam.
-// A generated Switch cannot carry ref-struct operands, so the three-row if-chain IS the dispatch.
+// Generated Switch cannot carry ref-struct operands, so the three-row if-chain IS the dispatch.
 [SmartEnum<int>]
 public sealed partial class ChannelDtype {
     public static readonly ChannelDtype Float32 = new(key: 0, width: 4, tolerance: 0.0);
@@ -54,7 +54,7 @@ public sealed partial class ChannelDtype {
     public int Width { get; }
     public double Tolerance { get; }
 
-    // A dtype row extending neither arm packs nothing and the witness routes 2444 — no silent fall-through.
+    // Any dtype row extending neither arm packs nothing and the witness routes 2444 — no silent fall-through.
     public void Pack(ReadOnlySpan<float> raw, Span<byte> stored) {
         if (this == Float32) { MemoryMarshal.AsBytes(raw).CopyTo(stored); return; }
         if (this == Float16) { TensorPrimitives.ConvertToHalf(raw, MemoryMarshal.Cast<byte, Half>(stored)); return; }
@@ -538,9 +538,16 @@ public static class Encode {
 ```
 
 ```mermaid
-accTitle: Encoding channel flow
-accDescr: Pack operations select channel readers, write one typed byte arena, and bind round-trip evidence to the reconciliation digest.
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
+    accTitle: Encoding channel flow
+    accDescr: Pack operations select channel readers, write one typed byte arena, and bind round-trip evidence to the reconciliation digest.
     PackOp["PackOp (PointCloud / MeshPatch / VoxelGrid / BrepPatch / Field / Toolpath)"] -->|PackKind.Channels active set| PackChannels
     PackChannels -->|position / normal / curvature| Kernel["Rasm.Meshing MeshSpace / Rasm.Spatial VectorCloudMetric.OrientedNormals"]
     PackChannels -->|geodesic scalar lane| Fields["ScalarField.SampleDetailed"]
@@ -553,16 +560,17 @@ flowchart LR
     EncodedGeometry -->|"View&lt;float&gt; / View&lt;Half&gt; on the Dtype row"| Compute["Rasm.Compute EncodedTensor"]
     EncodedGeometry -->|EncodingKind.Field / .Toolpath locked rows| AppHost["Rasm.AppHost GeometryPacking capsule"]
     EncodedGeometry -->|"PackSchema.Of — ContentHash schema id"| Schema["PackSchema — columnar field rows"]
-    Schema -->|zero-copy column mapping| Lake["Persistence storage plane"]
+    Schema -->|"SchemaId keys the lake generation"| Lake["Rasm.Compute ArrowBatch → Persistence lake"]
     PackOp -.->|"DegenerateInput 2400 / EncodingFault 2444"| GeometryFault
 ```
 
 ## [03]-[SCHEMA_AND_EVIDENCE]
 
-- Owner: `PackSchema` is the columnar schema identity every kernel wire carries beside its payload — a `ContentHash`-derived `SchemaId` over the owning `PackKind` and one `PackSchemaField` per active channel. `SchemaNullability` is the null-semantics vocabulary. `EvidenceWire` is the lossless 106-bit count-prefixed binary block over `DoubleDoubleIOExpand`.
-- Entry: `PackSchema.Of` is ONE polymorphic derivation discriminating on input shape — the `PackKind` projects the declaration truth, an `EncodedGeometry` projects the packed instance — and `Describes` validates both carriers before comparing ids on the `Fin` rail; `EvidenceWire.WriteBlock`/`ReadBlock` are the binary arms.
+- Owner: `PackSchema` is the columnar schema identity every kernel wire carries beside its payload — a `ContentHash`-derived `SchemaId` over the owning `PackKind` and one `PackSchemaField` per active channel. `SchemaNullability` is the null-semantics vocabulary. `EvidenceWire` owns both evidence lanes: the lossless 106-bit count-prefixed binary block over `DoubleDoubleIOExpand`, and `Json`, one sealed `JsonSerializerOptions` identity carrying `DDoubleJsonConverter` over the `PackWireContext` resolver.
+- Entry: `PackSchema.Of` is ONE polymorphic derivation discriminating on input shape — the `PackKind` projects the declaration truth, an `EncodedGeometry` projects the packed instance — and `Describes` validates both carriers before comparing ids on the `Fin` rail; `EvidenceWire.WriteBlock`/`ReadBlock` are the binary arms and `EvidenceWire.Json` is the one options argument every JSON evidence read and write binds.
 - Law: the schema id derives through `ContentHash.Of` over the kind key then one invariant-culture line per field in active-set order, so two kinds sharing an active set still key distinct and any field, arity, dtype, width, or nullability drift re-keys.
-- Boundary: `SchemaId` is `UInt128` identity currency, its hex, two-lane `ulong`, and byte-order encodings consuming-seam projections; schema identity binds the representation vocabulary declared here, so a consumer-side roster re-declaring field rows diverges. Each derived-stride column stays contiguous at its descriptor offset, so a consumer maps every field zero-copy while the kernel never touches a storage client — the Persistence storage plane owns the Arrow, Parquet, and Flight adapters reading this schema.
+- Law: `Json` seals at type init through `JsonSerializerOptions.MakeReadOnly()`, so the converter set and resolver chain are fixed before the first evidence byte moves and a composition appending to either throws at the append; both lanes therefore carry the same 106-bit value and a `double`-degrading round trip is structurally unreachable.
+- Boundary: `SchemaId` is `UInt128` identity currency, its hex, two-lane `ulong`, and byte-order encodings consuming-seam projections; schema identity binds the representation vocabulary declared here, so a consumer-side roster re-declaring field rows diverges. Each derived-stride column stays contiguous at its descriptor offset, so a consumer wraps every field zero-copy while the kernel never touches a columnar client — `Rasm.Compute` `Runtime/codecs#ARROW_BATCH` borrows those slices into record-batch columns and `Rasm.Persistence` `Query/columnar#FLAT_TABLE_EGRESS` owns the writers, hive generation, and Flight serving beneath them; the kernel reaches neither, and `SchemaId` is the identity the lake generation keys its tree on. `PackWireContext` declares the kernel evidence payload alone and folds into the app-root suite as one `SuiteContracts.Wire` context argument — the kernel mints no second suite and admits no reflection resolver.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -570,6 +578,8 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using DoubleDouble;
 using LanguageExt;
 using Rasm.Domain;
@@ -629,8 +639,29 @@ public sealed record PackSchema(UInt128 SchemaId, PackKind Kind, Seq<PackSchemaF
                 $"{field.Name}|{field.Arity}|{field.Dtype.Key}|{field.Dtype.Width}|{field.Nulls.Key}\n")));
 }
 
+// --- [BOUNDARIES] -------------------------------------------------------------------------
+// Kernel declares its evidence payload alone; the app-root suite folds this context in as one
+// argument, so no reflection resolver and no second suite ever reach the kernel.
+[JsonSerializable(typeof(ddouble[]))]
+public sealed partial class PackWireContext : JsonSerializerContext;
+
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class EvidenceWire {
+    public static readonly JsonSerializerOptions Json = Sealed();
+
+    // Options-level converters outrank resolver metadata, so the exact hi/lo codec wins over any
+    // generated ddouble contract; MakeReadOnly runs before the field publishes, so no caller observes
+    // a mutable instance and a post-seal Converters or TypeInfoResolver write throws at the write.
+    private static JsonSerializerOptions Sealed() {
+        JsonSerializerOptions wire = new(JsonSerializerOptions.Strict) {
+            TypeInfoResolver = PackWireContext.Default,
+            NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
+            Converters = { new DDoubleJsonConverter() },
+        };
+        wire.MakeReadOnly();
+        return wire;
+    }
+
     public static Unit WriteBlock(BinaryWriter writer, ReadOnlySpan<ddouble> evidence) {
         writer.Write(evidence.Length);
         foreach (ddouble value in evidence) { writer.Write(value); }   // exact hi/lo pair per value
@@ -657,5 +688,4 @@ public static class EvidenceWire {
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-- [JSON_OPTIONS_FREEZE_CATALOG]-[BLOCKED]: which BCL declaration seals the `DDoubleJsonConverter` options identity; catalog `JsonSerializerOptions.MakeReadOnly()` in `libs/csharp/.api/api-system-text-json.md`, then bind one static `EvidenceWire.Json` identity.
-- [TENSOR_RESIDENCY_SEAM]-[OPEN]: which consumer coordinates bind this byte-strided wire; align the Compute and AppHost owners with `EncodedGeometry.Payload`, `ByteOffset`, `Bytes`, `Dtype`, and the `PackKind.Toolpath` channel row.
+(none)

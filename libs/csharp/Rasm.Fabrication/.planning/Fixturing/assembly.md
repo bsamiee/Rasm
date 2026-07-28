@@ -13,13 +13,13 @@
 ## [02]-[JOINS]
 
 - Owner: `JoinProcess` closes fusion, brazed, soldered, bonded, threaded, riveted, studded, interference, clinched, pinned, snapped, and connector methods with per-occurrence payloads.
-- Execution: `AssemblyExecution` carries `InspectionCadence` and a positive lane ceiling, and `Lanes` bounds allocation by executable demand; named production presets never become domain cases and cadence is never a boolean.
-- Classification: `JoinClass` and `PrecedenceKind` carry their own wire `Code` column, so canonical bytes read the declaration and a new row cannot inherit its predecessor's code through a trailing ladder arm.
-- Program: `JoinProgram` discriminates the joining and service lifecycles, so `Phases` and `DurationOf` each own both modalities on one entrypoint rather than a name-suffixed sibling pair.
-- Thermal: `JoinProcess.ThermalLoad` projects deposited energy per method, so distortion ordering ranks hot joints against each other instead of collapsing to one hot-before-cold edge.
-- Phases: `JoinPhase` covers locate, fit, tack, preheat, apply, dwell, cool, torque, inspect, release, unlock, extract, clean, handle, and final states, each row carrying the `PrecedenceKind` that entering it satisfies; `JoinSpecification` carries a duration for every phase its program visits, so schedule time is never fiction between the acting phases.
-- Access: `AccessCorridor` carries approach axis, typed cone angle, cutter and holder envelope, standoff, approach, retract, and visibility constraints.
-- Fit: `FitRequirement` carries gap, interference, alignment, surface, temperature, and tolerance limits as one admitted value.
+- Owner: `AssemblyExecution` carries `InspectionCadence` and a positive lane ceiling, and `Lanes` bounds allocation by executable demand; named production presets never become domain cases and cadence is never a boolean.
+- Owner: `AccessCorridor` carries approach axis, typed cone angle, cutter and holder envelope, standoff, approach, retract, and visibility constraints.
+- Owner: `FitRequirement` carries gap, interference, alignment, surface, temperature, and tolerance limits as one admitted value.
+- Cases: `JoinPhase` covers locate, fit, tack, preheat, apply, dwell, cool, torque, inspect, release, unlock, extract, clean, handle, and final states, each row carrying the `PrecedenceKind` that entering it satisfies; `JoinSpecification` carries a duration for every phase its program visits, so schedule time is never fiction between the acting phases.
+- Law: `JoinClass` and `PrecedenceKind` carry their own wire `Code` column, so canonical bytes read the declaration and a new row cannot inherit its predecessor's code through a trailing ladder arm.
+- Law: `JoinProgram` discriminates the joining and service lifecycles, so `Phases` and `DurationOf` each own both modalities on one entrypoint rather than a name-suffixed sibling pair.
+- Law: `JoinProcess.ThermalLoad` projects deposited energy per method, so distortion ordering ranks hot joints against each other instead of collapsing to one hot-before-cold edge.
 - Growth: a new join method is one `JoinProcess` case with its total projections; phase, edge, scheduler, and consumer surfaces remain unchanged.
 
 ```csharp signature
@@ -419,15 +419,15 @@ public sealed record AssemblyJoint(int Index, AssemblyMemberKey Owner, Component
 ## [03]-[PLANNING]
 
 - Owner: `AssemblyPolicy` is raw ingress; `JoinNode` is one executable phase; `AssemblyPlan` is the reduced proof-bearing result.
-- Precedence: `PrecedenceKind` closes phase, datum, occlusion, fit, load-path, support, thermal, cure, resource, inspection, handling, and reversible-service reasons.
-- Graph: `BidirectionalGraph<JoinNode, AssemblyEdge>` carries reason payloads directly, while the component `UndirectedGraph` remains the disjoint physical-connectivity projection.
-- Stability: `IAssemblyEvidenceSource.Evaluate` proves connected support, capacity, center-of-gravity margin, temporary fixture custody, load-path continuity, fit, visibility, and robot placement once per join; every phase retains that receipt.
-- Tolerance: fit and datum errors fold along component paths, and a join fails admission when gap, interference, alignment, or accumulated closure exceeds its carried requirement.
-- Access: every approach and retract corridor composes `Workholding.Apply` at the phase’s `FixtureState`; analytic cone occlusion checks every potential neighbor over the full axial interval.
-- Schedule: source-first order respects resource exclusivity, dwell, cool, inspection, and lane policy; each step carries typed start, finish, fixture, resources, and stability evidence, and every receipt resolves by joint key rather than array position.
-- Service: disassembly reverses the proven precedence order, so an occlusion or thermal edge that gated a join gates its removal; a roster reversal ignores both.
-- Replan: removing a completed or blocked joint re-proves every surviving receipt against the residual assembly through the same evidence boundary, because removal moves the load path the original receipts measured.
+- Cases: `PrecedenceKind` closes phase, datum, occlusion, fit, load-path, support, thermal, cure, resource, inspection, handling, and reversible-service reasons.
+- Law: `IAssemblyEvidenceSource.Evaluate` proves connected support, capacity, center-of-gravity margin, temporary fixture custody, load-path continuity, fit, visibility, and robot placement once per join; every phase retains that receipt.
+- Law: fit and datum errors fold along component paths, and a join fails admission when gap, interference, alignment, or accumulated closure exceeds its carried requirement.
+- Law: every approach and retract corridor composes `Workholding.Apply` at the phase’s `FixtureState`; analytic cone occlusion checks every potential neighbor over the full axial interval.
+- Law: source-first order respects resource exclusivity, dwell, cool, inspection, and lane policy; each step carries typed start, finish, fixture, resources, and stability evidence, and every receipt resolves by joint key rather than array position.
+- Law: disassembly reverses the proven precedence order, so an occlusion or thermal edge that gated a join gates its removal; a roster reversal ignores both.
+- Law: removing a completed or blocked joint re-proves every surviving receipt against the residual assembly through the same evidence boundary, because removal moves the load path the original receipts measured.
 - Exemption: QuikGraph construction, component labeling, bounded scheduling folds, analytic corridor kernels, and canonical boundary serialization mutate only their admitted containers; every adjacent collection in the preimage is count-framed.
+- Packages: `BidirectionalGraph<JoinNode, AssemblyEdge>` carries reason payloads directly, while the component `UndirectedGraph` remains the disjoint physical-connectivity projection.
 - Boundary: precedence and physical connectivity remain distinct; cycle evidence retains the cyclic joint and edge census, and geometry failure, missing specification, unstable release, and blocked access remain typed failures carrying a `JoinRejection` reason rather than one opaque code.
 
 ```csharp signature
@@ -1146,7 +1146,7 @@ public sealed partial record AssemblyPlan(
 ## [04]-[PROJECTION]
 
 - Owner: `AssemblyProjection` selects joining, traveler, inspection, handling, service, and evidence views; `AssemblyArtifact` carries the selected immutable plan.
-- Egress: projection preserves typed precedence, execution receipts, service order, and the already-minted plan key.
+- Output: projection preserves typed precedence, execution receipts, service order, and the already-minted plan key.
 - Boundary: joining consumes joint and phase identity, handling consumes stability and subassembly identity, and service consumes only reversible steps; no consumer reconstructs those facts from prose or array order.
 
 ```csharp signature

@@ -4,12 +4,12 @@ Typed property inspection and value editing for product state: one `InspectorPol
 
 ## [01]-[INDEX]
 
-- [01]-[INSPECTOR_SURFACE]: PropertyGrid admission policy, descriptor filters, focus receipts.
-- [02]-[EDITOR_FACTORIES]: Thirteen ranked editor rows with generated, optional, temporal, identifier, scalar, collection, and nested shape coverage.
-- [03]-[COMMIT_VALIDATION]: Typed admission rail, preview-commit law, edit receipts.
-- [04]-[OPTIONS_INSPECTOR]: Options-to-grid binding, user-settings persist, reload banner.
-- [05]-[CONFLICT_RESOLUTION]: Side-by-side conflict projection with resolution intent keys.
-- [06]-[CODE_EDITING]: Grammar-scoped code panes and completion projection.
+- [02]-[INSPECTOR_SURFACE]: PropertyGrid admission policy, descriptor filters, focus receipts.
+- [03]-[EDITOR_FACTORIES]: Thirteen ranked editor rows with generated, optional, temporal, identifier, scalar, collection, and nested shape coverage.
+- [04]-[COMMIT_VALIDATION]: Typed admission rail, preview-commit law, edit receipts.
+- [05]-[OPTIONS_INSPECTOR]: Options-to-grid binding, user-settings persist, reload banner.
+- [06]-[CONFLICT_RESOLUTION]: Side-by-side conflict projection with resolution intent keys.
+- [07]-[CODE_EDITING]: Grammar-scoped code panes and completion projection.
 
 ## [02]-[INSPECTOR_SURFACE]
 
@@ -17,7 +17,7 @@ Typed property inspection and value editing for product state: one `InspectorPol
 - Entry: `Mount(PropertyGrid grid, InspectorPolicy policy, object subject, ClockPolicy clocks, CorrelationId correlation, Action<EditReceipt> sink, Action<Error> fault)` — `IDisposable` detacher composed LIFO by the activation scope.
 - Receipt: `EditReceipt` focus kind — surface, member path, `Instant`, correlation; `TelemetryRow` contributes the edit-committed and edit-rejected instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: bodong.Avalonia.PropertyGrid, System.Reactive, NodaTime, LanguageExt.Core
-- Growth: one policy value on `InspectorPolicy`; one inspector instrument is one `InstrumentRow` on `InspectorSurface.TelemetryRow`; zero new surface.
+- Growth: one policy value on `InspectorPolicy`; one inspector instrument is one `InstrumentSpec` row on `InspectorSurface.TelemetryRow`; zero new surface.
 - Boundary: `Mount` is the page's PropertyGrid boundary capsule — the inspected subject binds through the grid's `DataContext` because `PropertyGridViewModel` is internal, and canonical typing re-enters through the editor adapter; `LayoutStyle` and `CellEdit` are `InspectorPolicy` values over the catalogued `PropertyGridLayoutStyle { Tree, Inline }` and `CellEditAlignmentType { Default, Stretch, Compact }` domains; every grid event enters as `RoutedEventArgs`, narrows to its catalogued public event shape, and routes a mismatch through the supplied `Action<Error>` instead of a cast exception; `Admit` owns descriptor filtering and `FocusTarget` owns member-path projection, while quick-filter, category, and read-only state remain policy values rather than mutable control state.
 
 ```csharp signature
@@ -69,10 +69,10 @@ public static partial class InspectorSurface {
     public const string CommittedInstrument = "rasm.appui.edit.committed";
     public const string RejectedInstrument = "rasm.appui.edit.rejected";
 
-    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
-        AppUiTelemetry.Contribute(version, schemaUrl,
-            new(CommittedInstrument, InstrumentKind.Count, "{edit}", "edits committed by surface"),
-            new(RejectedInstrument, InstrumentKind.Count, "{edit}", "edits rejected by surface"));
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            InstrumentSpec.Count(CommittedInstrument, "{edit}", "edits committed by surface", MeasureForm.Whole, AppUiTelemetry.SurfaceSlot),
+            InstrumentSpec.Count(RejectedInstrument, "{edit}", "edits rejected by surface", MeasureForm.Whole, AppUiTelemetry.SurfaceSlot));
 }
 ```
 

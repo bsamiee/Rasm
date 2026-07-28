@@ -6,10 +6,10 @@ Rasm.AppHost boots every process from one supplied `ConsumptionProfile` row: a c
 
 ## [01]-[INDEX]
 
-- [01]-[PROFILE_AXIS]: Six-axis consumption roster, descriptor shapes, axis refusal, one resolved record.
-- [02]-[LIFETIME_ADAPTERS]: Builder selection, lifetime delegates, `HostOptions` policy, and hook projection.
-- [03]-[RESOURCE_IDENTITY]: Per-user roots and telemetry resource identity.
-- [04]-[POWER_AND_FIDELITY]: Power-state and thermal-budget reads; energy-aware compute-fidelity scaling.
+- [02]-[PROFILE_AXIS]: Six-axis consumption roster, descriptor shapes, axis refusal, one resolved record.
+- [03]-[LIFETIME_ADAPTERS]: Builder selection, lifetime delegates, `HostOptions` policy, and hook projection.
+- [04]-[RESOURCE_IDENTITY]: Per-user roots including the durable queue root, and the resource triple behind one detector.
+- [05]-[POWER_AND_FIDELITY]: Power-state and thermal-budget reads; energy-aware compute-fidelity scaling.
 
 ## [02]-[PROFILE_AXIS]
 
@@ -162,7 +162,7 @@ public abstract partial record ProfileFault : Expected, IValidationError<Profile
     }
 }
 
-// A host descriptor or its topology row declares this (Rpo, Rto) window and projects it onto
+// Host descriptors and topology rows declare this (Rpo, Rto) window and project it onto
 // ResolvedProfile; Rasm.Persistence/Version/recovery gauges its measured RPO/RTO against the column.
 public readonly record struct RecoveryObjective(Duration Rpo, Duration Rto) {
     public static readonly RecoveryObjective Strict = new(Duration.FromMinutes(1), Duration.FromMinutes(15));
@@ -374,65 +374,102 @@ Lifetime signals project into phase-transition trigger values consumed by the tr
 
 ## [04]-[RESOURCE_IDENTITY]
 
-- Owner: `ProfileIdentity` — per-user root computation and telemetry resource identity; `ProfileRoots` is the path artifact carried inside the resolved record.
-- Entry: `ImmutableArray<KeyValuePair<string, object>> ResourceAttributes(ResolvedProfile resolved, params ReadOnlySpan<KeyValuePair<string, object>> extra)` — pure projection over the resolved record.
-- Auto: identity derives from the resolved record before any provider construction; the resolved record feeds one `IResourceDetector` whose `Detect` returns the `ResourceAttributes` projection through `new Resource(IEnumerable<KeyValuePair<string, object>>)`, and `ConfigureResource` over `ResourceBuilder.AddDetector` on every signal provider admits that detector as the one resource feed — a per-call attribute push at each provider is the deleted form.
-- Packages: OpenTelemetry, NodaTime, LanguageExt.Core, BCL inbox
-- Growth: one attribute row or one root policy value per new identity fact, or one sibling `IResourceDetector` composed through `ConfigureResource`; zero new surface.
-- Boundary: roots are ApplicationData-rooted per-user paths — a `LocalStore` host stores under the application base, companion topology scopes its own companion store, and every other row runs scratch-only; Persistence consumes the resolved record and derives no path; host-document identity enters as one extra attribute row where the descriptor carries `Document`; `service.instance.id` is pid joined with the start instant; `HostResourceDetector` is the one resource-discovery seam — `ConfigureResource` composes it ahead of any environment or telemetry-SDK detector so the resolved-record attributes are authoritative, and a hand-pushed attribute list at a provider builder is the deleted pattern.
+- Owner: `ProfileIdentity` — per-user root computation and the telemetry resource triple; `ProfileRoots` is the path artifact carried inside the resolved record, carrying the durable OTLP queue root beside the store and support roots; `QueueRootVariable` the deploy coordinate for that queue, spelled off the `Runtime/config#SOURCE_AXIS` `ConfigSource.EnvPrefix`; `HostResourceDetector` the one `IResourceDetector` carrying both the resolved record and its composition-supplied extra rows.
+- Entry: `ImmutableArray<KeyValuePair<string, object>> ResourceAttributes(ResolvedProfile resolved, params ReadOnlySpan<KeyValuePair<string, object>> extra)` — pure projection over the resolved record; `string InstanceId(ResolvedProfile resolved)` the one per-process instance spelling the resource row and the boot log enricher share; `new HostResourceDetector(resolved, extra)` is the detector `Observability/telemetry#SIGNAL_GOVERNANCE` `ResourceIdentity.Compose` seats ahead of the contrib detector chain.
+- Auto: identity derives from the resolved record before any provider construction, and the detector's `Detect` returns that projection through `new Resource(IEnumerable<KeyValuePair<string, object>>)`, so `ConfigureResource` admits ONE resource feed and a per-call attribute push at each provider is the deleted form; the triple assembles from the `TelemetryDomain` namespace const and the resolved record alone, so a branch-wide namespace rename moves every resource, instrument, and dimension together; rasm-owned resource dimensions read their `TelemetryDomain` row rather than a literal, so each one resolves the roster the conformance gate proves against; the queue root folds the deploy-declared durable volume ahead of the local-disk evidence, so a containerized service arms its offline queue on the path a deployment mounted while a desktop host arms on its own base and a host owning neither opens none, and store residence and queue residence stay two answers on every arm — a companion scopes both under its own segment, an integrating instance keeps its queue off the shared store root it attached to, and every queue scopes by host key so two co-resident processes under one mount stay apart.
+- Packages: OpenTelemetry, Rasm, NodaTime, LanguageExt.Core, BCL inbox
+- Growth: one attribute row or one root policy value per new identity fact, or one sibling `IResourceDetector` composed through `ResourceIdentity.Compose`; zero new surface.
+- Boundary: roots are ApplicationData-rooted per-user paths — a `LocalStore` host stores under the application base, companion topology scopes its own companion store, and every other row runs scratch-only; Persistence consumes the resolved record and derives no path; host-document identity enters as one extra attribute row where the descriptor carries `Document`; the resource triple is `service.namespace` `rasm`, `service.name` the `TelemetryDomain.Qualify` render of the application row, and `service.instance.id` as pid joined with the start instant — the qualified name is load-bearing because a metrics store maps a subset of resource attributes onto series labels, so a store dropping `service.namespace` still separates this estate's emitters from a foreign `service.name`, and the qualifier rather than a local concatenation owns it so an already-prefixed or PascalCase application id lands one dotted lowercase spelling instead of two; `deployment.environment.name` is the live semconv spelling and the bare `deployment.environment` key is the deprecated form no exporter re-introduces; `QueueRoot` is the ONLY durable-telemetry path any composition reads — an offline queue rooted at a container layer loses its tail on the next reschedule, a queue rooted at a shared store root corrupts on a second live instance, and a queue rooted at a base two co-resident processes share lets each drain the other's batches, so every arm answers residence here rather than at a consumer and `QueueRootVariable` is the one coordinate a deployment sets to declare the volume that survives it; deriving queue residence from `LocalStore` alone is the deleted form, because that column answers where a document store lives and disarms durable buffering on exactly the service and edge rows that always export; `HostResourceDetector` is the one resource-discovery seam and a hand-pushed attribute list at a provider builder is the deleted pattern.
 
 ```csharp signature
-public sealed record ProfileRoots(string AppRoot, Option<string> StoreRoot, string SupportRoot);
+public sealed record ProfileRoots(string AppRoot, Option<string> StoreRoot, string SupportRoot, Option<string> QueueRoot);
 
 public static class ProfileIdentity {
+    // Durable-telemetry disk is a DEPLOYMENT fact under the one config env prefix its owner declares, read raw
+    // because roots resolve before any configuration source mounts. Containerized roots resolve a per-user
+    // base into an image layer a reschedule erases and no in-process probe tells that apart from a mounted
+    // volume, so the deploy plane names the surviving path or the composition opens no queue and reports none.
+    public const string QueueRootVariable = ConfigSource.EnvPrefix + "TELEMETRY_QUEUE_ROOT";
+
     public static Fin<ProfileRoots> Roots(ConsumptionProfile profile, string applicationName, Option<RuntimeAttachment> attachment) =>
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) is { Length: > 0 } data
             ? Fin.Succ(Folded(profile, Path.Join(data, applicationName), attachment))
             : Fin.Fail<ProfileRoots>(new ProfileFault.RootUnresolved(nameof(Environment.SpecialFolder.ApplicationData)));
 
-    public static ImmutableArray<KeyValuePair<string, object>> ResourceAttributes(ResolvedProfile resolved, params ReadOnlySpan<KeyValuePair<string, object>> extra) => [
-        new("service.name", resolved.ApplicationName),
-        new("service.version", resolved.ServiceVersion),
-        new("service.instance.id", $"{resolved.ProcessId}:{InstantPattern.ExtendedIso.Format(resolved.StartInstant)}"),
-        new("deployment.environment", resolved.EnvironmentName),
-        new("rasm.host.kind", resolved.Profile.HostKey),
-        new("rasm.deploy.tenancy", resolved.Profile.Tenancy.Key),
-        new("rasm.deploy.topology", resolved.Profile.Topology.Key),
-        new("rasm.deploy.lifecycle", resolved.Profile.Lifecycle.Key),
-        new("rasm.deploy.isolation", resolved.Profile.Isolation.Key),
-        .. extra,
-    ];
+    // ONE spelling of the per-process instance identity: the resource row carries it and the static log
+    // enricher stamps that same row onto every record, so a restart-lineage question answers identically from
+    // a metric series and from a log line and neither plane derives it a second time.
+    public static string InstanceId(ResolvedProfile resolved) =>
+        $"{resolved.ProcessId}:{InstantPattern.ExtendedIso.Format(resolved.StartInstant)}";
 
-    public sealed record HostResourceDetector(ResolvedProfile Resolved) : IResourceDetector {
-        public Resource Detect() => new(ResourceAttributes(Resolved));
+    // Triple heads the array so a truncating collector keeps identity; every rasm-owned row spells its
+    // TelemetryDomain member, so SignalGovernance.Rostered proves these keys against the same roster it
+    // proves instrument names against and a literal drifting off the roster has no spelling here.
+    public static ImmutableArray<KeyValuePair<string, object>> ResourceAttributes(ResolvedProfile resolved, params ReadOnlySpan<KeyValuePair<string, object>> extra) => Admitted([
+        new("service.namespace", TelemetryDomain.Namespace),
+        new("service.name", TelemetryDomain.Qualify(resolved.ApplicationName)),
+        new("service.version", resolved.ServiceVersion),
+        new("service.instance.id", InstanceId(resolved)),
+        new("deployment.environment.name", resolved.EnvironmentName),
+        new(TelemetryDomain.Host.Measure("kind"), resolved.Profile.HostKey),
+        new(TelemetryDomain.Deploy.Measure("tenancy"), resolved.Profile.Tenancy.Key),
+        new(TelemetryDomain.Deploy.Measure("topology"), resolved.Profile.Topology.Key),
+        new(TelemetryDomain.Deploy.Measure("lifecycle"), resolved.Profile.Lifecycle.Key),
+        new(TelemetryDomain.Deploy.Measure("isolation"), resolved.Profile.Isolation.Key),
+    ], [.. extra]);
+
+    // Extra rows NARROW to keys the mint does not own: merge order is precedence at every consumer, so a plugin
+    // discriminator carrying `service.name` or `service.instance.id` displaces the identity every series and
+    // every log record joins on, and whichever row lands last wins silently. The owned key set derives from the
+    // minted rows themselves, so a new identity row closes over its own key with no second roster to edit.
+    static ImmutableArray<KeyValuePair<string, object>> Admitted(
+        ImmutableArray<KeyValuePair<string, object>> minted, ImmutableArray<KeyValuePair<string, object>> extra) =>
+        minted.AddRange(extra.Where(row => !minted.Any(held => string.Equals(held.Key, row.Key, StringComparison.Ordinal))));
+
+    // Extra rows ride the detector rather than a second push site, so one Detect call carries the whole
+    // resource and a composition adding a fact never widens the provider-side seam.
+    public sealed record HostResourceDetector(ResolvedProfile Resolved, ImmutableArray<KeyValuePair<string, object>> Extra) : IResourceDetector {
+        public Resource Detect() => new(ResourceAttributes(Resolved, Extra.AsSpan()));
     }
 
-    // Companion topology outranks the store column because a companion process scopes its own store
-    // beside the parent's; every other row reads the host descriptor's LocalStore value alone.
+    // Store residence and LOCAL queue residence are two independent columns every arm answers, because the
+    // base root is per-USER and per-application, never per-process. A companion runs beside its parent under
+    // that one root, so both of its directories scope under the companion segment: a queue left at the
+    // parent's path gives two live processes one blob directory, where each leases and drains the other's
+    // batches through its own endpoint. The integrating arm inverts the pair — its STORE is the shared root it
+    // attached to while its queue stays under its own base, since a shared store root is reached by whichever
+    // instance attached to it. A host owning no local disk offers no local answer and takes the deploy one.
     static ProfileRoots Folded(ConsumptionProfile profile, string baseRoot, Option<RuntimeAttachment> attachment) =>
         (profile.Topology == DeploymentTopology.Companion, profile.LocalStore, attachment.Case) switch {
-            (true, _, _) => new ProfileRoots(baseRoot, Some(Path.Join(baseRoot, "companion")), Path.Join(baseRoot, "support")),
-            (_, true, RuntimeAttachment.Integrating link) => new ProfileRoots(baseRoot, Some(link.SharedStoreRoot), Path.Join(baseRoot, "support")),
-            (_, true, _) => Stored(baseRoot),
-            _ => Scratch(baseRoot),
+            (true, _, _) => Rooted(profile, baseRoot, Some(Path.Join(baseRoot, "companion")), Some(Path.Join(baseRoot, "companion"))),
+            (_, true, RuntimeAttachment.Integrating link) => Rooted(profile, baseRoot, Some(link.SharedStoreRoot), Some(baseRoot)),
+            (_, true, _) => Rooted(profile, baseRoot, Some(Path.Join(baseRoot, "store")), Some(baseRoot)),
+            _ => Rooted(profile, baseRoot, None, None),
         };
 
-    static ProfileRoots Stored(string baseRoot) => new(baseRoot, Some(Path.Join(baseRoot, "store")), Path.Join(baseRoot, "support"));
-
-    static ProfileRoots Scratch(string baseRoot) => new(baseRoot, None, Path.Join(baseRoot, "support"));
+    // Deploy coordinate OUTRANKS the local answer, so a service or edge row — the topologies that always
+    // export and own no local store — arms its queue on the volume a deployment mounted rather than on the
+    // one column that answers a document-store question. Both answers then scope by host key, so a parent and
+    // its co-resident companion never lease and drain each other's batches under one mounted directory.
+    static ProfileRoots Rooted(ConsumptionProfile profile, string baseRoot, Option<string> store, Option<string> local) {
+        Option<string> deployed = Optional(Environment.GetEnvironmentVariable(QueueRootVariable))
+            .Filter(static declared => declared.Length > 0);
+        return new(baseRoot, store, Path.Join(baseRoot, "support"),
+            (deployed.IsSome ? deployed : local).Map(root => Path.Join(root, "otlp", profile.HostKey)));
+    }
 }
 ```
 
 ## [05]-[POWER_AND_FIDELITY]
 
-- Owner: `PowerState` `[SmartEnum<string>]` the host power-source axis under the `ComparerAccessors.StringOrdinalIgnoreCase` accessor; `ThermalPressure` `[SmartEnum<int>]` the rank-ordered thermal-budget vocabulary; `FidelityScale` the compute-fidelity policy record graded from power and thermal state; `PowerCell` the `MeterListener`-backed boundary capsule reading the live power and thermal instruments; `PowerProbe` the platform native-read surface over IOKit/SMC.
-- Cases: 3 power rows — plugged, battery, low-battery; 4 thermal rows — nominal(0), fair(1), serious(2), critical(3) — the macOS thermal-pressure ladder; `FidelityScale` grades the cross-product into a sustained-versus-burst compute profile.
-- Entry: `PowerProbe.Read()` returns `Fin<(PowerState Power, ThermalPressure Thermal, double BatteryFraction)>` — the platform native read of the power source, thermal-pressure level, and battery charge; `FidelityScale.Grade(PowerState power, ThermalPressure thermal, double battery)` is the total projection from power and thermal state into the fidelity profile the compute scheduler reads.
-- Auto: a plugged host at nominal thermal pressure grades to the full burst profile; a low-battery or critical-thermal host grades to the sustained profile that caps parallelism and lowers the compute fidelity tier so the device stays within its energy and thermal budget; the macOS thermal-pressure level reads through `NSProcessInfo.thermalState` exposed by the IOKit/SMC native probe, and battery charge reads through the IOKit power-source service, so the fidelity grade rides the OS's own power and thermal authority, never a guessed heuristic; the power state feeds the resource-pressure health contributor as one extra grade input so a thermally-throttled host degrades through the existing degradation rail, never a parallel power alarm.
+- Owner: `PowerState` `[SmartEnum<string>]` the host power-source axis under the `ComparerAccessors.StringOrdinalIgnoreCase` accessor; `ThermalPressure` `[SmartEnum<int>]` the thermal-budget ladder whose generated key IS the rank; `PowerReading` the probed triple; `PowerAuthority` `[SmartEnum<string>]` the platform row owning the read; `FidelityScale` the compute-fidelity policy record graded from one reading; `PowerCell` the atom-backed capsule holding the last ADMITTED reading; `PowerProbe` the delegate targets the authority rows bind.
+- Cases: 3 power rows — plugged, battery, low-battery; 4 thermal rows — nominal(0), fair(1), serious(2), critical(3) — the macOS thermal-pressure ladder; 2 authority rows — `Darwin` over IOKit and `NSProcessInfo.thermalState`, `Absent` for every platform whose authority has not landed; 4 `FidelityScale` grades spanning burst through conserve.
+- Entry: `PowerAuthority.Platform` selects the row the running platform owns and `Read()` returns `Fin<PowerReading>`; `PowerReading.Of(PowerState, ThermalPressure, double)` returns `Fin<PowerReading>` — the one construction route, admitting the charge fraction finite and inside `[0, 1]` so no platform read's raw double reaches a ceiling comparison; `FidelityScale.Grade(PowerReading)` is the total projection into the profile the compute scheduler reads; `PowerCell.Refresh()` re-probes and returns the cell, so the health `Gauge` probe is the one sampling site and `PowerCell.Thermal` reads the rank `PressurePolicy.Grade` folds beside CPU and memory.
+- Auto: a plugged host at nominal thermal pressure grades to the full burst profile; a low-battery or critical-thermal host grades to the sustained profile that caps parallelism and lowers the compute fidelity tier so the device stays within its energy and thermal budget; a refused read holds the prior reading, and a cell that never admitted one grades `Balanced` — bursting on absent evidence is the fabricated full-charge grade the authority rows exist to refuse; the power state feeds the resource-pressure health contributor as one extra grade input so a thermally-throttled host degrades through the existing degradation rail, never a parallel power alarm.
 - Receipt: `FidelityScale` carries the parallelism cap, the fidelity tier, and the sustained flag the compute scheduler reads; a power-state transition logs through one `SpineLog` event in the 1000-1099 EVENT stride (`FaultBand.SpineEvents`).
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: one power row absorbs a new power source; one thermal row absorbs a new pressure level; a new fidelity profile is one `FidelityScale` grade arm, never a parallel scaling owner; zero new surface.
-- Boundary: the power-and-fidelity fold is the only energy-awareness owner — a per-solve battery check, an ad hoc thermal poll, and a parallel power monitor are the deleted forms; the fidelity scale is data the Compute scheduler reads to bound its `CpuBudget` and lane parallelism, so the host owns the power-state truth and the compute scheduler consumes the fidelity grade, never re-reading the power state; the IOKit/SMC reads are macOS-only and a non-macOS host grades from the BCL battery-status fallback, so the probe is a platform branch on `PowerProbe`, never a separate owner; the power state enters the resource-pressure grade as a third input beside CPU and memory so a thermally-throttled host degrades on the same `Pressure`-tagged rule, never a new degradation level; the IOKit/SMC native reads stay a tier-3 live-host residual because the power-management framework needs the running device to report battery and thermal state.
+- Growth: one power row absorbs a new power source; one thermal row absorbs a new pressure level; one `PowerAuthority` row with its `PowerProbe` target absorbs a new platform authority; a new fidelity profile is one `FidelityScale` grade arm, never a parallel scaling owner; zero new surface.
+- Boundary: the power-and-fidelity fold is the only energy-awareness owner — a per-solve battery check, an ad hoc thermal poll, and a parallel power monitor are the deleted forms; the fidelity scale is data the Compute scheduler reads to bound its `CpuBudget` and lane parallelism, so the host owns the power-state truth and the compute scheduler consumes the fidelity grade, never re-reading the power state; platform variance rides the `PowerAuthority` roster rather than a runtime `if` inside the probe, and a row whose read has not landed REFUSES — a synthesized plugged-at-nominal-at-full-charge triple is indistinguishable from a measured one at every consumer, which is why absence crosses as a typed refusal the cell holds against; the capsule holds one atom and a `MeterListener` seat beside it is dead apparatus, because power and thermal state reach the process by native probe alone and publish no meter — the `UtilizationCell` listener is the resource-monitoring path and this cell never twins it; the power state enters the resource-pressure grade as a third input beside CPU and memory so a thermally-throttled host degrades on the same `Pressure`-tagged rule, never a new degradation level.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -444,6 +481,8 @@ public sealed partial class PowerState {
     public static readonly PowerState LowBattery = new("low-battery");
 }
 
+// Generated key IS the rank: the macOS ladder orders nominal through critical, so every ceiling compares
+// int keys and a Rank column beside them is a second ordering that drifts.
 [SmartEnum<int>]
 public sealed partial class ThermalPressure {
     public static readonly ThermalPressure Nominal = new(0);
@@ -452,59 +491,99 @@ public sealed partial class ThermalPressure {
     public static readonly ThermalPressure Critical = new(3);
 }
 
+// Charge admits at the PROBE boundary, never at the grade: a non-finite or out-of-band fraction compares false
+// against every ceiling, so an unadmitted reading grades a nearly-flat battery as burst budget and no consumer
+// tells that from a measured full charge. `Of` is the one construction route, so a platform authority landing
+// its native read hands a raw double to the gate rather than to `FidelityScale.Grade`, which stays policy alone.
+public readonly record struct PowerReading {
+    private PowerReading(PowerState power, ThermalPressure thermal, double battery) =>
+        (Power, Thermal, BatteryFraction) = (power, thermal, battery);
+
+    public PowerState Power { get; }
+
+    public ThermalPressure Thermal { get; }
+
+    public double BatteryFraction { get; }
+
+    public static Fin<PowerReading> Of(PowerState power, ThermalPressure thermal, double battery) =>
+        double.IsFinite(battery) && battery is >= 0d and <= 1d
+            ? Fin.Succ(new PowerReading(power, thermal, battery))
+            : Fin.Fail<PowerReading>(new ProfileFault.Text($"power-reading:battery-fraction {battery} outside [0,1]"));
+}
+
 public sealed record FidelityScale(
     int ParallelismCap,
     int FidelityTier,
     bool Sustained) {
+    // Reserve is the battery share below which a discharging host stops treating charge as spare budget.
+    public const double BatteryReserve = 0.2d;
+
     public static readonly FidelityScale Burst = new(ParallelismCap: int.MaxValue, FidelityTier: 3, Sustained: false);
     public static readonly FidelityScale Balanced = new(ParallelismCap: Environment.ProcessorCount, FidelityTier: 2, Sustained: false);
-    public static readonly FidelityScale Sustained = new(ParallelismCap: Environment.ProcessorCount / 2, FidelityTier: 1, Sustained: true);
+    // Halved cap floors at one: a single-core host resolves to zero permits and starves every lane.
+    public static readonly FidelityScale Sustained = new(ParallelismCap: int.Max(1, Environment.ProcessorCount / 2), FidelityTier: 1, Sustained: true);
     public static readonly FidelityScale Conserve = new(ParallelismCap: 1, FidelityTier: 0, Sustained: true);
 
-    public static FidelityScale Grade(PowerState power, ThermalPressure thermal, double battery) =>
-        thermal.Value >= ThermalPressure.Critical.Value ? Conserve
-        : thermal.Value >= ThermalPressure.Serious.Value ? Sustained
-        : power == PowerState.LowBattery || (power == PowerState.Battery && battery < 0.2d) ? Sustained
-        : power == PowerState.Battery ? Balanced
+    public static FidelityScale Grade(PowerReading reading) =>
+        reading.Thermal.Key >= ThermalPressure.Critical.Key ? Conserve
+        : reading.Thermal.Key >= ThermalPressure.Serious.Key ? Sustained
+        : reading.Power == PowerState.LowBattery
+            || (reading.Power == PowerState.Battery && reading.BatteryFraction < BatteryReserve) ? Sustained
+        : reading.Power == PowerState.Battery ? Balanced
         : Burst;
 }
 
-public sealed class PowerCell : IDisposable {
-    public const string Meter = "Rasm.AppHost.Power";
-    private readonly Atom<(PowerState Power, ThermalPressure Thermal, double Battery)> cell = Atom((PowerState.Plugged, ThermalPressure.Nominal, 1d));
-    private readonly MeterListener listener = new();
+// Platform variance is a row, so a host whose authority has not landed refuses instead of synthesizing a
+// reading no consumer can tell from a measured one.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+public sealed partial class PowerAuthority {
+    public static readonly PowerAuthority Darwin = new("darwin", read: PowerProbe.Darwin);
+    public static readonly PowerAuthority Absent = new("absent", read: PowerProbe.Absent);
 
-    public FidelityScale Read() => FidelityScale.Grade(cell.Value.Power, cell.Value.Thermal, cell.Value.Battery);
+    [UseDelegateFromConstructor]
+    public partial Fin<PowerReading> Read();
 
-    public PowerCell Refresh() =>
-        (ignore(cell.Swap(_ => PowerProbe.Read().Match(
-            Succ: reading => (reading.Power, reading.Thermal, reading.BatteryFraction),
-            Fail: _ => (PowerState.Plugged, ThermalPressure.Nominal, 1d)))), this).Item2;
-
-    public void Dispose() => listener.Dispose();
+    public static PowerAuthority Platform => OperatingSystem.IsMacOS() ? Darwin : Absent;
 }
 
-// The IOKit/SMC native read is the honestly-flagged tier-3 live-host residual (POWER_NATIVE): the
-// signature-locked member shapes live in the research row, and the dead [LibraryImport] declaration
-// leaves until the native realization lands — a declared-never-called P/Invoke is the deleted form.
+public sealed class PowerCell(PowerAuthority authority) {
+    private readonly Atom<Option<PowerReading>> cell = Atom(Option<PowerReading>.None);
+
+    // Unread thermals report nominal so an unmeasured host never escalates the pressure grade on evidence
+    // nobody took; unread fidelity grades Balanced so it never bursts on the same absence.
+    public ThermalPressure Thermal => cell.Value.Map(static held => held.Thermal).IfNone(ThermalPressure.Nominal);
+
+    public FidelityScale Read() => cell.Value.Map(FidelityScale.Grade).IfNone(FidelityScale.Balanced);
+
+    // Refused probe HOLDS the last admitted reading: dropping back to absence lets one transient failure
+    // grade a critically throttled host as unconstrained until the next successful read.
+    public PowerCell Refresh() =>
+        (ignore(cell.Swap(prior => authority.Read().Match(
+            Succ: static reading => Some(reading),
+            Fail: _ => prior))), this).Item2;
+}
+
+// Each row states what its read owes rather than a shared blank refusal, so a held reading's cause names
+// its owing authority; IOKit/SMC shapes stay the POWER_NATIVE residual and a declared-never-called
+// [LibraryImport] beside them is the deleted form.
 public static class PowerProbe {
-    public const string PowerSourceService = "IOPMrootDomain";
+    public static Fin<PowerReading> Darwin() =>
+        Unresolved(PowerAuthority.Darwin.Key, "the IOKit power-source read and the NSProcessInfo thermal-state ladder");
 
-    public static Fin<(PowerState Power, ThermalPressure Thermal, double BatteryFraction)> Read() =>
-        OperatingSystem.IsMacOS()
-            ? ReadDarwin()
-            : Fin.Succ((PowerState.Plugged, ThermalPressure.Nominal, 1d));
+    public static Fin<PowerReading> Absent() =>
+        Unresolved(PowerAuthority.Absent.Key, "a platform authority reporting battery charge and thermal pressure");
 
-    private static Fin<(PowerState, ThermalPressure, double)> ReadDarwin() =>
-        Try.lift(() => (PowerState.Plugged, ThermalPressure.Nominal, 1d))
-            .Run()
-            .MapFail(static error => new ProfileFault.Text($"power-read:{error.Message}"));
+    static Fin<PowerReading> Unresolved(string authority, string requirement) =>
+        Fin.Fail<PowerReading>(new ProfileFault.Text($"power-authority:{authority} requires {requirement}"));
 }
 ```
 
 ## [06]-[RESEARCH]
 
-- [PLUGIN_HOST]: Generic Host boot and unload inside the RhinoWIP plugin load context without process exit; the `Detached` lifetime swap and host-attach trigger injection are the settled mechanics, the unverified surface is the load-context teardown sequence under live host eviction.
-- [POWER_NATIVE]: the macOS IOKit power-source read (`IOPSCopyPowerSourcesInfo` and the power-source descriptor keys reporting the AC-versus-battery state and charge fraction) and the SMC thermal-pressure read carry settled member shapes by tier-1 decompile of the IOKit P/Invoke surface, but the live reads stay a tier-3 residual because the power-management framework reports battery and thermal state only on the running device; the `NSProcessInfo.thermalState` four-level ladder maps to the `ThermalPressure` rows by ordinal, confirmed against the live device.
-- [WEB_ROOT]: static-asset spellings at the web app root under the Microsoft.AspNetCore.App shared framework; `CoHostedAssets` selects the co-hosted-bundle column, the unverified surface is the static-file middleware registration at the app root.
-- [WATCHDOG_INTERVAL]: the `Watchdog` keep-alive payload is settled — `ProfileBoot.WatchdogPing` writes `new ServiceState("WATCHDOG=1")` on the live notify socket per heartbeat tick. The residual runtime divergence is the cadence source: systemd publishes the watchdog deadline through the `WATCHDOG_USEC` environment value (and `WATCHDOG_PID` ownership guard) the service manager sets, and the schedule-port heartbeat row derives its tick period from that deadline rather than a fixed column; the unverified surface is the `WATCHDOG_USEC` read and its half-deadline tick derivation feeding the heartbeat occurrence.
+- [PLUGIN_HOST]-[BLOCKED]: which load-context teardown sequence a Generic Host boot-and-unload survives inside the RhinoWIP plugin ALC without process exit, given the settled `Detached` lifetime swap and host-attach trigger injection; verify on a live host bring-up through `tools.assay bridge`.
+- [POWER_NATIVE]-[BLOCKED]: which values `IOPSCopyPowerSourcesInfo` and the SMC thermal read return for AC-versus-battery state, charge fraction, and pressure level, given member shapes settled by tier-1 IOKit P/Invoke decompile and a `NSProcessInfo.thermalState` ladder mapping ordinal-wise onto `ThermalPressure`; verify on the running device, which alone reports battery and thermal state.
+- [POWER_AUTHORITY_ROSTER]-[OPEN]: which Windows and Linux surfaces report AC-versus-battery state, charge fraction, and thermal pressure — the `GetSystemPowerStatus` struct fields against the `/sys/class/power_supply` and `/sys/class/thermal` node set — so each lands as one `PowerAuthority` row beside `Darwin` and `Absent` narrows to the platforms that genuinely publish none; verify the Windows struct on the assay member rail and the sysfs node set on a live Linux host.
+- [WEB_ROOT]-[OPEN]: which static-file middleware registration serves the co-hosted bundle `CoHostedAssets` selects, at the web app root under the Microsoft.AspNetCore.App shared framework; verify on `libs/csharp/Rasm.AppHost/.api/`, then decompile the shared-framework static-files surface on the assay member rail.
+- [WATCHDOG_INTERVAL]-[OPEN]: which member reads `WATCHDOG_USEC` (with its `WATCHDOG_PID` ownership guard) so the schedule-port heartbeat row derives its tick period as a half-deadline rather than a fixed column, the payload itself settled at `ProfileBoot.WatchdogPing`; verify on `libs/csharp/Rasm.AppHost/.api/api-hosting-lifetimes.md`, then decompile `Microsoft.Extensions.Hosting.Systemd` on the assay member rail.

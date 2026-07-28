@@ -1,14 +1,14 @@
 # [SYMBOLIC_DIMENSIONAL]
 
-Pre-numeric dimensional proof for the symbolic CAS arm. A parsed `SymbolicExpr` folds onto a `DimensionMonomial` — one `Seq<ERational>` of seven SI base-dimension exponents, never seven scalar fields — and `DimensionProof` accumulates every compound mismatch on a `Validation<Error,DimensionMonomial>` rail before a single numeric value reaches the optimizer or the cost catalog. Exponents ride the `PeterO.Numbers` `ERational` the engine's `Entity.Number.Rational` leaves carry, never `int`, so a `sqrt` lowering to `Powf(arg, 1/2)` makes a half-power root of an area exactly a length and a float-rounded exponent never decides consistency.
+Pre-numeric dimensional proof for the symbolic CAS arm. Every parsed `SymbolicExpr` folds onto a `DimensionMonomial` — one `Seq<ERational>` of seven SI base-dimension exponents, never seven scalar fields — and `DimensionProof` accumulates every compound mismatch on a `Validation<Error,DimensionMonomial>` rail before a single numeric value reaches the optimizer or the cost catalog. Exponents ride the `PeterO.Numbers` `ERational` the engine's `Entity.Number.Rational` leaves carry, never `int`, so a `sqrt` lowering to `Powf(arg, 1/2)` makes a half-power root of an area exactly a length and a float-rounded exponent never decides consistency.
 
 That rational vector is the ℚ⁷ symbolic generalization of the ℤ⁷ integer-exponent `Dimension` the seam `Rasm.Element/Properties/quantity#DIMENSION` carries for measured quantities — both project from the one `UnitsNet` `BaseDimensions` 7-vector and align solely there, never coupled and never re-minted. Onward resolution is not shared: the symbolic side alone resolves a proven monomial to the Compute-internal `QuantityFamily` row, while the lower-stratum seam `Dimension` resolves its quantity through the `UnitsNet` registry directly and never names `QuantityFamily`. Every dimensional failure — a heterogeneous sum, a dimensioned transcendental argument, a non-literal power exponent, an undeclared free symbol, a result monomial naming no admitted `QuantityFamily` — folds onto one `ComputeFault.DimensionMismatch` arm (code 2216 on the `SymbolicFault` family), never a parallel `DimensionError`. Spine: `AngouriMath` (the `Entity` node records and `Vars` census), `PeterO.Numbers` (`ERational`), `UnitsNet` (`BaseDimensions`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ## [01]-[INDEX]
 
-- [01]-[DIMENSION_MONOMIAL]: the seven-exponent SI base-dimension `[ValueObject]` and its generic-math rational-exponent group.
-- [02]-[DIMENSION_PROOF]: the exhaustive `Entity`-node fold and the `Validation` accumulating rail over a parsed `SymbolicExpr`.
-- [03]-[UNITS_BRIDGE]: the `QuantityFamily` `BaseDimensions` projection, the `DimensionVerdict` candidate set, and the pre-numeric admission gate.
+- [02]-[DIMENSION_MONOMIAL]: `DimensionMonomial` carries seven SI base-dimension exponents under a generic-math rational group.
+- [03]-[DIMENSION_PROOF]: `DimensionProof` folds every `Entity` node onto one accumulating `Validation` rail.
+- [04]-[UNITS_BRIDGE]: `QuantityFamily` projects `BaseDimensions` into the `DimensionVerdict` candidate set the pre-numeric admission gate reads.
 
 ## [02]-[DIMENSION_MONOMIAL]
 
@@ -110,7 +110,7 @@ public readonly partial struct DimensionMonomial :
 - Entry: `Prove(SymbolicExpr, DimensionContext)` — one polymorphic entry returning `Validation<Error,DimensionMonomial>`, discriminating on the carried `Entity` case, never a per-case public method; the accumulating rail collects every `Sumf`-mismatch and undeclared symbol across the tree in one pass.
 - Packages: AngouriMath (the `Entity` records pattern-matched positionally — `Sumf(Augend,Addend)`, `Minusf(Subtrahend,Minuend)`, `Mulf(Multiplier,Multiplicand)`, `Divf(Dividend,Divisor)`, `Powf(Base,Exponent)`, `Logf(Base,Antilogarithm)`, unary `(Argument)` behind `IUnaryNode.NodeChild`, `Entity.Variable.Name`, `Entity.Number.Rational.ERational`/`Real.EDecimal`, the per-node `Vars` census, `Stringize`), LanguageExt.Core (the accumulating `Validation` applicative, `Traverse`, `Seq`, `Distinct`), PeterO.Numbers (`ERational`), Thinktecture.Runtime.Extensions.
 - Growth: the unary-function law covers every transcendental through the `IUnaryNode` floor without a per-name table; a new node family (the engine's hierarchy is closed at the pin) surfaces as the typed unmapped-node fault, never a silent fall-through; zero new entrypoint.
-- Boundary: the fold reads `Entity` payloads through positional record patterns, never re-parsing the infix string, so the proof runs once over the canonical tree. Constant discrimination is structural — a `Variable` leaf with an empty `Vars` census is a constant and resolves `Dimensionless`, so no constant-name table exists; every other `Variable` resolves through `DimensionContext.Resolve`, and one absent from the context accumulates as `DimensionMismatch`, never a hidden dimensionless default. A `Powf` exponent admits an exact `Rational` (subsuming `Integer` by inheritance) or a finite `Real` (`x^0.5`, lifted through `ERational.FromEDecimal`); a symbolic exponent has no static scale and accumulates as `DimensionMismatch`. Transcendental arms preserve dimension only for `Absf` and erase only for `Signumf`, so a blanket dimensionless-demanding rule that rejected `abs(force)` or `sign(moment)` is wrong. A foreign-node `_` arm produces a fault, never a silent fall-through. Rail is `Validation<Error,DimensionMonomial>` (the monoidal `Error` carrier every sibling lane uses; `ComputeFault` is not its own monoid, so the typed arm lifts onto `Error` through its `Expected` base), so one ill-formed compound surfaces every constituent mismatch at once. Proof never evaluates a number and never compiles a delegate — it is the gate the `Symbolic/lowering#LOWERING` compile fence runs behind.
+- Boundary: the fold reads `Entity` payloads through positional record patterns, never re-parsing the infix string, so the proof runs once over the canonical tree. Constant discrimination is structural — a `Variable` leaf with an empty `Vars` census is a constant and resolves `Dimensionless`, so no constant-name table exists; every other `Variable` resolves through `DimensionContext.Resolve`, and one absent from the context accumulates as `DimensionMismatch`, never a hidden dimensionless default. Every `Powf` exponent admits an exact `Rational` (subsuming `Integer` by inheritance) or a finite `Real` (`x^0.5`, lifted through `ERational.FromEDecimal`); a symbolic exponent has no static scale and accumulates as `DimensionMismatch`. Transcendental arms preserve dimension only for `Absf` and erase only for `Signumf`, so a blanket dimensionless-demanding rule that rejected `abs(force)` or `sign(moment)` is wrong. Foreign-node `_` arms produce a fault, never a silent fall-through. Rail is `Validation<Error,DimensionMonomial>` (the monoidal `Error` carrier every sibling lane uses; `ComputeFault` is not its own monoid, so the typed arm lifts onto `Error` through its `Expected` base), so one ill-formed compound surfaces every constituent mismatch at once. Proof never evaluates a number and never compiles a delegate — it is the gate the `Symbolic/lowering#LOWERING` compile fence runs behind.
 
 ```csharp signature
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -133,7 +133,7 @@ public static class DimensionProof {
                 Fail<Error, DimensionMonomial>(new ComputeFault.DimensionMismatch("dimension: null node")),
             Entity.Number =>
                 Success<Error, DimensionMonomial>(DimensionMonomial.Dimensionless),
-            // A constant Variable leaf (pi, e) has an empty Vars census — the discriminant that needs no constant-name table.
+            // Constant Variable leaves (pi, e) carry an empty Vars census — the discriminant needing no constant-name table.
             Entity.Variable variable =>
                 toSeq(variable.Vars).IsEmpty
                     ? Success<Error, DimensionMonomial>(DimensionMonomial.Dimensionless)
@@ -221,7 +221,7 @@ public static class DimensionProof {
             // Rational subsumes Integer by inheritance; the ERational payload is exact.
             Entity.Number.Rational rational =>
                 Success<Error, ERational>(rational.ERational),
-            // A finite decimal exponent (`x^0.5`) lifts exactly through FromEDecimal; NaN/∞ fault.
+            // Finite decimal exponents (`x^0.5`) lift exactly through FromEDecimal; NaN/∞ fault.
             Entity.Number.Real real when real.EDecimal.IsFinite =>
                 Success<Error, ERational>(ERational.FromEDecimal(real.EDecimal)),
             _ =>

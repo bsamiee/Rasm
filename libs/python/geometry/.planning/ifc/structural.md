@@ -14,8 +14,8 @@ Both enrichments are one `Enrichment` `@tagged_union` on a single `SectionReceip
 - Cases: `CORE` folds the closed-form section-integral receipt on the bare runtime interpreter; `IFC_ENTITY` adds the `IfcStructuralAnalysisModel`/`IfcStructuralMember` topology behind its `ifcopenshell` tier gate; `WARPING` adds the FE warping/plastic/shear receipts behind its `sectionproperties` tier gate. Spine never depends on either gated layer — upper tiers add evidence only where their gated package resolves.
 - Entry: `IfcStructural.run` takes an `ifcopenshell.file`, an `EnrichmentTier`, and a `spec` whose meaning the tier fixes — a `<selector>` profile-bearing query for `CORE`/`WARPING` resolving each element's `IfcProfileDef` rings off its material-profile assignment, a `<selector>#<analysis-model-guid>` query for `IFC_ENTITY` joining the members to their structural-analysis model — and returns `RuntimeRail[SectionReceipt]`. Graduation stays the caller's own step on `SectionReceipt.graduates(evidence_key, ceiling)`, mirroring `IfcAnalysis.run`/`IfcLifecycle.run`. `subjects` derives from the tier's true subject set — profile-bearing GlobalIds for `CORE`/`WARPING`, structural-member GlobalIds for `IFC_ENTITY`.
 - Auto: `_dispatch` is one `effect.result` builder — it binds the `IfcSelector` admission, the `_first_profile` head, the ring fold, and the spine `_integrate`, then the tier selects the enrichment. `_sample` dispatches the parametric subtypes through `PROFILE_SAMPLERS` (hollow rows ordered ahead of their solid supertypes so the first `is_a` match lands the hollow sampler) and falls through to the `IfcArbitraryClosedProfileDef` CoordList read — both hand the shape-agnostic contour integral the same ring tuple. `_entity` folds the `IsGroupedBy`/`IfcRelAssignsToGroup`-guarded `IfcStructuralMember` set — entity topology only, never re-deriving a section property, since the centroid-relative elastic section moduli are a closed-form spine field every tier carries. `_warping` builds the `pre.Geometry.from_points` region with one closed facet loop per ring and each void's interior hole marker so the voids are carved boundaries, runs geometric→warping→plastic in the prerequisite order, and reads `get_area` back to cross-check the `numpy` spine area (the `fe-area` residual); the FE torsion lands on `WarpingEvidence.fe_torsion_constant`, never overwriting the spine's thin-walled `torsion_constant`.
-- Receipt: `SectionReceipt` conforms structurally to `ReceiptContributor` — `contribute` emits one row carrying the tier tag, the section integrals, and the `Enrichment.facts` projection; `graduates` folds the tier-aware `measured` ledger onto `GeometryHandoff.of(STRUCTURAL_SUBJECT, ...)` rather than inlining a ceiling comparison; `frame` projects the same integrals and residual ledger as one `EvidenceFrame` row through the graduation port, the `ring-closure` residual doubling as the `rasm.geometry.section.closure` charter measure. `measured` ledger is data-driven by tier — the `ring-closure` residual (polar moment vs principal sum) every tier, and the `WARPING` `fe-area` FE-convergence residual — so a degenerate profile or a diverging FE mesh graduates as an `Error(BoundaryFault)`, never a clean section receipt.
-- Packages: `numpy` (the shoelace contour fold over `MOMENT_KERNELS`, `linalg.eigh` for the major-axis principal solution, the `PROFILE_SAMPLERS` curved-subtype polylines, `argsort` for the `_interior_point` marker); `expression` (the `effect.result` rail, `Block` folds for the member set and facet loops, the `Enrichment` union, `Option` rail lifts); `beartype` (the `ProfileRings` `Is` finiteness refinement at the `_integrate` fence); geometry graduation (`evidence_run`/`GeometryHandoff`/`GeometrySubject`); `ifc/selector#SELECTOR` (`IfcSelector.filter`/`parse` — the only `filter_elements` caller); `ifcopenshell` (`IfcProfileDef`/`IfcStructuralAnalysisModel`/`IfcStructuralMember` attributes over the in-process model, `CORE` reading only the profile); `sectionproperties` (`WARPING` tier only, native mesh backend `cytriangle`, LGPLv3); runtime rails.
+- Receipt: `SectionReceipt` conforms structurally to `ReceiptContributor` — `contribute` emits one row carrying the tier tag, the section integrals, and the `Enrichment.facts` projection; `graduates` folds the tier-aware `measured` ledger onto `GeometryHandoff.of(STRUCTURAL_SUBJECT, ...)` rather than inlining a ceiling comparison; `frame` projects the same integrals and residual ledger as one `EvidenceFrame` row through the graduation port, and `_distributed` records the `ring-closure` residual as the `rasm.geometry.section.closure` charter measure through the graduation `charter_record` derivation at the producing fold, so one ledger feeds the receipt, the frame, the handoff, and the dashboard histogram. `measured` ledger is data-driven by tier — the `ring-closure` residual (polar moment vs principal sum) every tier, and the `WARPING` `fe-area` FE-convergence residual — so a degenerate profile or a diverging FE mesh graduates as an `Error(BoundaryFault)`, never a clean section receipt.
+- Packages: `numpy` (the shoelace contour fold over `MOMENT_KERNELS`, `linalg.eigh` for the major-axis principal solution, the `PROFILE_SAMPLERS` curved-subtype polylines, `argsort` for the `_interior_point` marker); `expression` (the `effect.result` rail, `Block` folds for the member set and facet loops, the `Enrichment` union, `Option` rail lifts); `beartype` (the `ProfileRings` `Is` finiteness refinement at the `_integrate` fence); geometry graduation (`evidence_run`/`GeometryHandoff`/`GeometrySubject`/`EvidenceFrame`, `charter_record` the charter measure authority); `ifc/selector#SELECTOR` (`IfcSelector.filter`/`parse` — the only `filter_elements` caller); `ifcopenshell` (`IfcProfileDef`/`IfcStructuralAnalysisModel`/`IfcStructuralMember` attributes over the in-process model, `CORE` reading only the profile); `sectionproperties` (`WARPING` tier only, native mesh backend `cytriangle`, LGPLv3); runtime rails.
 - Growth: a new section integral is one `MOMENT_KERNELS` row and one `SectionReceipt` field; a new parametric profile subtype is one `PROFILE_SAMPLERS` row and its ring constructor — the rings stay the universal input and the contour fold stays shape-agnostic, never a per-shape integral family; a new enrichment tier is one `EnrichmentTier` row and one `Enrichment` case and one `_dispatch` arm; a new warping/plastic measure is one `WarpingEvidence` field and one `Section.get_*` accessor; a new selection axis is one `IfcSelector` grammar alternative, never a local query-parse fold; a stricter residual bar is one tighter ceiling row the caller supplies.
 - Boundary: no re-derivation of the C# `IfcSemanticModel` spatial hierarchy (projected in-process); no durable store, Rhino/GH mutation, or mesh/GLB write — the `WARPING` FE section mesh is an in-memory `sectionproperties` artifact consumed for its scalars, never a `mesh/repair.md` payload write. `ifcopenshell`/`sectionproperties` import function-local at the tier-gated boundary per the manifest import policy, so a `CORE` run never loads a gated package. Deterministic `sectionproperties` solves own no transiency — a retry over it (a `stamina.retry` mint included) is a deleted form. Raw `spec` never threads past admission into `filter_elements` — `IfcSelector` re-serializes the validated query, the one selection engine.
 
@@ -34,7 +34,7 @@ from msgspec import Struct
 from msgspec.structs import replace
 from numpy.typing import NDArray
 
-from rasm.geometry.graduation import EvidenceFrame, EvidenceScope, GeometryHandoff, GeometrySubject, evidence_run
+from rasm.geometry.graduation import EvidenceFrame, EvidenceScope, GeometryHandoff, GeometrySubject, charter_record, evidence_run
 from rasm.geometry.ifc.selector import IfcSelector
 from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail, boundary, railed
 from rasm.runtime.identity import ContentKey
@@ -176,9 +176,10 @@ class SectionReceipt(Struct, frozen=True, gc=False):
         # carrier's residual-over-ceiling `admitted` verdict gates; wire() is the compute crossing.
         return GeometryHandoff.of(STRUCTURAL_SUBJECT, evidence_key, self.measured, ceiling)
 
-    def frame(self, evidence_key: ContentKey) -> EvidenceFrame:
+    def frame(self, evidence_key: ContentKey) -> "RuntimeRail[EvidenceFrame]":
         # one columnar row per section receipt through the graduation frame port — integrals, principal solution,
         # and the tier residual ledger — so the data plane aggregates section evidence without receipt re-parsing.
+        # Port rail carries a ragged table back to this producer instead of raising past its consumer.
         table: dict[str, list[object]] = {
             "tier": [self.tier.name],
             "area": [self.area],
@@ -232,10 +233,19 @@ def _i_section(width: float, depth: float, web: float, flange: float) -> Ring:
     )
 
 
+def _distributed(receipt: "SectionReceipt") -> "SectionReceipt":
+    # charter projection at the producing fold, off the one `measured` ledger the receipt, the frame, and the
+    # graduation handoff already read — the `ring-closure` residual IS the `rasm.geometry.section.closure` measure,
+    # so the spelling derives from the charter row and the `WARPING` `fe-area` residual records nothing until a
+    # charter row claims it. Every tier runs caller-floor, so this is already the parent side.
+    charter_record(STRUCTURAL_SUBJECT, receipt.measured)
+    return receipt
+
+
 class IfcStructural:
     @staticmethod
     def run(model: "ifcopenshell.file", tier: EnrichmentTier, spec: str) -> "RuntimeRail[SectionReceipt]":
-        return evidence_run(EvidenceScope.IFC_SECTION, f"run.{tier.name.lower()}", lambda: IfcStructural._dispatch(model, tier, spec))
+        return evidence_run(EvidenceScope.IFC_SECTION, f"run.{tier.name.lower()}", lambda: IfcStructural._dispatch(model, tier, spec).map(_distributed))
 
     @staticmethod
     @railed

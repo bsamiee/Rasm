@@ -7,10 +7,10 @@ Latency caching is correctness-neutral: losing a node costs one cold recompute. 
 | [INDEX] | [CLUSTER]      | [OWNS]                                                                             |
 | :-----: | :------------- | :--------------------------------------------------------------------------------- |
 |  [01]   | `TIER_ROWS`    | the escalation table — Tier-0 rows, the gated external row, the banned policies    |
-|  [02]   | `KEYED_FLIGHT` | the memo tier, the keyed single-flight row, the request-dedup plane                |
+|  [02]   | `KEYED_FLIGHT` | the memo tier, the keyed single-flight row, the dedup plane, the hit census        |
 |  [03]   | `PERSISTED`    | the restart-surviving cache — the mint, the store assembly, the tenant partition   |
 |  [04]   | `POOLS`        | reference-counted handles, keyed resource maps, the bounded origin-connection pool |
-|  [05]   | `ASSEMBLY`     | the assembled export; pool occupancy projects at its acquisition owner             |
+|  [05]   | `ASSEMBLY`     | the assembled export; occupancy and hit economics project at their own owners      |
 
 ## [02]-[TIER_ROWS]
 
@@ -43,16 +43,20 @@ declare namespace CacheLane {
 ## [03]-[KEYED_FLIGHT]
 
 - Owner: `CacheLane.memo` — the ONE memo entry whose modality is the input shape: a bare effect caches whole (`Effect.cached`, or `cachedWithTTL` when a cadence rides the call), a unary function memoizes per-argument (`Effect.cachedFunction`, structural key equality); and `CacheLane.dedup(options)` — the request-cache Layer that turns fiber-tree request graphs into deduplicated batched loads. Keyed single-flight rides `Cache.make` at the package surface directly — a rename-forward alias adds no domain value and is refused here.
-- Packages: `effect` (`Cache`, `Effect.cached`, `Effect.cachedWithTTL`, `Effect.cachedFunction`, `Request.makeCache`, `Layer.setRequestCache`, `Duration`).
+- Packages: `effect` (`Cache`, `Cache.ConsumerCache.cacheStats`, `Effect.cached`, `Effect.cachedWithTTL`, `Effect.cachedFunction`, `Request.makeCache`, `Layer.setRequestCache`, `Metric.set`, `Schedule.spaced`, `Duration`); `@rasm/ts/core` (`Convention` — the cache instrument and name rows).
 - Entry: a read surface with stampede exposure mints `Cache.make` once at construction and yields `cache.get(key)` thereafter; a pure recompute memoizes through `memo`; the projection and retrieval read paths compose `dedup` at the root so their `RequestResolver`-batched loads share one cache per request graph — the resolver machinery is the SQL tier's, the cache Layer is this row.
-- Receipt: cache entries remain correctness-neutral values; cache hit, miss, and size evidence stays outside the settled surface until terminal `[RESEARCH]` proves the substrate census member.
-- Growth: a new cached surface is one mint with its own spec; a per-key TTL posture is the spec's `timeToLive` fold over the exit, never a second cache kind.
+- Receipt: cache entries remain correctness-neutral values, and `CacheLane.census(name, cache)` is the hit economics projection — one scoped probe folding the substrate's own `cacheStats` snapshot onto the `cacheHits`/`cacheMisses` levels tagged by the caller's cache name, so the `board#PACKS` `lake` hit-share tile reads a series a producer genuinely mints.
+- Growth: a new cached surface is one mint with its own spec beside one `census` registration; a per-key TTL posture is the spec's `timeToLive` fold over the exit, never a second cache kind.
 - Law: concurrent same-key lookups COLLAPSE to one execution — the single-flight guarantee is the constructor's, so no consumer wraps a semaphore around a cache; a hand-rolled in-flight map beside this row is the named reinvention.
 - Law: capacity is a hard bound and eviction is the cache's own policy — an unbounded memo over unbounded keys is unspellable because `capacity` is a required field of the spec; `memo` over a function is bounded by its argument space and admits only where that space is provably small.
 - Law: TTL is recompute cadence, not freshness truth — a consumer needing read-your-writes composes the reactive invalidation keys the journal stamps, never a shorter TTL.
+- Law: the census READS the substrate's own counters and keeps none — `cacheStats` returns the cache's cumulative hits and misses, so the projection sets levels from that snapshot rather than incrementing counters at each lookup, and a hit therefore costs no metric write on the hot path; a mirror tally beside the cache is the hand-rolled reimplementation the substrate already forecloses.
+- Law: the cache name is the caller's, because a cache is minted at its own read surface and the lane names none — the name keys the series exactly as the origin pool's scheme keys occupancy, and two caches sharing a name fold into one indistinguishable series at the board.
+- Law: the census rides a scoped cadence, never the caller's fiber — one forked repeating probe per registered cache, released with the scope that registered it, so a lookup path never blocks on a metric read and a torn-down composition leaves no live probe.
 
 ```typescript signature
-import { Cache, Duration, Effect, Layer, Request } from "effect"
+import { Cache, Duration, Effect, Layer, Metric, Request, Schedule, type Scope } from "effect"
+import { Convention } from "@rasm/ts/core"
 
 function _memo<B, E, R>(input: Effect.Effect<B, E, R>, ttl?: Duration.DurationInput): Effect.Effect<Effect.Effect<B, E, R>>
 function _memo<A, B, E, R>(input: (a: A) => Effect.Effect<B, E, R>): Effect.Effect<(a: A) => Effect.Effect<B, E, R>>
@@ -64,6 +68,25 @@ function _memo(input: Effect.Effect<unknown> | ((a: unknown) => Effect.Effect<un
 
 const _dedup = (options: { readonly capacity: number; readonly timeToLive: Duration.DurationInput }) =>
   Layer.setRequestCache(Request.makeCache(options))
+
+const _CENSUS = { cadence: Duration.seconds(30) } as const // sampling cadence for the read-side probe; the counters are cumulative, so a miss between samples is never lost
+
+const _hits = Convention.mount(Convention.metric.cacheHits)
+const _misses = Convention.mount(Convention.metric.cacheMisses)
+
+// `ConsumerCache.cacheStats` is the substrate's own cumulative snapshot, so the census SETS two levels from one read
+// rather than instrumenting the lookup path; the probe forks on the registering scope and dies with it.
+const _census = (name: string, cache: Cache.ConsumerCache<unknown, unknown, unknown>): Effect.Effect<void, never, Scope.Scope> =>
+  Effect.forkScoped(
+    Effect.repeat(
+      Effect.flatMap(cache.cacheStats, (stats) =>
+        Effect.zipRight(
+          Metric.set(Metric.tagged(_hits, Convention.rasm.cacheName, name), stats.hits),
+          Metric.set(Metric.tagged(_misses, Convention.rasm.cacheName, name), stats.misses),
+        )),
+      Schedule.spaced(_CENSUS.cadence),
+    ),
+  ).pipe(Effect.asVoid)
 ```
 
 ## [04]-[PERSISTED]
@@ -122,7 +145,7 @@ const _persisted = <K extends Persistence.ResultPersistence.KeyAny, R>(spec: {
 - Law: `RcMap` and `KeyedPool` divide by cardinality — `RcMap` shares ONE live instance per key among concurrent holders, `KeyedPool` holds up to N instances per key for exclusive leases; a protocol whose control connection carries one transfer at a time (the FTP law) is exactly why the origin row is the pool, never the map.
 - Law: lifetime is reference-counted or pool-owned — release follows the last scope and idle window, so hot handles survive bursts without manual cleanup.
 - Law: this row pools RESOURCES, the `Stores` map pools LAYERS — the tenancy store map stays the scope-family owner, and this lane's maps hold engine sessions and warm clients beneath it; the echo is deliberate, the owners distinct.
-- Law: occupancy rides the pool's own acquire bracket — each leased item increments the `Convention.instrument.poolHeld` up-down counter tagged by the key's closed scheme vocabulary and its release finalizer decrements it, so held-connection pressure is dashboard-visible with zero consumer wiring and the pool's lifetime discipline stays the truth.
+- Law: occupancy rides the pool's own acquire bracket — each leased item increments the `Convention.metric.poolHeld` level tagged by the key's closed scheme vocabulary and its release finalizer decrements it, so held-connection pressure is dashboard-visible with zero consumer wiring and the pool's lifetime discipline stays the truth; the row's non-monotonic form is what lets a decrement land, and a monotonic row here exports a total that only climbs.
 
 ```typescript signature
 import { Data, KeyedPool, Metric, type Scope } from "effect"
@@ -137,10 +160,7 @@ class OriginKey<Scheme extends string = string> extends Data.Class<{
   readonly username: string
 }> {}
 
-const _held = Metric.counter(Convention.instrument.poolHeld.name, {
-  description: Convention.instrument.poolHeld.description,
-  incremental: false, // up-down: the lease increments, the release finalizer decrements
-})
+const _held = Convention.mount(Convention.metric.poolHeld) // the row's `updown` form is what makes the release finalizer's decrement legal on the wire
 
 const _counted = (scheme: string) => Metric.tagged(_held, Convention.rasm.poolScheme, scheme)
 
@@ -164,13 +184,14 @@ const _origins = <Scheme extends string, A, E, R>(
 ## [06]-[ASSEMBLY]
 
 - Owner: `CacheLane`, the single export assembling the admitted tier, memo, persisted, store, backing, scope, and origin-pool owners.
-- Law: pool occupancy projects at `_origins`, its acquisition/release bracket; cache sampling stays absent until the substrate catalog proves its evidence member.
+- Law: each projection seats at the owner holding its evidence — occupancy at `_origins`, the acquisition and release bracket that knows a lease, and hit economics at `_census`, the one reader of the substrate's own counters.
 
 ```typescript signature
 const CacheLane = {
   tiers: _tiers,
   memo: _memo,
   dedup: _dedup,
+  census: _census,
   persisted: _persisted,
   store: _store,
   backing: _backing,
@@ -185,4 +206,4 @@ export { CacheLane, OriginKey }
 
 ## [07]-[RESEARCH]
 
-- [RESEARCH]: Which `Cache.Cache` member returns hit, miss, and size evidence? Route: `libs/typescript/.api/effect.md` `[03]`; arm on its exact declaration.
+(none)

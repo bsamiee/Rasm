@@ -21,6 +21,9 @@ Cross-package coupling is a published boundary import or a content-keyed wire; n
 - S1 `data` — composes runtime alone; upper strata import its `FrameAdmission`/`FrameInterop` tabular contract and `arrow_bytes` columnar projection.
 - S2 `compute` + `geometry` — peers over runtime and data; geometry evidence enters `compute` as `GeometryHandoff` wire, never an import.
 - S3 `artifacts` — composes runtime and compute's graduation handoff; geometry scene facts cross one-way as GLB bytes through `SceneGrid.of_glb`.
+- S4 app root — the composing application seats outside `libs/python` and binds every declared port.
+- S4 port law — `runtime` declares a port at S0, an upper stratum binds it at the root, and an unbound port refuses with typed evidence.
+- S4 counter-edge — `data` supplies the `Ledger` implementation the journal plane writes through and the S4 root binds it in; S0 consumes that value and imports no owner.
 
 ```mermaid
 ---
@@ -32,7 +35,7 @@ config:
 ---
 flowchart TB
     accTitle: Python branch import strata
-    accDescr: Four import strata from artifacts down to the runtime foundation; labeled edges name one sourced surface, dashed edges carry wire data.
+    accDescr: Four import strata from artifacts down to the runtime foundation; solid labeled edges name one imported surface, and dashed edges carry the graduation wire beside the Ledger implementation data supplies and the S4 root binds into runtime.
     subgraph S3["S3 ARTIFACTS"]
         Artifacts[artifacts]
     end
@@ -44,35 +47,24 @@ flowchart TB
         Data[data]
     end
     subgraph S0["S0 RUNTIME"]
-        Wire["wire / serve"]
-        Lanes["lanes / workers"]
-        Roots[roots]
-        Resilience[resilience]
-        Receipts[receipts]
-        Identity[identity]
-        Faults[faults]
+        Runtime[runtime]
     end
     Artifacts e1@-->|"[IMPORT]: GraduationReceipt"| Compute
     Compute e2@-->|"[IMPORT]: FrameAdmission"| Data
     Geometry e3@-->|"[IMPORT]: arrow_bytes"| Data
     Geometry e4@-.->|"[WIRE]: GeometryHandoff"| Compute
-    Data e5@-->|"[IMPORT]: ResourceRef"| S0
-    Geometry e6@-->|"[IMPORT]: ContentKey"| S0
-    Compute e7@-->|"[IMPORT]: Kernel"| S0
-    Artifacts e8@-->|"[IMPORT]: ContentKey"| S0
+    Data e5@-->|"[IMPORT]: ResourceRef"| Runtime
+    Geometry e6@-->|"[IMPORT]: ContentKey"| Runtime
+    Compute e7@-->|"[IMPORT]: Kernel"| Runtime
+    Artifacts e8@-->|"[IMPORT]: ContentKey"| Runtime
+    Data e10@-.->|"[PORT]: Ledger impl, S4-bound"| Runtime
     Artifacts ~~~ Compute
     S0 e9@-->|"forbidden: upward import"| S3
-    Wire r1@--> Lanes
-    Lanes r2@--> Resilience
-    Roots r3@--> Resilience
-    Resilience r4@--> Receipts
-    Receipts r5@--> Identity
-    Identity r6@--> Faults
 ```
 
 ## [03]-[SEAMS]
 
-Python meets peer branches through corpus contracts and serialized artifacts, never imported peer code. Each edge freezes one `{KIND, name, direction}` representative at the endpoint spelling; peer legs fold to prose — runtime↔Rasm.AppHost also carries `TraceContext` and `HlcStampWire`, runtime↔Rasm.Compute an `XxHash128` leg, `ContentAddress` spells from the Element owner over the runtime `ContentKey` mint, and the graduation seam's reverse payload is `EvidenceBundle`, C#-spelled `GraduationEvidence`. File-level detail lives on the owning folder's design page and the cross-`libs/` ledger.
+Python meets peer branches through corpus contracts and serialized artifacts. Each edge freezes one `{KIND, name, direction}` representative at the endpoint spelling and folds its peer legs to prose — runtime↔Rasm.AppHost also carries `TraceContext` and `HlcStampWire`, runtime↔Rasm.Compute an `XxHash128` leg, runtime↔Rasm.Persistence a bidirectional `[CONTRACT]: BackendContract` leg beside its drawn wire, `ContentAddress` spells from the Element owner over the runtime `ContentKey` mint, and the graduation reverse payload is `EvidenceBundle`, C#-spelled `GraduationEvidence`.
 
 ```mermaid
 ---
@@ -141,7 +133,9 @@ flowchart LR
     Egress e5@-.->|"EvidenceBundle"| Hub
 ```
 
-Telemetry converges the same way: runtime's observability owner is the branch's one emission substrate — `Hooks` registers every package's hook points under package-qualified ids, one `INSTRUMENTS` table owns every instrument as a row, and `Telemetry` alone installs OTLP egress at the composition root. A sibling's telemetry is a registration row on that owner — a hook point, an instrument row, a receipt folded through the drain — and its series leave the branch as opaque OTLP transport, never decoded branch vocabulary.
+Telemetry converges on runtime's observability owner: `Hooks` registers every package's hook points, one `INSTRUMENTS` table owns every instrument as a row, `Journal` owns the append-only evidence plane behind the `Ledger` port, and `Telemetry` alone installs OTLP egress. Siblings register on that owner — a hook point, an instrument row, a receipt folded through the drain, a bound `Ledger` — and their series leave opaque on the OTLP transport. Journal facts are evidence truth; every metered series beside them rebuilds from the journal window.
+
+`data` alone custodies the analytics residences that outlive a series window: it implements the `Ledger` port over its own commit and scan owners for the S4 root to bind, rows each durable plane on that same matrix, and rebuilds every residence from the journal window, so history and health read one fact stream.
 
 ```mermaid
 ---
@@ -153,21 +147,27 @@ config:
 ---
 flowchart LR
     accTitle: Python branch observability spine
-    accDescr: Siblings fire hook facts and fold receipts into runtime observability; one instrument table meters, telemetry alone egresses.
+    accDescr: Siblings fire hook facts, fold receipts, and record evidence facts into runtime observability; one instrument table meters the derived series, telemetry alone egresses on the opaque OTLP transport, and the journal lands evidence through a Ledger port data implements and the S4 root binds, its analytics residences rebuilding off that stream.
     Siblings[compute · data · geometry · artifacts]
     subgraph runtime[RUNTIME OBSERVABILITY]
         Hooks[Hooks registry]
         Drain[receipts drain]
         Instruments[INSTRUMENTS meter]
+        Journal[Journal · evidence plane]
         Telemetry[Telemetry install]
     end
-    Collector([collector])
+    Ledger[(data tabular · Ledger impl)]
+    Residence[(data tabular · analytics residence)]
+    Egress([OTLP transport])
     Siblings e1@-->|"hook facts"| Hooks
     Siblings e2@-->|"receipts"| Drain
+    Siblings e7@-->|"record: evidence facts"| Journal
     Hooks e3@-->|"taps"| Instruments
     Drain e4@-->|"record"| Instruments
+    Journal e8@-->|"[PORT]: Ledger"| Ledger
+    Ledger e9@-.->|"rebuild: derived plane"| Residence
     Instruments e5@-->|"metered series"| Telemetry
-    Telemetry e6@-->|"OTLP"| Collector
+    Telemetry e6@-->|"OTLP"| Egress
 ```
 
 ## [05]-[ROUTING]
@@ -180,9 +180,12 @@ flowchart LR
 |  [04]   | a hook point                        | `runtime/observability/hooks.py`   | one `HookPoint` row under a package-qualified id |
 |  [05]   | an external proto wire family       | `runtime/transport/shapes.py`      | one `PROTO_VOCABULARY` row the drift gate proves |
 |  [06]   | a package dependency                | root `pyproject.toml`              | one admission row in the owning group            |
+|  [07]   | a durable evidence fact             | `runtime/observability/journal.py` | one `Fact` case beside its `Retain` class        |
+|  [08]   | a metered resource                  | `runtime/observability/journal.py` | one `Resource` row in both branch spellings      |
+|  [09]   | a retention class                   | `runtime/observability/journal.py` | one `Retain` member with its window row          |
+|  [10]   | an analytics residence              | `data/tabular/lakehouse.py`        | one row answering the estate residence floor     |
+|  [11]   | a remote columnar query end         | `data/tabular/query.py`            | one `RemoteDriver` row on the one Flight plane   |
 
 ## [06]-[ADMISSION_POLICY]
 
-One root manifest owns interpreter admission, dependency groups, version bounds, and `python_version` markers. This branch targets a normal-GIL CPython core; worker-lane exceptions live as root-manifest markers.
-
-`protobuf` and `grpcio` are core runtime dependencies; `grpcio-tools` is codegen-only. Native rendering and OCCT/STEP admissions home to the owning `artifacts` and `geometry` registries.
+One root manifest owns interpreter admission, dependency groups, version bounds, and `python_version` markers; `RULINGS.md` settles which packages that interpreter floor gates and which stay ungated. Native rendering and OCCT/STEP admissions home to the owning `artifacts` and `geometry` registries. Every admission resolves its whole touch-point set live at `docs/laws/topology.md` `[MANIFEST_ADMISSION]`.

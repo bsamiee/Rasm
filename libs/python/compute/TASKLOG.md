@@ -20,21 +20,6 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[JAX_PROFILER_SURFACE]-[BLOCKED]: which jax profiling members are cataloged truth for the `[SOLVE_PROFILE_PARITY]` XLA leg?
-- Capability: verdict on whether `jax.profiler.trace`, `jax.profiler.device_memory_profile`, `jax.profiler.save_device_memory_profile`, and `jax.stages.Lowered.cost_analysis` exist on the installed distribution, then the XLA leg of the `EngineProfile` band admits on those exact spellings beside the captured-jaxpr statistics the `xla` case already carries.
-- Shape: member verdict landing as the repaired XLA-profiler roster on `libs/python/compute/.api/jax.md` and the pinned member row on the `xla` case of `libs/python/compute/.planning/numerics/jit.md`, admitting `jax.profiler.trace`, `device_memory_profile`, `save_device_memory_profile`, and `jax.stages.Lowered.cost_analysis` beside the captured-jaxpr statistics.
-- Unlocks: IDEAS.md [SOLVE_PROFILE_PARITY] — the XLA leg of the `EngineProfile` band reaches trace-file and device-memory profiling parity with the llvm case, closing the deferred profiler gate.
-- Anchors: resolution route — repair `libs/python/compute/.api/jax.md` against the installed distribution through `tools/assay`, then pin the members on `libs/python/compute/.planning/numerics/jit.md`; the folder `[PACKAGES]` ruling holding the gate intended.
-- Arms: the upstream `jaxlib` wheel for the manifest's interpreter floor publishes and the interpreter marker lifts — an assay `unsupported` resolve is the intended gated state, never this card's trigger; each named member query must then return member evidence.
-
-[RESOURCE_BRACKET_COMPOSE]-[QUEUED]: graduation resource sampling composes the substrate bracket.
-- Capability: compute samples process cost through the one runtime owner instead of a folder-local psutil bracket.
-- Shape: `_opened`/`_closed` and `ResourceUsage` on `libs/python/compute/.planning/graduation/observability.md` compose runtime `Cost.sampled`/`Cost.delta`; the `rasm.compute.evidence.*` names stay folder-local.
-- Unlocks: one honest-RSS band and one sampling fix point across the branch.
-- Anchors: runtime `Cost` on `libs/python/runtime/.planning/observability/receipts.md`; the substrate-bracket ruling at `libs/python/.planning/RULINGS.md`.
-- Tension: `ResourceUsage.user_s`/`system_s` splits what `Cost.cpu_ms` sums — a consumer reading the split grows the substrate owner one user/system pair; an unread split dies with the bracket.
-- Atomic: one bracket substitution on one page.
-
 [EVIDENCE_SCOPE_GRAMMAR]-[QUEUED]: evidence scopes join the branch telemetry grammar.
 - Capability: compute's span-scope members spell the one `rasm.`-rooted grammar every branch scope shares, so the handoff weave never forks the telemetry namespace.
 - Shape: `EvidenceScope` members on `libs/python/compute/.planning/graduation/handoff.md` respell `rasm.compute.array`/`rasm.compute.mesh`, matching the `rasm.compute.*` ids the observability page already spells.
@@ -98,9 +83,12 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-[HOOK_POINT_ROWS]-[COMPLETE]: landed as the derived `COMPUTE_POINTS` table over `SCOPE_DOMAIN` with the closed payload family and the `registered` composition gate on `libs/python/compute/.planning/graduation/observability.md`.
-[HOOK_TAP_PROJECTIONS]-[COMPLETE]: landed as the `_measures` polymorphic projection and the `tapped` per-point receipt/metric subscription fold on `libs/python/compute/.planning/graduation/observability.md`; the `rasm.compute.*` instrument rows remain a runtime `runtime/observability/metrics#METRIC` ripple.
-[RESOURCE_SAMPLE_FOLD]-[COMPLETE]: landed as the two-block `oneshot` bracket (`_opened`/`_closed`) and `resource_sampled` on `libs/python/compute/.planning/graduation/observability.md`; the settled band records before/after RSS — cross-platform `pmem` carries no peak field — superseding this card's peak-RSS claim.
+[JAX_PROFILER_SURFACE]-[COMPLETE]: landed across `libs/python/compute/.api/jax.md` and the `xla` case on `libs/python/compute/.planning/numerics/jit.md`; `[PACKAGES]` keeps the standing gate, no `jaxlib` sdist exists at any release, so the Forge source-build lane can never lift the interpreter-floor block.
+[HOOK_POINT_ROWS]-[COMPLETE]: landed as the derived `COMPUTE_POINTS` table over `SCOPE_DOMAIN` on `libs/python/compute/.planning/graduation/observability.md`.
+[HOOK_TAP_PROJECTIONS]-[COMPLETE]: landed as the `_measures` projection and the `tapped` subscription fold on `libs/python/compute/.planning/graduation/observability.md`; the `rasm.compute.*` instrument rows stay a runtime `runtime/observability/metrics#METRIC` ripple.
+[RESOURCE_SAMPLE_FOLD]-[COMPLETE]: landed as the `ledgered` band on `libs/python/compute/.planning/graduation/observability.md`; the signed RSS delta supersedes this card's peak-RSS claim, which no cross-platform substrate answers.
+[RESOURCE_BRACKET_COMPOSE]-[COMPLETE]: landed as the flat `ResourceUsage` band off the runtime `Cost` delta on `libs/python/compute/.planning/graduation/observability.md`, retiring the folder-local process handle and its `psutil` substrate row.
+[MEASURE_CENSUS_GATE]-[COMPLETE]: landed as the `MeasureRow` roster and the `registered(composition)` proof on `libs/python/compute/.planning/graduation/observability.md`.
 [PROFILE_BAND_FIELDS]-[COMPLETE]: landed as `EngineProfile` with the `_profiled` dispatcher harvest and `_printed_lines` tally on `libs/python/compute/.planning/numerics/jit.md`, mounted as the optional per-case `profile` slot with the `profile.`-namespaced spread on `libs/python/compute/.planning/solvers/receipt.md`.
 [STUDY_BENCH_FOLD]-[COMPLETE]: landed as `StudyReceipt.benched` feeding `BenchmarkReceipt.of` from held measurements — `.serial` baseline series under SPEEDUP, zero-elapsed RESULT suppression — composed into the contributor harvest on `libs/python/compute/.planning/experiments/study.md`.
 [TRACE_LINK_DECODE]-[COMPLETE]: wire widened and decoded — `_GeometryWire.trace` carries the optional `traceparent`/`tracestate`/baggage mapping, `GraduationReceipt.geometry` threads it into `graduates`, and `_linked` folds the valid extracted context as one `Link` on `libs/python/compute/.planning/graduation/handoff.md`.

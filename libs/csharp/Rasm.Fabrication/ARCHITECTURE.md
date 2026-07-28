@@ -12,7 +12,7 @@ Rasm.Fabrication/
 │   ├── Physics.cs           # Material identity carrying per-modality physics and the removal budget
 │   ├── Faults.cs            # FabricationFault registry over the FaultBand.Fabrication band
 │   ├── Derivation.cs        # Derivation.Apply plan orchestrator
-│   └── Telemetry.cs         # FabricationFact union, rasm.fabrication.* instrument roster, projection fan, SLO rows
+│   └── Telemetry.cs         # FabricationFact union, rasm.fabrication.* instrument roster, projection fan, solver span scopes, descriptor pack
 ├── Tooling/                 # ISO-13399 tool intelligence, machinability, and wear
 │   ├── Magazine.cs          # Provider-detached ToolAssembly owner, correspondence tables, typed-shortfall kitting, and ordered life scheduling
 │   ├── CuttingData.cs       # Kienzle seeds, evidence-domain guard, power-law fit, and cutter-form projection on typed evidence rails
@@ -22,7 +22,7 @@ Rasm.Fabrication/
 │   ├── Arcs.cs              # CavalierContours arc-space owner with kerf, lead, and adaptive offsets
 │   └── Curves.cs            # Parametric-curve substrate owner
 ├── Ingress/                 # Everything entering as geometry
-│   ├── Profile.cs           # DXF/DWG census, lane resolution, OCS-correct contour healing, region nesting, and projected receipt ingress
+│   ├── Profile.cs           # DXF/DWG census, lane resolution, OCS-correct contour healing, region nesting, and the Ingress.Admit fold
 │   ├── Solid.cs             # STEP/IGES/STL/3DM/3MF unit-resolved mesh admission, conditioning, topology evidence, and kernel repair
 │   ├── Steel.cs             # DSTV NC1 path, text, or byte admission into arc-aware steel, topology, and face placement
 │   └── Element.cs           # ElementGraph single or batch bake into component, connection, relation, and fact receipts
@@ -281,7 +281,7 @@ Seam edges carry which package exchanges which shape; the load-bearing cross-pac
 - Every machine-consumable egress mints its content key through the kernel `ContentHash.Of` seed-zero entry, with no second mint.
 - `EgressKind`, the local discriminant, federates to the Persistence `ArtifactKind` rows at the content-key boundary, never a type reference.
 - `Fabrication` realizes the one `FabricationProjector` registration; every quantity lowered back to the seam rides that projector.
-- An absent peer capability binds as an injected delegate column, so the contract remains whole without an implementation-shape dependency.
+- Absent peer capability binds as an injected delegate column, so the contract remains whole without an implementation-shape dependency.
 - Machine telemetry enters through the AppHost decode lane, never a direct transport reference.
 - `Kinematics/observation` admits the decoded entities once; every measured consumer folds the one `MachineObservation` slice.
 - Durable shop state rides the Persistence slot registry's contributed span as the `store.fabrication.<domain>.<verb>` family.
@@ -294,12 +294,12 @@ Seam edges carry which package exchanges which shape; the load-bearing cross-pac
 - Program delivery closes chain-of-custody by value: the cell drive receipt re-mints a content key from the exact controller-bound records.
 - `Posting/dialect` `ProgramDelivery` proves transfer integrity by digest equality; the delivery fact rides the tap onto the receipt rail.
 - Fabrication facts leave through the one `FabricationTap` port onto the AppHost receipt rail as `FabricationFact` envelopes.
-- `TelemetryContributorPort` carries the `rasm.fabrication.*` instrument roster inward at composition.
+- `TelemetryContributorPort` carries the `rasm.fabrication.*` instrument roster and the board pack over it inward at composition, where the mounting root proves both.
 - `FabricationInstruments.Arms` kind-arm table merges onto the AppHost receipt fan beside its own arms.
 - Classification federates by value to the suite `DataClassification` taxonomy — never a type reference in either direction.
 - Fabrication hook points register on the AppHost hook registry at composition through the runtime-carried `FabricationHooks` roster.
 - Hook modality and payload close at declaration; subscribers attach only at app roots.
-- Engine spans ride the `ActivitySource` named by `TelemetrySource.Fabrication`, admitted at the AppHost root source roster.
+- Solver spans ride `FabricationTrace.Scopes` — one `TraceScope` per `FabricationEngine` row — admitted into the composing root's kernel `SpanBand`; the meter scope stays `TelemetrySource.Fabrication` and neither grammar derives from the other. Every traced lane takes the band as a trailing nullable parameter beside its `FabricationTap`, so a headless caller supplying neither runs untraced and silent with no ambient source and no branch of its own.
 - Trace-based exemplars join the fabrication histograms to their solve traces.
-- `FabricationSlos` rows feed the AppHost alert rail and the deploy-plane dashboard compile from one row set.
-- Burn thresholds stay the core multi-window burn table, never re-decided here.
+- `FabricationDescriptors` binds one kernel `BoardPack` value the contributor port carries outward to the AppHost alert rail and the deploy-plane dashboard compile.
+- Indicator, severity, panel, and burn vocabularies stay the kernel signal capsule's and cross as values, never re-decided here.

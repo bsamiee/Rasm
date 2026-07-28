@@ -8,7 +8,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 <!-- source-only: open idea card template:
 [ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
-- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Capability: <the higher-order invariant, owner capability, or concept established — concept grain only, never a page path, row list, or member spelling>.
 - Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
 - Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
 - Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
@@ -43,32 +43,22 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Unlocks: sequence-shaped design search the CP-SAT row prices poorly; the admitted routing surface stops being dead catalog weight.
 - Anchors: folder `.api` `api-ortools#ENTRYPOINTS` routing rail (`RoutingModel`, `RoutingIndexManager`, `RoutingSearchParameters`, `RoutingDimension`, `RoutingSearchStatus.Types.Value`), `OptimizerKind` row law, `Analysis/circulation` OR-Tools graph natives as the disposal-pattern precedent.
 
-[TWIN_SENSOR_INGEST]-[BLOCKED]: Live sensor telemetry decodes into the serialized twin loop over verified broker members.
-- Capability: broker subscription, NATS decode, and W3C activity restoration join the settled typed MQTT CloudEvents decode and serialized twin loop, closing the sensor-to-twin path.
-- Shape: required-tier member rows beside the settled decode and twin-loop owners in `libs/csharp/Rasm.Compute/.planning/Runtime/`.
-- Unlocks: live sensor streams reach the digital-twin loop with typed, verified broker crossings.
-- Anchors: the settled MQTT CloudEvents decode; `TwinLoop`; the MQTTnet, NATS.Net, and diagnostics catalogs.
-- Arms: complete MQTTnet, NATS.Net, and diagnostics catalog declarations and direct broker project references.
-
-[DOE_LAKE_EGRESS]-[BLOCKED]: DOE datasets egress to the analytical lake as Arrow batches over the Persistence Flight port.
-- Capability: `DoeDataset` — front membership and stable content key settled — gains a verified `RecordBatch` projection and a push seam onto the durable columnar plane.
-- Shape: Arrow batch rows and the Flight push seam beside the settled `DoeDataset` owner in `libs/csharp/Rasm.Compute/.planning/`.
-- Unlocks: DOE truth lands on the columnar lake plane for cross-runtime analytics.
-- Anchors: `DoeDataset` `OnFront` and content key; the Apache.Arrow catalog tiers; `Rasm.Persistence` `[PERS_L1]` Flight SQL serving.
-- Arms: complete Arrow catalogs, a direct `Apache.Arrow` project reference, and the reciprocal Persistence port.
-
 ## [02]-[CLOSED]
 
 <!-- source-only: closed idea card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[TWIN_SENSOR_INGEST]-[COMPLETE]: realized in `.planning/Runtime/transport#BROKER_INGEST` — `BrokerChannels.Mqtt` bridges `IMqttClient.ApplicationMessageReceivedAsync` through one bounded channel onto the identical `IAsyncEnumerable<Fin<SensorEnvelope<T>>>` the NATS pump yields, so `Capture` consumes either dialect with no arm; `AutoAcknowledge` stays false with the ack riding the successful enqueue so a shed QoS 1/2 delivery redelivers, and the W3C pair extracts from `MqttApplicationMessage.UserProperties` through `ReadValueAsString` rather than the `[Obsolete]` `Value`. Parent adoption needed no row: the kernel `TraceCarrier.Parent` and `SpanEdge.Under` already own the ingress bracket, so the leg hands the carrier outward rather than re-minting it.
+[GEOMETRY_LAKE_EGRESS]-[COMPLETE]: realized in `.planning/Runtime/codecs#ARROW_BATCH` — `GeometryDataset` carries one `PackKind` corpus, `ArrowBatch.Geometry` wraps each kernel channel arena as a `FixedSizeList` column with zero gather, and `ArrowBatch.Landing` fills the custodian's `LandingArm.Geometry` row keying its tree on the kernel `PackSchema.SchemaId`; the arm arrived here because S0 reaches neither the landing coordinate nor `Apache.Arrow` and holds no geometry corpus. Category is LANDING-TIME: a content-addressed encode carries no observation clock, so the dataset declares no time column and no wall-clock metadata, which keeps a retry byte-identical.
+[DOE_LAKE_EGRESS]-[COMPLETE]: realized in `.planning/Runtime/codecs#ARROW_BATCH` — `ArrowBatch.Doe`/`Chargeback` seal the batches and `ArrowBatch.Landing` projects each onto the `LakeGeneration` coordinate `Rasm.Persistence` `Query/columnar#FLAT_TABLE_EGRESS` `Land` writes; the card's Flight push is refuted — the branch's one columnar custodian owns the landing door and Flight serves reads alone, so byte framing arises only where the `topology` axis splits the processes and the composition root frames it.
 [RUNTIME_HOOK_POINTS]-[COMPLETE]: realized in `.planning/Runtime/receipts#HOOK_POINTS` — `ComputeHookRail.Live` mints the five-point roster as kernel `HookPoint<TFact>` values, capsule fork-shield isolation parking `IsolatedFault` rows on the roster evidence cell; `rasm.compute.solve.iteration` landed as Replay depth 256, correcting the card's Observe claim.
 [ADAPTIVE_RESOURCE_GOVERNOR]-[COMPLETE]: realized in `.planning/Runtime/scheduling#CPU_BUDGET` — `ResourceGovernor.Steer` folds typed `UtilizationSample` values into the reserve-and-memory-scale re-resolve, `JobGraph` seals the effective memory limit onto every `JobRun`, and only a budget or spill transition returns a `Governor` fact; the `IResourceMonitor`/`ResourceUtilization` snapshot API is obsolete `EXTOBS0001`, so AppHost sources samples from the package's observable instruments.
 [TENANT_COST_LEDGER]-[COMPLETE]: realized in `.planning/Runtime/receipts#COST_LEDGER` — `CostPolicy`/`CostVector`/`ChargebackDataset` over the envelope-joined `ReceiptFolds.Journal` with the `rasm.compute.cost.units` lossy channel; the `libs` `[COST_ATTRIBUTION_BAGGAGE]` ripple end stays the estate tier's.
-[DASHBOARD_ALERT_DESCRIPTOR]-[COMPLETE]: realized in `.planning/Runtime/receipts#DASHBOARD_DESCRIPTOR` — `ComputeDescriptors.Panels` derives from `ReceiptSurface.Specs`, four `SloAlertRow` values ride `CanonicalBurn`, and `Probe` refuses drift at boot.
+[DASHBOARD_ALERT_DESCRIPTOR]-[COMPLETE]: realized in `.planning/Runtime/receipts#DASHBOARD_DESCRIPTOR` — one kernel `BoardPack` derives its panels from `ReceiptSurface.Specs`, four `ComputeObjective` rows derive their specs from the kernel burn table, and the pack rides the contributor port so the composing root admits it whole.
 [PROFILE_EVIDENCE_AXIS]-[COMPLETE]: realized in `.planning/Runtime/receipts#BENCHMARK_CLAIMS` (`ProfileArtifact` union) with `.planning/Model/inference.md` `RunOps.Profile` minting `ChromeTrace` from the admitted `ArtifactIndexRow` and the `#TELEMETRY_PROJECTION` span-identity correlation law.
 [STATS_STREAM_MONITORS]-[COMPLETE]: realized as `.planning/Stats/monitor.md` — `StreamMonitor` capsules (EWMA, P², `FittedModel` detector), `MonitorChannel` receipt extraction, the `Drift` receipt case, and the `MonitorLane.AsDetector` twin projection.
 [SOLVER_GEOTECHNICAL_CONSTITUTIVE]-[COMPLETE]: pressure-dependent frictional soil laws landed collapsed — `Solver/constitutive` `PlasticPotential` parameterizes `DruckerPrager`/`SmoothedMohrCoulomb`/`ModifiedCamClay` as seed data over one invariant generator, and `MaterialState` carries volumetric hardening, preconsolidation pressure, and pore pressure.
 [SOLVER_ARC_LENGTH_CONTINUATION]-[COMPLETE]: `Solver/contract` `SolveMethod.ArcLength` and `ArcLengthPolicy` enforce the Crisfield displacement/load constraint through predictor-corrector iterations across limit points on the landed Newton internal-force machinery.
 [ST_FDD]-[COMPLETE]: `Stats/signal` `Transform.Modal` runs the N-channel frequency-domain decomposition over Welch cross-PSD matrices, returning `ModalEstimate`/`MeasuredMode` with the full singular spectrum; `MeasuredMode` crosses to `Solver/clash#CLASH_AND_TWIN` as the FE-updating measured end.
+[COMPUTE_PACK_PROVENANCE]-[COMPLETE]: `ComputeDescriptors.Board` carries `compute.receipt` as the pack's own first column and the iac `_PACKS` tuple admits that key, so one spelling serves both ends; the card's `compute.descriptor` wording is refuted — the tuple never seated it, and the receipt surface names the subject this pack projects.

@@ -56,28 +56,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: `libs/typescript/.api/effect-experimental.md` `Sse.makeChannel`/`makeParser`/`encoder` codec rows and `Sse.Retry`; `read/live.md` `Live.of` three-modality bound; `ARCHITECTURE.md` `[SHAPE]: Live.changes` runtime seam.
 - Tension: Data owns the encode, runtime owns the route and connection lifecycle — the codec value crosses the seam, the HTTP server never enters this folder.
 
-[AUDIT_JOURNAL_SATISFACTION]-[QUEUED]: Security `AuditJournal` port lands on the durable plane — append-only audit-fact store with retention rows and per-subject crypto-shred integration.
-- Capability: Security-published fact rows persist through an append-only port satisfaction keyed by the standing `(app, tenant, subject)` custody spine — retention classes from the one policy table, subject-bearing fields sealed under the `SealedEnvelope`/`WrappedKey` algebra the retain page already composes, DSAR export and erasure riding the same subject spine — so breach evidence is durable receipt-truth aging under the same law as every journal fact.
-- Shape: `libs/typescript/data/.planning/journal/append.md` gains the `AuditJournal` port-satisfaction row beside the existing port grammar, and `libs/typescript/data/.planning/journal/retain.md` gains the audit retention-class row with its crypto-shred wiring.
-- Unlocks: Compliance export, session forensics, and the security board pack read one durable audit plane; erasing a subject shreds audit payloads without breaking the append-only log.
-- Anchors: security `access/audit.md` `AuditJournal` port (carded); `journal/retain.md` `SubjectKey` custody and `WrappedKey` erasure folds; `journal/append.md` publish transaction; `ARCHITECTURE.md` `[SHAPE]: SealedEnvelope` seam.
-- Tension: Audit facts are security's mint — this plane persists and ages them, never re-derives or reinterprets a fact.
-- Ripple: `security` `[SECURITY_FACT_RAIL]`.
-
-[QUERY_PROFILE_RECEIPT_BAND]-[BLOCKED]: Admitted pg, SQLite, and DuckDB-node harvests share `Pg.Profile`; wasm and ClickHouse parity awaits exact catalog contracts.
-- Capability: `_statements`/`_delta`/`_explain`, `_profiled`, and `_profile` emit one receipt shape without zero-forged evidence or interleaved session toggles.
-- Shape: `_PROFILE_ENGINES` contains only landed arms; `lane/olap.md` `[RESEARCH]` owns the wasm cell-projection and ClickHouse query-id questions.
-- Unlocks: pg, SQLite, and DuckDB-node harvests read one comparable profile-receipt band, query-cost evidence never a per-engine forgery or interleaved session toggle.
-- Anchors: `lane/postgres.md` `[06]-[PROFILE_HARVEST]`; `lane/sqlite.md` `[05]-[PROFILE_HARVEST]`; `lane/olap.md` `[06]-[PROFILE]` and `[08]-[RESEARCH]`.
-- Arms: `.api/duckdb-duckdb-wasm.md` and `.api/apache-arrow.md` declare the exact profile-cell projection and `.api/effect-sql-clickhouse.md` declares query-id scope and result contract.
-
-[LANE_INSTRUMENT_PROJECTION]-[BLOCKED]: Pool, OLAP, and outbox projections landed; cache census projection awaits its exact substrate member.
-- Capability: `_origins` projects pool leases, OLAP governor and quota brackets project wait/retry/defer, and `Journal.census` exposes outbox truth.
-- Shape: `lane/cache.md` terminal `[RESEARCH]` keeps cache hit, miss, and size gauges out of settled code until their evidence read is catalog-proven.
-- Unlocks: cache census joins the settled pool, OLAP, and outbox projections, lane health reading one instrument plane.
-- Anchors: `lane/cache.md` `[05]-[POOLS]`; `lane/olap.md` `_waited`/`_retried`/`_deferred`; `journal/append.md` `Journal.census`.
-- Arms: `libs/typescript/.api/effect.md` declares the exact `Cache.Cache` census member and return type.
-
 [OBJECT_CUSTODY_GENERATION]-[QUEUED]: Object-plane custody joins the backend generation instead of standing outside it.
 - Capability: bucket topology, lifecycle class, encryption custody, and retention lock become artifact rows the branch contract carries, so a generation states the whole durable surface rather than the relational half and a hydrate phase can prove object custody the same way it proves a catalog.
 - Shape: object-plane rows on `lane/capability.md` `[05]-[CONTRACT]` sources, with their observation adapters beside the existing provider rows.
@@ -99,6 +77,9 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[QUERY_PROFILE_RECEIPT_BAND]-[COMPLETE]: the browser arm landed and its blocker proved false — `conn.query` answers `Promise<arrow.Table>`, `Table.getChild(name)` selects the `explain_value` column by NAME with no positional column assumption, and `Vector.get(index)` reads a row off that selected column; `lane/olap.md` `_ROWED` normalizes both bounded grains and `lane/postgres.md` `_PROFILE_ENGINES` admits `duckdbWasm`.
+[AUDIT_JOURNAL_SATISFACTION]-[COMPLETE]: `journal/fact.md` `[05]-[RAIL]` landed `Fact.audits` — the security `AuditJournal` port satisfied by projecting each `AuditRecord` through the `_AUDITED` row table onto one `Fact.AuditDraft`, `action` derived from the registry point and `retention` from the point's lane class, subject-bearing fields sealed under `Retain.seal` before the draft leaves and `AuditFact` widened with the `subject`/`sealed` erasure pair; `fact_journal` gained its partial subject index and `retain.md` `[04]-[DSAR_EXPORT]` gained the fact leg, so export and erasure answer one custody coordinate across all three planes.
+[LANE_INSTRUMENT_PROJECTION]-[COMPLETE]: superseded by `[CACHE_CENSUS_SAMPLING]` — `lane/cache.md` `[05]-[POOLS]` carries `CacheLane.census(name, cache)` off the substrate's own `cacheStats` snapshot, so pool, OLAP, outbox, and cache projections all read one instrument plane and the arming catalog row landed at `libs/typescript/.api/effect.md`.
 [OBJECT_PLANE_INSTRUMENT_PROJECTION]-[COMPLETE]: object-plane instrument rows landed — `object/store.md` `[05]-[INSTRUMENT_ROWS]` `_measured`/`_reclaimed` off the receipt and sweep-mark folds, `object/stream.md` `_streamed` after durable re-home, reference commit, and staging retirement; core `convention.md` `[03]-[RASM_ROWS]` owns the exact vocabulary.
 [RELAY_CLOUDEVENTS_PROJECTION]-[COMPLETE]: `journal/append.md` `[07]-[RELAY_ROWS]` `_envelope` landed as `Journal.envelope` — strict-validated `CloudEvent` with component-encoded source coordinates, `rasmtenant`, and W3C trace extensions, verified against `libs/typescript/core/.api/cloudevents.md`; `runtime/ARCHITECTURE.md` `Data e20` mirrors the shape.
 [DATA_HOOK_TAP_REGISTRY]-[COMPLETE]: `journal/append.md` `[08]-[HOOK_POINTS]` landed the closed four-point registry with veto/observe fan and app-scoped Layer factory; taps armed at `object/stream.md` tus create/finalize, `object/file.md` gated intake, `journal/retain.md` erase tombstone, and the `lane/olap.md` escalation composition seam.

@@ -8,7 +8,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 <!-- source-only: open task card template:
 [ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
-- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Capability: <the higher-order invariant, owner capability, or concept established — concept grain only, never a page path, row list, or member spelling>.
 - Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
 - Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
 - Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
@@ -19,6 +19,13 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Atomic: <present only on a minor-scope task; names the small unit so a later session sizes its turn>.
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
+
+[SHADER_COMPILE_METER]-[QUEUED]: Bind the shader-compile counters to the compile fold that already knows the backend.
+- Capability: shader compile pressure and failure rate read as evidence at the grain every other AppUi declaration reaches, so a backend whose compiles fail is visible without a debugger attached.
+- Shape: a composition-bound projection beside the compile fold in `libs/csharp/Rasm.AppUi/.planning/Render/shading.md` `[02]`, writing both declared rows under a backend dimension slot the telemetry spine declares.
+- Unlocks: completeness bar — every AppUi instrument declaration has a writer, and every writer's tag keys are its declaration's `Dimensions`; the second half holds corpus-wide and these two rows are the whole remainder of the first.
+- Anchors: `libs/csharp/Rasm.AppUi/.planning/Render/pipeline.md` `Observe(InstrumentSet, FrameReceipt)` is the sibling shape; `libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md` `[03]-[TELEMETRY_SPINE]` owns the slot vocabulary both ends read.
+- Atomic: one projection and one slot const.
 
 [SESSION_ROLE_ROWS]-[QUEUED]: Enumerate the session role and capability rows and the `EditIntent` admission seam.
 - Capability: role vocabulary, per-role capability table, membership lifecycle, and the admission-gate fold the merge authority composes — every rejection a registry-derived `AppUiFaultBand.Collab` code.
@@ -38,13 +45,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Unlocks: `[HOST_SPRING_PARITY]` lands as a value-copy table with proof coordinates.
 - Anchors: `IDEAS.md` `[HOST_SPRING_PARITY]`; `SpringValue` `[ComplexValueObject]`.
 - Atomic: one parity-map table.
-
-[SIGNAL_CAPSULE_COMPOSE]-[QUEUED]: Diagnostics spine composes the kernel instrument spec and burn algebra — the folder twins retire.
-- Capability: instrument specs, their kind vocabulary, and the SLO burn windows arrive from the kernel capsule; the diagnostics spine keeps only its viewport tile and threshold projections.
-- Shape: `libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md` `[03]`/`[06]` — the folder spec records and the `SloCoordinate` window constants re-cut over the kernel `InstrumentSpec` and burn carrier.
-- Unlocks: a factor or vocabulary change lands once at the kernel; AppUi tiles and Compute rules stop diverging silently.
-- Anchors: `libs/csharp/.planning/RULINGS.md` instrument-spec and burn-rate rows; kernel `Domain/telemetry.md`.
-- Ripple: follows `Rasm` `[CAPSULE_EXTENSION_MINTS]`; mirrors `Rasm.Compute` `[SIGNAL_CAPSULE_COMPOSE]`.
 
 [MATH_ENGINE_VERIFY]-[QUEUED]: Prove the TeX-subset render through the admitted engine's painter path — the residual half of the math-engine question.
 - Capability: the required TeX subset renders through the one shaping rail and the offscreen capsule without a second text pipeline; closure resolution is settled — the engine is admitted and its binding draws into the leased `SKCanvas`.
@@ -75,10 +75,12 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 -->
 
 [BOARD_TILE_ROWS]-[COMPLETE]: tile-row table [01]-[10] and the `TelemetryBoard` spine landed in `libs/csharp/Rasm.AppUi/.planning/Charts/telemetry.md` `[02]-[BOARD_ROWS]`.
-[LEVEL_KIND_ROW]-[COMPLETE]: `InstrumentKind.Levels` row, keyed kernel `LevelCells` families, and fan-arm swaps landed in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md` `[03]-[TELEMETRY_SPINE]`.
+[LEVEL_KIND_ROW]-[COMPLETE]: keyed `LevelCells` families and their fan-arm swaps landed in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md` `[03]-[TELEMETRY_SPINE]`; the kind roster and its `Levels` declaration home at the kernel instrument mechanism.
 [WIRE_CONTEXT_FIELDS]-[COMPLETE]: carriage landed as `CollabWireContext`/`CollabFrame` frame metadata in `libs/csharp/Rasm.AppUi/.planning/Collab/sync.md` `[04]-[LIVE_WIRE]` with the ingest edge re-emitting envelope-carried context unchanged; the `CommitWith` origin-metadata claim was refuted — `CommitOptions` seals only change origin, timestamp, and message.
 [PRECOMMIT_TAP]-[COMPLETE]: `SubscribePreCommit` tap and `ExportJsonUpdates` window export landed as `LiveWire.TapPreCommit`/`ExportJson` with the devloop `CollabPreCommit`/`CollabJson` verbs.
 [BENCH_MATRIX_ROW]-[COMPLETE]: `BenchLane` derivation and the `FrameBench`/`Divergence` gate landed in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/proof.md`, judged through the AppHost `BenchmarkGate` with the dashboards benchmark layout fed off the envelope stream.
 [FLAME_SOURCE_PORT]-[COMPLETE]: `ProfileSampleSource` reads the AppHost `UiSchedulerPort.ProfileSamples` feed by correlation, and `FlameNode.Of` prefix-merges its AppHost-owned `ProfileSample` values in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/devloop.md` `[02]-[DEV_LOOP]`.
 [USAGE_RECEIPT_SHAPE]-[COMPLETE]: `TenantUsage` record, envelope-partition fold, and `TenantUsageWire` landed in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md` `[04]-[CORRELATION_JOIN]`.
-[SLO_COORD_PIN]-[COMPLETE]: the signal × window `SloCoordinate.Viewport` family with threshold columns and the `Burn` fold landed in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md` `[06]-[TS_PROJECTION]`.
+[SLO_COORD_PIN]-[COMPLETE]: superseded — the viewport indicators land as `ViewportObjectives` `Sli.Latency` rows against the composed frame budget in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md` `[03]-[TELEMETRY_SPINE]`, and the window, factor, severity, and burn fold derive from the kernel SLO algebra.
+[VIEWPORT_PACK_ON_PORT]-[COMPLETE]: viewport reliability policy rides the contributor port — `libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md` `[03]-[TELEMETRY_SPINE]` collapsed `ViewportObjectives` onto one `Pack(FrameBudget)` entry binding panels beside objectives off one row table, `AppUiTelemetry.Contribute` gained its pack-bearing twin, `Render/pipeline.md` `RenderGraph.TelemetryRow(version, budget)` carries that pack on the port declaring the three viewport series, and `Charts/telemetry.md` `SloTiles.Rows` reads its objectives.
+[SIGNAL_CAPSULE_COMPOSE]-[COMPLETE]: the folder `InstrumentKind`/`InstrumentSpec` twins and the `SloCoordinate` burn partial deleted against the kernel mechanism and SLO algebra; `AppUiTelemetry` keeps scope identity, the dimension-slot vocabulary, contribution, and mount, with every sibling `TelemetryRow` re-cut onto them. Kind vocabulary collapsed onto the `[JsonDerivedType]` roster behind `EvidenceOps.KindOf`/`Kinds`/`Probe`, `EvidenceFan` parks refused measurements on a composition cell, `TenantUsageFold` accrues off the decoded union, and `ViewportObjectives` dropped its window knob.

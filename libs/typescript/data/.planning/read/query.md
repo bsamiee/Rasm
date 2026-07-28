@@ -1,6 +1,12 @@
 # [DATA_QUERY]
 
-The typed CRUD engine of the read side: every row that leaves a relation enters domain code as a decoded value and every request that reaches a statement is schema-proven first. `SqlSchema` is the one polymorphic query surface — arity is the combinator (`findAll`, `findOne`, `single`, `void`), never a sibling name — and `SqlResolver` is its batched form, collapsing keyed N+1 fan-out into one round trip per window with write-through cache verbs riding the same resolver value. `Model.Class` is the one shape authority for every mutable relation: one field record derives all six wire variants through the field families, so the per-variant struct spam the naive read side mints is unspellable, and every embedded payload column carries its own schema authority — `Schema.Unknown` never stands where a consumer needs structure. `Query.Relation` owns the read side's identifier evidence, span identity, and batch timing as one admitted value; every relation, column, and facet name reaching an identifier position in DDL or a fragment derives its scalar evidence from that owner. `Query.table(model, spec)` binds a model to its whole bound surface once at service construction — typed reads, the repository, the windowed loaders, and the batch resolvers share one identity so the batch window and the resolver cache survive across calls. The record of truth is exempt by law: the journal never takes a repository, and this engine serves projection tables, ledgers, snapshots, and read models only.
+Typed CRUD rules the read side: every row leaving a relation enters domain code as a decoded value and every request reaching a statement proves against a schema first.
+
+`SqlSchema` is the one polymorphic query surface — arity is the combinator (`findAll`, `findOne`, `single`, `void`), never a sibling name — and `SqlResolver` is its batched form, collapsing keyed N+1 fan-out into one round trip per window with write-through cache verbs riding the same resolver value. `Model.Class` is the one shape authority for every mutable relation: one field record derives all six wire variants through the field families, so per-variant struct spam is unspellable and every embedded payload column carries its own schema authority.
+
+`Query.Relation` owns identifier evidence, span identity, and batch timing as one admitted value, so every identifier position derives its scalar evidence from that owner. `Query.table(model, spec)` binds a model to its whole bound surface once at construction, so typed reads, the repository, the windowed loaders, and the batch resolvers share one identity and the batch window and resolver cache survive across calls.
+
+Truth records stay exempt by law: the journal never takes a repository, and this engine serves projection tables, ledgers, snapshots, and read models alone.
 
 ## [01]-[INDEX]
 
@@ -21,7 +27,7 @@ The typed CRUD engine of the read side: every row that leaves a relation enters 
 - Law: exposure is structural — `Model.Sensitive` rides database variants and is stripped from every JSON variant, so a sealed payload or internal coordinate cannot reach the wire through any derived JSON shape; egress scrubbing at call sites is the rejected spelling.
 - Law: temporal stamps are family rows — `Model.DateTimeInsert`/`Model.DateTimeUpdate` mint on the rail at write, serialized per column type; a hand-stamped `now` beside a model restates the family.
 - Law: field names ARE column names — the folder's clients compose no name transforms, so every model field, `Result` struct key, and insert-row key carries the physical snake-case spelling; a camelCase field over a snake column is the silent-mismatch defect, and renaming for the wire is `Model.fieldFromKey` at the JSON variant, never a client transform.
-- Law: embedded JSON is `Model.JsonFromString` over the payload's OWN schema — TEXT in database variants, a decoded typed value in JSON variants — so the jsonb-versus-TEXT dialect difference lives in the model, no consumer parses a payload column, and no consumer meets `unknown` past the model boundary; `Schema.Unknown` inside a `JsonFromString` field is the deleted spelling, because it forces exactly the second admission this engine exists to prevent. The journal's raw envelope is the ONE exemption — its payload authority is `journal/evolve.md`'s upcast fold, applied per event, and that posture never generalizes to a read model.
+- Law: embedded JSON rides `Model.JsonFromString` over the payload's OWN schema — TEXT in database variants, a decoded typed value in JSON variants — so the jsonb-versus-TEXT dialect difference lives in the model, no consumer parses a payload column, and no consumer meets `unknown` past the model boundary; `Schema.Unknown` inside a `JsonFromString` field is the deleted spelling, because it forces exactly the second admission this engine exists to prevent. Journal envelopes stay the ONE exemption — `journal/evolve.md`'s upcast fold holds their payload authority per event, and that posture never generalizes to a read model.
 - Law: absence is `Model.FieldOption` — nullable in database variants, missing-key `Option` in JSON — one field, all variants optionalized; the sqlite boolean crossing is `Model.BooleanFromNumber`, dialect difference as a field fact.
 - Law: the JSON variants are the edge's material — `Row.json`/`jsonCreate`/`jsonUpdate` are the wire shapes a serving surface encodes and admits; a hand-declared DTO beside a model is the parallel-shape defect the variant system exists to kill.
 - Boundary: `journal_event` and `fact_journal` are append-only evidence — their models exist for row typing only and the repository ban on them is `journal/append.md`'s law; the retention `Sensitive` posture serves `journal/retain.md`'s DSAR export, which reads JSON variants and leaks nothing by construction.
@@ -32,7 +38,7 @@ import { Model } from "@effect/sql"
 import { AppIdentity, TenantContext } from "@rasm/ts/core"
 
 const _BoardState = Schema.Struct({
-  // the payload column's own authority: consumers reach board.state.lanes typed, no second decode anywhere
+  // payload columns carry their own authority: consumers reach board.state.lanes typed, no second decode anywhere
   lanes: Schema.Array(Schema.Struct({ key: Schema.NonEmptyString, order: Schema.Array(Schema.NonEmptyString) })),
   theme: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
 })
@@ -100,11 +106,11 @@ const _reads = (sql: SqlClient.SqlClient) => ({
 ## [04]-[RESOLVER_ROWS]
 
 - Owner: the batch-resolver vocabulary — the four `SqlResolver` rows, the bind-once identity law, and the write-through cache verbs; the general non-SQL batching engine is `read/batch.md`'s and these rows are its SQL specialization, fused with the decode law.
-- Packages: `@effect/sql` (`SqlResolver.ordered`, `SqlResolver.grouped`, `SqlResolver.findById`, `SqlResolver.void`, `ResultLengthMismatch`); `effect` (`Schema`, `Option`, `Effect`).
+- Packages: `@effect/sql` (`SqlResolver.ordered`, `SqlResolver.grouped`, `SqlResolver.findById`, `SqlResolver.void`, `SqlError.ResultLengthMismatch`); `effect` (`Schema`, `Option`, `Effect`).
 - Entry: `resolver.execute(input)` is the one call surface — every caller in a flow shares the bound resolver, so concurrent keyed reads collapse into one statement window; `Effect.withRequestCaching(true)` composed at the flow boundary deduplicates repeated keys across the whole graph, and the request-cache Layer is `lane/cache.md`'s `dedup` row.
 - Receipt: `cachePopulate(id, result)` seeds the resolver cache from a write's own returning row and `cacheInvalidate(id)` evicts on mutation — write-through coherence as resolver verbs, never a parallel cache map; the seed rides the write's own tap so a flow that inserts then reads never re-queries what it just proved.
 - Growth: a new keyed lookup is one resolver row; a one-to-many axis is `grouped`'s key pair, never a per-parent loop.
-- Law: row selection is the relation's answer shape — `ordered` for strict 1:1 position-matched batches where the statement echoes its inputs (`INSERT ... RETURNING` is the canonical form and `ResultLengthMismatch` guards the integrity), `grouped` for 1:N regrouped by extracted key, `findById` for id-keyed `Option` lookups, `void` for batched writes; choosing `ordered` where the statement drops misses is the integrity fault the guard exists to surface — the `StreamHead` row rides `findById` for exactly this reason, because a stream with zero events is a lawful `Option.none` the caller folds to head zero, never a length mismatch.
+- Law: row selection is the relation's answer shape — `ordered` for strict 1:1 position-matched batches where the statement echoes its inputs (`INSERT ... RETURNING` is the canonical form and `SqlError.ResultLengthMismatch` guards the integrity), `grouped` for 1:N regrouped by extracted key, `findById` for id-keyed `Option` lookups, `void` for batched writes; choosing `ordered` where the statement drops misses is the integrity fault the guard exists to surface — the `StreamHead` row rides `findById` for exactly this reason, because a stream with zero events is a lawful `Option.none` the caller folds to head zero, never a length mismatch.
 - Law: resolvers bind once at the owning service construction — batch windows group by resolver identity, so a resolver minted per call defeats the window structurally; the same law governs the fused accessors of `[3]`.
 - Law: the batch statement is one set-shaped query — `sql.in` over the window's keys, `GROUP BY`/window functions where the group row demands — never a per-request statement inside the resolver body.
 - Boundary: the `StreamHead` row reads `journal_event` under `journal/append.md`'s published read contract — the columns it touches are the append page's declared evidence surface, the repository ban holds, and the fused resolver wins here because the provider IS the database.
@@ -129,7 +135,7 @@ const _resolverRows = (sql: SqlClient.SqlClient) => ({
     execute: (cells) => sql`SELECT cell, member FROM board_member WHERE ${sql.in("cell", cells)}`,
   }),
   minted: SqlResolver.ordered("MintBoard", {
-    // the echo statement: insert order is answer order, and a dropped row is ResultLengthMismatch, never silence
+    // echo statements answer in insert order, and a dropped row raises SqlError.ResultLengthMismatch rather than passing silently
     Request: Board.insert,
     Result: Board,
     execute: (rows) => sql`INSERT INTO board ${sql.insert(rows)} RETURNING *`,

@@ -4,11 +4,11 @@ Rasm.Persistence owns one content-addressed artifact index, model-result recency
 
 ## [01]-[INDEX]
 
-- [01]-[ARTIFACT_BLOB_INDEX]: the `ArtifactKind` taxonomy axis, the content-keyed `ArtifactIndexRow` admission, and the source-keyed projection fold.
-- [02]-[MODEL_RESULT_INDEX]: the per-call `ModelResultKey`, the content-addressed `ModelResultIndex` recency/dedup horizon owner with the horizon gate folded into the lookup, and the lookup/publish reuse seam.
-- [03]-[BENCHMARK_INDEX]: the `BenchmarkFamily` standing corpus roster, the `BenchmarkRow` durable claim row, and the fingerprint-gated, recency-bounded `Claim` resolution.
-- [04]-[L2_CONTRIBUTION]: the `Store`-keyed `IBufferDistributedCache` buffer-contract L2 store, the one `IHybridCacheSerializerFactory` MessagePack codec, the `TenantId`-partitioned content-address key the AppHost cache port resolves over, and the `CacheLane.Store`-gated Redis invalidation backplane beside it.
-- [05]-[INDEX_RESIDENCY]: the `IndexResidency` deployment axis (`marten-pg` default · `scylla-widecolumn` scale-out), the LWT claim-gated wide-column admission and `PagingState` sweep, and the `WideColumnFault` one-boundary `DriverException` fold.
+- [02]-[ARTIFACT_BLOB_INDEX]: the `ArtifactKind` taxonomy axis, the content-keyed `ArtifactIndexRow` admission, and the source-keyed projection fold.
+- [03]-[MODEL_RESULT_INDEX]: the per-call `ModelResultKey`, the content-addressed `ModelResultIndex` recency/dedup horizon owner with the horizon gate folded into the lookup, and the lookup/publish reuse seam.
+- [04]-[BENCHMARK_INDEX]: the `BenchmarkFamily` standing corpus roster, the `BenchmarkRow` durable claim row, and the fingerprint-gated, recency-bounded `Claim` resolution.
+- [05]-[L2_CONTRIBUTION]: the `Store`-keyed `IBufferDistributedCache` buffer-contract L2 store, the one `IHybridCacheSerializerFactory` MessagePack codec, the `TenantId`-partitioned content-address key the AppHost cache port resolves over, and the `CacheLane.Store`-gated Redis invalidation backplane beside it.
+- [06]-[INDEX_RESIDENCY]: the `IndexResidency` deployment axis (`marten-pg` default · `scylla-widecolumn` scale-out), the LWT claim-gated wide-column admission and `PagingState` sweep, and the `WideColumnFault` one-boundary `DriverException` fold.
 
 ## [02]-[ARTIFACT_BLOB_INDEX]
 
@@ -38,6 +38,7 @@ using MessagePack;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Hybrid;
 using NodaTime;
+using Rasm.Domain;                                // TenantId — the frame tenancy the partition digests
 using Rasm.Persistence.Element;
 using Rasm.Persistence.Version;
 using StackExchange.Redis;
@@ -366,7 +367,7 @@ public sealed record BenchmarkRow {
 - Receipt: the L2 contribution emits no cache fact of its own — hit/miss/evict are the AppHost `HybridCacheOptions.ReportTagMetrics` consequences metered by lane tag, and the durable row lifecycle is the `Version/retention` `cache`/`blob` sweep's; the contribution is a storage + codec leg, never a second receipt stream.
 - Packages: Microsoft.Extensions.Caching.Hybrid (`IBufferDistributedCache`/`IHybridCacheSerializer<T>`/`IHybridCacheSerializerFactory`/`HybridCache.RemoveAsync`/`RemoveByTagAsync`), Marten (`IDocumentStore`), MessagePack (`MessagePackSerializer`), StackExchange.Redis (`ConfigurationOptions.Protocol`/`RedisProtocol.Resp3`/`IConnectionMultiplexer.GetDatabase`/`GetSubscriber`/`IDatabase.ExecuteAsync`/`ISubscriber.SubscribeAsync`/`ChannelMessageQueue`/`RedisChannel`), Rasm.Element (`ContentAddress`), LanguageExt.Core, BCL inbox.
 - Growth: a new L2 topology is one composition row; a new payload type uses the existing factory; a new invalidation posture is one `InvalidationMode` case. Redis deployment composes `Configure`, `EnableTracking`, and `Drain(Tracking, token)`; beat deployments use `Drain(Beat, token)`.
-- Boundary: Persistence contributes exactly ONE L2 store row (the `IBufferDistributedCache` buffer-contract storage that spares the cache-runtime intermediate-array copy, persisting one `byte[]` at the Marten document seam) and ONE `IHybridCacheSerializerFactory` (the MessagePack codec for every payload `T`), registered through the AppHost `CacheSurface.Register(services, contributed)` `AddSerializerFactory` on every keyed builder, never a per-type `AddSerializer<T>`; the AppHost `HybridCache` runtime composes ON TOP — `GetOrCreateAsync` drives stampede-protected single-flight population, `RemoveByTagAsync` cuts a lane by its key tag, and the `HybridCacheEntryFlags` lane axis (`DisableLocalCache` on the `ArtifactBlob` lane so an oversized GLB never pins L1, `None` on the `ModelResult` lane) is the per-lane L1/L2 routing — so the L1+stampede+tag-invalidation half is the AppHost port's and the L2-store+serializer half is this contribution, one cache owner across both and never a second; the L2 wire is the `messagepack` `SnapshotCodec.Binary` row so the durable cache bytes and the snapshot/event bytes share one codec and one `Instant` formatter, never a cache-local serializer; the content-address key partitions by `TenantId` through `Scoped` so the `#MODEL_RESULT_INDEX` `ModelResultKey.ToString` lane key and the `#ARTIFACT_BLOB_INDEX` content key both read one tenant-scoped identity exactly as `Element/identity#ELEMENT_IDENTITY` scopes the durable row by `current_setting('rasm.tenant')::uuid`; tag invalidation is an explicit cache capability and never substitutes for durable store integrity — a tag cut is a logical miss-until-expiry, the `RemoveAsync` physical delete its sibling, and the durable reuse rows live on the retention sweep, not the cache TTL; the backplane is LOSSY BY DESIGN — a missed beat is a TTL-bounded stale read, never corruption (the presence-lane precedent), because correctness lives in the durable index rows and the runtime's self-describing expiry envelope, so the beat channel is a latency optimization the deployment composes only where the Redis `Store` row is live; hardening the backplane into a delivery guarantee creates a second reliability owner beside `Version/egress`, the deleted form.
+- Boundary: Persistence contributes exactly ONE L2 store row (the `IBufferDistributedCache` buffer-contract storage that spares the cache-runtime intermediate-array copy, persisting one `byte[]` at the Marten document seam) and ONE `IHybridCacheSerializerFactory` (the MessagePack codec for every payload `T`), registered through the AppHost `CacheSurface.Register(services, contributed)` `AddSerializerFactory` on every keyed builder, never a per-type `AddSerializer<T>`; the AppHost `HybridCache` runtime composes ON TOP — `GetOrCreateAsync` drives stampede-protected single-flight population, `RemoveByTagAsync` cuts a lane by its key tag, and the `HybridCacheEntryFlags` lane axis (`DisableLocalCache` on the `ArtifactBlob` lane so an oversized GLB never pins L1, `None` on the `ModelResult` lane) is the per-lane L1/L2 routing — so the L1+stampede+tag-invalidation half is the AppHost port's and the L2-store+serializer half is this contribution, one cache owner across both and never a second; the L2 wire is the `messagepack` `SnapshotCodec.Binary` row so the durable cache bytes and the snapshot/event bytes share one codec and one `Instant` formatter, never a cache-local serializer; the content-address key partitions by `TenantId` through `Scoped` so the `#MODEL_RESULT_INDEX` `ModelResultKey.ToString` lane key and the `#ARTIFACT_BLOB_INDEX` content key both read one tenant-scoped identity exactly as `Element/identity#ELEMENT_IDENTITY` scopes the durable row by `current_setting('rasm.tenant')` over the kernel's canonical tenant text; tag invalidation is an explicit cache capability and never substitutes for durable store integrity — a tag cut is a logical miss-until-expiry, the `RemoveAsync` physical delete its sibling, and the durable reuse rows live on the retention sweep, not the cache TTL; the backplane is LOSSY BY DESIGN — a missed beat is a TTL-bounded stale read, never corruption (the presence-lane precedent), because correctness lives in the durable index rows and the runtime's self-describing expiry envelope, so the beat channel is a latency optimization the deployment composes only where the Redis `Store` row is live; hardening the backplane into a delivery guarantee creates a second reliability owner beside `Version/egress`, the deleted form.
 
 ```csharp signature
 // --- [SERVICES] ---------------------------------------------------------------------------
@@ -456,23 +457,26 @@ public abstract partial record InvalidationMode {
 // --- [OPERATIONS] -------------------------------------------------------------------------
 
 public static class CachePartition {
-    // `frame.Tenant` supplies the injected tenant; no ambient tenant context exists. CacheL2Store derives every
-    // durable row key through THIS scope, and the AppHost `CacheLane.Scoped` folds the same tenant into the L1/L2
-    // logical key — one tenant-partition law at both seam endpoints, so an equal content key under two tenants
-    // yields two cache identities everywhere.
-    public static string Scoped(CacheTier tier, UInt128 tenant, UInt128 content) {
+    // `frame.Tenant.TenantId` supplies the injected tenant; no ambient tenant context exists. CacheL2Store
+    // derives every durable row key through THIS scope, and the AppHost `CacheLane.Scoped` folds the same tenant
+    // into the L1/L2 logical key — one tenant-partition law at both seam endpoints, so an equal content key under
+    // two tenants yields two cache identities everywhere. The AppHost `CacheLane.Tag` owner space is the DISJOINT
+    // sibling: lane-framed under `/` where every key space here joins on `:`, it addresses the runtime tag index
+    // alone and never reaches a durable row, so a lane-scoped cut and a stored row can never name each other.
+    public static string Scoped(CacheTier tier, TenantId tenant, UInt128 content) {
         Span<byte> partition = stackalloc byte[16];
-        BinaryPrimitives.WriteUInt128BigEndian(partition, tenant);
+        BinaryPrimitives.WriteUInt128BigEndian(partition, tenant.Value);
         return string.Create(CultureInfo.InvariantCulture, $"{tier.Key}:{ContentAddress.Of(partition).Value:x32}:{content:x32}");
     }
 }
 
 // `InvalidationBackplane` carries one lossy channel per store and tenant; TTL bounds missed beats.
 // RESP3 tracking converts server invalidations into matching `HybridCache` removals.
-public sealed class CacheBackplane(IConnectionMultiplexer connection, HybridCache cache, CacheToken storeKey, UInt128 tenant) {
-    // Composition supplies one injected tenant source for channel and key partitioning.
+public sealed class CacheBackplane(IConnectionMultiplexer connection, HybridCache cache, CacheToken storeKey, TenantId tenant) {
+    // Composition supplies one injected tenant source for channel and key partitioning; the channel spells the
+    // kernel `Text` render, so a beat channel and the durable partition it invalidates name one tenant alike.
     public RedisChannel Channel =>
-        RedisChannel.Literal(string.Create(CultureInfo.InvariantCulture, $"rasm.cache.{storeKey}:{tenant:x32}"));
+        RedisChannel.Literal(string.Create(CultureInfo.InvariantCulture, $"rasm.cache.{storeKey}:{tenant.Text}"));
 
     public static ConfigurationOptions Configure(ConfigurationOptions options) {
         options.Protocol = RedisProtocol.Resp3;
@@ -603,8 +607,11 @@ public abstract partial record WideColumnFault : Expected, IValidationError<Wide
 
 // --- [MODELS] -----------------------------------------------------------------------------
 // CQL partitions index mirrors by tenant and kind, then clusters by descending stamp and content.
-// Content keys cross as sixteen big-endian bytes; classification and source key remain columns.
-public sealed record WideColumnRow(Guid Tenant, string Kind, Instant At, byte[] Content, string Key, long Bytes, string Classification, byte[]? SourceKey);
+// Content keys cross as sixteen big-endian bytes; classification and source key remain columns. `Tenant` is
+// the CQL-`text` edge projection of the kernel `TenantId.Text` — the SAME spelling the RLS column, the blame
+// header, the object-name prefix, and the meter tag carry, so an index partition joins those surfaces by text
+// equality; a CQL `uuid` column would re-encode the same 128 bits under Guid field order and fork the key.
+public sealed record WideColumnRow(string Tenant, string Kind, Instant At, byte[] Content, string Key, long Bytes, string Classification, byte[]? SourceKey);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class WideColumnIndex {
@@ -636,14 +643,14 @@ public static class WideColumnIndex {
     // never a full-table read, and the cursor is a byte[] the caller re-presents.
     public static IO<Fin<(Seq<WideColumnRow> Rows, Option<byte[]> Cursor)>> Sweep(
         Mapper mapper,
-        Guid tenant,
+        TenantId tenant,
         ArtifactKind kind,
         CachePageSize pageSize,
         CacheToken executionProfile,
         Option<byte[]> cursor) =>
         IO.liftAsync(async () => {
             IPage<WideColumnRow> page = await mapper.FetchPageAsync<WideColumnRow>(
-                Cql.New("WHERE tenant = ? AND kind = ?", tenant, kind.Key)
+                Cql.New("WHERE tenant = ? AND kind = ?", tenant.Text, kind.Key)
                 .WithExecutionProfile((string)executionProfile)
                 .WithOptions(options => {
                     _ = options.SetPageSize((int)pageSize);

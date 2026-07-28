@@ -13,12 +13,12 @@
 ## [02]-[PROJECTION]
 
 - Owner: `Converge.admit` is the one entry — it proves the served topology, folds the backend input to one projection, and constructs the tier; IaC never re-decodes or re-hashes generated artifacts.
-- Backend: the input discriminates on shape — one `Backend.Projection` realizes directly, an array of branch contributions folds through `Backend.merge` first, so a single-language and a three-language application enter identically.
-- Axis: `service` and `edge` are the topology values this tier serves out of the closed roster `program/spec.md` owns; an in-host, sidecar, companion, or cli composition carries no cluster to converge against and refuses at admission with `ConvergeRefused` naming the axis and the rejected value.
-- Profile: the topology arrives as one caller-supplied row, so a `StackSpec.Profile` satisfies it structurally and a composition root outside this estate supplies its own — the tier reads deployment shape and infers none.
-- Files: one immutable ConfigMap carries `contract.json`, `contract.schema.json`, and `contract.conformance.json`.
-- Target: caller-owned provider resources arrive as one readiness dependency and environment coordinates.
-- Runner: one image and command own every phase; the phase table carries only argument vectors.
+- Cases: the input discriminates on shape — one `Backend.Projection` realizes directly, an array of branch contributions folds through `Backend.merge` first, so a single-language and a three-language application enter identically.
+- Law: `service` and `edge` are the topology values this tier serves out of the closed roster `program/spec.md` owns; an in-host, sidecar, companion, or cli composition carries no cluster to converge against and refuses at admission with `ConvergeRefused` naming the axis and the rejected value.
+- Law: the topology arrives as one caller-supplied row, so a `StackSpec.Profile` satisfies it structurally and a composition root outside this estate supplies its own — the tier reads deployment shape and infers none.
+- Law: one immutable ConfigMap carries `contract.json`, `contract.schema.json`, and `contract.conformance.json`.
+- Law: caller-owned provider resources arrive as one readiness dependency and environment coordinates.
+- Law: one image and command own every phase; the phase table carries only argument vectors.
 - Boundary: generated files and the deployment fence schedule work; only a completed proof Job admits publication.
 
 ```typescript signature
@@ -114,11 +114,11 @@ const _projected = (
 ## [03]-[RUNNER_FOLD]
 
 - Owner: `_runner` lowers one phase row into a single-attempt Job mounted against the immutable generated files.
-- Order: `Array.mapAccum` threads target readiness through `materialize → hydrate → prove`, mapping each phase to its `[phase, job]` pair, so the fold yields a phase-keyed record and no callback graph or parallel plan exists.
-- Materialize: provider-native owners create an empty target and apply their framework artifacts.
-- Hydrate: canonical journals, event stores, objects, or typed copy projections populate the target.
-- Prove: runner reads realized catalogs and data frontiers, builds `Backend.Observation`, and exits only after `Backend.admit`.
-- Failure: `backoffLimit: 0` and `activeDeadlineSeconds` preserve one terminal observation per deployment attempt.
+- Law: provider-native owners create an empty target and apply their framework artifacts.
+- Law: canonical journals, event stores, objects, or typed copy projections populate the target.
+- Law: runner reads realized catalogs and data frontiers, builds `Backend.Observation`, and exits only after `Backend.admit`.
+- Law: `backoffLimit: 0` and `activeDeadlineSeconds` preserve one terminal observation per deployment attempt.
+- Auto: `Array.mapAccum` threads target readiness through `materialize → hydrate → prove`, mapping each phase to its `[phase, job]` pair, so the fold yields a phase-keyed record and no callback graph or parallel plan exists.
 - Packages: `@pulumi/kubernetes` typed `ConfigMap` and `Job`; `@pulumi/pulumi` resource dependency algebra.
 
 ```typescript signature
@@ -189,12 +189,12 @@ const _runner = (
 
 ## [04]-[PUBLICATION]
 
-- Evidence: one immutable retained ConfigMap records generation, proof Job UID, manifest name, and deployment fence.
-- Pointer: one stable ConfigMap publishes the evidence name only after proof completion; its update is the atomic cutover.
-- Gate: `_PROOF` names the gating phase, so the publication reads `jobs[_PROOF]` by identity and a phase appended to `_PHASES` extends the fold without re-pointing what publication waits on.
-- Fence: one Automation stack owns the pointer; its serialized update and one ConfigMap write close the publication edge.
-- Rollback: a retained predecessor re-enters the same proof fold before pointer selection; no bypassing rollback verb exists.
-- Retention: manifest and evidence resources use `retainOnDelete`; policy-driven collection owns expiry outside this tier.
+- Law: one stable ConfigMap publishes the evidence name only after proof completion; its update is the atomic cutover.
+- Law: `_PROOF` names the gating phase, so the publication reads `jobs[_PROOF]` by identity and a phase appended to `_PHASES` extends the fold without re-pointing what publication waits on.
+- Law: one Automation stack owns the pointer; its serialized update and one ConfigMap write close the publication edge.
+- Law: a retained predecessor re-enters the same proof fold before pointer selection; no bypassing rollback verb exists.
+- Law: contract and evidence ConfigMaps use `retainOnDelete`; policy-driven collection owns expiry outside this tier.
+- Receipt: one immutable retained ConfigMap records generation, contract ConfigMap name, proof Job UID, and deployment fence.
 - Boundary: service and worker readiness compare the pointer with their locally admitted `Backend.Generation`.
 
 ```typescript signature

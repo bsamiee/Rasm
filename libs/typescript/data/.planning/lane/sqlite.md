@@ -1,6 +1,6 @@
 # [DATA_SQLITE]
 
-ONE sqlite lane runs journal, projection, tenancy, and capability contracts across node, bun, wasm-OPFS, libSQL, and D1. A TOTAL degradation table keys the spine's `Pg.Grant` union in both directions, so new or foreign grants fail its declaration. Runtime-subpath Layer rows select drivers; neutral statements use `sql.onDialectOrElse`. Server profiles use WAL and one writer, OPFS narrows to one tab, and edge profiles serialize at the primary.
+ONE sqlite lane runs journal, projection, tenancy, and capability contracts across node, bun, wasm-OPFS, libSQL, and D1. Degradation rows key the spine's `Pg.Grant` union in both directions, so new or foreign grants fail at that declaration. Runtime-subpath Layer rows select drivers; neutral statements use `sql.onDialectOrElse`. Server profiles use WAL and one writer, OPFS narrows to one tab, and edge profiles serialize at the primary.
 
 ## [01]-[INDEX]
 
@@ -17,10 +17,13 @@ ONE sqlite lane runs journal, projection, tenancy, and capability contracts acro
 - Owner: the `_degrades` anchor — one row per `Pg.Grant` member, carrying a verdict per embedded-profile column; the derived `Sqlite.Fallback` union every consumer dispatches on, and the two-directional guard pair binding the key space to the spine's grant union.
 - Packages: none — the table is pure vocabulary over `lane/postgres.md`'s grant keys, reached through the one `Pg` import.
 - Growth: a new spine grant breaks `_Rows` at this declaration the day it lands in the matrix — completeness is a compile fact, never a census; another embedded profile is one more column across every row.
-- Law: the pglite column prices an embedded POSTGRESQL engine, so a spine grant it inherits reads `builtIn`, single-connection residency answers the concurrency primitives, and every extension grant reads `extensionOption` because a `PGlite.create` option row is the one admission shape — presence stays the capability probe's answer, never a column's claim. `engineVersion` marks the grants the embedded PostgreSQL major decides, the generation policy pinning that major as deployment data.
+- Law: the pglite column prices an embedded POSTGRESQL engine, so a spine grant it inherits reads `builtIn` and single-connection residency answers the concurrency primitives. `extensionOption` names a `PGlite.create` option row the pin's OWN contrib set can fill — presence at composition stays the capability probe's answer, never a column's claim — so a grant whose provider that set does not ship reads `none` beside every other profile refusing it, and one whose fallback is app-side reads that fallback: an `extensionOption` standing for an extension nobody can install advertises a knob a consumer gate then waits on forever.
+- Law: the embedded engine answers `uuidv7`, `merge`, `returningOldNew`, `virtualGenerated`, and `temporal` natively, so each reads `builtIn`.
+- Law: `skipScan` rides the embedded planner, so the column reads `plannerOwned` exactly as every server profile does.
+- Law: `asyncIo` reads `none` on every column — the embedded build launches single-user under synchronous IO with no worker process.
 - Law: `Sqlite.Lane` narrows the column set to the four profiles the sqlite statements serve; pglite runs neither `EXPLAIN QUERY PLAN` nor the page pragmas, so its diagnosis rides the PostgreSQL EXPLAIN arm and its harvest row prices every sqlite evidence source absent.
 - Law: the table is consumed, never consulted ad hoc — the projection wake reads `channel` through the optional `PgClient` service, the append lock arm reads `advisory` through `onDialectOrElse`, tenancy reads `rls` by never constructing `Tenancy` scopes on this lane; the rows document dispatch that already exists in the statements.
-- Law: `none` is a lawful verdict — analytics, geo, h3, timeseries, graphql, audit, statements, and asyncIo have no substitute, so consumer gates refuse them; guards make an absent row impossible. `statements` is `none` on every profile because the `sqlite3_stmt_status` C counters are unreachable through every admitted driver — the harvest table already prices the same refusal as `stmtStatus`, and the explicit harness-timed diagnosis arm is evidence, never a cumulative-statistics substitute.
+- Law: `none` is a lawful verdict — analytics, geo, h3, timeseries, graphql, audit, parquet, and asyncIo have no substitute on any embedded profile, so consumer gates refuse them; guards make an absent row impossible. `statements` is `none` on every sqlite profile because the `sqlite3_stmt_status` C counters are unreachable through every admitted driver — the harvest table already prices the same refusal as `stmtStatus`, and the explicit harness-timed diagnosis arm is evidence, never a cumulative-statistics substitute.
 - Law: the lane is capability-different — `bm25` degrades to FTS5, `vector` to a server extension or libSQL built-in, `virtualGenerated` and `skipScan` are engine-native, and every profile includes FTS5 and JSONB.
 - Law: evidence grants degrade to composed statements — `returningOldNew` pairs RETURNING with a transactional pre-image, `conflictClaim` uses an explicit upsert marker, `merge` uses upsert arms, and `temporal` uses a single-writer overlap check.
 - Law: tenancy verdicts are residency verdicts — file-per-app on the server profiles, origin scope in the browser, database-per-tenant on both edge rows where cheap databases are the platform model; the RLS policy family never runs here.
@@ -35,33 +38,33 @@ const _degrades = {
   advisory: { server: "singleWriter", wasm: "singleTab", libsql: "primarySerialized", d1: "primarySerialized", pglite: "singleWriter" },
   skipLocked: { server: "singleWriter", wasm: "singleTab", libsql: "primarySerialized", d1: "primarySerialized", pglite: "singleWriter" },
   conflictClaim: { server: "conflictChanges", wasm: "conflictChanges", libsql: "conflictChanges", d1: "conflictChanges", pglite: "builtIn" },
-  merge: { server: "upsert", wasm: "upsert", libsql: "upsert", d1: "upsert", pglite: "engineVersion" },
+  merge: { server: "upsert", wasm: "upsert", libsql: "upsert", d1: "upsert", pglite: "builtIn" },
   copy: { server: "chunkedInsert", wasm: "chunkedInsert", libsql: "chunkedInsert", d1: "batchInsert", pglite: "builtIn" },
-  uuidv7: { server: "appMint", wasm: "appMint", libsql: "appMint", d1: "appMint", pglite: "engineVersion" },
-  returningOldNew: { server: "preRead", wasm: "preRead", libsql: "preRead", d1: "preRead", pglite: "engineVersion" },
-  virtualGenerated: { server: "builtIn", wasm: "builtIn", libsql: "builtIn", d1: "builtIn", pglite: "engineVersion" },
-  temporal: { server: "appCheck", wasm: "appCheck", libsql: "appCheck", d1: "appCheck", pglite: "engineVersion" },
-  skipScan: { server: "plannerOwned", wasm: "plannerOwned", libsql: "plannerOwned", d1: "plannerOwned", pglite: "engineVersion" },
-  asyncIo: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "engineVersion" },
+  uuidv7: { server: "appMint", wasm: "appMint", libsql: "appMint", d1: "appMint", pglite: "builtIn" },
+  returningOldNew: { server: "preRead", wasm: "preRead", libsql: "preRead", d1: "preRead", pglite: "builtIn" },
+  virtualGenerated: { server: "builtIn", wasm: "builtIn", libsql: "builtIn", d1: "builtIn", pglite: "builtIn" },
+  temporal: { server: "appCheck", wasm: "appCheck", libsql: "appCheck", d1: "appCheck", pglite: "builtIn" },
+  skipScan: { server: "plannerOwned", wasm: "plannerOwned", libsql: "plannerOwned", d1: "plannerOwned", pglite: "plannerOwned" },
+  asyncIo: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "none" },
   ivm: { server: "asyncLane", wasm: "inTabFold", libsql: "appSide", d1: "none", pglite: "extensionOption" },
-  cron: { server: "hostSchedule", wasm: "none", libsql: "appSide", d1: "platformCron", pglite: "extensionOption" },
+  cron: { server: "hostSchedule", wasm: "none", libsql: "appSide", d1: "platformCron", pglite: "none" },
   partition: { server: "snapshotTruncate", wasm: "snapshotTruncate", libsql: "appSide", d1: "none", pglite: "builtIn" },
-  incremental: { server: "checkpointLane", wasm: "none", libsql: "none", d1: "none", pglite: "extensionOption" },
-  vector: { server: "loadExtension", wasm: "none", libsql: "builtIn", d1: "none", pglite: "extensionOption" },
-  vchord: { server: "loadExtension", wasm: "none", libsql: "builtIn", d1: "none", pglite: "extensionOption" },
-  bm25: { server: "fts5", wasm: "fts5", libsql: "fts5", d1: "fts5", pglite: "extensionOption" },
+  incremental: { server: "checkpointLane", wasm: "none", libsql: "none", d1: "none", pglite: "none" },
+  vector: { server: "loadExtension", wasm: "none", libsql: "builtIn", d1: "none", pglite: "none" },
+  vchord: { server: "loadExtension", wasm: "none", libsql: "builtIn", d1: "none", pglite: "none" },
+  bm25: { server: "fts5", wasm: "fts5", libsql: "fts5", d1: "fts5", pglite: "none" },
   trigram: { server: "fts5", wasm: "fts5", libsql: "fts5", d1: "fts5", pglite: "extensionOption" },
   phonetic: { server: "loadExtension", wasm: "none", libsql: "none", d1: "none", pglite: "extensionOption" },
   fuzzy: { server: "loadExtension", wasm: "none", libsql: "none", d1: "none", pglite: "extensionOption" },
-  jsonschema: { server: "schemaDecode", wasm: "schemaDecode", libsql: "schemaDecode", d1: "schemaDecode", pglite: "extensionOption" },
+  jsonschema: { server: "schemaDecode", wasm: "schemaDecode", libsql: "schemaDecode", d1: "schemaDecode", pglite: "schemaDecode" },
   statements: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "extensionOption" },
-  parquet: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "extensionOption" },
-  analytics: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "extensionOption" },
-  graphql: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "extensionOption" },
-  audit: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "extensionOption" },
-  geo: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "extensionOption" },
-  h3: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "extensionOption" },
-  timeseries: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "extensionOption" },
+  parquet: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "none" },
+  analytics: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "none" },
+  graphql: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "none" },
+  audit: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "none" },
+  geo: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "none" },
+  h3: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "none" },
+  timeseries: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "none" },
 } as const
 
 declare namespace Sqlite {
@@ -142,22 +145,22 @@ const _libsql: Layer.Layer<LibsqlClient.LibsqlClient | SqlClient.SqlClient, Conf
     syncInterval: Config.integer("DATA_LIBSQL_SYNC_SECONDS").pipe(Config.withDefault(30)),
   })
 
-const _d1 = (db: D1Database): Layer.Layer<D1Client.D1Client | SqlClient.SqlClient, ConfigError.ConfigError | SqlError.SqlError> =>
+const _d1 = (db: D1Client.D1ClientConfig["db"]): Layer.Layer<D1Client.D1Client | SqlClient.SqlClient, ConfigError.ConfigError | SqlError.SqlError> =>
   D1Client.layer({ db })
 ```
 
 ## [04]-[PGLITE_PROFILE]
 
 - Owner: `PgliteRuntime.layer` creates, hydrates, observes, and admits one unpublished PGLite generation.
-- Lifecycle: `PGlite.create` and `close` form one scoped acquire/release; one semaphore owns the single-user connection.
-- Transaction: transaction acquisition holds the permit through begin, body, commit or rollback; statement execution cannot interleave.
-- Execution: `PgClient.makeCompiler` compiles neutral fragments; PGLite receives SQL and bound parameters through `query`.
-- Stream: source streaming fails typed because `PGliteInterface` exposes materialized results only.
-- Hydration: `PgliteSeed` closes empty, logical SQL, and physical PGDATA inputs; only creation accepts physical state.
-- Snapshot: `snapshot` discriminates physical `dumpDataDir` and logical `pgDump`; both exclude statements for their complete run.
-- Boundary: coordinates derive from admitted generation policy; caller options cannot set recovery, durability, or server configuration.
-- Growth: storage residency is one coordinate policy row; an extension is one typed `PGlite.create` option row.
+- Law: `PGlite.create` and `close` form one scoped acquire/release; one semaphore owns the single-user connection.
+- Law: transaction acquisition holds the permit through begin, body, commit or rollback; statement execution cannot interleave.
+- Law: `PgClient.makeCompiler` compiles neutral fragments; PGLite receives SQL and bound parameters through `query`.
+- Law: source streaming fails typed because `PGliteInterface` exposes materialized results only.
+- Law: `PgliteSeed` closes empty, logical SQL, and physical PGDATA inputs; only creation accepts physical state.
+- Law: `snapshot` discriminates physical `dumpDataDir` and logical `pgDump`; both exclude statements for their complete run.
 - Packages: PGLite, PGLite tools, Effect, `@effect/sql`, `@effect/sql-pg`, and `Reactivity`.
+- Growth: storage residency is one coordinate policy row; an extension is one typed `PGlite.create` option row.
+- Boundary: coordinates derive from admitted generation policy; caller options cannot set recovery, durability, or server configuration.
 
 ```typescript signature
 import { PGlite, type PGliteInterface } from "@electric-sql/pglite"
@@ -498,5 +501,4 @@ export { Sqlite, SqliteFault }
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-- [PGLITE_ENGINE_MAJOR]-[OPEN]: which PostgreSQL major does `@electric-sql/pglite` embed, and does that major carry `uuidv7()`, `RETURNING old.*/new.*`, `VIRTUAL` generated columns, `WITHOUT OVERLAPS`, skip scan, and `io_method`; resolve each `engineVersion` cell against `data/.api/electric-sql-pglite.md` once the catalog records the embedded major.
-- [D1_BINDING_TYPE]-[BLOCKED]: which admitted package supplies the `D1Database` binding type `_d1` names; `data/.api/effect-sql-d1.md` sources it from `@cloudflare/workers-types`, which carries no `pnpm-workspace.yaml` catalog row, so the import stays unspellable until that row lands.
+(none)

@@ -20,25 +20,13 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[BATCH_SEAM_LEDGER]-[QUEUED]: Ledger the producer→landing record-batch seams with their custody split.
-- Capability: one seam table naming each producer wire, its batch-shape owner, its landing slot, and its content-key metadata columns — the arbitration keeping four folder pairs on one discipline.
-- Shape: seam rows on `ARCHITECTURE#SEAMS`, each pair mirrored at BOTH endpoint registries with identical `[KIND]` and direction — `libs/csharp/Rasm/ARCHITECTURE.md`, `libs/csharp/Rasm.Compute/ARCHITECTURE.md`, `libs/csharp/Rasm.Element/ARCHITECTURE.md`, and `libs/csharp/Rasm.Materials/ARCHITECTURE.md` each against `libs/csharp/Rasm.Persistence/ARCHITECTURE.md` — closure holds only when all five endpoint pages carry their edges.
-- Unlocks: `[ANALYTICS_LAKE_CONCERT]` holds as one discipline instead of four bespoke handoffs.
-- Anchors: the kernel/Compute/Element/Materials egress cards, Persistence `[PERS_L1]`, the seam-registry grammar.
-
-[SUBSTRATE_TIER_PROMOTION]-[QUEUED]: Promote the four multi-folder packages to branch substrate — registry rows, one shared catalog each, folder tiers collapse to registration.
+[SUBSTRATE_TIER_PROMOTION]-[QUEUED]: Promote every proven multi-folder package to branch substrate — registry rows, one shared catalog each, folder tiers collapse to registration.
 - Capability: a package consumed by two or more folders registers once at the branch tier with one member-truth catalog, so folder catalogs stop duplicating substrate truth and a new consumer registers instead of re-cataloging.
-- Shape: branch README `[02]` rows and `libs/csharp/.api/` catalogs for `PollinationSDK`, `Microsoft.Data.Sqlite`, `MQTTnet`, and `CloudNative.CloudEvents.Mqtt` (new label clusters where none fits); the folder-tier catalogs re-cut to genuine domain overlays or registrations; the Compute MQTT subscribe rows land at the substrate catalog.
-- Unlocks: the AppHost and Compute `[MQTT_RECEIVE_ARM]`/`[BROKER_INGEST_ROWS]` arms gain their second catalog route; the two-or-more-folders registry law holds bidirectionally for all four.
-- Anchors: the branch README earn-a-row law; the catalog-alignment touch-point set; the true-substrate catalog doctrine.
-- Atomic: four packages, one touch-point sweep each.
-
-[L3_REFERENCE_PROSE_RECONCILE]-[QUEUED]: Branch L3 reference prose reconciles with the manifest reality — one stated intra-stratum order.
-- Capability: the strata law states the realized intra-L3 reference order, so a ledger reader and a manifest reader reach one graph.
-- Shape: `libs/csharp/.planning/ARCHITECTURE.md` `[02]` L3 bullet and the import-strata mermaid; the `libs/csharp/Rasm.AppUi/ARCHITECTURE.md` lead's peers-by-contract clause in the same pass.
-- Unlocks: strata-law citations stop contradicting `Rasm.AppUi.csproj` and `Rasm.Compute.csproj`.
-- Anchors: `Rasm.AppUi.csproj` referencing `{Rasm, Rasm.AppHost, Rasm.Compute, Rasm.Persistence}`; `Rasm.Compute.csproj` referencing `{Rasm, Rasm.AppHost, Rasm.Element, Rasm.Persistence}`; `Rasm.AppHost.csproj` referencing `{Rasm}` alone.
-- Tension: the manifests realize an acyclic intra-L3 order (`Rasm.AppHost` below `Rasm.Persistence`/`Rasm.Compute` below `Rasm.AppUi`) while the prose states contract-only peer alignment; one of the two is the law and the other re-cuts.
+- Shape: branch README `[02]` rows and `libs/csharp/.api/` catalogs for `ACadSharp`, `Alimer.Bindings.MeshOptimizer`, `Apache.Arrow`, the three `CloudNative.CloudEvents` rows, `MessagePack`, `Microsoft.Data.Sqlite`, `NATS.Net`, `NREL.OpenStudio.macOS-arm64`, the two `NetTopologySuite.IO` rows, `PeterO.Numbers`, `PollinationSDK`, the four `SharpGLTF` rows, the three `Silk.NET.WebGPU` rows, the two `Speckle` rows, `geometry3Sharp`, and `pocketken.H3`; each folder-tier catalog re-cuts to a genuine domain overlay or a registration.
+- Unlocks: the two-or-more-folders registry law holds bidirectionally across the branch, and a new consumer of any of them registers instead of minting a third copy.
+- Anchors: the branch README earn-a-row law; `RULINGS.md` `[04]-[STRUCTURE]` tier and dual-home rows; the catalog-alignment touch-point set.
+- Tension: the roster is the CSPROJ-consumption census, not a guess — each entry has two-or-more consuming `.csproj` rows, two-or-more folder-tier catalogs, and no branch catalog; host-SDK partitions (`Eto`, `Grasshopper2`) and multi-package files are excluded by the same ruling and are not defects.
+- Atomic: one package, one touch-point sweep each.
 
 [GRPC_TOOLS_ROW_RECUT]-[QUEUED]: Branch README `Grpc.Tools` row states the per-consumer codegen truth.
 - Capability: the registry row carries the real codegen split, so a reader never infers message-only compilation for the client-codegen consumer.
@@ -47,19 +35,15 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `libs/csharp/Rasm.Compute/.planning/Runtime/wire.md` `GrpcServices=Client` + `PrivateAssets=all`; `libs/csharp/Rasm.Persistence/.planning/Query/federation.md` zero-codegen posture.
 - Atomic: one registry row.
 
-[CLAIM_FIELD_MAP]-[BLOCKED]: Task-named claim families map onto `BenchmarkReceipt` at the AppHost benchmarks owner.
-- Capability: each task-named family fills `BenchmarkReceipt` through the claim-field adapter, the held-median side sourced from capture truth.
-- Shape: map rows on `libs/csharp/Rasm.AppHost/.planning/Observability/benchmarks.md` `#CLAIM_FIELD_MAP`.
-- Unlocks: `[BENCH_PROOF_CONCERT]` — one verdict grammar closes over every claim family.
-- Anchors: `Observability/benchmarks.md` claim rows; `libs/csharp/Rasm.Grasshopper/.planning/Platform/capture.md` `CaptureBreach`.
-- Tension: armed when `Platform/capture.md` adds the producing bound to `CaptureBreach`, allowing the adapter to fill the held-median side without policy re-derivation.
-
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[L3_REFERENCE_PROSE_RECONCILE]-[COMPLETE]: the branch `[02]-[STRATA]` rows state the realized app-platform order and verify exactly against the live `ProjectReference` set — `Rasm.AppHost` holds `{Rasm}`, `Rasm.Persistence` `{Rasm, Rasm.Element}`, `Rasm.Compute` `{Rasm, Rasm.Element, Rasm.AppHost, Rasm.Persistence}`, `Rasm.AppUi` `{Rasm, Rasm.AppHost, Rasm.Compute, Rasm.Persistence}`. `Rasm.AppUi/ARCHITECTURE.md`'s lead carried the surviving half — a peers-by-contract clause its own csproj refutes — and now names the S4 consuming-leaf reference set.
+[BATCH_SEAM_LEDGER]-[COMPLETE]: every producer→landing pair mirrors at both endpoint `ARCHITECTURE#SEAMS` registries — `Rasm.Element` and `Rasm.Materials` carry `[WIRE]: AnalyticsSchema` against `Rasm.Persistence` for the relational residence handoff, `Rasm.Compute` carries `[WIRE]: LakeGeneration` for the lake landing. Both open claims refuted on disk: the Compute counterpart had landed already, and it was MISLABELLED `AnalyticsSchema`, a contract no Compute fence composes. No kernel pair exists or may exist — `Rasm` sits at S0 and reaches no landing coordinate.
+[CLAIM_FIELD_MAP]-[COMPLETE]: `#CLAIM_FIELD_MAP` carries rows `[08]` `BudgetBreach` and `[09]` `CaptureBreach` beside the seven standing families, each filling median and p95 from its one measured cost and its producing bound as `ReferenceEvidence.Median`; a single-sample law seats that projection so no adapter fabricates a distribution one judgment never produced.
 [NPGSQL_ROOT_COMPOSITION]-[COMPLETE]: `SignalGovernance.StoreDriver` registers `AddNpgsql` + `AddEntityFrameworkCoreInstrumentation` tracing and `AddNpgsqlInstrumentation` metrics at the store-composing root (Rasm.AppHost `Observability/telemetry#SIGNAL_GOVERNANCE`); `NpgsqlDataSourceBuilder.Name` assigns per logical database in the Persistence `Store/provisioning` `Source` fence.
 [PLUGIN_ALC_PROVIDERS]-[COMPLETE]: `PluginTelemetryHost.Open` realizes the per-ALC trace-and-metric capsule — `AddMetrics` `IMeterFactory`, explicit provider handles, idempotent unload-ordered `ForceFlush` then `Dispose`; exporter disk retry remains process-scoped (Rasm.AppHost `Observability/instruments#PROVIDER_LIFETIME`).
 [KAFKA_CONSUMER_INSTRUMENTATION]-[COMPLETE]: `StoreWire<TKey,TValue>` registers `AddKafkaConsumerInstrumentation` on both providers at the signal root; the Persistence ingress owner landed at `Rasm.Persistence/.planning/Version/ingress.md` handing the `CdcIngress.Bind` instrumented builder.

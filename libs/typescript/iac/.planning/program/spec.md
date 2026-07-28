@@ -32,6 +32,10 @@
 - Law: `data.pooling` is a capability input, not a chart knob — the mode selects the PgBouncer posture AND the primitive set that posture voids, `session` is the default because it voids none, `data.primitives` names the pooled-bind primitives the app composes, `kube/data.md` refuses the intersection at admission, and the realized mode publishes on the `data` plane so the runtime capability rail gates on deployment truth instead of assuming a session.
 - Law: a wire literal carries a refined brand, never a bare string — `_Quantity` holds the Kubernetes resource-quantity grammar every storage and sizing field spells, `_Cron` holds the six-field seconds-leading dialect the CNPG schedule consumes, and `_Window` holds the retention duration every store row's `retain` projection reads; a value failing its grammar fails at decode, where the coordinate is still loggable, never inside a chart the operator already accepted.
 - Law: the observability backend is spec data — `observe.store` selects the metrics-store row (`prometheus` the reference row; `mimir` the fleet escalation whose object-store binding reuses the object plane and whose org-id header scopes the stack; `victoriametrics` the resource-pressure escape), `observe.retention` the store retention window, `observe.profiles` the Pyroscope row, `observe.ingest` the pg-server metrics arm, `observe.costs` the OpenCost pricing row, and `observe.ebpf` the privileged zero-code instrumentation row — every coordinate interpreted by `operate/observe.md`'s row family, never a second program body.
+- Law: every fleet escalation resolves to one `_Escalation` value, so arming one is a coordinate flip and never a tier re-design — `observe.sampling` names the traces-pipeline decision tier (`head` rides the SDK parent ratios, `tail` mounts the gateway's already-defined `tail_sampling` processor), `observe.topology` names the collector deployment shape (`gateway` is the one deployment every workload dials, `agent` adds the daemonset tier exporting Arrow onto that same door), and `observe.buffer` names the durability carrier (`file` is the gateway's own disk queue, `broker` adds the paired kafka legs that survive the gateway itself); each value is the arm coordinate its `libs/.planning/ARCHITECTURE.md` `[FLEET_ESCALATION]` row names, and a row whose coordinate no value spells is an escalation nothing can arm.
+- Law: an escalation carrying no coordinate is unrepresentable — `_Escalation.buffer` discriminates on `mode` and the broker arm carries its own `brokers` roster, exactly as `_Tenancy` carries the tenant slugs its escalated arms cannot run without, so selecting a broker leg against an absent broker estate fails at decode rather than rendering a pipeline that connects to nothing.
+- Law: `observe.topology` names the COLLECTOR shape and `profile.topology` the CONSUMPTION shape — the two axes share a noun and nothing else, so a gateway estate serving `edge` consumers and an agent estate serving `service` consumers are both ordinary, and folding one onto the other re-mints a deployment assumption the consumption roster exists to delete.
+- Law: `observe.analytics` selects the durable residence family (`none` refuses evidence residence outright, `lake` is the default cold tail on the object plane the stack already carries, `clickhouse` is the interactive wide-event residence, `both` runs the pair) — residence selection is the one coordinate deciding whether telemetry survives its metrics retention window, so `none` states an accepted evidence loss rather than an unmade decision.
 - Law: tenancy is data, never code paths — `tenancy.mode` selects the isolation tier (`single` = one app one namespace; `namespace` = Capsule-governed namespace-per-tenant soft isolation; `vcluster` = virtual-control-plane-per-tenant hard isolation), `tenancy.pgTier` selects the data-plane escalation (`shared-rls` = one database with `Tenancy.rls` policy rows; `db-per-tenant` = one CNPG cluster with one `Database` CR per tenant; `cluster-per-tenant` = one CNPG `Cluster` per tenant with its own custody envelope), and `tenancy.tenants` names the tenant slugs the `kube/tenant.md` owner realizes rows for; a tenancy escalation is a spec delta interpreted by the owning tiers, never a second program body.
 - Law: an escalation with no tenant is unrepresentable — `_Tenancy` is a union discriminated on `mode`, the `single` arm carrying neither `pgTier` nor `tenants` and each escalated arm carrying `pgTier` beside a `NonEmptyArray` of slugs, so a data-plane tier paired with an empty tenant roster fails at decode instead of realizing zero tenant databases in silence; the `pgTier` getter projects the shared tier for `single`, giving every consumer one total read.
 - Law: absence is `Option` admitted by `Schema.optionalWith(..., { as: "Option" })` — a cloud arm demanding an absent `region`, or a selfhosted arm demanding an absent `connection`, fails as a typed `DeployFault` inside its provider arm before the `PulumiFn` is entered, never as an `undefined` read and never as a construction-time throw inside a tier.
@@ -40,7 +44,7 @@
 - Boundary: deploy-host facts (backend URL, passphrase, CLI root) are `automation.md`'s Config surface; extension validation is `kube/data.md`'s; sizing interpretation is `kube/workload.md`'s; tenant realization is `kube/tenant.md`'s.
 - Packages: `effect` (`Schema`); `@rasm/ts/core` (`AppIdentity`); `@rasm/ts/runtime` (`Consumption`, `Profile`).
 
-```typescript
+```typescript signature
 import { AppIdentity } from "@rasm/ts/core"
 import { type Consumption, Profile as ConsumptionProfile } from "@rasm/ts/runtime"
 import { Schema } from "effect"
@@ -108,6 +112,19 @@ const _Tenancy = Schema.Union(
   Schema.Struct({ mode: Schema.Literal("vcluster"), ..._Isolated.fields }),
 )
 
+// Every escalation arm the estate rules OFF resolves to one literal here, so `libs/.planning/ARCHITECTURE.md`
+// `[FLEET_ESCALATION]` names a spec value per row and arming stays a coordinate flip.
+const _Escalation = {
+  sampling: Schema.Literal("head", "tail"),
+  topology: Schema.Literal("gateway", "agent"),
+  // an escalation with no coordinate is unrepresentable: the broker arm carries the addresses it cannot run without,
+  // so selecting it against an absent broker estate fails at decode instead of rendering a pipeline that never connects
+  buffer: Schema.Union(
+    Schema.Struct({ mode: Schema.Literal("file") }),
+    Schema.Struct({ mode: Schema.Literal("broker"), brokers: Schema.NonEmptyArray(Schema.NonEmptyString) }),
+  ),
+} as const
+
 const _Observe = Schema.Struct({
   store: Schema.optionalWith(Schema.Literal("prometheus", "mimir", "victoriametrics"), { default: () => "prometheus" as const }),
   retention: Schema.optionalWith(_Window, { default: () => _Window.make("30d") }),
@@ -115,6 +132,11 @@ const _Observe = Schema.Struct({
   ingest: Schema.optionalWith(Schema.Literal("scrape", "native"), { default: () => "scrape" as const }),
   costs: Schema.optionalWith(Schema.Boolean, { default: () => false }),
   ebpf: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+  // residence selection stays metrics-independent: a store retention window bounds series, never evidence
+  analytics: Schema.optionalWith(Schema.Literal("none", "lake", "clickhouse", "both"), { default: () => "lake" as const }),
+  sampling: Schema.optionalWith(_Escalation.sampling, { default: () => "head" as const }),
+  topology: Schema.optionalWith(_Escalation.topology, { default: () => "gateway" as const }),
+  buffer: Schema.optionalWith(_Escalation.buffer, { default: () => ({ mode: "file" as const }) }),
 })
 
 const _Profile = Schema.Struct({
@@ -173,6 +195,7 @@ declare namespace StackSpec {
   type Data = typeof _Data.Type
   type Pooling = Data["pooling"]
   type Observe = typeof _Observe.Type
+  type Residence = Observe["analytics"]
   type Profile = typeof _Profile.Type
   type Tenancy = typeof _Tenancy.Type
   type PgTier = (typeof _Isolated.Type)["pgTier"]
@@ -194,7 +217,7 @@ declare namespace StackSpec {
 - Growth: a new tier is one subclass row on its owning page with its roster mention here; a new interception point is one `_HOOKS` entry; the base never grows knobs.
 - Packages: `@pulumi/pulumi` (`ComponentResource`, `ComponentResourceOptions`, `CustomResourceOptions`, `mergeOptions`, `Inputs`, `ResourceHook`, `ErrorHook`, `ResourceHookBinding`, `ResourceHookFunction`, `ErrorHookFunction`); `effect` (`Record`).
 
-```typescript
+```typescript signature
 import * as pulumi from "@pulumi/pulumi"
 import { Record } from "effect"
 
@@ -235,7 +258,8 @@ abstract class Tier extends pulumi.ComponentResource {
 ## [05]-[OUTPUT_PLANES]
 
 [OUTPUT_PLANES]:
-- Owner: `StackOutputs`, one `Schema.Class` of `Option`-carried plane records — `ingress` (public hostname), `data` (host, port, database, role, realized pooling mode), `object` (endpoint, bucket), `fanout` (the NATS websocket origin), `otlp` (collector ingest endpoint), `grafana` (board URL), `sharding` (runner endpoint), `served` (caller-owned artifact slug to content-addressed path), `deploy` (the time-ordered `RandomUuid7` deployment identity) — each an inline `Schema.Struct` block because no plane has a second consumer shape, while `served` is an open `Schema.Record` because its key vocabulary belongs to its caller; the arm that realizes a plane returns its keys from the `PulumiFn`, and absence means the arm did not realize it.
+- Owner: `StackOutputs`, one `Schema.Class` of `Option`-carried plane records — `ingress` (public hostname), `data` (host, port, database, role, realized pooling mode), `object` (endpoint, bucket), `fanout` (the NATS websocket origin), `otlp` (collector ingest endpoint), `grafana` (board URL), `analytics` (realized residence beside its query door and catalog name), `sharding` (runner endpoint), `served` (caller-owned artifact slug to content-addressed path), `deploy` (the time-ordered `RandomUuid7` deployment identity) — each an inline `Schema.Struct` block because no plane has a second consumer shape, while `served` is an open `Schema.Record` because its key vocabulary belongs to its caller; the arm that realizes a plane returns its keys from the `PulumiFn`, and absence means the arm did not realize it.
+- Law: `analytics` publishes the REALIZED residence row a query end binds, never the selection and never the ingest path — `observe.analytics: "none"` realizes no plane at all, so a runtime reading evidence resolves absence as the refusal it is instead of dialing a door that answers nothing; the `lake` arm's door is the object plane's own endpoint under a catalog prefix, and `both` publishes the interactive residence here while the cold tail stays readable off `object`, which is why the row key and not the spec value crosses — a reader handed `both` holds a coordinate its residence family cannot resolve.
 - Law: `pairsOf(planes, render)` is the one channel-flatten — the `<plane>.<field>` spelling and the plane iteration exist exactly here, parameterized on the value renderer; the decoded `pairs` getter rides it with `String`, the in-program live assembly rides it with `pulumi.output(value).apply(String)`, and the plane set feeding the getter derives from the class's own field record through `Record.getSomes`, so no hand-listed plane tuple exists, a new field cannot be silently dropped, and the two modalities cannot drift.
 - Law: `read(stack, name)` is the one exit from the engine's `OutputMap` — `stack.outputs()` converts at this seam with the `DeployFault` triage, one entries scan yields both the secret-refusal verdict and the leaked-key evidence (the gate refuses any `{ secret: true }` entry naming the keys in the fault detail), the `{ value, secret }` envelope strips to plain values, and the record decodes through the class; the `Object` reads sit inside the boundary because the map is FFI material, and no decoded value is re-checked downstream.
 - Law: coordinates, never material — a role name, host, port, origin, or URL is publishable; a password, token, or key is not, and the fix for a refused output is moving the value into the Doppler store, never widening the gate.
@@ -247,7 +271,7 @@ abstract class Tier extends pulumi.ComponentResource {
 - Boundary: which keys each arm returns is `provider.md`'s program body; receipt evidence is `automation.md`'s — outputs and receipts never merge.
 - Packages: `effect` (`Effect`, `Schema`, `Option`, `Array`, `Record`); `@pulumi/pulumi/automation` (`Stack`); `./automation.ts` (`DeployFault`).
 
-```typescript
+```typescript signature
 import type { Stack } from "@pulumi/pulumi/automation"
 import { Array, Effect, Option, Record, Schema } from "effect"
 import { DeployFault } from "./automation.ts"
@@ -267,6 +291,13 @@ class StackOutputs extends Schema.Class<StackOutputs>("StackOutputs")({
   fanout: Schema.optionalWith(Schema.Struct({ origin: Schema.NonEmptyString }), { as: "Option" }),
   otlp: Schema.optionalWith(Schema.Struct({ endpoint: Schema.NonEmptyString }), { as: "Option" }),
   grafana: Schema.optionalWith(Schema.Struct({ url: Schema.NonEmptyString }), { as: "Option" }),
+  analytics: Schema.optionalWith(Schema.Struct({
+    // Doors publish their REALIZED residence row, never the spec selection: `both` names two planes and no
+    // residence family holds it as a key, so admitting it here types a query end against a row it can never resolve
+    residence: Schema.Literal("lake", "clickhouse"),
+    endpoint: Schema.NonEmptyString,
+    database: Schema.NonEmptyString,
+  }), { as: "Option" }),
   sharding: Schema.optionalWith(Schema.Struct({ host: Schema.NonEmptyString, port: _Port }), { as: "Option" }),
   served: Schema.optionalWith(Schema.Record({ key: Schema.NonEmptyString, value: Schema.NonEmptyString }), { as: "Option" }),
   deploy: Schema.optionalWith(Schema.Struct({ id: Schema.UUID }), { as: "Option" }),

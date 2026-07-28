@@ -25,8 +25,10 @@ W3C propagation crosses the interchange plane as ONE typed `traceparent`/`traces
 ```typescript signature
 import { decodeBinaryHeader, encodeBinaryHeader } from "@connectrpc/connect"
 import type { DescMessage, Message, MessageShape } from "@bufbuild/protobuf"
+import type { Codec } from "./codec.ts" // type-only: the census family union, carrying no runtime edge to the codec owner
 import { Headers } from "@effect/platform"
 import { Array, Context, Effect, Either, Option, Predicate, Record, Schema, String, pipe } from "effect"
+import { Convention } from "../observe/convention.ts"
 import { TenantContext } from "../value/identity.ts"
 
 const _CEILING = { state: 32, stateText: 512, baggage: 32, key: 256, value: 256, properties: 16, property: 256 } as const
@@ -71,7 +73,7 @@ const _parent = (text: string): Option.Option<Traceparent> =>
       _decodedParent({ traceId, spanId, sampled: (Number.parseInt(flags ?? "00", 16) & 1) === 1 })),
   )
 
-// A property tail re-prints verbatim, so grammar is admission: a malformed tail drops here exactly
+// Property tails re-print verbatim, so grammar is admission: a malformed tail drops here exactly
 // as a malformed member drops, and the one fold serves parse and print identically.
 const _properties = (properties: ReadonlyArray<string>): ReadonlyArray<string> =>
   pipe(
@@ -151,10 +153,12 @@ const _printedBaggage = (members: ReadonlyArray<Carrier.Member>): string =>
 - Law: recovery is a decode, never a split — the member value re-proves both key alphabets through `TenantContext.FromScope`, so a forged or truncated scope folds to `Option.none` and tenancy never enters domain flow as a bare string; resource-level tenant stamping stays `observe/convention`'s identity projection, and this member is the per-hop transport of the same value.
 - Growth: a second promoted axis (a deployment ring, a request class) is one member-key constant with its promote/read pair beside this one.
 - Boundary: which fiber holds the tenancy is `invoke`'s `Dial.Ambient` reference; security's claim alignment consumes the recovered `TenantContext` and owns everything past it.
-- Packages: `effect` (`Array`, `Option`); `../value/identity.ts` (`TenantContext`).
+- Packages: `effect` (`Array`, `Option`); `../observe/convention.ts` (`Convention`); `../value/identity.ts` (`TenantContext`).
 
 ```typescript signature
-const _TENANT = "rasm.tenant"
+// Observe owns this baggage key outright, so one spelling site serves the branch and a rename there lands here
+// rather than orphaning a twin no consumer can see diverge.
+const _TENANT = Convention.rasm.tenant
 
 const _decodedTenant = Schema.decodeUnknownOption(TenantContext.FromScope)
 
@@ -242,10 +246,12 @@ declare namespace Carrier {
   type _Rows<T extends { readonly [K in Dialect]: Row<Frame[K]> } = typeof _dialects> = T
 }
 
+// Values name CENSUS families, so the guard binds this table to the codec roster: a renamed family fails at this
+// declaration rather than attaching a typed header whose message class no producer mints.
 const _BIN = {
   "rasm-stamp-bin": "HlcStampWire",
   "rasm-tenant-bin": "TenantContextWire",
-} as const
+} as const satisfies Record.ReadonlyRecord<`rasm-${string}-bin`, Codec.Family>
 
 const _dialects: { readonly [K in Carrier.Dialect]: Carrier.Row<Carrier.Frame[K]> } = {
   cloudevents: {

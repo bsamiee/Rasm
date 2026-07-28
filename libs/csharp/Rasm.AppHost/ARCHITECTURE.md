@@ -39,9 +39,9 @@ Rasm.AppHost/
 │   ├── Solver.cs        # Solver-plugin contract with canonical-representation negotiation
 │   └── Provisioning.cs  # Post-fetch self-update state machine over the canary, blue-green, and linear-wave roll axis
 └── Observability/       # Four-signal telemetry, health, and redacted support capture
-    ├── Telemetry.cs     # Unified four-signal telemetry through minted identities and egress redaction
+    ├── Telemetry.cs     # Four-signal telemetry through minted identities, per-signal egress, and durable OTLP buffering
     ├── Health.cs        # Resource-pressure health fold and degradation/alert rails over one atomic reading cell
-    ├── Instruments.cs   # Domain-instrument catalog projecting the receipt fan into metrics, with per-ALC provider lifetime
+    ├── Instruments.cs   # Domain-instrument catalog and board pack projecting the receipt fan into metrics, per-ALC provider lifetime
     ├── Hooks.cs         # Typed hook registry over the bus, lifecycle, and receipt seams with modality and isolation law
     ├── Benchmarks.cs    # Benchmark receipt family, the corpus gate, and profile-linked capture rows
     └── Bundles.cs       # Bounded redacted support capture
@@ -53,9 +53,9 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 
 Five strata order the interior, member-resolved where a folder's owners split across ranks; every consumption edge points down the ladder.
 
-- S0 `Runtime` — mints tenancy and time exactly once: `TenantContext`, `ClockPolicy`, the `FencingToken` lease stamp; it consumes no sibling.
-- S0 reach — every upper stratum stamps the substrate primitives.
-- S1 `Observability` — folds `HealthContributorRow` pressure into the `DegradationReading`/`DegradationLevel` grade over the substrate clock alone.
+- S0 `Runtime` — mints tenancy, time, and energy state over kernel types: `TenantContext`, `ClockPolicy`, `FencingToken`, `PowerCell`.
+- S0 reach — every upper stratum stamps the substrate primitives, and the substrate consumes no sibling.
+- S1 `Observability` — folds `HealthContributorRow` pressure into the `DegradationReading`/`DegradationLevel` grade over substrate clock and thermals.
 - S2 catalog — `Agent/Capability` mints `CapabilityDescriptor`, `GrantBroker`, and `Principal`.
 - S2 co-seat — the hash-chained `EventLog` (`Runtime/Determinism`) stamps `CommandReceipt` rows.
 - S2 co-seat — `Runtime/LaneGuard` folds S1 readings into `ShedVerdict`.
@@ -96,6 +96,7 @@ flowchart TB
     subgraph S0["S0 SUBSTRATE"]
         Tenant[TenantContext]
         Clock[ClockPolicy]
+        Power[PowerCell]
     end
     Dispatch -->|"[IMPORT]: EventLog"| Log
     Isolation -->|"[IMPORT]: GrantBroker"| Broker
@@ -106,6 +107,7 @@ flowchart TB
     LaneGuard -->|"[IMPORT]: DegradationReading"| Reading
     Capability -->|"[IMPORT]: TenantContext"| Tenant
     Health -->|"[IMPORT]: ClockPolicy"| Clock
+    Health -->|"[IMPORT]: PowerCell"| Power
     Tenant -->|"forbidden: substrate upward"| S4
 ```
 
@@ -157,7 +159,7 @@ config:
 ---
 flowchart LR
     accTitle: AppHost C# platform seams
-    accDescr: AppHost sub-domain owners exchanging ports, shapes, wires, receipts, content keys, and faults with every C# peer, one edge per kind.
+    accDescr: AppHost sub-domain owners exchanging ports, shapes, wires, receipts, content keys, projections, transports, and faults with every C# peer, one edge per kind.
     subgraph apphost[RASM.APPHOST]
         Runtime[Runtime spine]
         Agent[Agent surface]
@@ -176,12 +178,15 @@ flowchart LR
     Kernel -->|"[WIRE]: EncodedGeometry"| Sandbox
     Kernel e23@-->|"[SHAPE]: TelemetrySink"| Observability
     Kernel e24@-->|"[WIRE]: BenchClaim"| Observability
+    Kernel e40@-->|"[SHAPE]: InstrumentSpec + AlertSeverity"| Observability
     Kernel e30@-->|"[CONTENT_KEY]: ContentHash"| Runtime
-    Bim e25@-->|"[SHAPE]: BimHooks"| Observability
+    Kernel e42@-->|"[CONTRACT]: PackWireContext"| Runtime
+    Kernel e41@-->|"[PORT]: ReceiptSinkPort + TenantContext"| Runtime
+    Bim e25@-->|"[PORT]: BimHooks"| Observability
     Bim e26@-->|"[RECEIPT]: BimBenchReceipt"| Observability
     Bim e39@-->|"[WIRE]: BimEvent"| Wire
     Runtime e3@-->|"[PORT]: ProjectionContext"| Element
-    Observability e31@-->|"[PORT]: IMeterFactory"| Element
+    Observability e31@-->|"[PORT]: InstrumentSet + SpanBand"| Element
     Materials e32@-->|"[PORT]: TelemetryContributorPort"| Observability
     Materials e33@-->|"[WIRE]: BenchmarkReceipt"| Observability
     Runtime -->|"[PORT]: DeterminismContext"| AppUi
@@ -192,8 +197,8 @@ flowchart LR
     Runtime e17@<-->|"[PORT]: HybridCache"| Persistence
     Persistence e18@-->|"[RECEIPT]: ProvisionVerdict"| Observability
     Observability e14@<-->|"[PORT]: TelemetryContributorPort"| Persistence
-    Observability e34@-->|"[PORT]: HookPoint"| Persistence
-    Observability e19@-->|"[PORT]: ReceiptSinkPort + HookRail"| AppUi
+    Persistence e34@-->|"[PORT]: PersistenceHooks"| Observability
+    Observability e19@-->|"[PORT]: HookRail"| AppUi
     Runtime e20@<-->|"[FAULT]: FaultBand"| AppUi
     Observability e27@-->|"[PORT]: ProfileSampleSource"| AppUi
     Fabrication e21@-->|"[RECEIPT]: FabricationFact"| Observability
@@ -242,7 +247,8 @@ Boot resolves the one `ResolvedProfile`, folds and freezes the module graph behi
 
 - AppHost is not a domain-service, job, DI, telemetry, UI, persistence, compute, or host-boundary package.
 - AppHost owns runtime state and policy; app roots own process attachment and host events.
-- Composition-root-only pins — the OTLP exporter, the Serilog bridge and sinks, gRPC-Web middleware, Kestrel public binding — stay at the app root.
+- AppHost IS the branch's telemetry composition owner: the OTLP exporter seats, the Serilog bridge and sinks, and the durable egress queue live on `Observability/telemetry`, and the no-exporter-below-composition law scopes to the S0-S2 library tiers.
+- Composition-root-only pins — gRPC-Web middleware, Kestrel public binding, sink instances, and the exporter endpoint value — stay at the app root.
 - Protocol-runtime types the fences carry stay lib references, never app-root pins; the Sandbox and Wire owners hold the certified transport stack.
 - Statement carve-outs are boundary capsules named per fence on the owning page; every other member stays expression-shaped on typed rails.
 - Op catalog, command transaction, grant/cost broker, MCP projection, sandbox, solver, binding, and determinism are runtime-policy axes.
@@ -250,7 +256,7 @@ Boot resolves the one `ResolvedProfile`, folds and freezes the module graph behi
 - Grant broker owns permission-shape evaluation as its own typed `PermissionShape` × `GrantScope` value-object predicate.
 - Sentinels stop at the admission seam: `ClockPolicy.Admit` projects defaults to `Option<Instant>`; interiors never see provider shapes.
 - AppHost owns support trigger and correlation; contributors own classification and payload projection through `SupportContributorPort` rows.
-- Lib level emits `ILogger` and minted `ActivitySource`/`Meter` pairs only; exporter projection belongs to composition roots, and each instrument lives and dies with its provider.
+- S0-S2 tiers emit `ILogger` and minted `ActivitySource`/`Meter` pairs only; exporter projection, SDK wiring, and ambient sinks enter at AppHost, and each instrument lives and dies with its provider.
 - Public capability extends its sub-domain owner region as a row, case, or policy value; the port records own the cross-package seam.
 - `Lifecycle` is the one runtime phase cell — shutdown and readiness read it rather than a parallel flag or sibling phase enum.
 - `CancelScope` owns every cancellation source below the composition root.
@@ -267,7 +273,7 @@ Boot resolves the one `ResolvedProfile`, folds and freezes the module graph behi
 - `Agent/identity` authorities own token validation, JWKS, OAuth, and claims, producing the one `Principal`.
 - `CapabilityDescriptor` owns op metadata and `GrantBroker` owns permission shape and cost, consuming that `Principal`; federated capability enters as brokered descriptor rows, the one tool catalog.
 - Reasoning-loop tool adoption rides the one brokered `CommandAIFunction`, and every `IChatClient` call rides the one middleware pipeline — metered by `GrantBroker`, cached, and traced.
-- An ArchUnitNET rule asserts no GeometryGym edge at or below the element seam; `Rasm.Bim` is the sole owner above it.
+- ArchUnitNET asserts no GeometryGym edge at or below the element seam; `Rasm.Bim` is the sole owner above it.
 - NEVER an unverified release or plugin install; `SupplyChainGate.Admit` proves signature and provenance against the pinned offline root first.
 - NEVER a backing-service probe outside the one `DriverProbe` adapter or on a second connection; a driver row binds the shared pooled driver.
 - NEVER an AEC-domain reference or a GeometryGym/IFC type on AppHost; it contributes only the `ProjectionContext` primitives the app root assembles.

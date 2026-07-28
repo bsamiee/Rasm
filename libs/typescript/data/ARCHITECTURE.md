@@ -1,6 +1,6 @@
 # [TS_DATA_ARCHITECTURE]
 
-`data` owns the branch's durable-persistence surface: the `lane`, `journal`, `object`, and `read` sub-domains meet through the one journal write owner, the one capability rail, the one content identity, and the one tenancy contract. A backend is a semantic-guarantee row on its owning lane, never a sibling shape; sub-domains align with the core, security, runtime, and iac peers by contract, never by reference.
+`data` owns the branch's durable-persistence surface: the `lane`, `journal`, `object`, and `read` sub-domains meet through the one journal write owner, the one capability rail, the one content identity, and the one tenancy contract. Backends land as semantic-guarantee rows on their owning lane, never sibling shapes; sub-domains align with the core, security, runtime, and iac peers by contract, never by reference.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -10,7 +10,7 @@ data/
     ├── lane/             # Guarantee-lane matrix: engines as rows under sealed capability vocabularies
     │   ├── postgres.ts   # First-party relational lane and its ruled extension matrix
     │   ├── sqlite.ts     # Embedded lane degrading one relational contract across its profile rows
-    │   ├── olap.ts       # Analytical lane over DuckDB and ClickHouse engine rows
+    │   ├── olap.ts       # Analytical lane over DuckDB, ClickHouse, Flight, residence rows, and the Arrow-Parquet wire
     │   ├── cache.ts      # Latency lane: single-flight, dedup, restart-surviving cache rows
     │   ├── capability.ts # Fail-closed capability rail probed at Layer construction
     │   └── tenant.ts     # Tenancy write path pinning the TENANT_GUC across RLS, schema, and database cases
@@ -108,7 +108,7 @@ config:
 ---
 flowchart LR
     accTitle: Data package seam registry
-    accDescr: Data owners exchanging content keys, tenancy, custody, and reactive shapes with the core, security, runtime, and iac peers.
+    accDescr: Data owners exchanging content keys, tenancy, custody, reactive shapes, and the analytics-residence door with the core, security, runtime, and iac peers.
     subgraph data[DATA]
         Fold[Projection fold]
         Store[Object store]
@@ -128,7 +128,7 @@ flowchart LR
     Core{{core}}
     Security{{security}}
     Runtime{{runtime}}
-    Iac([iac])
+    Iac{{iac}}
     Persistence[(Rasm.Persistence)]
     Core e1@-->|"[SHAPE]: Fold.Plan"| Fold
     Core e2@-->|"[CONTENT_KEY]: ContentKey"| Store
@@ -159,6 +159,11 @@ flowchart LR
     Capability e27@-->|"[SHAPE]: Backend.Generation"| Runtime
     Persistence e28@<-->|"[CONTRACT]: BackendContract"| Capability
     Append e29@-->|"[PORT]: AuditJournal"| Security
+    Core e30@-->|"[SHAPE]: Query.Residence"| Olap
+    Core e32@-->|"[SHAPE]: Hops"| Olap
+    Olap e31@-->|"[SHAPE]: Query.Target"| Core
+    Core e33@-->|"[PROJECTION]: DashboardModel.Signal"| Olap
+    Iac e34@-->|"[PORT]: analytics residence"| Olap
 ```
 
 ## [04]-[INTERNAL]

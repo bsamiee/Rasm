@@ -89,44 +89,62 @@ Every shape crossing a branch boundary carries a `MANIFEST.md` entry; a conventi
 
 ## [08]-[OBSERVABILITY_CONFORMANCE]
 
-Four-signal telemetry — metrics, logs, traces, profiles — correlates across the three runtimes through rows each branch transcribes identically in meaning: canonical here, transcribed at `csharp:Rasm.AppHost/Observability/telemetry`, `python:runtime/observability/telemetry`, and `typescript:runtime/otel/emit`, the name vocabulary at `typescript:core/observe/convention`. Drifted rows repair at their owning branch page, never through a shared library, because the three SDK trains move on split maturity channels.
+Four-signal telemetry — metrics, logs, traces, profiles — correlates across the three runtimes through rows each branch transcribes identically in meaning: canonical here, transcribed at `csharp:Rasm.AppHost/Observability/telemetry`, `python:runtime/observability/telemetry`, and `typescript:runtime/otel/emit`, the name vocabulary at `typescript:core/observe/convention`. SDK trains move on split maturity channels, so no shared library carries those rows.
 
-Transcription SPELLS the rows per branch; `tests/contracts/` `TELEMETRY_CONVENTION` PROVES the three spellings agree, so a drifted row fails parity rather than a reading.
+Transcription SPELLS the rows per branch and `tests/contracts/` `TELEMETRY_CONVENTION` PROVES the three spellings agree, so a drift surfaces at the digest and repairs at its owning branch page.
 
 - Resource triple: `service.namespace` `rasm`, `service.name` the service row, `service.instance.id` a per-process mint.
 - Detector rows enrich the minted triple, never replace it; deployment-time resource overrides win the merge.
 - Metric names: dotted `rasm.<domain>.<measure>` under UCUM units, no baked `_total` or unit suffixes.
 - `<domain>` names the capability subject a query joins on, never the package, host, or verb emitting it.
 - Runtimes serving one subject share the segment and `service.name` separates the emitters; a package spanning two subjects emits under both.
-- Domain rows stay branch-declared — segment, admitted subject, emitting packages — at each branch's conformance minter, since fixing the instances here re-anchors the vocabulary to whatever segments exist today.
-- Gate: every segmented `rasm.` name a branch mints — instrument, metric dimension, resource, span, and log attribute alike — resolves against that roster, and an unresolved segment refuses at the declaration owner.
-- Two branches projecting one segment under different subjects fail corpus parity, which is what makes the roster one vocabulary rather than three.
-- Grammar carve: estate identity dimensions carry no segment, and package-keyed hook-point ids beside a runtime's own module namespace sit outside the grammar whole.
+- Subject test: subjects survive a second emitter, so a segment spelled like its package or host stands.
+- Segments two branches claim carry one subject spelling both transcribe byte-identical, so the roster reads as one vocabulary, never three.
+- Domain rows stay branch-declared at each conformance minter, since fixing the instances here re-anchors the vocabulary to today's segment set.
+- Each row carries its segment beside the admitted subject.
+- Emitter rosters stay branch-local, earned where a branch's own module declaration closes them against drift.
+- Carve: estate identity dimensions are the one unsegmented spelling the grammar admits.
+- Carve: package-keyed hook-point ids beside a runtime's own module namespace sit outside the grammar whole.
+- Carve: transport coordinates beside residence relation and session-setting names share the prefix and answer to their own owners.
+- Gate: every signal name a branch mints — instrument, dimension, resource, span, log, and event alike — carries a segment the roster resolves.
+- Unresolved segments refuse at their declaration owner rather than reaching an exporter.
 - Metrics-store OTLP receiver pins `NoUTF8EscapingWithSuffixes`, so dotted names survive byte-identical from every runtime.
 - Scope: the emitting package id, version-stamped, one semconv coordinate on tracer, meter, and logger; a branch spells it once, all bump together.
-- Egress: OTLP over HTTP+protobuf with gzip, one collector base endpoint fanned per signal on `/v1/<signal>`.
+- Egress: OTLP over HTTP+protobuf, one collector base endpoint fanned per signal on `/v1/<signal>`.
+- Compression pins gzip on every sender whose transport exposes an encoding knob, bound as a composition VALUE, never as an unpublished environment key.
+- Senders exposing none carry the uncompressed leg as a declared parity column at their branch minter, so an unset knob is a stated column rather than a silent hole.
 - `typescript:iac/program/spec` `StackOutputs.otlp` feeds the endpoint into the workload env — deploy-plane data, never an in-code literal.
+- Buffering: each signal exports through a bounded batch leg whose queue, batch, delay, and timeout bounds are branch governance policy values.
+- Export loss is accounted evidence — a dropped batch, rejected export, or wedged flush lands on the branch's own diagnostic floor, never silent.
+- Durability past the process rides the gateway's persistent queue; a branch-side durable OTLP queue is a policy row an application arms, never a default.
+- Lifecycle: one ranked drain per composition flushes and shuts every provider inside a bounded window, and a wedged flush parks as evidence there.
 - Propagation: one W3C composite — trace-context beside baggage — registers as the global propagator in every runtime.
 - Ingress adopts an inbound parent whole — trace id continued, span id parented — so parent-based sampling never fractures a trace across runtimes.
-- Exemplars: a measurement recorded inside a sampled active span carries its trace and span ids.
+- Exemplars: a measurement recorded inside a sampled active span carries its trace and span ids on every plane whose SDK exposes an exemplar seat.
+- Planes reaching no seat declare that as a parity column at their branch minter and click through the gateway's span-derived series instead.
 - Metric-to-trace click-through gates on the selected store row's exemplar column at `typescript:iac/operate/observe`.
-- Histograms: base2 exponential is the wire default in every branch; explicit-bucket advisory rows are the per-instrument fallback a view re-arms.
+- Histograms: base2 exponential is the wire default on every provider-aggregated plane; a view row re-arms the explicit-bucket fallback there.
+- Producer-collected distributions fix their explicit boundary ladders at the mint row — finished buckets reach the exporter and no view recomputes them.
 - Counters: DELTA temporality is the wire default in every branch; cumulative is the monotonic-totals alternative a policy row selects.
 - Tenant: `rasm.tenant` is the one dimension — baggage promoted onto spans and logs by allowlisted processors, folded onto metrics under view caps.
 - Absent tenant entries read as single-tenant, never as a sentinel value.
 - Receipts stay the truth: signals project from typed receipts through the per-branch owners `InstrumentFan`, `Metrics.record`, and `Pulse`.
 - Metrics minted beside a receipt fan are a second truth.
 
+[HOOK_PLANE]: domain code fires typed facts at package-qualified `rasm.<pkg>.<domain>.<point>` rows on one scoped hook registry per runtime — the kernel signal capsule's `HookPoint` roster for C#, `python:runtime/observability/hooks`, `typescript:core/observe/tap` — under one closed `veto` | `observe` | `replay` modality vocabulary. Registration is composition-unique, a subscriber fault isolates as typed evidence with the emitter's value untouched, and a signal emitter is an observe subscription over fired facts, never an emit inside a domain fold.
+
 [TENANT_COST_JOIN]: per-tenant cost attribution is one three-pin join — the C# grant spend family (`rasm.apphost.grant.spend.<unit>` off `GrantBroker` cost vectors through the instrument fan), the SDK-side `rasm.tenant` promotion every runtime registers (the one gate; no collector processor re-mints the dimension), and the iac cost read (OpenCost against the selected store row, boards compiled into the default and tenant organizations). Past a store row's tenant series cap, attribution rides exemplar-sampled traces — trace-scoped spend evidence, never a second metering pipeline.
+
+[EVIDENCE_RESIDENCE]: telemetry is an analytics subject in every branch — signal evidence lands in a durable columnar residence through the branch's own analytics custodian: `csharp:Rasm.Persistence`, `python:data/tabular` beside the `python:runtime/observability/journal` plane, and `typescript:data`. `spec.profile.observe.analytics` arms the residence family at `typescript:iac/operate/observe` — `lake` the default cold tail, `clickhouse` the interactive escalation, `none` a declared evidence loss — so evidence outliving a store's series window is a spec flip, never a per-branch pipeline.
 
 [FLEET_ESCALATION]: every escalation row is OFF at estate scale by ruling; re-arming is the named coordinate flip against `typescript:iac/operate/observe`, never a re-design.
 
-| [INDEX] | [ESCALATION]           | [ARM_COORDINATE]                                                     | [STANDING_RULING]                     |
-| :-----: | :--------------------- | :------------------------------------------------------------------- | :------------------------------------ |
-|  [01]   | Mimir scale-out store  | `spec.profile.observe.store: "mimir"` + `Lgtm.Args.objects`          | `prometheus` row holds at estate load |
-|  [02]   | Broker-buffered leg    | contrib image row + paired `kafka` exporter/receiver pipeline rows   | `file_storage` queue owns durability  |
-|  [03]   | Tail-sampling gateway  | `tail_sampling` processor row on the collector traces pipeline       | head sampling rides SDK parent ratios |
-|  [04]   | Per-app agent topology | second collector row, `mode: "daemonset"`, aimed at the gateway door | one `deployment` gateway serves all   |
+| [INDEX] | [ESCALATION]           | [ARM_COORDINATE]                                                    | [STANDING_RULING]                     |
+| :-----: | :--------------------- | :------------------------------------------------------------------ | :------------------------------------ |
+|  [01]   | Mimir scale-out store  | `spec.profile.observe.store: "mimir"` + `Lgtm.Args.objects`         | `prometheus` row holds at estate load |
+|  [02]   | Broker-buffered leg    | `observe.buffer: "broker"` — the paired `kafka` pipeline rows       | `file_storage` queue owns durability  |
+|  [03]   | Tail-sampling gateway  | `observe.sampling: "tail"` — the traces `tail_sampling` row         | head sampling rides SDK parent ratios |
+|  [04]   | Per-app agent topology | `observe.topology: "agent"` — the daemonset row on the gateway door | one `deployment` gateway serves all   |
 
 [PROFILE_SWAP]: profiles migrate from vendor push onto the OTLP profiles signal by row replacement, armed only when the signal reaches stable across the three SDK trains; span-profile correlation processors, the Pyroscope store row, and every dashboard survive the swap unchanged. Swap-point owners: `csharp:Rasm.AppHost/Observability/telemetry`, `python:runtime/observability/profiles`, `typescript:runtime/otel/profile`, and `typescript:iac/operate/observe`.
 
@@ -135,7 +153,7 @@ Transcription SPELLS the rows per branch; `tests/contracts/` `TELEMETRY_CONVENTI
 |  [01]   | C#         | `AddProcessor<PyroscopeSpanProcessor>()` + agent env rows | OTLP profiles exporter row on the same otelExport arm  |
 |  [02]   | Python     | `Profiles.install` `pyroscope.configure` push             | one `EGRESS` profiles factory row + `SignalSpec` row   |
 |  [03]   | TypeScript | `Profile.live` push bracket over the node profiler        | a profiles lane row beside the `Export.live` exporters |
-|  [04]   | Collector  | `otlphttp/profiles` exporter + `profiles` pipeline        | already OTLP-shaped; the ingest door holds unchanged   |
+|  [04]   | Collector  | `otlp_http/profiles` exporter + `profiles` pipeline       | already OTLP-shaped; the ingest door holds unchanged   |
 
 ## [09]-[SCHEMA_STATE]
 

@@ -12,16 +12,16 @@ Qualification mismatch is a decision, never an admission failure: welder status,
 ## [02]-[QUALIFICATION_PROFILE]
 
 - Owner: `QualificationProfile` owns procedure and personnel test sets with the governing-code variable registry; `EssentialVariable` carries key, family, modality, admitted quantity dimension, source scopes, essentiality, and parameterized applicability as one admitted value.
-- Key: `VariableKey` is the keyed identity every rule and demand map indexes on, so a profile edition that revises a variable row still resolves its rules and values.
+- Owner: `VariableRequirement` distinguishes evidence-bearing and nonessential variables; `ApplicabilityLaw` carries conditional essentiality, and `ContextExcluded` remains distinct from permitted `EvidenceOmitted` receipt rows.
+- Owner: `PqrEvidence` owns specimen-specific procedure tests; `WelderRegistry` resolves assigned `WelderQualification` ranges, test evidence, status, and activity-derived continuity. `WelderQualification` carries the personal classification row from `Process/telemetry#CLASSIFICATION`, so welder identity redacts at every log and export seam while WPS/PQR artifacts keep their attested content.
 - Cases: `QualificationValue` distinguishes demanded evidence, context exclusion, and permitted nonessential omission; `QualificationValue.Qualify` is the one total pairing over that family, so `Qualification` admits no rule-shape fallback arm.
-- Dimension: a quantity variable carries its `QuantityInfo`, and admission proves demand, range low, and range high share it, so evaluation compares scalars that are already dimensionally paired.
-- Requirement: `VariableRequirement` distinguishes evidence-bearing and nonessential variables; `ApplicabilityLaw` carries conditional essentiality, and `ContextExcluded` remains distinct from permitted `EvidenceOmitted` receipt rows.
-- Evidence: `PqrEvidence` owns specimen-specific procedure tests; `WelderRegistry` resolves assigned `WelderQualification` ranges, test evidence, status, and activity-derived continuity. `WelderQualification` carries the personal classification row from `Process/telemetry#CLASSIFICATION`, so welder identity redacts at every log and export seam while WPS/PQR artifacts keep their attested content.
+- Law: `VariableKey` is the keyed identity every rule and demand map indexes on, so a profile edition that revises a variable row still resolves its rules and values.
+- Law: a quantity variable carries its `QuantityInfo`, and admission proves demand, range low, and range high share it, so evaluation compares scalars that are already dimensionally paired.
+- Exemption: generated admission hooks are definition-time boundary statements; `Procedure.Receipt` is the measured evidence-projection fold.
 - Entry: `Procedure.Assess` accepts only `ProcedureRequest`; `Wps`, `WeldDemand`, assignments, inspection context, and assessment time enter through that generated aggregate gate.
 - Packages: `Thinktecture.Runtime.Extensions` owns admitted values and closed dispatch; `UnitsNet` owns physical dimensions and registry identity; `NodaTime` owns validity; `LanguageExt.Core` owns accumulated assessment; `Generator.Equals` owns ordered receipt equality and member diffs.
 - Growth: governing-code breadth is profile data, so one variable row or inspection rule extends a regime without a checker method, named field, or new public surface.
 - Boundary: every qualification verdict — expired continuity, suspended status, out-of-range value — remains a domain decision; only missing, duplicate, dimensionally incompatible, or malformed evidence fails request admission.
-- Exemption: generated admission hooks are definition-time boundary statements; `Procedure.Receipt` is the measured evidence-projection fold.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -1004,11 +1004,11 @@ public static class Procedure {
 ## [03]-[ASSESSMENT_FOLD]
 
 - Owner: `Procedure` pairs each admitted demand with WPS and welder rules, accumulates malformed evidence, evaluates canonical cases, derives inspection scope, and mints one decision receipt.
-- Correspondence: `EssentialVariable.Modality` and `EssentialVariable.Quantity` gate every map at admission, so `QualificationValue.Qualify` is total over the value family and assessment carries no rule-shape fallback arm.
-- Accumulation: admitted assignments are closed before assessment; independent value, rule, and applicability conflicts traverse on `Validation<Error, A>` before the result returns to `Fin`.
-- Qualification: WPS/PQR tests, procedure ranges, welder ranges, WPS validity, continuity, and welder standing all contribute evidence; mismatch remains in `ProcedureDecision.Unqualified` with every row preserved.
-- Projection: `ComplianceRow` carries verdict, variable identity, fault subject, scalar, and invariant evidence in its base constructor, so every new case supplies the complete projection or fails to compile.
-- Inspection: each `InspectionBasis.Populations` row pairs a sampling modality with its dimensional population; policy rows derive visual, surface, volumetric, or destructive coverage with a typed sampled extent, and overlapping rules collapse to the widest coverage per family and sampling.
+- Law: `EssentialVariable.Modality` and `EssentialVariable.Quantity` gate every map at admission, so `QualificationValue.Qualify` is total over the value family and assessment carries no rule-shape fallback arm.
+- Law: admitted assignments are closed before assessment; independent value, rule, and applicability conflicts traverse on `Validation<Error, A>` before the result returns to `Fin`.
+- Law: WPS/PQR tests, procedure ranges, welder ranges, WPS validity, continuity, and welder standing all contribute evidence; mismatch remains in `ProcedureDecision.Unqualified` with every row preserved.
+- Law: each `InspectionBasis.Populations` row pairs a sampling modality with its dimensional population; policy rows derive visual, surface, volumetric, or destructive coverage with a typed sampled extent, and overlapping rules collapse to the widest coverage per family and sampling.
+- Output: `ComplianceRow` carries verdict, variable identity, fault subject, scalar, and invariant evidence in its base constructor, so every new case supplies the complete projection or fails to compile.
 - Receipt: `ProcedureReceipt` carries ordered comparisons, scoped inspection requirements with their originating basis, PQR tests, per-joint personnel records, status, continuity, and welder identity; `EqualityComparer.Default.Inequalities` supplies revision and audit diffs under declared ordered collection semantics.
 - Boundary: `Require` aggregates every mismatch for aborting consumers, while receipt-first consumers retain the domain decision and complete evidence.
 

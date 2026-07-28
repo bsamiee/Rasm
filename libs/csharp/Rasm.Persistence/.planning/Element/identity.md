@@ -1,6 +1,6 @@
 # [PERSISTENCE_ELEMENT_IDENTITY]
 
-Rasm.Persistence anchors every persisted `ElementGraph` to one relational identity tier that commits ATOMICALLY with the Marten event in the same `IDocumentSession`: `ElementIdentity` is the per-model document/row carrying the `Element/graph#STREAM_GRAIN` `ModelId` PK, the `Tenant` RLS column, the set of rooted `NodeId`s, the Bim-projected IFC GlobalId strings (each rooted node's seam `Node.Object.ExternalId`), the H3 spatial cell, the PostGIS `Bounds` polygon, the pgvector embedding reference, the `ObjectAcl` (the `Element/authority` frozen vocabulary), and the classification — so identity plus event are one transaction with no two-ORM gap and the relational columns serve the spatial/vector/ACL/tenant lanes off the one tier. The EF surface is GENERATED, never hand-mapped: `ConverterRail.Compose` mounts `UseThinktectureValueConverters(Configuration.Default)` + `UseSnakeCaseNamingConvention()` + the provider row (`UseNpgsql(…, UseNetTopologySuite() + UseNodaTime() + UseVector())` or `UseSqlite`) on the ONE `IdentityContext`, so every `[ValueObject]`/`[SmartEnum]`/keyed-`[Union]` column converts with zero hand-written converter classes and only the LanguageExt carrier forms (`Option<Vector>`/`Seq<NodeId>`/`HashMap`) keep their Persistence-owned conversions. `IdentityPolicy` is the `[SmartEnum<string>]` key axis dispatching mint and decode per row through one generated `Switch`, big-endian transcription preserving order, so an identity change is an expand-wave second key plus a derivation flip plus a contract-wave drop, never an `AlterColumn`. `#KMS_CUSTODY` is the crypto tier the authz split leaves here (`Element/authority` owns WHO MAY; this page owns PROOF and KEYS): `SignedAuthorship` is the KMS-signed actor attestation tying a delta to a verified blame `StoreActor`, `Custody` folds attestation, verification, and DEK envelope minting/unwrapping into one `CustodyVerdict`, and `EnvelopeKeyring` is the DEK envelope surface the SAME `KmsProvider` axis selects beside `SigningKeyring` — provider-neutral `Mint`/`MintSealed`/`Unwrap`/`Rewrap`/`Probe` delegates wrapping a data-encryption key against the cloud CMK (AWS `GenerateDataKey`/`GenerateDataKeyWithoutPlaintext`/`Decrypt`/`ReEncrypt` encrypt-as-wrap, Azure native `WrapKey`/`UnwrapKey`, GCP `Encrypt`/`Decrypt` + CRC32C + `UpdateCryptoKeyPrimaryVersion` primary repoint), so the DEK-envelope owner is THIS tier and the `Store/blobstore#BLOB_GC` `ObjectEncryption` consumes only the server-side-SSE key-id STRING this envelope mints out-of-band. The boot verdict folds the Marten startup posture plus the EF migration state into one typed `SchemaVerdict`, and the migration owner (`IdentityDdl` + the EF.Design emission lanes) generates BOTH providers' DDL through the one model. Every identity-tier failure rails the typed `IdentityFault` band (`FaultBand.Identity`, 834x — `Element/authority` composes it, no new band). `ModelId`/`StoreActor`/`ProjectionContext` arrive from the Persistence sibling `Element/graph#STORE_RAIL`; `NodeId`/`ContentAddress` from `Rasm.Element`; `ContentHash.Of` from the `Rasm` kernel; only the `SecretLease`-class KMS handle crosses from `Rasm.AppHost` through the `Runtime/secrets#SECRET_LEASE` seam (the host resolves and leases the cloud-KMS credential; the concrete provider axis stays Persistence-side).
+Rasm.Persistence anchors every persisted `ElementGraph` to one relational identity tier that commits ATOMICALLY with the Marten event in the same `IDocumentSession`: `ElementIdentity` is the per-model document/row carrying the `Element/graph#STREAM_GRAIN` `ModelId` PK, the kernel-`TenantId` `Tenant` RLS column, the set of rooted `NodeId`s, the Bim-projected IFC GlobalId strings (each rooted node's seam `Node.Object.ExternalId`), the H3 spatial cell, the PostGIS `Bounds` polygon, the pgvector embedding reference, the `ObjectAcl` (the `Element/authority` frozen vocabulary), and the classification — so identity plus event are one transaction with no two-ORM gap and the relational columns serve the spatial/vector/ACL/tenant lanes off the one tier. The EF surface is GENERATED, never hand-mapped: `ConverterRail.Compose` mounts `UseThinktectureValueConverters(Configuration.Default)` + `UseSnakeCaseNamingConvention()` + the provider row (`UseNpgsql(…, UseNetTopologySuite() + UseNodaTime() + UseVector())` or `UseSqlite`) on the ONE `IdentityContext`, so every `[ValueObject]`/`[SmartEnum]`/keyed-`[Union]` column converts with zero hand-written converter classes and only the LanguageExt carrier forms (`Option<Vector>`/`Seq<NodeId>`/`HashMap`) keep their Persistence-owned conversions. `IdentityPolicy` is the `[SmartEnum<string>]` key axis dispatching mint and decode per row through one generated `Switch`, big-endian transcription preserving order, so an identity change is an expand-wave second key plus a derivation flip plus a contract-wave drop, never an `AlterColumn`. `#KMS_CUSTODY` is the crypto tier the authz split leaves here (`Element/authority` owns WHO MAY; this page owns PROOF and KEYS): `SignedAuthorship` is the KMS-signed actor attestation tying a delta to a verified blame `StoreActor`, `Custody` folds attestation, verification, and DEK envelope minting/unwrapping into one `CustodyVerdict`, and `EnvelopeKeyring` is the DEK envelope surface the SAME `KmsProvider` axis selects beside `SigningKeyring` — provider-neutral `Mint`/`MintSealed`/`Unwrap`/`Rewrap`/`Probe` delegates wrapping a data-encryption key against the cloud CMK (AWS `GenerateDataKey`/`GenerateDataKeyWithoutPlaintext`/`Decrypt`/`ReEncrypt` encrypt-as-wrap, Azure native `WrapKey`/`UnwrapKey`, GCP `Encrypt`/`Decrypt` + CRC32C + `UpdateCryptoKeyPrimaryVersion` primary repoint), so the DEK-envelope owner is THIS tier and the `Store/blobstore#BLOB_GC` `ObjectEncryption` consumes only the server-side-SSE key-id STRING this envelope mints out-of-band. The boot verdict folds the Marten startup posture plus the EF migration state into one typed `SchemaVerdict`, and the migration owner (`IdentityDdl` + the EF.Design emission lanes) generates BOTH providers' DDL through the one model. Every identity-tier failure rails the typed `IdentityFault` band (`FaultBand.Identity`, 834x — `Element/authority` composes it, no new band). `ModelId`/`StoreActor`/`ProjectionContext` arrive from the Persistence sibling `Element/graph#STORE_RAIL`; `NodeId`/`ContentAddress` from `Rasm.Element`; `ContentHash.Of` from the `Rasm` kernel; only the `SecretLease`-class KMS handle crosses from `Rasm.AppHost` through the `Runtime/secrets#SECRET_LEASE` seam (the host resolves and leases the cloud-KMS credential; the concrete provider axis stays Persistence-side).
 
 ## [01]-[INDEX]
 
@@ -14,7 +14,7 @@ Rasm.Persistence anchors every persisted `ElementGraph` to one relational identi
 - Owner: `ElementIdentity` the per-model identity row carrying the `ModelId` PK plus the `Tenant`/`Roots`/`GlobalIds`/`Cell`/`Bounds`/`Embedding`/`Acl`/`Classification`/`At` join columns; `NodeCell` the per-ELEMENT fine-cell routing-vertex row (`Model`/`Node`/`Tenant`/`Cell`) the `Query/cypher#GRAPH_QUERY` `pgrouting` `network_edge` source/target carries and `NodeAt` resolves; `StoreBinding` the `[Union]` provider row (`Postgres(NpgsqlDataSource)` / `Embedded(DbConnection)`) the one converter rail discriminates; `ConverterRail` the ONE options composition mounting the generated Thinktecture converters, the snake-case naming convention, and the provider plugin stack (the postgres row mounts `UseNetTopologySuite()` + `UseNodaTime()` + `UseVector()` so the geometry, `Instant`, and `vector(N)` columns all map through the one options entry); `IdentityContext` the one `DbContext` whose `OnModelCreating` keys the provider-divergent rows on `Database.IsSqlite()`; `IdentityShape`/`NodeCellShape` the `IEntityTypeConfiguration` mappings carrying ONLY what the conventions cannot derive — the LanguageExt carrier conversions, the jsonb ACL, the geometry column, and the indexes; `IdentityStore` the static surface owning the co-transactional model-derived upsert stamp (`Bind` derives the statement from the compiled EF model at boot; `Stamp` queues it on the Marten session), the spatial cell mints, the H3 neighborhood, the PostGIS predicate lane with its vertical-band clause, and the cell→NodeId resolver.
 - Cases: `Roots` is the set of rooted `NodeId`s the model owns (the `IfcRoot` mirror nodes), `GlobalIds` the 1:1 map from rooted `NodeId` to the compressed IFC GlobalId string projected from each seam `Node.Object.ExternalId` (the rooted `NodeId` is the neutral kernel-minted durable key, the IFC GlobalId is the `ExternalId` projection the `Version/merge#STRUCTURAL_DIFF` re-ingest `Reconcile` correlates on, never the key), `Cell` the Uber-H3 cell over the model envelope centroid (bucket-equality joins), `Bounds` the `Envelope`-derived `geometry(Polygon, 4326)` PostGIS column plus the `ZMin`/`ZMax` vertical span (the three rows on the ONE spatial-key axis: cells for bucket joins, geometry for exact XY predicates, z-span for storey banding), `Embedding` the optional pgvector reference keying the ANN lane — the per-model envelope locator, distinct in grain from the corpus-grain retrieval index (`Query/retrieval`), `Acl` the `Element/authority` `ObjectAcl` grant, `Classification` the `DataClassification` ceiling.
 - Entry: `IdentityStore.Bind(IModel)` derives an immutable `IdentityWriter` from one compiled provider model; `Stamp(IDocumentSession, ElementIdentity, IdentityWriter)` queues it on the event session. `Cell(Envelope, int)` mints either model or element cells without a forwarding sibling. `Nearby` uses `GridDiskDistancesSafe`; `Within` owns the exact PostGIS lane; `Bulk(IdentityContext, Seq<NodeCell>, NodeCellBulkPolicy, CancellationToken)` selects provider COPY versus embedded batching at composition.
-- Auto: the identity row rides the one `IDocumentSession` the `Element/graph#STORE_RAIL` write op uses. `IdentityWriter` captures the provider-specific table, schema, primary key, relational casts, and value converters at composition; no process-global writer can accidentally reuse a PostgreSQL model for SQLite. `UseThinktectureValueConverters(Configuration.Default)` converts generated owners, while Persistence-owned conversions cover LanguageExt carriers, recursive ACL JSON, geometry, and the `UInt128` tenant's canonical `x32` text. `H3Index.FromPoint` mints cells and rejects `H3Index.Invalid`. RLS compares canonical tenant text with `current_setting('rasm.tenant')` without a fictional `UInt128`→`uuid` provider mapping.
+- Auto: the identity row rides the one `IDocumentSession` the `Element/graph#STORE_RAIL` write op uses. `IdentityWriter` captures the provider-specific table, schema, primary key, relational casts, and value converters at composition; no process-global writer can accidentally reuse a PostgreSQL model for SQLite. `UseThinktectureValueConverters(Configuration.Default)` converts generated owners, while Persistence-owned conversions cover LanguageExt carriers, recursive ACL JSON, geometry, and — as ONE `ConverterRail.Tenant` pair both tenant-bearing relations bind — the `TenantId` column over the kernel's `Text`/`Of` inverse. `H3Index.FromPoint` mints cells and rejects `H3Index.Invalid`. RLS compares that canonical tenant text with `current_setting('rasm.tenant')` without a fictional `UInt128`→`uuid` provider mapping.
 - Receipt: an identity stamp rides `store.element.identity` carrying the `Roots` count; a spatial-neighborhood read rides `store.identity.nearby` carrying the ring radius; a predicate read rides `store.identity.within` carrying the range.
 - Packages: Marten (`IDocumentSession.QueueSqlCommand`), Npgsql.EntityFrameworkCore.PostgreSQL (`UseNpgsql`), Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite (`UseNetTopologySuite` + `IsWithinDistance`/`DistanceKnn`), Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime (`Instant`), Thinktecture.Runtime.Extensions.EntityFrameworkCore10 (`UseThinktectureValueConverters`), EFCore.NamingConventions (`UseSnakeCaseNamingConvention`), Microsoft.EntityFrameworkCore.Sqlite (`UseSqlite`/`IsSqlite`), Pgvector.EntityFrameworkCore (`UseVector`), pocketken.H3 (`H3Index.FromPoint`/`GridDiskDistancesSafe`), NetTopologySuite, linq2db.EntityFrameworkCore (`BulkCopyAsync` + `BulkCopyOptions`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime.
 - Growth: a new identity join column is one field on `ElementIdentity` — the conventions derive its mapping unless it is a LanguageExt carrier or a geometry, in which case ONE `IdentityShape` clause joins the residual set; a new spatial resolution is one H3 cell policy; a new provider is one `StoreBinding` case plus its `IsSqlite()`-analog model rows; zero new surface — a separate identity transaction, a second identity ORM committing apart from the event, a parallel `NodeId`-keyed identity table, a hand ADO mapping beside the generated rail, or an EF-versus-Marten atomicity dance is the deleted form.
@@ -36,6 +36,7 @@ using NetTopologySuite.Geometries;
 using NetTopologySuite.IO;
 using NodaTime;
 using Npgsql;
+using Rasm.Domain;                                 // TenantId — the S0 tenancy key the RLS column carries
 using Rasm.Element.Graph;
 using Rasm.Element.Projection;
 using Thinktecture;
@@ -74,7 +75,7 @@ public abstract partial record StoreBinding {
 // absent-state law as `Bounds`).
 public sealed record ElementIdentity(
     ModelId Model,
-    UInt128 Tenant,
+    TenantId Tenant,
     Seq<NodeId> Roots,
     HashMap<NodeId, string> GlobalIds,
     H3Cell Cell,
@@ -94,7 +95,7 @@ public sealed record ElementIdentity(
 // `ElementIdentity.Cell` locator — this is the per-element routing vertex, that the model-envelope spatial locator.
 // `Z` is the element centroid elevation (meters), so a storey-banded spatial join is one indexed range predicate
 // beside the cell equality — never a client-side elevation scan.
-public sealed record NodeCell(ModelId Model, NodeId Node, UInt128 Tenant, H3Cell Cell, double Z);
+public sealed record NodeCell(ModelId Model, NodeId Node, TenantId Tenant, H3Cell Cell, double Z);
 
 public sealed record IdentityWriter(string Sql, Func<ElementIdentity, object?[]> Binds);
 
@@ -115,6 +116,13 @@ public sealed partial class NodeCellBulkPolicy {
 // deleted forms; `ThinktectureValueConverterFactory.Create<T,TKey>` covers the residual EF-cannot-resolve
 // case. The compiled model (`Optimize`) mounts back through this same rail byte-identically.
 public static class ConverterRail {
+    // The ONE tenant column conversion, bound by every tenant-bearing relation: the pair is the kernel's own
+    // `TenantId.Text`/`Of`, so the column stores the exact fixed-width `x32` text the RLS predicate compares
+    // against `current_setting('rasm.tenant')` — no fictional `UInt128`->`uuid` provider mapping, and no
+    // entity shape re-spelling the format. A `TenantId` column also makes a cross-key mix-up unrepresentable.
+    public static readonly ValueConverter<TenantId, string> Tenant = new(
+        static tenant => tenant.Text, static text => TenantId.Of(text));
+
     public static DbContextOptionsBuilder Compose(DbContextOptionsBuilder options, StoreBinding binding) =>
         binding.Switch(
             postgres: p => options.UseNpgsql(p.Source, static npgsql => npgsql.UseNetTopologySuite().UseNodaTime().UseVector()),
@@ -158,8 +166,7 @@ public sealed class IdentityShape(bool embedded) : IEntityTypeConfiguration<Elem
                     static m => System.Text.Json.JsonSerializer.Serialize(m.ToDictionary(static p => p.Key.Value, static p => p.Value), ElementJson.Options),
                     static s => toHashMap((System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(s, ElementJson.Options) ?? []).Select(static kv => (NodeId.Create(kv.Key), kv.Value)))),
                 new ValueComparer<HashMap<NodeId, string>>(static (x, y) => x == y, static v => v.GetHashCode(), static v => v));
-        identity.Property(static e => e.Tenant).HasColumnType("text")
-            .HasConversion(static tenant => tenant.ToString("x32"), static tenant => UInt128.Parse(tenant, System.Globalization.NumberStyles.HexNumber));
+        identity.Property(static e => e.Tenant).HasColumnType("text").HasConversion(ConverterRail.Tenant);
         identity.Property(static e => e.Acl).HasColumnType(embedded ? "text" : "jsonb")
             .HasConversion(
                 static acl => System.Text.Json.JsonSerializer.Serialize(acl, ElementJson.Options),
@@ -193,8 +200,7 @@ public sealed class NodeCellShape : IEntityTypeConfiguration<NodeCell> {
         ArgumentNullException.ThrowIfNull(node);
         node.ToTable("node_cell");
         node.HasKey(static n => new { n.Model, n.Node });
-        node.Property(static n => n.Tenant).HasColumnType("text")
-            .HasConversion(static tenant => tenant.ToString("x32"), static tenant => UInt128.Parse(tenant, System.Globalization.NumberStyles.HexNumber));
+        node.Property(static n => n.Tenant).HasColumnType("text").HasConversion(ConverterRail.Tenant);
         // Composite (Cell, Z): the storey-banded join is cell-equality + z-range, served index-only.
         node.HasIndex(static n => new { n.Cell, n.Z });
         node.HasIndex(static n => n.Tenant);
@@ -430,7 +436,9 @@ public sealed partial class IdentityPolicy {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
-using Rasm.Domain;                                 // ContentHash — the AAD tenant digest entry
+using System.Buffers.Binary;                       // BinaryPrimitives — the big-endian pack of the AAD digest half
+using System.Globalization;
+using Rasm.Domain;                                 // CorrelationId/TenantId — the causal and tenancy entries
 
 // --- [TYPES] ---------------------------------------------------------------------------
 // The Persistence-side KMS provider axis BOTH the signing surface (`SigningKeyring`/`SignedAuthorship`) AND the
@@ -514,19 +522,32 @@ public sealed partial class WrapForm {
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record SigningKeyring(SigningAlgorithm Algorithm, Func<ReadOnlyMemory<byte>, IO<ReadOnlyMemory<byte>>> Sign, Func<ReadOnlyMemory<byte>, ReadOnlyMemory<byte>, IO<bool>> Verify);
-public sealed record SignedAuthorship(StoreActor Actor, KmsProvider Provider, string SigningKeyId, SigningAlgorithm Algorithm, OpDigest Digest, ReadOnlyMemory<byte> Signature, Instant At, Guid Correlation);
+public sealed record SignedAuthorship(StoreActor Actor, KmsProvider Provider, string SigningKeyId, SigningAlgorithm Algorithm, OpDigest Digest, ReadOnlyMemory<byte> Signature, Instant At, CorrelationId Correlation);
 
 // The additional-authenticated-data binding every wrap/unwrap carries: the store partition plus (under RLS) the
-// tenant id digested through the kernel `ContentHash.Of` so the AAD is a fixed-width opaque value, never a raw
+// tenant id digested through the admitted SHA-256 rail so the AAD is a fixed-width opaque value, never a raw
 // tenant uuid on the wire. It rides the provider `EncryptionContext` (AWS) / `AdditionalAuthenticatedData` (GCP)
 // exact-match and is compared application-side on the Azure native-wrap arm (which carries no per-call AAD), so
 // a DEK wrapped for one (partition, tenant) cannot be unwrapped under another.
 [ComplexValueObject]
 public sealed partial class EnvelopeAad {
     public string Partition { get; }
+    // The digest is a cryptographic AUTHENTICITY claim, so it mints on `CryptographicOperations.HashData`
+    // rather than on the kernel content-identity entry: the whole separation this AAD exists for is that two
+    // distinct (partition, tenant) pairs cannot render one value, and the non-cryptographic identity digest
+    // admits a chosen-slug collision that unwraps a neighbouring tenant's DEK under its own AAD. It never
+    // round-trips to a `TenantId` and never keys a partition, so it stays the raw `UInt128` the leading
+    // half of that digest packs while the tenant it binds arrives typed and renders through the kernel's
+    // one `Text` spelling.
     public UInt128 TenantDigest { get; }
-    public FrozenDictionary<string, string> Context => new Dictionary<string, string> { ["partition"] = Partition, ["tenant"] = TenantDigest.ToString("x32") }.ToFrozenDictionary();
-    public static EnvelopeAad Of(string partition, UInt128 tenant) => new(partition, ContentHash.Of(System.Text.Encoding.UTF8.GetBytes($"{partition}:{tenant:x32}")));
+    public FrozenDictionary<string, string> Context => new Dictionary<string, string> { ["partition"] = Partition, ["tenant"] = TenantDigest.ToString(TenantId.Wire, CultureInfo.InvariantCulture) }.ToFrozenDictionary();
+    public static EnvelopeAad Of(string partition, TenantId tenant) {
+        Span<byte> digest = stackalloc byte[32];
+        _ = System.Security.Cryptography.CryptographicOperations.HashData(
+            System.Security.Cryptography.HashAlgorithmName.SHA256,
+            System.Text.Encoding.UTF8.GetBytes($"{partition}:{tenant.Text}"), digest);
+        return new(partition, BinaryPrimitives.ReadUInt128BigEndian(digest[..16]));
+    }
 }
 
 // The persisted envelope carrier: the wrapped DEK bytes plus the wrapping key id and the exact key version the
@@ -557,7 +578,7 @@ public abstract partial record CustodyVerdict {
     private CustodyVerdict() { }
     public sealed record Attested(SignedAuthorship Authorship) : CustodyVerdict;
     public sealed record Authentic(StoreActor Actor, string SigningKeyId) : CustodyVerdict;
-    public sealed record Unsigned(StoreActor Actor, OpDigest Digest, Instant At, Guid Correlation) : CustodyVerdict;
+    public sealed record Unsigned(StoreActor Actor, OpDigest Digest, Instant At, CorrelationId Correlation) : CustodyVerdict;
     public sealed record Unauthored(OpDigest Expected, OpDigest Found) : CustodyVerdict;
     public sealed record Forged(StoreActor Actor, string SigningKeyId) : CustodyVerdict;
     public sealed record DigestWidth(int Expected, int Actual) : CustodyVerdict;
@@ -657,7 +678,7 @@ public abstract partial record SchemaVerdict {
 // KERNEL `Rasm.Domain.Expected` (protected ctor; `Category` virtual; `Code`/`Message` inherited from `Error`) — NOT `LanguageExt.Common.Expected`.
 // Band membership derives through the `Element/graph#FAULT_TABLES` registry row — `Code => FaultBand.Identity + n`
 // — so the typed case lifts BARE onto `Fin<T>`/`Validation<Error,T>` with no `.ToError()` hop and a recovery reads
-// `error.IsType<IdentityFault.CellUnresolvable>()` / `error.HasCode(8344)` / `error.Category()`, never a message
+// `error.IsType<IdentityFault.CellUnresolvable>()` / `error.HasCode(8344)` / `error.Category`, never a message
 // substring; a bare `Error.New(8341, …)` at a call site is the deleted form. `Element/authority` composes this
 // band (no band of its own). No `[GenerateUnionOps]` — the kernel union-ops generator is strictly opt-in.
 [Union]

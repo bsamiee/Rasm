@@ -4,9 +4,10 @@ Rasm.Persistence admits protobuf, Substrait JSON, or registered-table SQL into o
 
 ## [01]-[INDEX]
 
-- [01]-[PLAN_INGRESS]: the three-door `PlanWire` admission, the `SourceKind` capability axis, the `FederationMode` cadence union, the retained-wire-bytes round-trip law, the `ContentHash.Of(wireBytes)` plan digest, and the `FederationFault` closed band.
-- [02]-[PLAN_LOWERING]: the `RelationVisitor` double-dispatch lowering onto `LoweringTarget`, the `SetExpr` key-selection arm and the columnar/ADBC tabular arm, the ONE `Federation.Execute` entry owning the cut-shape default and the cadence dispatch, and the `FederatedResult` receipt with its replay triple.
-- [03]-[FLIGHT_RESULT_PLANE]: the Arrow Flight return wire — the `ReplayKey`-ticketed `FederationFlight` producer whose `GetFlightInfo` admits-and-executes a command-descriptor plan and whose `DoGet` streams the held result's record batches zero-copy to a cross-runtime consumer.
+- [02]-[PLAN_INGRESS]: the three-door `PlanWire` admission, the `SourceKind` capability axis, the `FederationMode` cadence union, the retained-wire-bytes round-trip law, the `ContentHash.Of(wireBytes)` plan digest, and the `FederationFault` closed band.
+- [03]-[PLAN_LOWERING]: the `RelationVisitor` double-dispatch lowering onto `LoweringTarget`, the `SetExpr` key-selection arm and the columnar/ADBC tabular arm, the ONE `Federation.Execute` entry owning the cut-shape default and the cadence dispatch, and the `FederatedResult` receipt with its replay triple.
+- [04]-[FLIGHT_RESULT_PLANE]: the Arrow Flight return wire — the `ReplayKey`-ticketed `FederationFlight` producer whose `GetFlightInfo` admits-and-executes a command-descriptor plan and whose `DoGet` streams the held result's record batches zero-copy to a cross-runtime consumer.
+- [05]-[PLAN_WIRE_SKEW]: extension-schema divergence across the frozen `SubstraitPlan` edge, why it parses clean in both directions, and which end refuses it.
 
 ## [02]-[PLAN_INGRESS]
 
@@ -563,6 +564,7 @@ public sealed class FederatedResult : IValidityEvidence {
 - Packages: Apache.Arrow.Flight (`FlightServer`/`FlightDescriptor`/`FlightTicket`/`FlightInfo`/`FlightEndpoint`/`FlightServerRecordBatchStreamWriter`), Apache.Arrow (`RecordBatch`/`Schema.Builder`/`Field.Builder`/`StringArray.Builder`), Google.Protobuf (`ByteString`), Grpc.Core (`ServerCallContext`/`RpcException`/`StatusCode`), LanguageExt.Core, BCL inbox.
 - Growth: a new result consumer dials the host channel and redeems tickets; a new served identity axis is one `ReplayKey` preimage field; a discovery need is the `ListFlights` verb over the same hold. A bespoke file drop, a second result wire, a session-keyed ticket, or a `DoPut` ingest arm is the deleted form.
 - Boundary: AppHost owns the gRPC channel, TLS, credentials, and service binding; Persistence contributes the `FlightServer` subclass. `DoGet` streams held batches, never a live `QueryResult`; the serving window bounds memory, an evicted result re-executes, and `Authority.Admit` gates demand at the caller.
+- Boundary: `FlightSqlServer` is the DECLINED base and stays declined — it dispatches Flight SQL command messages alone (`CommandStatementQuery` carrying SQL text, the eleven catalog-metadata commands, the prepared-statement pair) and its `GetCommand`/`GetFlightInfo`/`DoGet` fold matches `CommandStatementSubstraitPlan` nowhere, even though the generated protocol declares it beside `SubstraitPlan { Plan = 1, Version = 2 }`. Subclassing it therefore obligates 27 protected abstract handlers with no base implementations, every one a SQL-catalog verb this read-only plane answers with nothing, and STILL demands a `GetFlightInfo` override to reach the plan command — a plain `FlightServer` carrying a command descriptor is the same wire at a fraction of the surface.
 
 ```csharp signature
 using Apache.Arrow.Flight;
@@ -639,6 +641,15 @@ public sealed class FederationFlight(FederationPorts ports, SourceKind source, A
 |  [04]   | hosting          | AppHost gRPC channel, Persistence `FlightServer` | the `WireNative` delivery-honesty split; no local listener    |
 |  [05]   | hold             | `Atom<HashMap<UInt128, FederatedResult>>`        | one serving window; eviction re-executes                      |
 
-## [05]-[RESEARCH]
+## [05]-[PLAN_WIRE_SKEW]
 
-- [FLIGHT_SQL_HANDLER_ROSTER]-[OPEN]: which exact protected abstract handler roster and signatures must a read-only `FlightSqlServer` subclass realize; rebuild `libs/csharp/Rasm.Persistence/.api/api-arrow.md` from the admitted assembly with `tools.assay api --package Apache.Arrow.Flight.Sql --type Apache.Arrow.Flight.Sql.FlightSqlServer`, restoring `FederationFlightSql` only after every handler row joins the catalog.
+- Owner: the frozen `SubstraitPlan` edge to `python:data`, whose two ends parse INCOMPATIBLE extension schemas at the pinned versions and agree on every other field.
+- Cases: this producer's generated `Substrait.Protobuf.Plan` writes `ExtensionUris` at field 1 with each declaration back-referencing through `ExtensionUriReference` at field 1; the consumer's installed distribution reads `extension_urns` at field 8 with `extension_urn_reference` at field 4 and declares neither retired field.
+- Auto: proto3 files an unknown field rather than raising, so a plan minted here parses CLEAN across the edge — `relations`, `extensions`, `version`, and `advanced_extensions` all survive while the whole extension space vanishes into the unknown set, presenting as a plan declaring functions against no space at all.
+- Boundary: the consumer refuses that signature on its own `RETIRED_EXTENSION_SCHEMA` row ahead of urn resolution, so the skew fails loudly at one named seam; without it the resolution check iterates an empty list, admits vacuously, and drops every function-vocabulary lineage edge the receipt was meant to carry.
+- Growth: parity arrives when this package's generated protobuf carries the URN-era schema — no released version does, so the refusal row is the standing form and a bump is what retires it, never a local re-encode inventing anchors this IR never held.
+
+
+## [06]-[RESEARCH]
+
+(none)

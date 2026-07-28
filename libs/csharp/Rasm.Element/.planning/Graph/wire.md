@@ -12,7 +12,7 @@ Content keys cross verbatim: `NodeId` as X32 text and `UInt128` as big-endian by
 ## [02]-[WIRE_CODEC]
 
 - Owner: the `Graph/element.proto` `rasm.element.v1` contract — the language-neutral message roster `Grpc.Tools` compiles for C# (`GrpcServices=None`, message codegen only) and `buf`/`protoc-gen-es` + `grpcio-tools` compile for the TypeScript/Python peers; `WireCodec` the `[Mapper]` static transcription family owning every per-case seam↔wire field mapping; `ElementWire` the boundary owner railing decode onto `Fin<T>`; `WireLimits` the parameterized decode-budget policy record.
-- Cases: every closed seam union crosses as a `oneof` mirroring its cases 1:1 — `NodeWire` the seven `Node` payloads, `RelationshipWire` the six edge kinds, `PropertyValueWire` the recursive fourteen-case value family, `MaterialUsageWire` the explicit none/layer/profile usage family, `MaterialCompositionWire` the four composition arms, and `MaterialPropertySetWire` the engineering-property family. Generated keyed owners cross by key; absence is field presence, never a numeric or unset-oneof sentinel.
+- Cases: every closed seam union crosses as a `oneof` mirroring its cases 1:1 — `NodeWire` the eight `Node` payloads, `RelationshipWire` the six edge kinds, `PropertyValueWire` the recursive fourteen-case value family, `MaterialUsageWire` the explicit none/layer/profile usage family, `MaterialCompositionWire` the four composition arms, and `MaterialPropertySetWire` the engineering-property family. Generated keyed owners cross by key; absence is field presence, never a numeric or unset-oneof sentinel.
 - Entry: `ElementWire.Encode(ElementGraph)` and `Encode(GraphDelta)` are the infallible total lowerings of already-valid graphs onto `ElementGraphWire`/`GraphDeltaWire` (the wire message IS the byte surface — a consumer composes the `Google.Protobuf` write family `WriteTo(IBufferWriter<byte>)`/`ToByteArray`/`WriteDelimitedTo` directly, never a forwarding byte wrapper); `DecodeGraph(Stream, WireLimits, Op)` and `DecodeDelta(Stream, WireLimits, Op)` are the one `Fin<T>`-railed decode leg per wire kind (the `GeometrySource` typed-leg precedent — the discriminant is the return TYPE, never a `Get`/`GetById` arity family), parsing through `MessageParser<T>.ParseFrom(CodedInputStream.CreateWithLimits(stream, limits.SizeLimit, limits.RecursionLimit))`, re-admitting every value through the seam gates, and re-crossing the STRUCTURAL owners — `DecodeGraph` admits the transcription as a `Genesis`-rooted delta through `GraphDelta.AdmitOnto` (`LegalLink` per decoded edge, a duplicate wire node id railed before admission), `DecodeDelta` gates `GraphDelta.IsNormalForm` and returns a delta applied ONLY through `AdmitOnto`, never `ReplayOnto`.
 - Auto: `WireCodec` combines Mapperly's explicit member diagnostics with generated union/protobuf case dispatch. Decode re-mints a `MeasureValue` through `OfSi`, re-admits its `MeasureBand`, re-admits material-usage direction/cardinal tokens, and recursively re-admits every `PropertyValue`; no generated-code `Get` throw is part of the boundary contract.
 - Receipt: an `ElementGraphWire` is the snapshot a peer decodes into its own graph mirror WITHOUT re-deriving an identity — ids and content keys verbatim, the decoded transcription re-admitted as a `Genesis`-rooted delta through `GraphDelta.AdmitOnto` so `LegalLink` runs per decoded edge; a `GraphDeltaWire` is the change record a streaming consumer folds (the `DELTA_CRDT` convergence substrate's wire form); the optional `ContentAddress.Verify` sweep is the rehydrate integrity verdict a content-keyed consumer reads before trusting a crossed id, railing `ElementFault.AddressUnstable` per drifted node.
@@ -73,6 +73,7 @@ message NodeWire {
     AssessmentWire assessment = 6;
     AppearanceWire appearance = 7;
     CoverageWire coverage = 8;
+    ObservationWire observation = 9;
   }
 }
 
@@ -432,6 +433,52 @@ message ProvenanceWire {
   sint32 attempt = 9;
 }
 
+// --- [OBSERVATION_WIRE] ---
+// The measured-series crossing: the stream identity, the extent, and the by-reference chunk run — the sample BYTES
+// never cross, exactly as a coverage raster never does. window_start/window_end are the flattened NodaTime Interval
+// (both bounded by seam admission, so neither column is optional).
+message ObservationWire {
+  string sensor = 1;                       // SensorId — the deployment identity
+  string aspect = 2;                       // PropertyName — the observed aspect of the element
+  string observed = 3;                     // QuantityType token
+  sint32 dim_length = 4;                   // the Dimension signature, flattened as MeasureValueWire carries it
+  sint32 dim_mass = 5;
+  sint32 dim_time = 6;
+  sint32 dim_current = 7;
+  sint32 dim_temperature = 8;
+  sint32 dim_amount = 9;
+  sint32 dim_luminous_intensity = 10;
+  string canonical_unit = 11;
+  string sampling = 12;                    // SamplingKind key
+  optional google.protobuf.Duration cadence = 13;  // unset = event-driven, never a zero sentinel
+  google.protobuf.Timestamp window_start = 14;
+  google.protobuf.Timestamp window_end = 15;
+  repeated ObservationChunkWire chunks = 16;
+  SeriesStatisticsWire statistics = 17;
+  SensorProvenanceWire provenance = 18;
+}
+message ObservationChunkWire {
+  google.protobuf.Timestamp window_start = 1;
+  google.protobuf.Timestamp window_end = 2;
+  bytes series_key = 3;                    // 16-byte BE — the samples ride the object store, never the wire
+  sint32 sample_count = 4;
+}
+message SensorProvenanceWire {
+  string manufacturer = 1;
+  string model = 2;
+  string serial = 3;
+  optional string calibrated_at = 4;       // LocalDate, ISO-8601 token
+  optional MeasureBandWire tolerance = 5;  // the ZERO-CENTRED instrument band Value shifts onto each sample
+}
+message SeriesStatisticsWire {
+  map<string, sint32> census = 1;          // ObservationGrade key -> count
+  google.protobuf.Duration span = 2;
+  optional MeasureValueWire minimum = 3;
+  optional MeasureValueWire maximum = 4;
+  optional MeasureValueWire mean = 5;
+  optional MeasureValueWire total = 6;
+}
+
 // --- [COVERAGE_WIRE] ---
 message CoverageWire {
   string kind = 1;                         // CoverageKind key
@@ -507,6 +554,7 @@ message ProjectedCrsWire {
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using System.Buffers.Binary;
 using System.Numerics;
+using System.Globalization;
 using Google.Protobuf;
 using Google.Protobuf.Collections;
 using LanguageExt;
@@ -704,7 +752,9 @@ internal static partial class WireCodec {
  [UserMapping] internal static ProvenanceWire ToWire(Provenance p) {
   ProvenanceWire w = new() { Author = p.Author, Tool = p.Tool, Version = p.Version, At = p.At.ToTimestamp(), Elapsed = p.Elapsed.ToProtobufDuration(), Attempt = p.Attempt };
   p.Window.IfSome(i => { w.WindowStart = i.Start.ToTimestamp(); w.WindowEnd = i.End.ToTimestamp(); });
-  p.Correlation.IfSome(c => w.Correlation = c.ToString("D"));
+  // `CorrelationId` carries the kernel's own `ISpanFormattable` "D" render, so the wire text and the
+  // `Guid.TryParse` decode below stay one round-trippable spelling.
+  p.Correlation.IfSome(c => w.Correlation = c.ToString("D", CultureInfo.InvariantCulture));
   return w;
  }
 
@@ -763,7 +813,46 @@ internal static partial class WireCodec {
   quantitySet: q => new() { Id = q.Id.Value, QuantitySet = ToWire(q.Bag) },
   assessment: a => new() { Id = a.Id.Value, Assessment = ToWire(a.Payload) },
   appearance: a => new() { Id = a.Id.Value, Appearance = ToWire(a.Summary) },
-  coverage: c => new() { Id = c.Id.Value, Coverage = ToWire(c.Grid) });
+  coverage: c => new() { Id = c.Id.Value, Coverage = ToWire(c.Grid) },
+  observation: o => new() { Id = o.Id.Value, Observation = ToWire(o.Series) });
+
+ // Hand-owned like ToWire(GeoReference): the Interval flattens to a bounded column PAIR and the census map keys on a
+ // generated row, neither a shape Mapperly bridges. Both window ends are bounded by seam admission, so the columns
+ // are unconditional and no presence flag stands in for an unbounded side.
+ [UserMapping] internal static ObservationWire ToWire(ObservationSeries series) {
+  ObservationWire w = new() {
+   Sensor = series.Sensor.Value, Aspect = series.Aspect.Value, Observed = series.Observed.Value,
+   DimLength = series.Signature.Length, DimMass = series.Signature.Mass, DimTime = series.Signature.Time,
+   DimCurrent = series.Signature.Current, DimTemperature = series.Signature.Temperature,
+   DimAmount = series.Signature.Amount, DimLuminousIntensity = series.Signature.LuminousIntensity,
+   CanonicalUnit = series.CanonicalUnit, Sampling = series.Sampling.Key,
+   WindowStart = series.Window.Start.ToTimestamp(), WindowEnd = series.Window.End.ToTimestamp(),
+   Statistics = ToWire(series.Statistics), Provenance = ToWire(series.Provenance),
+  };
+  series.Cadence.IfSome(cadence => w.Cadence = cadence.ToProtobufDuration());
+  w.Chunks.AddRange(series.Chunks.Map(static chunk => new ObservationChunkWire {
+   WindowStart = chunk.Window.Start.ToTimestamp(), WindowEnd = chunk.Window.End.ToTimestamp(),
+   SeriesKey = ToWire(chunk.SeriesKey), SampleCount = chunk.SampleCount,
+  }));
+  return w;
+ }
+
+ [UserMapping] internal static SensorProvenanceWire ToWire(SensorProvenance provenance) {
+  SensorProvenanceWire w = new() { Manufacturer = provenance.Manufacturer, Model = provenance.Model, Serial = provenance.Serial };
+  provenance.CalibratedAt.IfSome(date => w.CalibratedAt = NodaTime.Text.LocalDatePattern.Iso.Format(date));
+  provenance.Tolerance.IfSome(band => w.Tolerance = ToWire(band));
+  return w;
+ }
+
+ [UserMapping] internal static SeriesStatisticsWire ToWire(SeriesStatistics statistics) {
+  SeriesStatisticsWire w = new() { Span = statistics.Span.ToProtobufDuration() };
+  foreach ((ObservationGrade grade, int count) in statistics.Census) { w.Census[grade.Key] = count; }
+  statistics.Minimum.IfSome(measure => w.Minimum = ToWire(measure));
+  statistics.Maximum.IfSome(measure => w.Maximum = ToWire(measure));
+  statistics.Mean.IfSome(measure => w.Mean = ToWire(measure));
+  statistics.Total.IfSome(measure => w.Total = ToWire(measure));
+  return w;
+ }
 
  internal static RelationshipWire ToWire(Relationship edge) => edge.Switch<RelationshipWire>(
   compose: e => new() { Compose = ToWire(e) },
@@ -866,6 +955,7 @@ internal static partial class WireCodec {
     w.Appearance.Metallic, w.Appearance.Roughness, w.Appearance.Opacity, w.Appearance.Transmissive, key)
     .Map(summary => (Node)new Node.Appearance(id, summary)),
    NodeWire.PayloadOneofCase.Coverage => ToCoverage(w.Coverage, key).Map(grid => (Node)new Node.Coverage(id, grid)),
+   NodeWire.PayloadOneofCase.Observation => ToObservation(w.Observation, key).Map(series => (Node)new Node.Observation(id, series)),
    _ => ElementFault.ValueRejected(key, "<wire-node-payload-none>"),
   };
  }
@@ -1065,6 +1155,52 @@ internal static partial class WireCodec {
    toSeq(w.DependsOnIds).Map(NodeId.Create))
   select payload;
 
+ // ToObservation decodes the measured series: every token re-crosses its generated row gate, every required message
+ // column and every flattened window rebuilds through the presence-and-order gate the BOUNDED NodaTime Interval both
+ // seam ends require, and the whole run re-enters through Rehydrate — so the advancing-chunk, bracketing-window, and
+ // census-coherence invariants re-prove against hostile input rather than riding the producer's word, and an unset
+ // statistics or provenance message names itself on the rail instead of dereferencing inside the residual funnel.
+ // Sample bytes stay in the object store; only content keys cross.
+ static Fin<ObservationSeries> ToObservation(ObservationWire w, Op key) =>
+  from sensor in SensorId.Of(w.Sensor, key)
+  from sampling in Row(SamplingKind.TryGet(w.Sampling, out SamplingKind? kind), kind, w.Sampling, key)
+  from window in ToInterval(w.WindowStart, w.WindowEnd, "observation.window", key)
+  from chunks in toSeq(w.Chunks).TraverseM(chunk =>
+   ToInterval(chunk.WindowStart, chunk.WindowEnd, "observation.chunk.window", key)
+    .Map(span => new ObservationChunk(span, ToKey(chunk.SeriesKey), chunk.SampleCount))).As()
+  from statistics in ToStatistics(w.Statistics, key)
+  from provenance in ToSensorProvenance(w.Provenance, key)
+  from series in ObservationSeries.Rehydrate(
+   sensor, PropertyName.Create(w.Aspect), QuantityType.Create(w.Observed),
+   Dimension.Create(w.DimLength, w.DimMass, w.DimTime, w.DimCurrent, w.DimTemperature, w.DimAmount, w.DimLuminousIntensity),
+   w.CanonicalUnit, sampling,
+   w.Cadence is null ? Option<NodaTime.Duration>.None : Some(w.Cadence.ToNodaDuration()),
+   window, chunks, statistics, provenance, key)
+  select series;
+
+ // Census keys re-cross the generated ObservationGrade gate, so an unknown grade rails rather than silently dropping
+ // a bucket the completeness ratio then over-counts against; the summary message and its span column admit before
+ // either read, since an absent summary is a decode refusal rather than an empty one.
+ static Fin<SeriesStatistics> ToStatistics(SeriesStatisticsWire? w, Op key) =>
+  from summary in Present(w, "observation.statistics", key)
+  from span in Present(summary.Span, "observation.statistics.span", key)
+  from census in toSeq(summary.Census).TraverseM(entry =>
+   Row(ObservationGrade.TryGet(entry.Key, out ObservationGrade? grade), grade, entry.Key, key)
+    .Map(row => (Grade: row, entry.Value))).As()
+  from minimum in OptMeasure(summary.Minimum, key)
+  from maximum in OptMeasure(summary.Maximum, key)
+  from mean in OptMeasure(summary.Mean, key)
+  from total in OptMeasure(summary.Total, key)
+  select SeriesStatistics.Of(
+   census.Fold(Map<ObservationGrade, int>(), static (map, entry) => map.AddOrUpdate(entry.Grade, entry.Value)),
+   span.ToNodaDuration(), minimum, maximum, mean, total);
+
+ static Fin<SensorProvenance> ToSensorProvenance(SensorProvenanceWire? w, Op key) =>
+  from audit in Present(w, "observation.provenance", key)
+  from calibrated in ToDate(audit.HasCalibratedAt, audit.CalibratedAt, key)
+  from tolerance in audit.Tolerance is null ? Fin.Succ(Option<MeasureBand>.None) : ToBand(audit.Tolerance, key).Map(Some)
+  select new SensorProvenance(audit.Manufacturer, audit.Model, audit.Serial, calibrated, tolerance);
+
  static Fin<CoverageGrid> ToCoverage(CoverageWire w, Op key) =>
   from kind in Row(CoverageKind.TryGet(w.Kind, out CoverageKind? row), row, w.Kind, key)
   from crs in ToGeoReference(w.Crs, key)
@@ -1103,16 +1239,22 @@ internal static partial class WireCodec {
     Row(FailureKind.TryGet(w.Kind, out FailureKind? fk), fk, w.Kind, key).Bind(kind =>
      Diagnostic.Of(phase, kind, w.Message, key, w.HasCode ? Some(w.Code) : None).Map(Some)));
 
- // Message fields carry presence by nullness (proto3 message presence); the window is both-or-neither.
+ // Message fields carry presence by nullness (proto3 message presence); the window is both-or-neither, and the
+ // present pair rebuilds through the shared window gate so a reversed pair rails here rather than throwing inside
+ // the NodaTime constructor. The instant and the elapsed span are required columns and admit by name.
  static Fin<Provenance> ToProvenance(ProvenanceWire w, Op key) {
   Guid correlation = default;
   return (w.WindowStart is null) != (w.WindowEnd is null)
    ? ElementFault.ValueRejected(key, "<wire-provenance-window-half-open>")
    : w.HasCorrelation && !Guid.TryParse(w.Correlation, out correlation)
     ? ElementFault.ValueRejected(key, $"<wire-provenance-correlation:{w.Correlation}>")
-    : Fin.Succ(new Provenance(w.Author, w.Tool, w.Version, w.At.ToInstant(), w.Elapsed.ToNodaDuration(),
-       w.WindowStart is null || w.WindowEnd is null ? None : Some(new NodaTime.Interval(w.WindowStart.ToInstant(), w.WindowEnd.ToInstant())),
-       w.HasCorrelation ? Some(correlation) : None, w.Attempt));
+    : (from at in Present(w.At, "provenance.at", key)
+       from elapsed in Present(w.Elapsed, "provenance.elapsed", key)
+       from window in w.WindowStart is null
+        ? Fin.Succ(Option<NodaTime.Interval>.None)
+        : ToInterval(w.WindowStart, w.WindowEnd, "provenance.window", key).Map(Some)
+       select new Provenance(w.Author, w.Tool, w.Version, at.ToInstant(), elapsed.ToNodaDuration(), window,
+        w.HasCorrelation ? Some(CorrelationId.Create(correlation)) : None, w.Attempt));
  }
 
  static Fin<PropertyBag> ToBag(PropertySetWire w, Op key) =>
@@ -1148,6 +1290,22 @@ internal static partial class WireCodec {
   !present ? Fin.Succ(Option<NodaTime.LocalDate>.None)
   : NodaTime.Text.LocalDatePattern.Iso.Parse(iso) is { Success: true } parsed ? Fin.Succ(Some(parsed.Value))
   : ElementFault.ValueRejected(key, $"<wire-date:{iso}>");
+
+ // Proto3 carries MESSAGE presence as nullness, so a column the schema declares non-optional still arrives unset
+ // from a hostile producer and the residual funnel would report its dereference as an opaque throw. Present names
+ // the missing column on the rail instead, and ToInterval pairs it with the ORDER proof the flattened window needs:
+ // the NodaTime two-Instant constructor throws on a reversed pair and would fire before any seam gate reads it.
+ static Fin<T> Present<T>(T? w, string column, Op key) where T : class =>
+  w is not null ? Fin.Succ(w) : ElementFault.ValueRejected(key, $"<wire-message-absent:{column}>");
+
+ static Fin<NodaTime.Interval> ToInterval(
+  Google.Protobuf.WellKnownTypes.Timestamp? start, Google.Protobuf.WellKnownTypes.Timestamp? end, string column, Op key) =>
+  from opened in Present(start, $"{column}.start", key)
+  from closed in Present(end, $"{column}.end", key)
+  from window in opened.ToInstant() <= closed.ToInstant()
+   ? Fin.Succ(new NodaTime.Interval(opened.ToInstant(), closed.ToInstant()))
+   : ElementFault.ValueRejected(key, $"<wire-window-reversed:{column}>")
+  select window;
 
  static Fin<Option<MeasureValue>> OptMeasure(MeasureValueWire? w, Op key) =>
   w is null ? Fin.Succ(Option<MeasureValue>.None) : ToMeasure(w, key).Map(Some);

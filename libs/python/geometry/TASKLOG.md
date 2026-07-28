@@ -80,13 +80,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: the capsule-fencing ruling at `libs/python/geometry/RULINGS.md`; the peer `_dispatch` fences.
 - Atomic: one decorator deletion.
 
-[COST_BRACKET_COMPOSE]-[QUEUED]: evidence costing composes the substrate bracket.
-- Capability: geometry samples process cost through the one runtime owner instead of a folder-local psutil bracket.
-- Shape: `_sampled` and the `EvidenceCost.of` delta on `libs/python/geometry/.planning/graduation.md` compose runtime `Cost.sampled`/`Cost.delta`; the wall-clock `perf_counter` timing and the `rasm.geometry.evidence.*` charter names stay folder-local.
-- Unlocks: one honest-RSS band and one sampling fix point; the folder `_PROCESS` handle dies.
-- Anchors: runtime `Cost` on `libs/python/runtime/.planning/observability/receipts.md`; the substrate-bracket ruling at `libs/python/.planning/RULINGS.md`.
-- Atomic: one bracket substitution on one page.
-
 [CHARTER_UNIT_SINGLE_WRITER]-[QUEUED]: measure units stay single-writer at the instrument owner.
 - Capability: a measure's UCUM unit is authored once at the runtime instrument row, the geometry charter carrying only the aggregation and source-field vocabulary it uniquely owns.
 - Shape: `MeasureRow` on `libs/python/geometry/.planning/graduation.md` drops its `unit` column; charter consumers derive the unit from the runtime `INSTRUMENTS` row by measure name.
@@ -123,14 +116,16 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-[KERNEL_BENCH_LANE]-[COMPLETE]: landed as `GeometryServe.bench` over the whole `_tessellate` entry (`rasm.geometry.mesh.serve.tessellate`) with repair and brep `benched` folds over their `apply` crossings, every row riding graduation `bench_seam` with zero geometry instrument rows.
-[SCAN_BENCH_SUBJECTS]-[COMPLETE]: landed as `ScanRegistration.bench` and `ScanReconstruction.bench` keying `bench_seam` by mode/method and source point count (`...<mode>.p<points>`), whole-crossing rounds only.
-[COST_WEAVE_FOLD]-[COMPLETE]: landed as the `EvidenceCost` `psutil` `oneshot` bracket (`_sampled`/`EvidenceCost.of`) closed by `_priced` inside `evidence_run` on `libs/python/geometry/.planning/graduation.md` — span facts, charter record, and one cost receipt.
-[SPAN_SUBJECT_RENAME]-[COMPLETE]: landed as the `span.update_name(f"{operation}:{subject.value}")` arm inside graduation `_priced` on the cleared `GeometrySubject`-carrying value.
-[PROFILE_SUBJECT_MAP]-[DROPPED]: runtime `Kernel.of` and `traced_kernel` already project `Kernel.name` through `Profiles.phase` on `libs/python/runtime/.planning/execution/workers.md`; no geometry subject map is admitted.
-[CHARTER_MEASURE_TABLE]-[COMPLETE]: landed as `MeasureRow`/`UNIVERSAL_MEASURES`/`CHARTER` with `charter_of`/`charter_record` on `libs/python/geometry/.planning/graduation.md`, UCUM units and aggregations per row.
-[DISTRIBUTION_ROWS]-[COMPLETE]: geometry record calls landed — deviation `_distributed`, quality `_metrics_outcome`, simulate eui `charter_record` — all deriving spellings from the charter; the runtime `INSTRUMENTS` counterpart rows stay the metrics owner's deferral.
-[FRAME_SCHEMA_PORT]-[COMPLETE]: landed as the subject-keyed, content-keyed, numpy-backed `EvidenceFrame` carrier beside `wire()` on `libs/python/geometry/.planning/graduation.md`.
-[FRAME_PRODUCER_ROWS]-[COMPLETE]: landed as `frame` rows on deviation (`DeviationResult.frame`), quality (`QualityMetrics.frame`), structural (`SectionReceipt.frame`), costing (`LifecycleReceipt.frame`), the analytic `tabled` projection, and the features board `frame` composing it.
-[TRACE_LINK_WIRE_PROBE]-[COMPLETE]: verdict admitted — `GeometryHandoff.of`/`_trace`/`wire()` mint the optional `traceparent`/`tracestate`/baggage mapping on `libs/python/geometry/.planning/graduation.md`, and `_GeometryWire.trace`/`_linked` decode it on `libs/python/compute/.planning/graduation/handoff.md`; `[EVIDENCE_TRACE_LINKS]` closes against both fences.
-[PULSE_DRAIN_PROBE]-[COMPLETE]: verdict landed on `libs/python/runtime/.planning/execution/lanes.md` — `LanePolicy.pulses` owns the spawn-context manager queue, structured `drain` custody starts and closes the actor, `anyio.from_thread.run_sync` relays into the single-consumer `Hooks.fire` fold, and `pulsed` stays lossy; `[MID_OPERATION_PULSE]` closed against the landed `GeometryPulse` rows and kernel beats.
+[KERNEL_BENCH_LANE]-[COMPLETE]: the mesh serve entry benches whole-crossing under graduation's own bench seam, with no geometry instrument row.
+[SCAN_BENCH_SUBJECTS]-[COMPLETE]: registration and reconstruction bench whole-crossing rounds keyed by mode and source point count.
+[COST_WEAVE_FOLD]-[COMPLETE]: the evidence cost ledger closes inside `evidence_run` and emits one cost receipt.
+[COST_BRACKET_COMPOSE]-[COMPLETE]: the ledger composes the runtime cost substrate, so this folder holds no sampling bracket of its own.
+[SPAN_SUBJECT_RENAME]-[COMPLETE]: the evidence span renames onto its cleared subject at close-out.
+[PROFILE_SUBJECT_MAP]-[DROPPED]: the runtime kernel already projects its own phase names; no geometry subject map is admitted.
+[CHARTER_MEASURE_TABLE]-[COMPLETE]: the charter rows every measure with its UCUM unit and aggregation.
+[DISTRIBUTION_ROWS]-[COMPLETE]: every charter row has a producing fold deriving its spelling from the charter.
+[CHARTER_CENSUS_GATE]-[COMPLETE]: the install leg proves every charter row's whole descriptor against the runtime census before any registration.
+[FRAME_SCHEMA_PORT]-[COMPLETE]: the content-keyed evidence frame seals its columns read-only and admits through a rail at its producer.
+[FRAME_PRODUCER_ROWS]-[COMPLETE]: every evidence producer carries its own frame projection.
+[TRACE_LINK_WIRE_PROBE]-[COMPLETE]: the optional W3C carrier mints on the handoff and decodes at the compute mirror; `[EVIDENCE_TRACE_LINKS]` closes against both fences.
+[PULSE_DRAIN_PROBE]-[COMPLETE]: the runtime lane owns the pulse queue and its drain custody, and delivery stays lossy; `[MID_OPERATION_PULSE]` closes against the landed pulse rows.

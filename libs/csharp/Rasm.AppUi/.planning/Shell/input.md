@@ -4,12 +4,12 @@ One interaction rail owns gesture mechanics for every admitted surface: keyboard
 
 ## [01]-[INDEX]
 
-- [01]-[HOTKEY_DERIVATION]: Chord transform, scope split, gesture bindings over the frozen deck.
-- [02]-[BEHAVIOR_RAIL]: Admitted trigger and action rows; one intent-binding entry.
-- [03]-[POINTER_GESTURES]: Gesture routing rows and the frozen pan-zoom canvas family.
-- [04]-[DRAG_CLIPBOARD]: Typed transfer payload union and clipboard codec rows.
-- [05]-[INPUT_FABRIC]: Alternative-input device union and device-output union over the intent table.
-- [06]-[DEVICE_DRIVERS]: The four admitted SDK boundary capsules binding the fabric's delegate columns.
+- [02]-[HOTKEY_DERIVATION]: Chord transform, scope split, gesture bindings over the frozen deck.
+- [03]-[BEHAVIOR_RAIL]: Admitted trigger and action rows; one intent-binding entry.
+- [04]-[POINTER_GESTURES]: Gesture routing rows and the frozen pan-zoom canvas family.
+- [05]-[DRAG_CLIPBOARD]: Typed transfer payload union and clipboard codec rows.
+- [06]-[INPUT_FABRIC]: Alternative-input device union and device-output union over the intent table.
+- [07]-[DEVICE_DRIVERS]: The four admitted SDK boundary capsules binding the fabric's delegate columns.
 
 ## [02]-[HOTKEY_DERIVATION]
 
@@ -342,7 +342,7 @@ public static class InputFabric {
 - Auto: the `Hid` capsule enumerates a 3Dconnexion SpaceMouse through `DeviceList.Local.GetHidDevices(vendorId, productId)`, opens a scoped `HidStream`, and decodes its six translation/rotation axes through `DeviceItemInputParser`/`DataValue.GetScaledValue` so canonical [-1,1] axes leave the capsule, not raw HID bytes (`.api/api-hidsharp.md`); the `Gamepad` capsule mints one `IInputContext` per view through `IView.CreateInput()`, reads `IGamepad.Thumbsticks`/`Triggers`/`Buttons` through the named `GamepadExtensions` accessors with `Deadzone.Apply` recentering, and folds them into `DeviceAxis` samples (`.api/api-silk-input.md`); the `Haptic` capsule arms the SDL haptic subsystem through `Init(InitHaptic)`, opens a device through `HapticOpenFromJoystick`, and runs effects through `HapticRumblePlay`/`GameControllerRumble` gated behind `HapticQuery` capability (`.api/api-silk-sdl.md`); the `Midi` capsule resolves an input device through `InputDevice.GetByName`, listens through `StartEventsListening`, and projects `ControlChangeEvent.ControlValue`/`NoteOnEvent.Velocity` (bounded `SevenBitNumber`) into normalized parameter axes (`.api/api-drywetmidi.md`); every handle is lifecycle-scoped and disposed at teardown.
 - Receipt: the first opened device emits a driver-resolved evidence row — device kind, identity, axis count; `TelemetryRow` contributes the device-resolved and device-absent instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: HidSharp, Silk.NET.Input, Silk.NET.SDL, Melanchall.DryWetMidi, Thinktecture.Runtime.Extensions, LanguageExt.Core, System.Reactive
-- Growth: a new device backend is one `DeviceDriver` case with its scoped open/stream pair; one device instrument is one `InstrumentRow` on `InputDrivers.TelemetryRow`; zero new surface.
+- Growth: a new device backend is one `DeviceDriver` case with its scoped open/stream pair; one device instrument is one `InstrumentSpec` row on `InputDrivers.TelemetryRow`; zero new surface.
 - Boundary: each capsule is the named boundary admission for its SDK — `Open` pairs the SDK's enumerate-and-open with the teardown in one scoped fold and the raw report crosses the boundary exactly once, so a normalized `DeviceAxis` leaves the capsule and a raw HID byte array, a raw `MidiEvent`, or a raw SDL status never propagates into the fabric (the per-SDK `LOCAL_ADMISSION` of each `.api`); the `Hid` capsule re-enumerates on `DeviceList.Changed` rather than re-opening a stale handle, the `Gamepad` capsule holds exactly one `IInputContext` per view (the SDL2 backend reflection-loaded through `TryAdd("Silk.NET.Input.Sdl")`), the `Haptic` capsule shares the single `Sdl.GetApi()` instance with the `Gamepad` SDL2 backend so no second native bundle loads, and the `Midi` capsule disposes every `InputDevice`/`OutputDevice` it opens; the bounded byte discipline holds at the edge — MIDI data crosses as `SevenBitNumber`/`FourBitNumber` and rejects out-of-range before forming, and HID axes cross as `GetScaledValue` projections, so a raw integer velocity or a raw logical HID value never enters the fabric; the capsule binds the `InputDevice`/`DeviceOutput` union arm's projection delegate at composition so the fabric body of `[05]` names no SDK member; the four native SDKs (SDL2 shared between Silk.NET.Input and Silk.NET.SDL, libmpv-independent) provision at the app-host distribution layer, never bundled by the managed packages.
 
 ```csharp signature
@@ -392,10 +392,10 @@ public static class InputDrivers {
     public const string ResolvedInstrument = "rasm.appui.input.device.resolved";
     public const string AbsentInstrument = "rasm.appui.input.device.absent";
 
-    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
-        AppUiTelemetry.Contribute(version, schemaUrl,
-            new(ResolvedInstrument, InstrumentKind.Count, "{device}", "input devices resolved by driver case"),
-            new(AbsentInstrument, InstrumentKind.Count, "{device}", "input devices absent at open"));
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            InstrumentSpec.Count(ResolvedInstrument, "{device}", "input devices resolved by driver case", MeasureForm.Whole),
+            InstrumentSpec.Count(AbsentInstrument, "{device}", "input devices absent at open", MeasureForm.Whole));
 
     public static Fin<DeviceSession> Open(DeviceDriver driver) => driver.Switch(
         hid: static source => toSeq(source.Devices.GetHidDevices(source.VendorId, source.ProductId))

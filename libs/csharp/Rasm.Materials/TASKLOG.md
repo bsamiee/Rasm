@@ -8,7 +8,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 <!-- source-only: open task card template:
 [ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
-- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Capability: <the higher-order invariant, owner capability, or concept established — concept grain only, never a page path, row list, or member spelling>.
 - Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
 - Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
 - Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
@@ -37,14 +37,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Shape: seed rows in `libs/csharp/Rasm.Materials/.planning/Component/panel.md` and the lateral case in `libs/csharp/Rasm.Materials/.planning/Component/capacity.md`.
 - Unlocks: `[PANEL_LATERAL_CAPACITY]` seeding.
 - Anchors: `panel#PANEL_FAMILY` printed-data precedent.
-- Tension: blocker question — are the AWC SDPWS Tables 4.2A-4.3D cells available as published data this corpus may transcribe under `SEED_ROW_LAW`? Route: the AWC SDPWS publication as a live-doc verification target.
-
-[QTO_MINT_PINS]-[BLOCKED]: Pin the three type-level quantity mint folds and the seam co-sign ask.
-- Capability: kg/m off `AreaMm2` and substance density, m²/m off `HeatedPerimeterMm`, m³/m off `AreaMm2`, minted once in `ComponentProjector.ProjectType` beside the detail bag.
-- Shape: the mint folds in `libs/csharp/Rasm.Materials/.planning/Projection/component.md`.
-- Unlocks: `[TYPE_QUANTITY_RECEIPT]` mint half.
-- Anchors: `component#QUANTITY_ROW` `Density` row, `ComputedSection.AreaMm2`/`HeatedPerimeterMm`.
-- Tension: blocker question — does the seam admit a quantity property-set row family on `DetailSchema` and a typed density accessor on `MaterialPropertySet`? Route: the `Rasm.Element` seam-owner pages.
+- Arms: arm when the AWC SDPWS 4.2A-4.3D unit-shear cells stand as published data this corpus may transcribe under `SEED_ROW_LAW`.
 
 [REALIZATION_SCALAR_AUDIT]-[QUEUED]: Audit the realized realization scalars complete against the schedule-derivation demand.
 - Capability: `RebarSchedule`/`RebarBend`/`ShapeCodes` cover the BS 8666 shape-code set and `WeldProfile`/`GroovePrep`/`StudRow` cover weld-map and stud-layout derivation, gaps recorded as rows.
@@ -53,68 +46,19 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `reinforcement#REINFORCEMENT_FAMILY` host-neutral scalar law, `joint#JOINT_FAMILY` receipts.
 - Atomic: coverage audit over realized vocabularies.
 
-[PANEL_VOCABULARY_RENAME]-[QUEUED]: Dashboard descriptor vocabulary sheds the board-family names.
-- Capability: one `PanelKind`/`PanelRow` meaning per package — the board-type catalogue keeps the domain names and the dashboard descriptors carry their own, so a same-named `[SmartEnum]` pair never splits one spelling across two concepts.
-- Shape: `libs/csharp/Rasm.Materials/.planning/Projection/observability.md` dashboard descriptor block — the `PanelKind`/`PanelRow` re-declarations rename to dash-scoped names.
-- Unlocks: the one-canonical-name law holds package-wide; `Component/panel.md` keeps sole custody of the board vocabulary.
-- Anchors: `Component/panel.md` `PanelKind` board roster; the semantic-consistency naming law.
-- Atomic: one package-local rename pair; the descriptor rows reach a deploy plane through their composition owner's encoded pack, so no peer decode counterpart moves with it.
-
-[README_APPHOST_ROW_RECUT]-[QUEUED]: README's AppHost row states the benchmark-gate consumer and its deferred arming.
-- Capability: the registry row carries the live coupling truth — the benchmark gate as sole compile consumer, deferred until armed, observability surfaces attributed to the kernel capsule — so the up-reference is never cut as dead.
-- Shape: `libs/csharp/Rasm.Materials/README.md` `[02]` `Rasm.AppHost` row re-cut; the `libs/csharp/Rasm.Materials/ARCHITECTURE.md` lead acknowledges the benchmark up-reference exception in the same pass.
-- Unlocks: the branch benchmark-peer ruling reads consistently at the folder registry.
-- Anchors: branch `RULINGS.md` benchmark-peer row; IDEAS `[KERNEL_BENCH_PROFILE_CORPUS]` sole-consumer anchor.
-- Atomic: one row and one lead clause.
-
-[RESEARCH_ROUTE_TIER_RECUT]-[QUEUED]: Blocked research routes point at the substrate catalog tier alone.
-- Capability: member-verification routes name the tier the homing law admits, so a route never sends a session to a folder catalog the law forbids minting.
-- Shape: `libs/csharp/Rasm.Materials/.planning/Projection/benchmarks.md` `[APPHOST_BENCHMARK_CATALOG]` route and `libs/csharp/Rasm.Materials/.planning/Projection/observability.md` `[LOGLEVEL_WARNING_MEMBER]` route — the folder-tier first hop deletes, the branch-tier catalog stays the sole hop.
-- Unlocks: routes align with the substrate-catalog homing law.
-- Anchors: `libs/csharp/.api/` substrate tier; the no-folder-stub law.
-- Atomic: two route lines.
-
 [IFC_ADMISSION_FOLD_MAP]-[BLOCKED]: Map the family `Of` factories for imported-row admission and the provenance-marking column.
 - Capability: reconciled `IfcElementType` data reaches family-dispatched `Component.Of` construction with imported rows provenance-marked beside seeds.
 - Shape: the admission fold map in `libs/csharp/Rasm.Materials/.planning/Component/component.md`.
 - Unlocks: `[IFC_PRODUCT_LIBRARY_ADMISSION]` Materials half.
 - Anchors: `component#CATALOGUE` fail-loud admission, frozen per-family round-trips.
-- Tension: blocker question — which `ComponentRow` column carries import provenance, and does the Bim ingest extend to reverse minting? Route: the `Rasm.Bim` ingest pages and its counterpart card.
+- Arms: arm when `component#CATALOGUE` settles the `ComponentRow` column carrying import provenance and the `Rasm.Bim` ingest counterpart declares whether it mints in reverse.
 
 [EPD_ROW_SHAPE]-[BLOCKED]: Draft the Materials-side EPD row shape — declared unit, module coverage, expiry — on the assessment landing page.
 - Capability: EC3/Ökobaudat/EPD-Norge records key to `MaterialId`/component designations with `PropertyEvidence` identity, demoting the authored per-kg bases to declared fallback.
 - Shape: the row shape in `libs/csharp/Rasm.Materials/.planning/Properties/assessment.md` with the fallback demotion in `libs/csharp/Rasm.Materials/.planning/Properties/sustainability.md`.
 - Unlocks: `[EPD_DATA_INGESTION]` record half.
 - Anchors: `Published<T>` evidence rows, `glazing#GLAZING_FAMILY` `GlazingGwp`/`GenericEpd`.
-- Tension: blocker question — what record schema and transport does the `python:data` peer carry over the Assessment wire? Route: the `python:data` planning corpus and its counterpart card.
-
-[SIGNAL_FAN_ARMS]-[BLOCKED]: Fixed-severity log projection settles beside the landed instrument tap and checkpoint ledger.
-- Capability: the four banded `[LoggerMessage]` partials declare their fixed warning severity from a catalogued member, completing the fault-log half of the Materials signal tap.
-- Shape: the log projection on `libs/csharp/Rasm.Materials/.planning/Projection/observability.md` `[05]-[FAULT_LOG]` beside the settled `MaterialsLatency` checkpoints.
-- Unlocks: IDEAS.md [MATERIALS_SIGNAL_TAP] — the last unsettled fault-log band closes.
-- Anchors: `Projection/observability.md` `[05]-[FAULT_LOG]`; the settled `[04]-[INSTRUMENT_TAP]` kernel rows, level cells, and contributor port.
-- Arms: a routed logging-abstractions catalogue admits the exact `LogLevel` warning member named by the page's `[LOGLEVEL_WARNING_MEMBER]` research row.
-
-[SIGNAL_DESCRIPTOR_ROWS]-[BLOCKED]: Materials' descriptor pack decodes on the deploy-plane board compiler.
-- Capability: the landed `MaterialsDescriptors` panel and alert rows reach the board plane through the producer-pack ingest; drives from IDEAS `[MATERIALS_SIGNAL_TAP]`.
-- Shape: rows settled at `libs/csharp/Rasm.Materials/.planning/Projection/observability.md` `[06]-[DESCRIPTOR_ROWS]`; the decode counterpart is one `_PACKS` row on `libs/typescript/iac/.planning/operate/observe.md`.
-- Unlocks: IDEAS.md [MATERIALS_SIGNAL_TAP] — Materials evidence renders on the shared board plane.
-- Anchors: `Projection/observability.md` `[06]-[DESCRIPTOR_ROWS]`; `libs/typescript/iac/.planning/operate/observe.md` `_PACKS` ingest.
-- Arms: `libs/typescript/iac/.planning/operate/observe.md` carries the Materials `_PACKS` provenance row.
-
-[BENCH_WORKLOAD_ROWS]-[BLOCKED]: Eight workload rows resolve injected content keys with `CaseOf` carrying each key.
-- Capability: the workload corpus grades through the shared AppHost gate; drives from IDEAS `[KERNEL_BENCH_PROFILE_CORPUS]`.
-- Shape: rows hold in `libs/csharp/Rasm.Materials/.planning/Projection/benchmarks.md`.
-- Unlocks: IDEAS.md [KERNEL_BENCH_PROFILE_CORPUS] — the receipt-bearing claim composition lands.
-- Anchors: `Projection/benchmarks.md` `[02]-[WORKLOAD_ROWS]`.
-- Arms: either routed Rasm.AppHost API catalogue admits the current corpus-bearing receipt and gate members named by `[APPHOST_BENCHMARK_CATALOG]`.
-
-[ANALYTICS_SCHEMA_ROWS]-[BLOCKED]: Five composite-key schemas, provenance columns, and parameterized folds land as the analytics egress.
-- Capability: catalogue analytics rows land typed on the durable plane; drives from IDEAS `[CATALOGUE_ANALYTICS_EGRESS]`.
-- Shape: schemas and folds hold in `libs/csharp/Rasm.Materials/.planning/Projection/analytics.md`.
-- Unlocks: IDEAS.md [CATALOGUE_ANALYTICS_EGRESS] — the analytics egress lands.
-- Anchors: `Projection/analytics.md` `[03]-[SCHEMA_ROWS]`, `[04]-[PROJECTION_FOLDS]`.
-- Arms: either routed UnitsNet API catalogue admits the four exact dimensioned selectors named by `[UNITSNET_ANALYTICS_SELECTORS]` and `libs/csharp/Rasm.Persistence/.planning/Store/observability.md` carries the store rows.
+- Arms: arm when the `python:data` peer declares the record schema and transport its Assessment wire carries.
 
 ## [02]-[CLOSED]
 
@@ -122,5 +66,13 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[SIGNAL_DESCRIPTOR_ROWS]-[COMPLETE]: the ingest counterpart landed — `materials.catalogue` seats on the deploy tuple at `libs/typescript/iac/.planning/operate/observe.md` `_PACKS`, and the key now rides inside `MaterialsDescriptors.Pack` as its own first column, so producer and consumer hold one spelling by construction.
+[QTO_MINT_PINS]-[COMPLETE]: the blocker question answers yes on both counts — the seam admits the `DetailSchema.Takeoff` row family and `MaterialPropertySet` now carries the `Density` accessor — and `TypeTakeoff` mints the set at `Projection/component#COMPONENT_PROJECTOR`, with `BakeSection` widened so one ref resolution serves both the SI seam projection and the mm-basis takeoff and `SeedType` collapsed onto one bag fold. Partiality is two-tiered: a section-free component mints no set, a stiffness-free substance drops the mass row alone.
+[ANALYTICS_SCHEMA_ROWS]-[COMPLETE]: the five declarations, their provenance columns, and the parameterized folds landed at `Projection/analytics.md`, and the blocker was a defect at both ends — the UnitsNet selectors resolve live (`Density.KilogramsPerCubicMeter`, `ThermalConductivity.WattsPerMeterKelvin`, `SpecificEntropy.JoulesPerKilogramKelvin`, `HeatTransferCoefficient.WattsPerSquareMeterKelvin`, each a `public double` SI accessor), and the Persistence store rows were never the gate because `Query/columnar#ANALYTICS_RESIDENCE` already owns the admission gate every producer crosses.
+[BENCH_WORKLOAD_ROWS]-[COMPLETE]: `Projection/benchmarks.md` `[03]-[GATE_COMPOSITION]` seats `MaterialsBench.Fresh` over `BenchmarkReceipt.Of` and `MaterialsBench.Gate` traversing the eight-row corpus through `BenchmarkGate.Gate`, harness and claim residence injected as functions.
+[README_APPHOST_ROW_RECUT]-[DROPPED]: no registry row exists to re-cut — a sibling package never cards as a folder domain package, so the coupling truth landed on the two leads instead: the `ARCHITECTURE.md` lead names the benchmark up-reference and its one compile consumer, and the `README.md` lead attributes the signal plane to the kernel capsule.
+[RESEARCH_ROUTE_TIER_RECUT]-[COMPLETE]: both research routes resolved against their landed owner pages rather than re-tiering, and `libs/.planning/README.md` `[API_TIERS]` now forecloses a catalogue named for a corpus package, so a member crossing a folder boundary routes to that owner's design page and never to a catalogue tier.
+[PANEL_VOCABULARY_RENAME]-[COMPLETE]: no rename was needed — the descriptor row collapsed onto the kernel `PanelSpec`/`BoardPack` carrier, so `Projection/observability#BOARD_PACK` declares no panel type at all and `Component/panel.md` holds the board vocabulary uncontested.
 [CONSTITUENT_VOCABULARY_RULING]-[DROPPED]: the blocker question is carried law — the Element seam owns the constituent-fraction algebra (`MaterialComposition.OfConstituentSet` normalization on the seam owner page) and each producer mints instance rows at its own seam, so a Materials-local custody ruling re-litigates the settled split; the producer work continues on IDEAS `[CONSTITUENT_SET_PRODUCER]`.
 [SIGNAL_TAP_ROSTER]-[COMPLETE]: the seven-point `MaterialsHooks` composition over the kernel capsule landed at `Projection/observability.md` `[03]-[HOOK_RAIL]` — the AppHost-registry composition dissolved into kernel capsule composition, the app root admitting the `Rasm.Materials` scope by name.
+[SIGNAL_FAN_ARMS]-[COMPLETE]: `MaterialsLog` landed at `Projection/observability.md` `[05]-[EVIDENCE_RECORDS]` — the branch logging-abstractions catalogue carries the `LogLevel` roster, so the fixed warning severity is declaration data on two banded partials (a rail-side `Logged` aspect and an isolated-evidence `Drain`), and the per-fault-family verb family the blocked card assumed never mints.

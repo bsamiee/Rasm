@@ -6,12 +6,12 @@ Wire posture: HOST-LOCAL. `BuildJob` and `BuildPolicy` enter once; `PlateLayoutR
 
 ## [01]-[INDEX]
 
-- [01]-[DOMAIN]: Generated process, head, atmosphere, program, objective-axis, identity, machine, feedstock, and policy owners.
-- [02]-[ORIENTATION]: Parameterized candidate generation, one oriented frame, audit gating, and axis-derived score evidence.
-- [03]-[COMPILATION]: Process-owned dispatch over layer, exposure, resin, binder, jet, lamination, and robot programs.
-- [04]-[IDENTITY]: One framed canonical codec seeds every derived key, genealogy payload, and namespace-derived UUID.
-- [05]-[THREE_MF]: Material, property, component, lattice, attachment, production identity, canonical write, and structural read-back.
-- [06]-[DELIVERY]: `BuildOutcome` projects artifacts and complete receipts without discarding rejected candidates or warnings.
+- [02]-[DOMAIN]: Generated process, head, atmosphere, program, objective-axis, identity, machine, feedstock, and policy owners.
+- [03]-[ORIENTATION]: Parameterized candidate generation, one oriented frame, audit gating, and axis-derived score evidence.
+- [04]-[COMPILATION]: Process-owned dispatch over layer, exposure, resin, binder, jet, lamination, and robot programs.
+- [05]-[IDENTITY]: One framed canonical codec seeds every derived key, genealogy payload, and namespace-derived UUID.
+- [06]-[THREE_MF]: Material, property, component, lattice, attachment, production identity, canonical write, and structural read-back.
+- [07]-[DELIVERY]: `BuildOutcome` projects artifacts and complete receipts without discarding rejected candidates or warnings.
 
 ## [02]-[DOMAIN]
 
@@ -24,19 +24,19 @@ Wire posture: HOST-LOCAL. `BuildJob` and `BuildPolicy` enter once; `PlateLayoutR
 
 ## [03]-[ORIENTATION]
 
-- Entry: `OrientationProgram.Generate` produces a bounded candidate family from fixed, seeded, spherical, build-direction, or generated policy.
 - Law: `BuildOperators.Orient` runs before `BuildOperators.Slice`, `Footprint`, `Audit.Preflight`, scoring, and compilation; `OrientedPart` is the only compiler input.
 - Law: `BuildOperators.Score` measures one `OrientationMeasurement` and never weighs it; `OrientationEvidence.Cost` folds `OrientationAxis.Items` against `OrientationWeights`, so the objective algebra is recoverable from the vocabulary alone.
 - Law: `OrientationEvidence.Admits` accumulates every axis and machine-envelope violation and names the failing `OrientationAxis` in each fault.
 - Law: rejected candidates remain `OrientationVerdict.Rejected` rows with typed errors; selection fails only when no admitted row survives, and the refusal appends every rejection error monoidally.
+- Entry: `OrientationProgram.Generate` produces a bounded candidate family from fixed, seeded, spherical, build-direction, or generated policy.
 - Receipt: `OrientationEvidence` retains the per-axis normalized scores beside the physical support, height, footprint, anisotropy, thermal, residual-stress, recoater, trapped-volume, escape, and scan-time measurements.
 
 ## [04]-[COMPILATION]
 
-- Entry: `BuildProgram.Compile` is one exhaustive dispatch over additive modalities.
-- Boundary: rectangular placement remains `BuildOperators.Pack`; articulated continuity, diagnostics, duration, targets, joints, code, and warnings remain `BuildOperators.Robot`.
 - Law: machine admission is `AdditiveProcess.Admits`; no external equality roster reconstructs process/head/kinematics/program compatibility.
+- Entry: `BuildProgram.Compile` is one exhaustive dispatch over additive modalities.
 - Receipt: `BuildArtifact` keeps layer, exposure, vat, binder, material-jet, lamination, and robot evidence under one union.
+- Boundary: rectangular placement remains `BuildOperators.Pack`; articulated continuity, diagnostics, duration, targets, joints, code, and warnings remain `BuildOperators.Robot`.
 
 ## [05]-[IDENTITY]
 
@@ -47,11 +47,11 @@ Wire posture: HOST-LOCAL. `BuildJob` and `BuildPolicy` enter once; `PlateLayoutR
 ## [06]-[THREE_MF]
 
 - Owner: `ThreeMfDocument` is the semantic resource graph; material, multi-property, component, lattice, slice-reference, level-set, volume-data, and attachment families are cases of `ThreeMfResource`.
-- Boundary: `ThreeMf.Write` derives required `ThreeMfExtension` values from the resource graph, capability-probes each namespace, admits every mesh through `CMeshObject.IsManifoldAndOriented`, and catches only `Lib3MFException` into `FabricationFault.ThreeMfWriteRejected`.
 - Law: every attachment relation is a `ThreeMfPolicy` value — `GenealogyRelation`, `ImplicitRelation`, `VolumetricRelation` — admitted before write; no namespace URI appears inside an operation body.
 - Law: object and triangle property attribution originates from one material table; component transforms and build transforms share the selected oriented frame.
 - Law: `CReader.ReadFromBuffer`, `AddRelationToRead`, `GetResources`, `GetMeshObjects`, and `GetBuildItems` structurally read back the emitted package before identity mints.
 - Receipt: `ThreeMfReceipt` separates native read-back counts from declared resource-family counts and retains warnings, extension support, material genealogy, and canonical bytes.
+- Boundary: `ThreeMf.Write` derives required `ThreeMfExtension` values from the resource graph, capability-probes each namespace, admits every mesh through `CMeshObject.IsManifoldAndOriented`, and catches only `Lib3MFException` into `FabricationFault.ThreeMfWriteRejected`.
 
 ## [07]-[DELIVERY]
 

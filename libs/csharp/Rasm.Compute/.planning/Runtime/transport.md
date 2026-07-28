@@ -6,10 +6,10 @@ Rasm.Compute owns the channel MECHANICS the suite wire moves over: five `RemoteT
 
 ## [01]-[INDEX]
 
-- [01]-[TRANSPORT_AXIS]: five transport rows under the canonical `GrpcChannelPolicy` tuning owner — RID-gated HTTP/3-forward posture, channel warm-up, typed connectivity fold, grpc-web binary framing, and the injected bSDD REST transport.
-- [02]-[CALL_POLICY]: five credential rows and three compression rows behind one stamping interceptor threading the `HopTotal` deadline budget.
-- [03]-[ARTIFACT_FRAMES]: the 64 KiB `FrameEdge` frame law — `Crc32`, whole-artifact `XxHash128`, zero-alloc buffer fast path, reassembly, mask-driven partial update, transaction choreography.
-- [04]-[BROKER_INGEST]: MQTT and NATS sensor-subscription rows beside the gRPC axis — CloudEvents structured-mode decode, manual W3C composite carriers, and the capture-lane admit sink.
+- [02]-[TRANSPORT_AXIS]: five transport rows under the canonical `GrpcChannelPolicy` tuning owner — RID-gated HTTP/3-forward posture, channel warm-up, typed connectivity fold, grpc-web binary framing, and the injected bSDD REST transport.
+- [03]-[CALL_POLICY]: five credential rows and three compression rows behind one stamping interceptor threading the `HopTotal` deadline budget.
+- [04]-[ARTIFACT_FRAMES]: `FrameEdge` fixes the 64 KiB frame law — `Crc32`, whole-artifact `XxHash128`, zero-alloc buffer fast path, reassembly, mask-driven partial update, transaction choreography.
+- [05]-[BROKER_INGEST]: `BrokerChannels` seats MQTT and NATS sensor subscriptions beside the gRPC axis — structured-mode decode, the kernel trace carrier, and the capture-lane admit sink.
 
 ## [02]-[TRANSPORT_AXIS]
 
@@ -19,7 +19,7 @@ Rasm.Compute owns the channel MECHANICS the suite wire moves over: five `RemoteT
 - Receipt: channel-state transitions and redial evidence emit through `ReceiptSinkPort.Send` keyed by the endpoint correlation; the `ConnectivityState` fold projects `Idle`/`Connecting`/`Ready`/`TransientFailure`/`Shutdown` into the typed `WireTransition` prior→next rows the receipt carries; storeEpoch drift after redial is its own evidence row.
 - Packages: Grpc.Net.Client, Grpc.Net.Client.Web, Microsoft.AspNetCore.TestHost (test-only), Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project), BCL inbox (`System.Net.Http.HttpClient`/`HttpVersion`/`HttpVersionPolicy`, `System.Net.Security.SslClientAuthenticationOptions`, `System.Security.Cryptography.X509Certificates.X509Certificate2`/`X509CertificateCollection`, `System.Net.Quic.QuicConnection`, `System.Text.Json.JsonSerializer`)
 - Growth: one row absorbs a new byte path — the Windows-only `NamedPipe` (`PipeSecurity` ACL) and the bearer-and-DACL `TcpLoopback` rows are dropped from the live macOS axis and their security-law member spelling stays the design record on `[PIPE_SECURITY]`, re-entering as one row each only on a host whose RID admits the byte path, the `PipeSecurity` ACL for the pipe and the DACL and bearer for the loopback never blurred into one credential shape; the `Http3` row is the forward QUIC byte path, present on the axis but dial-gated on `HttpVersionPosture.QuicCapable` so it activates only on a RID whose `QuicConnection.IsSupported` resolves the msquic asset — the live macOS axis carries it forward-only because no QUIC TLS provider ships on macOS, so the row dials Excluded there while the same `HttpVersionPosture.ForHost` verdict keeps the Http2 row's `HttpVersion` at `Version20`; one `HttpVersionPosture` case absorbs a new version negotiation posture; one `NodeSelection` row absorbs a new farm strategy; one `WireTransition` case absorbs a new connectivity-state pairing; zero new surface.
-- Boundary: `GrpcChannelPolicy` is the canonical channel-tuning owner and `WireChannels` the named boundary capsule consuming it — keepalive, pooled-idle, multiplexing, reconnect-backoff, the HTTP-version posture, and the send/receive caps read from `GrpcChannelPolicy.Canonical` and are never re-declared. `KeepAlivePingDelay`/`KeepAlivePingTimeout`/`EnableMultipleHttp2Connections` and `KeepAlivePingPolicy = HttpKeepAlivePingPolicy.WithActiveRequests` are BCL `SocketsHttpHandler` members (not `Grpc.Net.Client`), so idle-pool connections never burn pings without an in-flight request, and the reconnect-backoff bounds hold a flapping endpoint on a backoff envelope rather than a hot loop — a redeclared gRPC-package keepalive member is the deleted form (no such member exists on the `Grpc.Net.Client`/`Grpc.Core.Api` surface). HTTP-version selection is the `HttpVersion`/`HttpVersionPolicy` `GrpcChannelOptions` pair (BCL `System.Net.Http`, not a gRPC member) projected from `GrpcChannelPolicy.Canonical.Version.Wire`, self-resolved through `HttpVersionPosture.ForHost` reading `QuicConnection.IsSupported` ANDed against `!OperatingSystem.IsMacOS()` so the live macOS axis stays HTTP/2 exact and never advertises an HTTP/3 ALPN it cannot terminate while a QUIC-TLS RID lands `Http3` and the `Version30` posture from one verdict — a per-call version knob, a handler-level `GrpcWebHandler.HttpVersion` override (obsolete, superseded by the pair), and a forced `Version30` on a QUIC-absent host are the deleted forms. Client-side HTTP/2 flow-control windows are the app-root Kestrel `Http2Limits` SERVER leg, so the only client stream knob here is `EnableMultipleHttp2Connections` and a client flow-control-window member is the deleted form. Connectivity is a held state machine: `Open` warms the channel to Ready through `ConnectAsync` before the first deadline-bearing call so connection latency never lands inside a budget — a cold channel dialed without the warm leg is the deleted form, and warm-up and observation are both unavailable when the channel wraps a caller-supplied `HttpClient`, so the InProcess test row skips the warm leg by construction. Channel pooling rides one `GrpcChannel` per `ComputeEndpoint` (`PooledConnectionIdleTimeout` Infinite, multiplexed) reused across redials until the storeEpoch re-handshake replaces it — a per-call channel is the deleted form; `DisableResolverServiceConfig` stays true and `GrpcChannelOptions.ServiceConfig` is never set so a resolver-supplied service config can never override the root-declared no-retry posture, and the whole retry/hedging/load-balancing config surface stays unadmitted. ArtifactSync bidi and CaptureEvents client-stream are structurally excluded on the GrpcWeb row — its `GrpcWebMode.GrpcWeb` binary framing carries unary and server-stream only, `GrpcWebMode.GrpcWebText` base64 being the rejected google-client-only spelling; reconnect on UnixDomainSocket is redial-only with the storeEpoch re-handshake; a failed attach folds to the LocalOnly consequence, substrate predicates reading the retained Capability set rather than a second health probe. `NodeSelection.ModelWarmupAffinity` populates the endpoint affinity column from the warm-start session fingerprint so a cold companion routes to the node holding the matching EP-context blob — this endpoint affinity is the single warm-start column `SubstrateSelection.Plan` reads (`WarmAffinity` projecting `RemoteGrpc.Key` into `SelectionContext.WarmAffinity` so the `AffinityRank` tie-breaker reads one substrate-keyed set within the rank-equal tier), never a second affinity notion parallel to endpoint identity, never a rank override, never a `ServiceConfig` load-balancing policy. `Observe` reads `GrpcChannel.State` and parks on `WaitForStateChangedAsync`, folding each prior→observed `ConnectivityState` pairing into a typed `WireTransition` the receipt carries rather than polling or projecting to a bare string. A bSDD dictionary fetch is a REST transport distinct from the gRPC axis — `BsddTransport.Fetch<TResponse>` issues the class GET under the same `DeadlineClass.HopTotal` budget the gRPC call edge reads and deserializes onto a caller-supplied response shape, staying response-DTO-agnostic (the generic `Fetch<TResponse>` names no AEC-domain type) while the Bim `Semantics/classification#BSDD_RESOLUTION` `BsddPort`/`BsddClass.Of` owns the wire DTO, the `LocalShape` degrade, and the projection; a transport miss returns the typed `EndpointUnreachable` fault the app-root `BsddPort` adapter degrades on, and the app composition root that references both packages closes `Fetch<BsddClassResponse>` and adapts it into the Bim `BsddPort` so neither package depends on the other — a Bim-minted bSDD transport, a Compute-side bSDD response record or local fallback, and a direct cross-package reference in either direction are the rejected forms.
+- Boundary: `GrpcChannelPolicy` is the canonical channel-tuning owner and `WireChannels` the named boundary capsule consuming it — keepalive, pooled-idle, multiplexing, reconnect-backoff, the HTTP-version posture, and the send/receive caps read from `GrpcChannelPolicy.Canonical` and are never re-declared. `KeepAlivePingDelay`/`KeepAlivePingTimeout`/`EnableMultipleHttp2Connections` and `KeepAlivePingPolicy = HttpKeepAlivePingPolicy.WithActiveRequests` are BCL `SocketsHttpHandler` members (not `Grpc.Net.Client`), so idle-pool connections never burn pings without an in-flight request, and the reconnect-backoff bounds hold a flapping endpoint on a backoff envelope rather than a hot loop — a redeclared gRPC-package keepalive member is the deleted form (no such member exists on the `Grpc.Net.Client`/`Grpc.Core.Api` surface). HTTP-version selection is the `HttpVersion`/`HttpVersionPolicy` `GrpcChannelOptions` pair (BCL `System.Net.Http`, not a gRPC member) projected from `GrpcChannelPolicy.Canonical.Version.Wire`, self-resolved through `HttpVersionPosture.ForHost` reading `QuicConnection.IsSupported` ANDed against `!OperatingSystem.IsMacOS()` so the live macOS axis stays HTTP/2 exact and never advertises an HTTP/3 ALPN it cannot terminate while a QUIC-TLS RID lands `Http3` and the `Version30` posture from one verdict — a per-call version knob, a handler-level `GrpcWebHandler.HttpVersion` override (obsolete, superseded by the pair), and a forced `Version30` on a QUIC-absent host are the deleted forms. Client-side HTTP/2 flow-control windows are the app-root Kestrel `Http2Limits` SERVER leg, so the only client stream knob here is `EnableMultipleHttp2Connections` and a client flow-control-window member is the deleted form. Connectivity is a held state machine: `Open` warms the channel to Ready through `ConnectAsync` before the first deadline-bearing call so connection latency never lands inside a budget — a cold channel dialed without the warm leg is the deleted form, and warm-up and observation are both unavailable when the channel wraps a caller-supplied `HttpClient`, so the InProcess test row skips the warm leg by construction. Channel pooling rides one `GrpcChannel` per `ComputeEndpoint` (`PooledConnectionIdleTimeout` Infinite, multiplexed) reused across redials until the storeEpoch re-handshake replaces it — a per-call channel is the deleted form; `DisableResolverServiceConfig` stays true and `GrpcChannelOptions.ServiceConfig` is never set so a resolver-supplied service config can never override the root-declared no-retry posture, and the whole retry/hedging/load-balancing config surface stays unadmitted. ArtifactSync bidi and CaptureEvents client-stream are structurally excluded on the GrpcWeb row — its `GrpcWebMode.GrpcWeb` binary framing carries unary and server-stream only, `GrpcWebMode.GrpcWebText` base64 being the rejected google-client-only spelling; reconnect on UnixDomainSocket is redial-only with the storeEpoch re-handshake; a failed attach folds to the LocalOnly consequence, substrate predicates reading the retained Capability set rather than a second health probe. `NodeSelection.ModelWarmupAffinity` populates the endpoint affinity column from the warm-start session fingerprint so a cold companion routes to the node holding the matching EP-context blob — this endpoint affinity is the single warm-start column `SubstrateSelection.Plan` reads (`WarmAffinity` projecting `RemoteGrpc.Key` into `SelectionContext.WarmAffinity` so the `AffinityRank` tie-breaker reads one substrate-keyed set within the rank-equal tier), never a second affinity notion parallel to endpoint identity, never a rank override, never a `ServiceConfig` load-balancing policy. `Observe` reads `GrpcChannel.State` and parks on `WaitForStateChangedAsync`, folding each prior→observed `ConnectivityState` pairing into a typed `WireTransition` the receipt carries rather than polling or projecting to a bare string. bSDD dictionary fetch rides a REST transport distinct from the gRPC axis — `BsddTransport.Fetch<TResponse>` issues the class GET under the same `DeadlineClass.HopTotal` budget the gRPC call edge reads and deserializes onto a caller-supplied response shape, staying response-DTO-agnostic (the generic `Fetch<TResponse>` names no AEC-domain type) while the Bim `Semantics/classification#BSDD_RESOLUTION` `BsddPort`/`BsddClass.Of` owns the wire DTO, the `LocalShape` degrade, and the projection; a transport miss returns the typed `EndpointUnreachable` fault the app-root `BsddPort` adapter degrades on, and the app composition root that references both packages closes `Fetch<BsddClassResponse>` and adapts it into the Bim `BsddPort` so neither package depends on the other — a Bim-minted bSDD transport, a Compute-side bSDD response record or local fallback, and a direct cross-package reference in either direction are the rejected forms.
 
 ```csharp signature
 
@@ -256,6 +256,8 @@ public sealed class BsddTransport(HttpClient client, CallSpine spine) {
 
 ```mermaid
 sequenceDiagram
+    accTitle: Wire channel discovery, contract guard, and call-spine interception
+    accDescr: Wire channels read the discovery manifest, prove additive-only contract compatibility, connect a warmed channel, and intercept the call spine.
     participant WireChannels
     participant Discovery
     participant ContractGuard
@@ -396,6 +398,7 @@ public sealed class CallSpine(CorrelationId correlation, Func<string> traceparen
 ## [04]-[ARTIFACT_FRAMES]
 
 - Owner: `FrameEdge` owns frame size, per-frame `Crc32`, whole-artifact `XxHash128`, buffer parsing, contiguous reassembly admission, partial updates, and transaction choreography over the settled `Tensor/memory#STREAM_POOL` singleton. `FrameLease` couples an unsafe-wrapped frame to its `MemoryOwner<byte>` lifetime until the send completes.
+- Law: the `ArtifactFrame` wire shape is `artifact_id=1 bytes; artifact_bytes=2 int64; offset=3 int64; frame_crc=4 fixed32; payload=5 bytes` — this owner numbers those fields and `Runtime/wire#TS_PROJECTION` mirrors them as `ArtifactFrameWire`.
 - Entry: `Frames` derives the artifact id and partitions a staged stream; `Owned` returns a lifetime-bound `FrameLease`; `Reassemble` validates artifact id, length, offsets, CRCs, and identity before parsing; `Staged` delegates length-prefixed writes to `StreamPool.Write`; `Patch` unions and validates field masks.
 - Receipt: StreamSegment evidence — segment counts and byte sizes — emits through `ReceiptSinkPort.Send`; every `UnsafeWrap` records ownership transfer in the same evidence row. `StreamPool` alone owns recyclable-manager events, typed `AllocationEvidence`, and subscription detachers.
 - Packages: Google.Protobuf, Microsoft.IO.RecyclableMemoryStream, CommunityToolkit.HighPerformance, System.IO.Hashing, LanguageExt.Core, BCL inbox
@@ -510,61 +513,152 @@ public sealed class FrameLease : IDisposable {
 }
 ```
 
-[ArtifactFrame]:
-- Fields: artifact_id=1 bytes; artifact_bytes=2 int64; offset=3 int64; frame_crc=4 fixed32; payload=5 bytes
-
 ## [05]-[BROKER_INGEST]
 
-- Owner: `W3cCarrier` — the trace pair composition extracts for the MQTT leg and `BrokerChannels.Nats` reads inline from `NatsMsg.Headers`; `SensorEnvelope<T>` — one typed structured-mode `CloudEvent` body paired with that carrier and receive instant; `BrokerChannels` — the MQTT message-to-envelope adapter, the NATS `NatsMsg<byte[]>` adapter, and the NATS Core subscription pump. MQTT property extraction and its subscription pump stay catalog-blocked; the NATS subscribe, `NatsMsg` read, and `NatsHeaders` W3C lookup are cataloged (`api-nats.md`) and settled.
-- Entry: `BrokerChannels.Mqtt<T>(MqttApplicationMessage message, JsonEventFormatter<T> formatter, Seq<CloudEventAttribute> extensions, W3cCarrier carrier, IClock clock)` decodes through the admitted `ToCloudEvent(formatter, extensions)` map; `BrokerChannels.Nats<T>(NatsMsg<byte[]> message, JsonEventFormatter<T> formatter, Seq<CloudEventAttribute> extensions, IClock clock)` decodes `NatsMsg.Data` through the shared formatter's `DecodeStructuredModeMessage` and extracts the W3C pair inline from `NatsMsg.Headers`; `BrokerChannels.Nats<T>(INatsClient client, string subject, …)` is the subscription pump draining `SubscribeAsync<byte[]>` until the token trips, yielding one `Fin<SensorEnvelope<T>>` per payload delivery — a control frame (`Control`: `IsEmpty`/`HasNoResponders`) skips before decode, a non-cancellation subscribe or enumeration failure yields one terminal typed `EndpointUnreachable` fault and ends the stream, and cancellation rethrows. Every adapter refuses a body the typed formatter did not project to `T`.
-- Auto: one shared `JsonEventFormatter<T>` and one pre-declared extension set decode every message across both transports. MQTT decode takes its W3C pair from composition (property-item members catalog-blocked); the NATS leg reads the pair from `NatsMsg.Headers` (`NatsHeaders.TryGetValue`, non-throwing — a missing `traceparent` yields a root span) beside the decode, and an empty/no-responder NATS control frame (`NatsMsgFlags` via `IsEmpty`/`HasNoResponders`) is skipped before the formatter runs. Neither adapter claims span continuation, whose parsing member remains catalog-blocked.
-- Receipt: decoding emits no receipt case. A caller admits each typed envelope onto `WorkLane.CaptureIngest`; the NATS pump `queueGroup` load-balances one subject across N capture subscribers; lane shedding lands `Backpressure`, and twin scoring lands `Twin`.
-- Packages: CloudNative.CloudEvents.Mqtt, NATS.Net, LanguageExt.Core, NodaTime, Microsoft.Extensions.Primitives (`StringValues` the `NatsHeaders` value), BCL inbox
-- Growth: a new typed MQTT/NATS body reuses `Mqtt<T>`/`Nats<T>` with its formatter; a new envelope attribute is one composition-declared extension row; the request/reply remote-compute RPC leg (`INatsConnection.RequestAsync`/`NatsMsg.ReplyAsync`) rides the same connection beside the fire-and-forget subscription. Provider reconnect mechanics remain provider-owned.
-- Boundary: settled code names members confirmed in `api-cloudevents-mqtt.md` and `api-nats.md`: `MqttApplicationMessage`, `JsonEventFormatter<T>.DecodeStructuredModeMessage`/`ToCloudEvent`, `INatsClient.SubscribeAsync<byte[]>`, `NatsMsg<byte[]>.Data`/`Headers`/`Subject`/`IsEmpty`/`HasNoResponders`, and `NatsHeaders.TryGetValue`. MQTT property-item access, the MQTT subscription pump, and activity-context restoration require exact catalog rows before a fence composes them. NATS holds one long-lived per-instance `INatsClient`/`NatsConnection` (`IAsyncDisposable`) shared across subjects, never one connection per subscription and never a process-global static; JetStream/KV/Object surfaces are the Persistence `api-nats` overlay's and never enter this ingest leg; `SensorEnvelope<T>` prevents the twin from recasting an untyped `CloudEvent.Data`, and `BrokerChannels.Nats` and `BrokerChannels.Mqtt` are two carriers of one envelope, never two envelope shapes.
+- Owner: `SensorEnvelope<T>` — one typed structured-mode `CloudEvent` body paired with the kernel `TraceCarrier` and the receive instant; `CaptureAdmission` — the one admission policy row the capture sink reads; `BrokerChannels` — a message-to-envelope adapter and a subscription pump per broker dialect beside the `Capture` admit sink closing the loop onto `WorkLane.CaptureIngest`. Both dialects extract their own W3C pair — MQTT 5 user properties and `NatsHeaders` — so composition supplies no causality either wire already carries.
+- Entry: `BrokerChannels.Mqtt<T>(MqttApplicationMessage message, JsonEventFormatter<T> formatter, Seq<CloudEventAttribute> extensions, IClock clock)` decodes through the admitted `ToCloudEvent(formatter, extensions)` map and reads the pair from `MqttApplicationMessage.UserProperties`; `BrokerChannels.Nats<T>(NatsMsg<byte[]> message, JsonEventFormatter<T> formatter, Seq<CloudEventAttribute> extensions, IClock clock)` decodes `NatsMsg.Data` through the shared formatter's `DecodeStructuredModeMessage` and reads the pair from `NatsMsg.Headers`; `BrokerChannels.Mqtt<T>(IMqttClient client, string topicFilter, …)` and `BrokerChannels.Nats<T>(INatsClient client, string subject, …)` are the two subscription pumps yielding one identical `IAsyncEnumerable<Fin<SensorEnvelope<T>>>` — a non-cancellation subscribe failure, a severed session, or an enumeration failure yields one terminal typed `EndpointUnreachable` fault and ends the stream, and cancellation rethrows. Every adapter refuses a body the typed formatter did not project to `T`. `BrokerChannels.Capture(IAsyncEnumerable<Fin<SensorEnvelope<TwinSignal>>> deliveries, CaptureAdmission admission, CancellationToken ct)` is the sink closing the loop — each delivery admits through `CaptureAdmission.Admit` and enqueues on `LaneRuntime`, a refusal parking on the injected arrow.
+- Auto: one shared `JsonEventFormatter<T>` and one pre-declared extension set decode every message across both transports, and both pumps answer one enumerable shape so `Capture` consumes either with no arm. Either wire missing its `traceparent` yields the kernel carrier's absent pair and roots a fresh trace, and an empty MQTT property value normalizes to that same absent spelling. NATS control frames (`NatsMsgFlags` via `IsEmpty`/`HasNoResponders`) skip before the formatter runs. Both adapters carry the pair whole and neither opens a span: span custody is the kernel `SpanBand`'s, so the composing root adopts the inbound parent as `SpanEdge.Under(envelope.Trace)` and the ingest bracket continues the producing trace under a consumer kind.
+- Receipt: decoding emits no receipt case. `Capture` admits each typed envelope onto `WorkLane.CaptureIngest` through the one `AdmittedIntent` gate; the NATS pump `queueGroup` load-balances one subject across N capture subscribers; lane shedding lands `Backpressure`, and twin scoring lands `Twin`.
+- Packages: MQTTnet (`IMqttClient.ApplicationMessageReceivedAsync`/`DisconnectedAsync`/`SubscribeAsync`, `MqttClientSubscribeOptionsBuilder.WithTopicFilter`/`Build`, `MqttApplicationMessage.UserProperties`, `MqttApplicationMessageReceivedEventArgs.AutoAcknowledge`/`AcknowledgeAsync`/`ProcessingFailed`, `MqttClientDisconnectedEventArgs.Reason`, `MqttUserProperty.Name`/`ValueBuffer` under `MqttUserPropertyExtensions.ReadValueAsString`), CloudNative.CloudEvents.Mqtt, NATS.Net, LanguageExt.Core, NodaTime, Microsoft.Extensions.Primitives (`StringValues` the `NatsHeaders` value), Rasm (project — the kernel `TraceCarrier`/`SpanEdge` causal band), BCL inbox (`System.Threading.Channels`)
+- Growth: a new typed MQTT/NATS body reuses `Mqtt<T>`/`Nats<T>` with its formatter; a new envelope attribute is one composition-declared extension row; a new admission stance is one `CaptureAdmission` value, never a knob on `Capture`; a second lane consumer earns one `ComputeIntent` case beside `SensorAdmit`; a third broker dialect is one adapter beside one pump answering the same enumerable, never a second envelope; the request/reply remote-compute RPC leg (`INatsConnection.RequestAsync`/`NatsMsg.ReplyAsync`) rides the same connection beside the fire-and-forget subscription. Provider reconnect mechanics remain provider-owned.
+- Boundary: `MqttUserProperty.Value` is `[Obsolete]` at the admitted pin, so the live read is `ValueBuffer` through the package's own `ReadValueAsString` extension and a fence spelling `Value` compiles against a member the distribution already retired. MQTTnet delivers on an EVENT rather than an enumerator, so one bounded channel bridges the client receive loop onto the pump shape and `AutoAcknowledge` is FALSE with the ack riding the successful enqueue alone — an auto-acked drop loses the QoS 1/2 delivery redelivery recovers — and the handler detaches on the finally arm so no completed channel keeps a live writer. Parent adoption needs no row here: the kernel `TraceCarrier.Parent` is the branch's ONE `ActivityContext.TryParse`, `SpanEdge.Under` its ingress bracket, and this leg hands the carrier outward rather than re-minting either. NATS holds one long-lived per-instance `INatsClient`/`NatsConnection` (`IAsyncDisposable`) shared across subjects, never one connection per subscription and never a process-global static; JetStream/KV/Object surfaces are the Persistence `api-nats` overlay's and never enter this ingest leg; `SensorEnvelope<T>` prevents the twin from recasting an untyped `CloudEvent.Data`, and `BrokerChannels.Nats` and `BrokerChannels.Mqtt` are two carriers of one envelope, never two envelope shapes.
 
 ```csharp signature
-public sealed record W3cCarrier(Option<string> Traceparent, Option<string> Tracestate);
+// KERNEL `TraceCarrier` owns the W3C pair, never a folder re-spelling: the causal-frame band holds capture
+// and projection for every durable, broker, and wire crossing in the branch, so a folder-local pair record —
+// or a second flattening into two loose envelope fields — forks one causal identity into three alphabets and
+// strands the absent-pair arm on whichever spelling a consumer happened to read.
+public sealed record SensorEnvelope<T>(CloudEvent Event, T Data, TraceCarrier Trace, Instant At);
 
-public sealed record SensorEnvelope<T>(CloudEvent Event, T Data, Option<string> Traceparent, Option<string> Tracestate, Instant At);
+// Admission policy for the capture sink — one row, never a parameter ladder at the fold. The composition
+// supplies the lane runtime, the intent policy, the correlation mint, the parent cancel scope, the clocks,
+// and the refusal arrow; the sink seats `WorkLane.CaptureIngest` itself so no composition can route sensor
+// pressure onto a lane that starves interactive work.
+public sealed record CaptureAdmission(
+    LaneRuntime Lanes,
+    ComputeIntent.Spec Spec,
+    Func<SensorEnvelope<TwinSignal>, CorrelationId> Correlate,
+    CancelScope Scope,
+    IClock Clock,
+    TimeProvider Time,
+    Func<Error, IO<Unit>> Refused) {
+    public Fin<AdmittedIntent> Admit(SensorEnvelope<TwinSignal> envelope) =>
+        AdmittedIntent.Admit(
+            new ComputeIntent.SensorAdmit(envelope),
+            Spec with { Lane = WorkLane.CaptureIngest },
+            Correlate(envelope),
+            Scope,
+            Clock,
+            Time);
+}
 
 public static class BrokerChannels {
+    // MQTT structured-mode adapter — the dialect twin of Nats<T> over the one shared JsonEventFormatter<T>. The
+    // W3C pair rides MQTT 5 user properties, so the carrier extracts inline here exactly as the NATS leg reads
+    // NatsHeaders and neither dialect asks composition for causality it already carries.
     public static Fin<SensorEnvelope<T>> Mqtt<T>(
         MqttApplicationMessage message,
         JsonEventFormatter<T> formatter,
         Seq<CloudEventAttribute> extensions,
-        W3cCarrier carrier,
-        IClock clock) =>
-        Try.lift(() => message.ToCloudEvent(formatter, [.. extensions])).Run()
+        IClock clock) {
+        TraceCarrier carrier = Carrier(message.UserProperties);
+        return Try.lift(() => message.ToCloudEvent(formatter, [.. extensions])).Run()
             .MapFail(static error => (Error)new ComputeFault.PayloadOverBounds($"<broker-envelope:{error.Message}>"))
             .Bind(cloudEvent => cloudEvent.Data is T data
-                ? Fin.Succ(new SensorEnvelope<T>(
-                    cloudEvent,
-                    data,
-                    carrier.Traceparent,
-                    carrier.Tracestate,
-                    clock.GetCurrentInstant()))
+                ? Fin.Succ(new SensorEnvelope<T>(cloudEvent, data, carrier, clock.GetCurrentInstant()))
                 : Fin.Fail<SensorEnvelope<T>>(new ComputeFault.PayloadOverBounds($"<broker-envelope-data:{cloudEvent.Id}>")));
+    }
+
+    // MQTT subscription pump: MQTTnet delivers on an EVENT rather than an enumerator, so one bounded channel
+    // bridges the client's receive loop onto the SAME IAsyncEnumerable<Fin<SensorEnvelope<T>>> shape the NATS
+    // pump yields and `Capture` consumes either with no arm. AutoAcknowledge is FALSE and the ack rides the
+    // successful enqueue alone, so a bridge the lane cannot drain leaves QoS 1/2 deliveries unacked and the
+    // broker redelivers them — an auto-acked drop loses the sample the shed defers. The finally arm detaches BOTH
+    // handlers through `-=` against the same handles `+=` bound, since an event left subscribed past the pump holds
+    // the closure and writes into a completed channel for the client's whole lifetime.
+    public static async IAsyncEnumerable<Fin<SensorEnvelope<T>>> Mqtt<T>(
+        IMqttClient client,
+        string topicFilter,
+        JsonEventFormatter<T> formatter,
+        Seq<CloudEventAttribute> extensions,
+        IClock clock,
+        MqttQualityOfServiceLevel quality = MqttQualityOfServiceLevel.AtLeastOnce,
+        int capacity = 1024,
+        [EnumeratorCancellation] CancellationToken ct = default) {
+        Channel<MqttApplicationMessage> bridge = Channel.CreateBounded<MqttApplicationMessage>(
+            new BoundedChannelOptions(capacity) { FullMode = BoundedChannelFullMode.Wait, SingleReader = true });
+        Error? terminal = null;
+        async Task Deliver(MqttApplicationMessageReceivedEventArgs delivery) {
+            delivery.AutoAcknowledge = false;
+            if (bridge.Writer.TryWrite(delivery.ApplicationMessage)) { await delivery.AcknowledgeAsync(ct).ConfigureAwait(false); }
+            else { delivery.ProcessingFailed = true; }
+        }
+        // A severed session stops delivery WITHOUT completing the bridge, so the drain would wait on a client that
+        // will never write again — the one failure a subscription reports as silence. The disconnect arm settles the
+        // same terminal slot the subscribe failure settles and completes the writer, so the reader drains what
+        // already arrived and then yields ONE typed fault: one terminal slot, two ways to reach it.
+        Task Severed(MqttClientDisconnectedEventArgs ended) {
+            terminal ??= new ComputeFault.EndpointUnreachable($"<mqtt-disconnected:{topicFilter}:{ended.Reason}>");
+            _ = bridge.Writer.TryComplete();
+            return Task.CompletedTask;
+        }
+        client.ApplicationMessageReceivedAsync += Deliver;
+        client.DisconnectedAsync += Severed;
+        try {
+            try {
+                _ = await client.SubscribeAsync(
+                    new MqttClientSubscribeOptionsBuilder().WithTopicFilter(topicFilter, quality).Build(), ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception error) { terminal = new ComputeFault.EndpointUnreachable($"<mqtt-subscribe:{topicFilter}:{error.Message}>"); }
+            if (terminal is not null) { yield return Fin.Fail<SensorEnvelope<T>>(terminal); yield break; }
+            await foreach (MqttApplicationMessage message in bridge.Reader.ReadAllAsync(ct).ConfigureAwait(false)) {
+                yield return Mqtt(message, formatter, extensions, clock);
+            }
+            if (terminal is { } severed) { yield return Fin.Fail<SensorEnvelope<T>>(severed); }
+        }
+        finally {
+            client.ApplicationMessageReceivedAsync -= Deliver;
+            client.DisconnectedAsync -= Severed;
+            _ = bridge.Writer.TryComplete();
+        }
+    }
+
+    // MQTT 5 user properties carry the W3C pair as `MqttUserProperty` rows. `Value` is [Obsolete] on the
+    // admitted pin — the live read is `ValueBuffer` through the package's own `ReadValueAsString` extension —
+    // and a publisher sending none yields the kernel carrier's absent pair, the one spelling both dialects share.
+    static TraceCarrier Carrier(List<MqttUserProperty>? properties) =>
+        properties is null
+            ? new TraceCarrier(null, null)
+            : new TraceCarrier(Property(properties, "traceparent"), Property(properties, "tracestate"));
+
+    // `ReadValueAsString` answers `string.Empty` for an empty buffer, so an empty property normalizes to the
+    // absent spelling here — an empty traceparent reaching the carrier parses to None and roots a fresh trace
+    // anyway, and carrying two absent spellings forks whichever one a later equality happens to compare.
+    static string? Property(List<MqttUserProperty> properties, string name) =>
+        properties.Find(row => string.Equals(row.Name, name, StringComparison.Ordinal))?.ReadValueAsString() is { Length: > 0 } text
+            ? text
+            : null;
 
     // Control-frame predicate: the NatsMsgFlags bits (IsEmpty/NoResponders) mark protocol frames, not payloads —
     // pumps skip them BEFORE the formatter runs, so a control frame is never a payload fault and never a yield.
     public static bool Control(NatsMsg<byte[]> message) => message.IsEmpty || message.HasNoResponders;
 
     // NATS Core structured-mode adapter — the broker counterpart to Mqtt<T> over the one shared JsonEventFormatter<T>.
-    // Unlike the MQTT leg (whose IMqttClient property-item members stay catalog-blocked, so composition supplies the
-    // carrier), NatsMsg.Headers is the cataloged non-throwing W3C carrier, so the pair extracts inline here; the raw
-    // Data bytes decode through the core CloudEventFormatter's DecodeStructuredModeMessage (no NATS binding member).
+    // NatsMsg.Headers is the cataloged non-throwing W3C carrier, so the pair extracts inline exactly as the MQTT
+    // leg reads its user properties; the raw Data bytes decode through the core CloudEventFormatter's
+    // DecodeStructuredModeMessage (no NATS binding member).
     // Control frames never reach this decode — the pump's Control gate drops them upstream.
     public static Fin<SensorEnvelope<T>> Nats<T>(
         NatsMsg<byte[]> message,
         JsonEventFormatter<T> formatter,
         Seq<CloudEventAttribute> extensions,
         IClock clock) {
-        W3cCarrier carrier = Carrier(message.Headers);
+        TraceCarrier carrier = Carrier(message.Headers);
         return Try.lift(() => formatter.DecodeStructuredModeMessage(message.Data, null, [.. extensions])).Run()
             .MapFail(static error => (Error)new ComputeFault.PayloadOverBounds($"<nats-envelope:{error.Message}>"))
             .Bind(cloudEvent => cloudEvent.Data is T data
-                ? Fin.Succ(new SensorEnvelope<T>(cloudEvent, data, carrier.Traceparent, carrier.Tracestate, clock.GetCurrentInstant()))
+                ? Fin.Succ(new SensorEnvelope<T>(cloudEvent, data, carrier, clock.GetCurrentInstant()))
                 : Fin.Fail<SensorEnvelope<T>>(new ComputeFault.PayloadOverBounds($"<nats-envelope-data:{cloudEvent.Id}>")));
     }
 
@@ -602,16 +696,38 @@ public static class BrokerChannels {
     }
 
     // NatsMsg.Headers is IDictionary<string, StringValues> with a non-throwing indexer/TryGetValue — a missing
-    // traceparent yields the empty carrier (root span), null headers (publisher sent none) likewise.
-    static W3cCarrier Carrier(NatsHeaders? headers) =>
+    // traceparent yields the kernel carrier's own absent pair (root span), null headers (publisher sent none)
+    // likewise, so the absent-pair verdict carries exactly one spelling across the branch.
+    static TraceCarrier Carrier(NatsHeaders? headers) =>
         headers is null
-            ? new W3cCarrier(None, None)
-            : new W3cCarrier(Header(headers, "traceparent"), Header(headers, "tracestate"));
+            ? new TraceCarrier(null, null)
+            : new TraceCarrier(Header(headers, "traceparent"), Header(headers, "tracestate"));
 
-    static Option<string> Header(NatsHeaders headers, string name) =>
+    static string? Header(NatsHeaders headers, string name) =>
         headers.TryGetValue(name, out StringValues value) && !StringValues.IsNullOrEmpty(value)
-            ? Some(value.ToString())
-            : None;
+            ? value.ToString()
+            : null;
+
+    // ADMIT SINK closing the sensor loop: every decoded delivery enters the ONE admission gate as a
+    // ComputeIntent.SensorAdmit and lands on the CaptureIngest channel, so deadline, element cap, cancel
+    // scope, and correlation bind before the lane holds it and a DropOldest shed reports as Backpressure
+    // evidence carrying the dropped sample's correlation. A refused decode and a refused admission both park
+    // on the injected refusal arrow rather than ending the subscription, so one malformed publisher costs one
+    // sample; `LaneRuntime` owns the dispatch delegate, so TwinLoop.Ingest binds at composition and this fold
+    // names no scoring surface. The await-foreach drain is the same platform-forced statement seam the pump
+    // above carries.
+    public static IO<Unit> Capture(
+        IAsyncEnumerable<Fin<SensorEnvelope<TwinSignal>>> deliveries,
+        CaptureAdmission admission,
+        CancellationToken ct) =>
+        IO.liftAsync(async env => {
+            await foreach (Fin<SensorEnvelope<TwinSignal>> delivery in deliveries.WithCancellation(ct).ConfigureAwait(false)) {
+                await delivery.Bind(admission.Admit)
+                    .Match(Succ: intent => admission.Lanes.Enqueue(intent).Map(static _ => unit), Fail: admission.Refused)
+                    .RunAsync(env).ConfigureAwait(false);
+            }
+            return unit;
+        });
 }
 ```
 
@@ -622,8 +738,6 @@ public static class BrokerChannels {
 -->
 
 - [TRANSPORTS_LIVE]-[BLOCKED]: does the Kestrel `ListenUnixSocket` server leg and the in-host `Grpc.Core.Api` channel dial resolve against the running integrated host, and does the in-process `TestServer.CreateHandler` seam and the `ConnectAsync`/`State`/`WaitForStateChangedAsync` warm-and-observe path prove cold start; live Rhino-plugin app root.
-- [PIPE_SECURITY]-[BLOCKED]: which `System.IO.Pipes` `PipeSecurity` ACL (Windows-only NamedPipe) and loopback DACL-and-bearer shape (TcpLoopback) does each byte path bind on re-entry; a host whose RID admits the byte path, the live macOS axis carrying UDS in their place.
+- [PIPE_SECURITY]-[BLOCKED]: which access rights and identities the NamedPipe `PipeSecurity` grants, and which DACL-and-bearer pairing the TcpLoopback row binds — the binding members are settled (`PipeSecurity : NativeObjectSecurity`, `PipesAclExtensions.GetAccessControl(PipeStream)`, `PipesAclExtensions.SetAccessControl(PipeStream, PipeSecurity)`), the grant content alone stays open; a host whose RID admits the byte path decides it, the live macOS axis carrying UDS in their place.
 - [COMPOSED_CREDENTIAL]-[BLOCKED]: does the live-ALC dial of the composed `CredentialPolicy` identity resolve through a running plugin channel; running plugin process.
-- [HTTP3_QUIC]-[BLOCKED]: does `System.Net.Quic.QuicConnection.IsSupported` gate `HttpVersionPosture.QuicCapable` and the `RemoteTransport.Http3` dial on a msquic-asset RID — the BCL `QuicConnection` member is absent from the folder gRPC `.api/` catalogues, so the live macOS axis carries `Http3` forward-only (posture `Http2Default`, dial Excluded) until a QUIC-TLS RID admits it; a QUIC-capable host RID.
-- [MQTT_SUBSCRIPTION]-[BLOCKED]: what are the exact `IMqttClient` receive-event, subscribe, detach, cancellation, and subscription-options declarations, and the delivered user-property item name/value members required to mint `W3cCarrier` and pump every delivery into `BrokerChannels.Mqtt<T>`; the Compute-side subscribe surface (the Persistence `api-mqtt` overlay documents only the egress publish leg), add complete MQTTnet subscribe rows under `libs/csharp/Rasm.Compute/.api`, then bind the pump and carrier extraction under `WorkLane.CaptureIngest`.
-- [BROKER_TRACE_CONTEXT]-[BLOCKED]: what exact cataloged `ActivityContext` parse member restores the preserved `traceparent`/`tracestate` pair before twin scoring; add the declaration to the language-root diagnostics catalog, then project the parsed parent into the composition-owned activity start.
+- [HTTP3_QUIC]-[BLOCKED]: which host RID ships the msquic asset that flips `QuicConnection.IsSupported` true, so `HttpVersionPosture.QuicCapable` admits the `RemoteTransport.Http3` dial rather than carrying it forward-only under `Http2Default`; a QUIC-capable host RID reports it, and the live macOS axis has none.

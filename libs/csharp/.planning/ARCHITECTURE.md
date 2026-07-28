@@ -24,7 +24,7 @@ Planning-scoped packages carry a `.planning/` scaffold of index docs and design 
 
 ## [02]-[STRATA]
 
-Rank is reference depth, not domain family: two packages share a rank only when neither reaches the other, so the app platform spreads across four ranks rather than wearing one label. Domain charter and rank are orthogonal — `[01]-[DOMAIN_MAP]` names the family a package serves, this table names what it may reference.
+Rank is reference depth, never domain family: two packages share a rank only when neither reaches the other, so `[01]-[DOMAIN_MAP]` names the family a package serves while the rows below name what it may reference — the app platform spreads across four ranks rather than wearing one label.
 
 - S0 kernel — `Rasm` references no sibling and carries every rank above it.
 - S1 seam — `Rasm.Element` references only `Rasm` and mints the one `ElementGraph` seam.
@@ -53,12 +53,13 @@ config:
 ---
 flowchart TB
     accTitle: C# branch package reference strata
-    accDescr: Five host-neutral ranks from the app-platform leaf down to the kernel beside a plane-distinct host boundary at the seam rank — every reference edge downward and solid, labeled edges naming one sourced type, no edge inside any rank, and one forbidden host-neutral upward edge.
+    accDescr: Five host-neutral ranks from the app-platform leaf down to the kernel beside a plane-distinct host boundary at the seam rank — every reference edge downward and solid, labeled edges naming one sourced type, no edge inside any rank, one forbidden host-neutral upward edge, and the target package seated edgeless until its first design page freezes the types it sources.
     subgraph S4["S4 APP LEAF"]
         AppUi[Rasm.AppUi]
     end
     subgraph S3["S3 ORCHESTRATION"]
         Compute[Rasm.Compute]
+        Generation[Rasm.Generation]
     end
     subgraph S2["S2 DOMAIN AND STORES"]
         Bim[Rasm.Bim]
@@ -95,7 +96,7 @@ flowchart TB
     Compute -->|"[IMPORT]: ShedVerdict"| AppHost
     Compute -->|"[IMPORT]: ArtifactIndexRow"| Persistence
     AppUi -->|"[IMPORT]: ContentHash"| Rasm
-    AppUi -->|"[IMPORT]: ReceiptSinkPort"| AppHost
+    AppUi -->|"[IMPORT]: DeterminismContext"| AppHost
     AppUi -->|"[IMPORT]: ResidencyPayload"| Compute
     AppUi -->|"[IMPORT]: DuckProfileReceipt"| Persistence
     Rasm -->|"forbidden: host-neutral upward"| HOST
@@ -158,7 +159,7 @@ config:
 ---
 flowchart LR
     accTitle: C# branch typescript seam registry
-    accDescr: C# packages producing kinded wires the typescript core, runtime, and ui domains decode — data-bearing wires and the telemetry transport edge, labeled per kind — bidirectional peers as hexagons, one-way sinks as stadiums.
+    accDescr: C# packages producing kinded wires the typescript core, data, runtime, and ui domains decode — data-bearing wires, the backend contract, and the telemetry transport edge, labeled per kind — bidirectional peers as hexagons, one-way sinks as stadiums.
     subgraph csharp[LIBS/CSHARP]
         Rasm[Rasm]
         Element[Rasm.Element]
@@ -170,6 +171,7 @@ flowchart LR
         AppHost[Rasm.AppHost]
     end
     TsCore{{typescript:core}}
+    TsData{{typescript:data}}
     TsUi([typescript:ui])
     TsRuntime([typescript:runtime])
     Rasm <-->|"[CONTENT_KEY]: XxHash128"| TsCore
@@ -180,6 +182,7 @@ flowchart LR
     Materials -->|"[WIRE]: MaterialWire"| TsCore
     AppUi -->|"[WIRE]: CommandPayloadWire"| TsCore
     AppHost -->|"[WIRE]: ReceiptEnvelopeWire"| TsCore
+    Persistence <-->|"[CONTRACT]: BackendContract"| TsData
     Materials -->|"[WIRE]: OpenPbrGroupsWire"| TsUi
     AppUi -->|"[WIRE]: ControlIntentWire + CommandGateWire + LayoutConstraintWire"| TsUi
     AppHost -->|"[WIRE]: BindingStatusWire + CoercedValueWire + WriteReceiptWire + HostFingerprintWire"| TsUi
@@ -219,7 +222,9 @@ Two projection surfaces, both declared in `Rasm.Element`, are the only cross-pac
 
 Materials carries IFC names only as neutral `IfcBinding` row data; Bim never re-derives section geometry or material data; Element never carries a fact only one projector understands. Consumers needing the thing read the graph; consumers needing the IFC meaning read Bim's projection; nothing reads across. Canonical seam surfaces change only through an explicit brief entry naming the owner and the migration.
 
-Signal crosses the strata on one plane: the OTel-free signal capsule is kernel S0 vocabulary every stratum composes as instances, per-folder fact unions are the only legitimate per-folder signal types, and the app platform alone laces OTel, correlation, tenancy, and host evidence over the composed surface — telemetry leaves the branch opaque on the `[TRANSPORT]` seam.
+Signal crosses the strata on one plane: a signal concept two strata both spell homes at the OTel-free kernel capsule and every stratum composes it as instances, per-folder fact unions are the only legitimate per-folder signal type, and `Rasm.AppHost` laces OTel, HLC, and baggage alone over the composed surface — telemetry leaves the branch opaque on the `[TRANSPORT]` seam. Folders re-spelling a capsule concept mint the twin the capsule exists to foreclose.
+
+Receipts outlive the series they project: every stratum seals its evidence through the kernel receipt port, `Rasm.Persistence` alone lands that stream in the branch analytics residence, and producers hand typed record-batch schemas across the seam rather than opening a folder-local columnar store. That residence is derived and rebuilds from the receipt stream, so it answers history while the metered series answers health.
 
 ```mermaid
 ---
@@ -231,17 +236,23 @@ config:
 ---
 flowchart LR
     accTitle: C# branch signal plane spine
-    accDescr: The kernel signal capsule composing as its own kernel rail and as per-folder fact-union instances, both emitting signal facts into the AppHost governance lacing, and the laced series leaving on the OtelExport transport seam.
+    accDescr: The kernel signal capsule composing as its own kernel rail and as per-folder fact-union instances, both emitting signal facts into the AppHost governance lacing and sealing receipts into the kernel receipt stream, the laced series leaving on the OtelExport transport seam while the receipt stream projects through the instrument fan and lands the derived analytics residence the columnar custodian holds.
     Capsule[Rasm · signal capsule]
     KernelRail[Rasm · SignalRail]
     Folders[folder fact unions · composed instances]
+    Receipts[(Rasm · receipt envelope stream)]
     Governance[Rasm.AppHost · SignalGovernance]
+    Residence[(Rasm.Persistence · analytics residence)]
     Egress([OtelExport transport])
     Capsule e1@-->|"compose: SignalFact instance"| KernelRail
     Capsule e2@-->|"compose: fact-union instance"| Folders
     KernelRail e3@-->|"emit: signal facts"| Governance
     Folders e4@-->|"emit: signal facts"| Governance
-    Governance e5@-->|"lace: correlation + tenancy + host evidence"| Egress
+    KernelRail e5@-->|"seal: ReceiptSinkPort"| Receipts
+    Folders e6@-->|"seal: ReceiptSinkPort"| Receipts
+    Receipts e7@-->|"project: InstrumentFan"| Governance
+    Receipts e8@-->|"land: derived plane"| Residence
+    Governance e9@-->|"lace: OTel + HLC + baggage"| Egress
 ```
 
 Exact per-stage wiring lives on the owning implementation pages.
@@ -250,22 +261,27 @@ Exact per-stage wiring lives on the owning implementation pages.
 
 Every extension lands on a canonical owner — a row where possible, a compiler-forced arm on the one dispatch site otherwise. Each owner's page carries the full growth law; this table routes and never restates it.
 
-| [INDEX] | [CHANGE]                    | [OWNER_SURFACE]                          | [SHAPE_OF_THE_EDIT]                         |
-| :-----: | :-------------------------- | :--------------------------------------- | :------------------------------------------ |
-|  [01]   | new component family        | `ComponentFamily` + one seed page        | one policy row + seed row table             |
-|  [02]   | new section shape           | `SectionProfile` + `SectionSolver.Solve` | one union arm + one dispatch arm            |
-|  [03]   | new IFC entity or category  | emitter + `ClassIntroductions`           | regenerate + one overlay row                |
-|  [04]   | new property or detail      | `DetailSchema`                           | one schema row                              |
-|  [05]   | new relation semantics      | sub-kind rows or `Generic` attributes    | one row or attribute convention             |
-|  [06]   | new quantity or dimension   | `QuantityRow`, `Dimension`               | one mint row or member                      |
-|  [07]   | new fault or band           | owning `*Fault` union + `FaultBand`      | one union case or one registry row          |
-|  [08]   | new seam participant        | `IElementProjection` + `FaultBand`       | one projector + one band row                |
-|  [09]   | new folder signal surface   | the folder's composed capsule instance   | one fact case, point row, or instrument row |
-|  [10]   | new capsule mechanism       | kernel signal capsule (`Rasm`)           | one member on the one mechanism             |
-|  [11]   | new OTel wiring or exporter | `Rasm.AppHost` `SignalGovernance`        | one governance row; lacing stays S2         |
+| [INDEX] | [CHANGE]                    | [OWNER_SURFACE]                          | [SHAPE_OF_THE_EDIT]                             |
+| :-----: | :-------------------------- | :--------------------------------------- | :---------------------------------------------- |
+|  [01]   | new component family        | `ComponentFamily` + one seed page        | one policy row + seed row table                 |
+|  [02]   | new section shape           | `SectionProfile` + `SectionSolver.Solve` | one union arm + one dispatch arm                |
+|  [03]   | new IFC entity or category  | emitter + `ClassIntroductions`           | regenerate + one overlay row                    |
+|  [04]   | new property or detail      | `DetailSchema`                           | one schema row                                  |
+|  [05]   | new relation semantics      | sub-kind rows or `Generic` attributes    | one row or attribute convention                 |
+|  [06]   | new quantity or dimension   | `QuantityRow`, `Dimension`               | one mint row or member                          |
+|  [07]   | new fault or band           | owning `*Fault` union + `FaultBand`      | one union case or one registry row              |
+|  [08]   | new seam participant        | `IElementProjection` + `FaultBand`       | one projector + one band row                    |
+|  [09]   | new folder signal surface   | the folder's composed capsule instance   | one fact case, point row, or instrument row     |
+|  [10]   | new capsule mechanism       | kernel signal capsule (`Rasm`)           | one member on the one mechanism                 |
+|  [11]   | new reliability indicator   | kernel signal capsule (`Rasm`)           | one indicator, burn, severity, or panel row     |
+|  [12]   | new OTel wiring or exporter | `Rasm.AppHost` `SignalGovernance`        | one governance row; the vocabulary stays S0     |
+|  [13]   | analytics residence or slot | `Rasm.Persistence` columnar custodian    | one row answering the estate residence floor    |
+|  [14]   | new columnar query end      | `Rasm.Persistence` `FederationFlight`    | one verb or ticket axis on the one Flight plane |
 
 ## [06]-[ADMISSION_POLICY]
 
-Root `Directory.Packages.props` owns NuGet admission as one `PackageVersion` row per package; each `.csproj` carries the bare `PackageReference`, label-grouped by owner and versionless. Every admission moves its whole touch-point set together: central row, consuming `.csproj` reference, folder `README.md` registry card, and owning `.api` tier.
+Root `Directory.Packages.props` owns NuGet admission as one `PackageVersion` row per package; each `.csproj` carries the bare `PackageReference`, label-grouped by owner and versionless. Every admission resolves its whole touch-point set live at `docs/laws/topology.md` `[MANIFEST_ADMISSION]`.
 
-Root `Directory.Build.props` owns every host-assembly `Reference` and its `HintPath`, resolved from one overridable host-bundle path property and gated by the RhinoCommon-, Grasshopper-, and host-UI-aware flags project classification sets. Each `.csproj` names host NAMESPACES as `Using` rows and never the assembly, so classification drives the reference and a host package carries no manifest row; `System.Drawing.Common` alone holds both a central row and a gated host reference. `Rasm` is RhinoCommon-aware by charter and the host boundaries add Grasshopper2 and Eto; folder `.api/` tiers catalog those surfaces rather than admitting them, and no package outside the gated set carries a host-aware flag.
+Root `Directory.Build.props` owns every host-assembly `Reference` and its `HintPath`, resolved from one overridable host-bundle path property and gated by the RhinoCommon-, Grasshopper-, and host-UI-aware flags project classification sets. Each `.csproj` names host NAMESPACES as `Using` rows and never the assembly, so classification drives the reference and a host package carries no manifest row; `System.Drawing.Common` alone holds both a central row and a gated host reference.
+
+`Rasm` is RhinoCommon-aware by charter and the host boundaries add Grasshopper2 and Eto; folder `.api/` tiers catalog those surfaces rather than admitting them, and no package outside the gated set carries a host-aware flag.

@@ -14,38 +14,37 @@
 ## [02]-[LIMITS]
 
 - Owner: `EngagementLimit` is the vocabulary of radial ceilings; each row carries its own `Ceiling` derivation delegate and the fold selects the minimum as the binding row.
+- Cases: `Channel` bounds engagement by the narrowest admitted clearance in the walked component; `Immersion` bounds it by the requested engagement angle; `Width` and `Scallop` bound it by the process budget and the finish demand; `Deflection`, `Stability`, and `ChipThinning` read the `ProcessBudget.Subtractive` columns the demand already admits, so tool-deflection, chatter, and chip-thinning ceilings bind the same fold as the geometric ones.
 - Law: a ceiling is a row, never an inline `double.Min` term — a new limit axis lands as one row with every consumer and every receipt untouched.
-- Rows: `Channel` bounds engagement by the narrowest admitted clearance in the walked component; `Immersion` bounds it by the requested engagement angle; `Width` and `Scallop` bound it by the process budget and the finish demand.
-- Rows: `Deflection`, `Stability`, and `ChipThinning` read the `ProcessBudget.Subtractive` columns the demand already admits, so tool-deflection, chatter, and chip-thinning ceilings bind the same fold as the geometric ones.
-- Rows: `MeasuredLoad` reads the optional `Kinematics/observation.md` `LoadWindow` paired with its evaluation instant in one `Option` — a load without its instant is unrepresentable, never a sentinel-guarded state — scales a fresh positive sample around its reference radial depth, and returns a conservative zero for an invalid present window; only absence removes the ceiling. `EngagementSolution.Binding` still names the governing bound with no receipt change.
-- Evidence: `EngagementSolution` carries every row's keyed ceiling and the binding row itself, so a constrained walk names which physics bound it rather than reporting an unattributed scalar.
+- Law: `MeasuredLoad` reads the optional `Kinematics/observation.md` `LoadWindow` paired with its evaluation instant in one `Option` — a load without its instant is unrepresentable, never a sentinel-guarded state — scales a fresh positive sample around its reference radial depth, and returns a conservative zero for an invalid present window; only absence removes the ceiling. `EngagementSolution.Binding` still names the governing bound with no receipt change.
+- Receipt: `EngagementSolution` carries every row's keyed ceiling and the binding row itself, so a constrained walk names which physics bound it rather than reporting an unattributed scalar.
 - Boundary: the fold owns selection; no consumer re-derives a ceiling or re-orders the rows.
 
 ## [03]-[STRATEGY]
 
 - Owner: `WalkStrategy` rows carry the `Operation` delegate lowering an admitted engagement into the `ArcOp` case that emits it.
-- Rows: `Clearing` walks the component's offset family at constant engagement; `Trochoid` walks the medial chain as overlapping loops for full-width slotting; `Peel` walks one flank at reduced radial depth and full axial depth.
+- Cases: `Clearing` walks the component's offset family at constant engagement; `Trochoid` walks the medial chain as overlapping loops for full-width slotting; `Peel` walks one flank at reduced radial depth and full axial depth.
 - Law: the medial chain is the guide, so motion follows the admitted clearance family rather than re-deriving a path from stock alone; a strategy differing only in emission is a row, never a sibling entrypoint.
 - Boundary: `ArcAlgebra` owns exact-arc generation; the row selects the case and its arguments, and owns no geometry.
 
 ## [04]-[DEMAND]
 
 - Owner: `SkeletonDemand` carries every value needed to reproduce the walk, topology included.
-- Admission: `SkeletonDemand.Admit` mints `SkeletonTopology` once, folds stock, node, incidence, edge, geometry, budget, and clearance faults into one accumulated rail, and constructs through the generated factory.
 - Law: the demand carries the topology it validated against, so `Walk` reads admitted evidence and no second graph pass exists.
-- Topology: `UndirectedGraph<int, SEdge<int>>` rejects parallel edges and supplies `ConnectedComponents` labels during admission; `SkeletonTopology` retains detached edges and component labels.
-- Numeric: `TensorPrimitives.IsFiniteAll` admits coordinate, radius, and process batches before scalar inequalities classify them.
-- Provenance: each component's canonical `SkeletonArc.OriginEdge` set travels into every element key and pass receipt.
+- Law: each component's canonical `SkeletonArc.OriginEdge` set travels into every element key and pass receipt.
+- Entry: `SkeletonDemand.Admit` mints `SkeletonTopology` once, folds stock, node, incidence, edge, geometry, budget, and clearance faults into one accumulated rail, and constructs through the generated factory.
+- Auto: `UndirectedGraph<int, SEdge<int>>` rejects parallel edges and supplies `ConnectedComponents` labels during admission; `SkeletonTopology` retains detached edges and component labels.
+- Packages: `TensorPrimitives.IsFiniteAll` admits coordinate, radius, and process batches before scalar inequalities classify them.
 - Growth: a new graph producer projects the existing `SkeletonGraph`, and a new engagement axis becomes one `EngagementLimit` row.
 - Boundary: `SkeletonTopology` confines QuikGraph's mutable graph and label-map materialization to one admission seam; every carried field is detached evidence.
 
 ## [05]-[WALK]
 
+- Law: each connected component walks independently, so the binding limit is component-local and one narrow channel never collapses engagement across the whole part.
+- Law: `ElementVariant` carries the walk's own rotation penalty, thermal exposure, and pierce count derived from emitted motion, never a placeholder.
 - Entry: `Skeleton.Walk(SkeletonDemand)` is the only operation.
-- Partition: each connected component walks independently, so the binding limit is component-local and one narrow channel never collapses engagement across the whole part.
-- Guide: the component's medial chain orders from its maximum-clearance node outward and enters `ArcOp` as the guide loop, so emission follows the admitted skeleton.
-- Projection: each component's emitted moves become one `CutElement` per contiguous cutting run, with rapid delimiters dropped, so branch and component travel stays absent from the cutting owner.
-- Evidence: `ElementVariant` carries the walk's own rotation penalty, thermal exposure, and pierce count derived from emitted motion, never a placeholder.
+- Auto: the component's medial chain orders from its maximum-clearance node outward and enters `ArcOp` as the guide loop, so emission follows the admitted skeleton.
+- Output: each component's emitted moves become one `CutElement` per contiguous cutting run, with rapid delimiters dropped, so branch and component travel stays absent from the cutting owner.
 - Receipt: `SkeletonReceipt` carries per-component passes with their limit tables and binding rows, the graph census, and the flattened element projection `Cam` lowers; the settled census fires the `FabricationFact.Engine.Of` node, arc, and pass rows through the caller-supplied `FabricationTap`, defaulting silent for headless callers.
 - Packages: `LanguageExt.Core` owns accumulation, keyed lookup, and traversal; `Thinktecture.Runtime.Extensions` owns demand construction and the delegate-bearing rows; `QuikGraph` owns component topology; `System.Numerics.Tensors` owns batch finiteness; `CavalierContours` arrives through `ArcAlgebra.Apply`; `MTConnect.NET-Common` arrives through `CutterForm` admission.
 - Boundary: `ArcAlgebra` owns exact-arc path generation, `Cam` owns axial repetition and safety composition, and `Link` owns travel.
@@ -71,8 +70,6 @@ using static LanguageExt.Prelude;
 namespace Rasm.Fabrication.Toolpath;
 
 // --- [VOCABULARY] ---------------------------------------------------------------------------------------------------------------------------------
-// A measured load and its evaluation instant are one fact: the pair rides one Option, so a load
-// without its instant — or an epoch-instant read as absence — is unrepresentable, never guarded.
 public readonly record struct EngagementInputs(
     double CutterRadius,
     double ChannelClearance,

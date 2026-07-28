@@ -8,7 +8,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 <!-- source-only: open task card template:
 [ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
-- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Capability: <the higher-order invariant, owner capability, or concept established — concept grain only, never a page path, row list, or member spelling>.
 - Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
 - Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
 - Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
@@ -57,33 +57,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: the page's own deleted-forms clause; the docgen coupling law.
 - Atomic: one parenthetical deletion.
 
-[MQTT_RECEIVE_ARM]-[BLOCKED]: MQTT's receive adapter joins the settled carrier continuation and publish arms.
-- Capability: the receive direction completes the MQTT carrier adapter over exact user-property members; drives from IDEAS `[WIRE_CARRIER_ADAPTERS]`.
-- Shape: the receive adapter row beside the settled publish adapter on the AppHost wire plane.
-- Unlocks: IDEAS.md [WIRE_CARRIER_ADAPTERS] — bidirectional MQTT crossings under the one carrier law.
-- Anchors: the settled generic carrier continuation and MQTT publish arms; `libs/csharp/Rasm.AppHost/.api/api-mqtt.md`; `libs/csharp/.api/`.
-- Arms: either catalog carries the exact user-property collection and entry accessors.
-
-[OFFLINE_RETRY_BINDING]-[BLOCKED]: Per-signal disk-retry binding lands on the exporter owners.
-- Capability: an `OfflineQueue`-backed retry binding holds each signal through disconnection; drives from IDEAS `[TELEMETRY_OFFLINE_SPINE]`.
-- Shape: the retry binding rows on the AppHost telemetry exporter owners.
-- Unlocks: IDEAS.md [TELEMETRY_OFFLINE_SPINE] — lossless telemetry from disconnected sites.
-- Anchors: `libs/csharp/Rasm.AppHost/.api/api-otel-exporter.md`; `libs/csharp/.api/api-opentelemetry-exporter-otlp.md`.
-- Arms: either catalog carries an exact per-signal disk-retry member or environment binding and its `FileBlobProvider` composition law.
-
-[CLAIM_FAMILY_PROJECTIONS]-[BLOCKED]: Materials and Grasshopper claim projections complete the corpus-gate set.
-- Capability: the two remaining producers project claims through the gate the settled kernel, Bim, Persistence, and Rhino projections ride; drives from IDEAS `[CORPUS_GATE_INGEST]`.
-- Shape: the Materials and Grasshopper projections routed by `Observability/benchmarks.md#[CLAIM_FAMILY_ADMISSION]`.
-- Unlocks: IDEAS.md [CORPUS_GATE_INGEST] — estate-wide claims grade through one corpus gate.
-- Anchors: the settled kernel, Bim, Persistence, and Rhino projections; `Observability/benchmarks.md#[CLAIM_FAMILY_ADMISSION]`.
-- Arms: both owner routes in `Observability/benchmarks.md#[CLAIM_FAMILY_ADMISSION]` close.
-
-[PROFILE_SAMPLE_CAPTURE_ARM]-[BLOCKED]: Profile sample capture lands over exact SampleProfiler members.
-- Capability: the capture arm joins the settled feed and registration rows, completing the profile-sample pipeline.
-- Shape: the capture rows routed by `Observability/benchmarks.md#[PROFILE_SAMPLE_CAPTURE]`.
-- Unlocks: span-correlated sample profiles on the benchmark evidence rail.
-- Anchors: the settled feed and registration rows; `libs/csharp/Rasm.AppHost/.api/api-traceevent.md`; `libs/csharp/.api/`.
-- Arms: either catalog carries the exact SampleProfiler subscription and stack/frame accessors routed by `Observability/benchmarks.md#[PROFILE_SAMPLE_CAPTURE]`.
 
 [HLC_HEADER_KEY_MINT]-[QUEUED]: Correlation spine mints the HLC carrier-header key contract every cross-runtime decoder proves against.
 - Capability: one host-owned spelling authority for the causal-stamp carrier keys — the wire's header vocabulary becomes a minted contract row set, so a decoder proves its mirror at boot instead of hand-mirroring spellings a host rename silently defaults to zeroed stamps.
@@ -93,14 +66,25 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Ripple: `python runtime` `[HLC_HEADER_DRIFT_GATE]` — precedes.
 - Atomic: one contract row set on one owner section.
 
+[VIEW_TAGKEYS_FROM_ROWS]-[QUEUED]: Signal governance derives every metric view's tag-key set from the declared instrument rows it governs.
+- Capability: view shaping stops re-spelling a dimension vocabulary the instrument declaration already carries, so a tag rename lands once at its owner and a view can never cap a dimension no arm stamps.
+- Shape: `libs/csharp/Rasm.AppHost/.planning/Observability/telemetry.md` `[05]-[SIGNAL_GOVERNANCE]` — `Views` folds contributor-port rows into per-instrument `MetricStreamConfiguration` values instead of holding a hand-spelled `TagKeys` roster beside the wildcard cap.
+- Unlocks: every contributed roster inherits governed cardinality on admission, so a sibling package's new dimension caps without a governance edit.
+- Anchors: `InstrumentSpec.Dimensions` and `InstrumentSet.Rows` on the kernel capsule; `HostInstruments` slot consts at `Observability/instruments.md` `[02]-[INSTRUMENT_CATALOG]`; `MetricStreamConfiguration.TagKeys`/`CardinalityLimit` at `libs/csharp/.api/api-opentelemetry.md`.
+- Tension: `Govern` builds providers before any meter mints, so the fold reads the contributor ports rather than a mounted `InstrumentSet`, and the wildcard cap stays the floor for foreign rows carrying no declaration.
+- Atomic: one fold on one governance owner.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[MQTT_RECEIVE_ARM]-[COMPLETE]: `TraceContext.Continue(ActivitySource, MqttApplicationMessage, string, TenantAdoption)` landed at `Observability/telemetry#CORRELATION_SPINE` with an ordinal-matched getter decoding `MqttUserProperty.ValueBuffer` through `ReadValueAsString`; `Wire/livewire.md` `MqttRuntime` lost its `Properties` delegate and the receive pump calls the overload directly, consumer-kinded.
+[CLAIM_FAMILY_PROJECTIONS]-[COMPLETE]: the Materials `BenchWorkload` row stood at `#CLAIM_FIELD_MAP` `[06]` already, and the Grasshopper half landed as rows `[08]` `BudgetBreach` and `[09]` `CaptureBreach` under the single-sample projection law once `Platform/capture.md` carried the producing bound.
+[PROFILE_SAMPLE_CAPTURE_ARM]-[COMPLETE]: `ProfileCapture.Bind` landed at `Observability/benchmarks.md` `[04]-[PROFILE_CORRELATION]` over the verified `SampleProfilerTraceEventParser.ThreadSample`/`.ThreadStackWalk` pair and `ClrThreadStackWalkTraceData.FrameCount`/`.InstructionPointer`, with `ProfileCapturePolicy` bounds, the `ProfileFrameForm` symbolization posture, and the `ProfileCaptureReceipt` disposition counts.
+[OFFLINE_RETRY_BINDING]-[COMPLETE]: realized ahead of the card as the branch-owned durable OTLP transport — `OtlpOfflinePolicy`/`OtlpOfflineQueue`/`PersistentOtlpHandler` on `Observability/telemetry.md` open one queue per exported signal and swap that signal's transport, under the AppHost `RULINGS.md` transport-not-exporter-persistence row.
 [CONSUMPTION_AXIS_SPELLING]-[COMPLETE]: the six-axis roster landed at all three branch minters with identical closed-axis vocabularies and one common open-axis descriptor shape; refusal is one axis/value/reason grammar everywhere, and the corpus entry's roster blocker is discharged.
-
 [RESOURCE_DETECTOR_ROWS]-[COMPLETE]: Five contrib detector rows landed as `ResourceIdentity.Compose` on `Observability/telemetry#SIGNAL_GOVERNANCE` — host/os/process/runtime always-on, container gated on the OCI-vehicle rows.
 [HTTP_TELEMETRY_ROWS]-[COMPLETE]: `AddHttpClientLatencyTelemetry` and `AddExtendedHttpClientLogging` rows landed in `SignalGovernance.EnrichContext` with the four `*DataClasses` taxonomy maps.
 [PYROSCOPE_AGENT_ROWS]-[COMPLETE]: Pyroscope agent rows landed on `Observability/benchmarks#PROFILE_CORRELATION` — `ProfileTracking` toggle policy, `ProfileLabels.Scoped` bounded label frames over `LabelSet.BuildUpon`/`LabelsWrapper.Do`.
@@ -109,7 +93,8 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [DUMP_TRIAGE_FOLD]-[COMPLETE]: `DumpTriage` fold landed on `Observability/bundles#CAPTURE_PIPELINE` — verified ClrMD members, `SupportArtifact.DumpAnalysis` row, `DumpPolicy.CensusCap`/`TriageRows`/`FrameCap` bounds, and shallow heap-sample semantics.
 [SCHEMA_PINNED_MINT]-[COMPLETE]: Schema-pinned mint landed — `TelemetryContributorPort.SchemaUrl` stamped as `MeterOptions.TelemetrySchemaUrl` at `TelemetryIdentity.Mint` and `InstrumentFan.Mount`.
 [MACHINE_OBSERVATION_DECODE]-[COMPLETE]: Observation decode rows landed as `MachineLane`/`MachineObservationWire` on `Wire/livewire.md` under `InstrumentFan.ObservationKind`; the crossing rides the receipt stream and the `MachineObservation` domain vocabulary is Fabrication-owned — no eighth port.
-[OBSERVABILITY_PAGES_AUTHORED]-[COMPLETE]: Instruments, hooks, and benchmarks pages authored under `.planning/Observability/`; `InstrumentRow` widened to carry unit, description, and bind; `FaultBand` gained the `Hook` and `Benchmark` rows; `BenchmarkReceipt` joined the `AppHostWireContext` roster.
+[OBSERVABILITY_PAGES_AUTHORED]-[COMPLETE]: Instruments, hooks, and benchmarks pages authored under `.planning/Observability/`; every `HostInstruments` row declares its unit and description on the kernel `InstrumentSpec`, whose `InstrumentKind` x `MeasureForm` pair derives the bind; `FaultBand` gained the `Hook` and `Benchmark` rows; `BenchmarkReceipt` joined the `AppHostWireContext` roster.
 [ASPNET_GRPC_ADMISSIONS]-[COMPLETE]: `OpenTelemetry.Instrumentation.AspNetCore` and `OpenTelemetry.Instrumentation.GrpcNetClient` admitted — csproj rows, README registry rows, `.api` catalogs, and the `SignalGovernance` gRPC-client registration row landed.
-[PARTITIONED_LEVEL_ROWS]-[COMPLETE]: keyed `LevelCells` with `Reader` and the tagged `Measurement<long>` multi-measurement projection landed at the kernel owner `libs/csharp/Rasm/.planning/Domain/telemetry.md` `[03]-[INSTRUMENT_MECHANISM]`; `Measurement<T>` catalogued at `libs/csharp/.api/api-diagnostics-metrics.md`.
+[PARTITIONED_LEVEL_ROWS]-[COMPLETE]: keyed `LevelCells` with `Reader` and the tagged `Measurement<long>` multi-measurement projection landed at the kernel owner `libs/csharp/Rasm/.planning/Domain/telemetry.md` `[04]-[INSTRUMENT_MECHANISM]`; `Measurement<T>` catalogued at `libs/csharp/.api/api-diagnostics-metrics.md`.
 [CONTRIBUTOR_ROSTER_ARMS]-[COMPLETE]: all ten contributor rows landed in the `[CONTRIBUTED_ARMS]` table at `Observability/instruments.md` `[03]-[RECEIPT_PROJECTION]`.
+[PORT_CARRIED_BOARD_PACK]-[COMPLETE]: `TelemetryContributorPort` gained `Option<BoardPack> Board` and its `Admit` fold at the kernel capsule, so `InstrumentFan.Mount` returns `Fin<ReceiptFan>` proving every contributed pack over the set it binds; the AppHost, Materials, Fabrication, and Compute ports carry their packs, the composition-root and registry-mount legs that named `HostInstruments.Board` by hand are gone, and objective-name distinctness folded into `BoardPack.Admit` so the Compute descriptor probe retired.

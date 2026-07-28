@@ -18,6 +18,10 @@ Corpus entries bind each contract to its class: an `infrastructure` entry names 
 |  [10]   | CONSUMPTION_PROFILE     | `consumption-profile`   | infrastructure | `canonical-json`                | DESIGN-PIN |
 |  [11]   | BACKEND_CONTRACT        | `backend-contract`      | infrastructure | `canonical-json` + `digest`     | DESIGN-PIN |
 |  [12]   | CAPABILITY_DESCRIPTOR   | `capability-descriptor` | domain         | `canonical-json` + `digest`     | DESIGN-PIN |
+|  [13]   | TELEMETRY_CONVENTION    | `telemetry-convention`  | infrastructure | `canonical-json` + `digest`     | DESIGN-PIN |
+|  [14]   | BENCHMARK_CLAIM         | `benchmark-claim`       | infrastructure | `wire-bytes`                    | DESIGN-PIN |
+|  [15]   | HOST_FINGERPRINT        | `host-fingerprint`      | infrastructure | `canonical-json` + `digest`     | DESIGN-PIN |
+|  [16]   | BOARD_PACK              | `board-pack`            | infrastructure | `canonical-json` + `digest`     | DESIGN-PIN |
 
 ## [02]-[ENTRIES]
 
@@ -97,11 +101,11 @@ Corpus entries bind each contract to its class: an `infrastructure` entry names 
 
 - Seam: `hlc-two-half`
 - Class: infrastructure
-- Minters: `csharp:Rasm.AppHost/Runtime/ports#PORT_RECORDS`; `python:runtime/clock/clock#CLOCK`; `typescript:core/value/clock#TWO_HALF_LAYOUT`
+- Minters: `csharp:Rasm/Domain/telemetry#CAUSAL_FRAME`; `python:runtime/clock/clock#CLOCK`; `typescript:core/value/clock#TWO_HALF_LAYOUT`
 - Consumers: `python:runtime/transport/serve#SERVE` decodes the halves with `tenant`; `python:runtime/evidence/reproduction#SEED_REPRODUCTION` reproduces every mint in the parity suite.
 - Payload: `wire-bytes`
 - Pin: DESIGN-PIN
-- Blocker: the C# minter's ports page lacks the indexed `HLC_FANIN` two-half vectors the fixture freezes.
+- Blocker: the C# minter's capsule lacks the indexed two-half vectors the fixture freezes.
 - Shape: two-64-bit-half stamps in the `ReceiptEnvelope` order — physical half first as the `Instant` Unix-tick `int64`-LE, logical half second as the monotone `ulong`-LE, the exact order `InterchangeIdentity.Compose` seals — with vectors chosen so a logical-half-first composition corrupts by folding a fresh op as stale. Every branch stamps its own causal frames, so each mints the layout rather than reading a peer's.
 - Regenerate when: the two-half compose order or the `ReceiptEnvelope` stamp layout changes.
 
@@ -164,3 +168,51 @@ Corpus entries bind each contract to its class: an `infrastructure` entry names 
 - Blocker: the producer has pinned no descriptor set, so the schema digest carries no frozen preimage.
 - Shape: one descriptor per brokered op — name, argument and result schema references, and the effect, idempotency, and cost-unit keys as the broker's own vocabulary — with cross-language shape identity the JSON Schema the producer exports and every SDK target binds unchanged. Brokered capability is the producer's domain capability, so peers decode the descriptor and re-author no capability shape; schema evolution is additive, and a generated SDK is a build artifact rather than a second mint.
 - Regenerate when: the descriptor vocabulary, the exported schema layout, or the effect and cost key sets change.
+
+### [02.13]-[TELEMETRY_CONVENTION]
+
+- Seam: `telemetry-convention`
+- Class: infrastructure
+- Minters: `csharp:Rasm.AppHost/Observability/telemetry#SIGNAL_GOVERNANCE`; `python:runtime/observability/telemetry#TELEMETRY`; `typescript:core/observe/convention#IDENTITY_PROJECTION`
+- Consumers: `typescript:iac/operate/observe#STORE_ROWS` reads the translation strategy the wire row pins and `#CHART_ROWS` the collector receiver and exporter rows compiled from it; each branch's composition root realizes its own mint and asserts it through that branch's telemetry harness.
+- Payload: `canonical-json` + `digest`
+- Pin: DESIGN-PIN
+- Blocker: no minter projects its conformance rows as a document — the C# governance table, the python telemetry owner, and the typescript convention rows each hold their values as composition code with no canonical projection member, so the row set has no byte-deriving input on any branch.
+- Shape: the closed conformance row set `libs/.planning/ARCHITECTURE.md` `[08]-[OBSERVABILITY_CONFORMANCE]` legislates, projected as one document per minter — the resource triple and its detector-merge precedence, the scope coordinate (emitting package id, version stamp, semconv schema url) shared by tracer, meter, and logger, the metric-name grammar with its UCUM unit vocabulary and the minter's own domain roster of segment beside admitted subject, wire temporality and default histogram aggregation, exemplar posture, the propagation dialect set with its one global composite registration and the inbound parent-adoption posture, the tenant key with its promotion allowlist, view cap, and absent-entry posture, egress protocol and compression beside the metrics-receiver translation strategy, buffer and loss posture, and lifecycle drain bounds. Role-aware absence is part of the shape rather than an exception to it: each row carries the disposition its minter's role admits over `process` | `browser` | `deploy`, so a browser minter marks the process profiler, the process health probe, and the process support archive `absent` while carrying logs, metrics, traces, vitals, and crash evidence, and a reader distinguishes a role that cannot carry a signal from a branch that dropped one. Capability absence rides the same column under its own disposition and never under role absence: a row whose plane exposes no seat at the minter's pinned distribution — the exemplar filter and the sender encoding knob are the standing pair — projects the value the plane carries beside the pin that withholds the seat, so the digest reads a stated ceiling rather than a dropped row and a pin bump that opens the seat fails here until the row re-values. Every branch mints from its own composition inputs and parity across the three mints IS the conformance; transcription remains how each branch spells the rows, and this entry is what proves the three spellings agree. Domain rows carry that proof furthest: two minters claiming one segment project one subject spelling byte-identical or fail the digest here, so a vocabulary each branch declares locally still resolves to one estate namespace.
+- Regenerate when: Tier-0 `[08]-[OBSERVABILITY_CONFORMANCE]` gains, drops, or re-values a row, or the semconv schema pin bumps.
+
+### [02.14]-[BENCHMARK_CLAIM]
+
+- Seam: `benchmark-claim`
+- Class: infrastructure
+- Minters: `csharp:Rasm.Compute/Runtime/receipts#TS_PROJECTION`; `typescript:core/interchange/codec#LANDING_WIRE`
+- Consumers: `typescript:core/observe/board#BENCH` grades a decoded claim against its baseline and trends the bench pack; `typescript:security/crypt/sign#CALIBRATION` and `typescript:runtime/proc/exec#MEASURED_RUN` mint through that landing class and grade each row against its own ceiling; `csharp:Rasm.Compute/Runtime/receipts#BENCHMARK_CLAIMS` admits the claim the projection carries and `csharp:Rasm.Compute/Runtime/transport#TRANSPORT_AXIS` folds it into the winning wire encoding, both resolving through the durable summary at `csharp:Rasm.Persistence/Query/cache#BENCHMARK_INDEX`.
+- Payload: `wire-bytes`
+- Pin: DESIGN-PIN
+- Blocker: neither minter freezes a claim document — the C# equivalence sweep pins no host fingerprint and the typescript harness pins no suite, so the shape carries no byte-deriving input on either branch.
+- Shape: one host-admitted claim document — `suite`, `host` the executing fingerprint, `minted` the document instant, and a non-empty `metrics` array — with fingerprint and instant riding the document because one measurement run carries one of each and a per-row copy restates them for every metric that run holds. Each metric row carries its own subject, band, and cost columns, and the subject discriminates a bare probe spelling label, unit, and modality from a kernel run spelling that triple beside its tensor input, substrate, family, case, route, provider, corpus key, artifact key, equivalence deviation, tolerance class, and profile artifacts, so neither coordinate widens the other into optionality. Band rungs land exactly where the minting harness computes them — a sampling harness carries the raw vector beside its tick count and whole ladder while an equivalence sweep persisting a summary row carries median, p95, and deviation — so a grading policy names the rung it reads and a pair missing that rung on either side refuses by axis rather than grading a fabricated value; an enrichment band the executing runtime cannot fill stays absent under the same law. Each minting harness owns its own `unit` vocabulary rather than the instrument census's — a timing harness spells nanoseconds, a render probe spells a per-second rate beside a bare count, a C# sweep spells its own — so the column stays a free non-empty string the grade compares verbatim as an equality axis, and narrowing it onto the telemetry unit roster refuses every measure that roster was never built to carry. Admission is one gate on the document: a claim whose host print differs from the executing identity refuses, so no consumer compares measurements across fingerprints and no branch grades a peer's runtime. Every branch measuring its own runtime mints its own claims and parity across the mints IS the conformance; a branch whose benchmark evidence never crosses its own boundary mints no instance here.
+- Regenerate when: the subject union, the band ladder, or the host-admission gate changes.
+
+### [02.15]-[HOST_FINGERPRINT]
+
+- Seam: `host-fingerprint`
+- Class: infrastructure
+- Minters: `csharp:Rasm.AppHost/Runtime/determinism#DETERMINISM_KERNEL` (`EnvFingerprint` composing the record and `EnvFingerprint.Digest` minting its print through the kernel content-hash entry); `typescript:ui/viewer/probe#HOST_MIRROR` (`Probe.host`, the browser-role capture)
+- Consumers: `csharp:Rasm.Compute/Runtime/receipts#BENCHMARK_CLAIMS` reads the record as the claim's `host` column and refuses a claim whose print differs from the executing identity; `typescript:core/interchange/codec#LANDING_WIRE` decodes the wire into `Claim.Host`; `typescript:ui/viewer/probe#CLAIM_BOARD` joins the local capture against an admitted claim's own host to display divergence context
+- Payload: `canonical-json` + `digest`
+- Pin: DESIGN-PIN
+- Blocker: neither minter freezes a fingerprint document — the C# kernel pins no environment vector and the browser capture pins no adapter, so the record carries no byte-deriving input on either branch.
+- Shape: one environment-identity record — `print` the digest identifying the environment, `machine`, `os`, `arch`, `processors`, `runtime`, and a `stamps` map carrying the dimensions a role reaches beyond the fixed columns. Role-aware absence is part of the shape rather than an exception to it: a process minter composes every column from its own host and derives `print` over them, while a browser minter takes `print` as the identity it was handed, reads `machine` and `arch` off the graphics adapter, and marks the operating-system name with the declared-unavailable sentinel because no stable browser surface exposes it — so a reader distinguishes a role that cannot reach a fact from a branch that dropped one, and a fabricated value is unspellable. Registration lands here rather than resolving as `[02.14]`'s column alone because the record crosses on its own seam edge as well as inside a benchmark claim: the viewer mirrors the field set with no claim in hand, so the two spellings agree even where no claim exists to carry them. Every branch reaching a host mints its own record and parity across the mints IS the conformance — a branch that only decodes carries no fingerprint of its own.
+- Regenerate when: the record's column set changes, the sentinel spelling for a role-unreachable fact changes, or the print derivation moves.
+
+### [02.16]-[BOARD_PACK]
+
+- Seam: `board-pack`
+- Class: infrastructure
+- Minters: `csharp:Rasm.Compute/Runtime/receipts#TS_PROJECTION`; `typescript:core/observe/board#PACKS`
+- Consumers: `typescript:iac/operate/observe#BOARD_APPLY` admits every pack under the closed `_PACKS` provenance tuple, tags each compiled board with its wire, and folds pack alerts into the one burn-rate compile leg.
+- Payload: `canonical-json` + `digest`
+- Pin: DESIGN-PIN
+- Blocker: neither minter freezes a pack document — the C# projection pins no concrete pack vector and the typescript owner encodes packs in-process with no frozen instance, so the shape carries no byte-deriving input on either branch.
+- Shape: one producer-pack document `{ wire, boards, alerts }` — `wire` a provenance key the deploy tuple closes, `boards` core-encoded `DashboardModel` documents, `alerts` burn-derived alert-spec rows — whose wire vocabularies mirror the kernel closed families arm for arm under `docs/laws/topology.md` `[FENCE_SEAM]`'s projection law: one `SliWire` arm per kernel `Sli` case with the `LevelBreach` polarity crossing beside its bound, and the instrument-kind, panel-kind, burn-row, and `page` | `ticket` severity rosters each transcribed whole. Parity across the two spellings IS the conformance — a lagging arm refuses a whole producer at the typed boundary, and a dropped discriminant column compiles the inverse comparison — and a branch minting no pack carries no instance here.
+- Regenerate when: a kernel closed family — `Sli`, `LevelBreach`, `InstrumentKind`, `PanelKind`, `BurnRow`, `AlertSeverity` — gains or retires a case, or the pack document layout changes.

@@ -25,7 +25,7 @@ Rasm.Persistence/            # refs the Rasm.Element seam + Rasm kernel ONLY; no
 │   ├── Lane.cs              # Read router: authoritative vs analytical over the selection algebra
 │   ├── Retrieval.cs         # ANN subsystem: fusion rank over the vector and text branches
 │   ├── Topology.cs          # In-process QuikGraph view and default synchronous traversal
-│   ├── Columnar.cs          # DuckDB analytical lane and its flat-table projection
+│   ├── Columnar.cs          # DuckDB analytical lane, flat-table projection, analytics residence family, receipt evidence plane
 │   ├── Cypher.cs            # Optional self-hosted openCypher and pgrouting lane
 │   ├── Cache.cs             # Compute-result reuse index with a benchmark gate and invalidation
 │   └── Federation.cs        # Substrait federation router lowering onto the selection algebra
@@ -39,10 +39,10 @@ Rasm.Persistence/            # refs the Rasm.Element seam + Rasm kernel ONLY; no
     ├── Schema.cs            # Sole current-state contract and immutable generation state machine
     ├── Provisioning.cs      # Verify-only extension tier and provider materializer rows
     ├── Coordination.cs      # Token-fenced lease store: budget, CAS, lease, membership, outbox
-    └── Observability.cs     # Engine-stat and plan harvests, slot registry, hook rail, usage census, instrument contributor
+    └── Observability.cs     # Engine-stat and plan harvests, slot registry, hook rail, chargeback residence, instrument contributor, board pack
 ```
 
-Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner. Rail identity rides the return type — `Validation<Fault,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects — and clock, correlation, and tenant ride the injected `ProjectionContext` frame. Marten owns the durable append and the rebuildable views, the version engine projects from its events, and public code selects profiles, lanes, operations, codecs, and policies, never provider packages.
+Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner. Rail identity rides the return type — `Validation<Fault,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects — and clock, correlation, and tenant ride the injected `ProjectionContext` frame as the kernel types, never their key scalars. Marten owns the durable append and the rebuildable views, the version engine projects from its events, and public code selects profiles, lanes, operations, codecs, and policies, never provider packages.
 
 ## [02]-[STRATA]
 
@@ -133,6 +133,7 @@ flowchart LR
     Bim e18@-->|"[WIRE]: BimEvent"| Version
     Ingest e7@<-->|"[WIRE]: TaskRelation"| Bim
     Bim e14@-->|"[WIRE]: GeoWire"| Ingest
+    RasmElement e27@-->|"[WIRE]: AnalyticsSchema"| Query
     Materials e19@-->|"[WIRE]: AnalyticsSchema"| Query
     Compute e8@-->|"[CONTENT_KEY]: AssessmentPayload"| Version
     Compute e9@<-->|"[CONTENT_KEY]: VectorCodebook"| Query
@@ -141,6 +142,7 @@ flowchart LR
     Compute e21@-->|"[CONTENT_KEY]: CompiledExpr"| Query
     Compute e11@<-->|"[CONTENT_KEY]: GeometryHash"| Store
     Compute e22@<-->|"[CONTENT_KEY]: InterchangeIdentity"| Store
+    Compute e26@-->|"[WIRE]: LakeGeneration"| Query
 ```
 
 ```mermaid
@@ -153,7 +155,7 @@ config:
 ---
 flowchart LR
     accTitle: Persistence platform and cross-runtime seams
-    accDescr: Persistence sub-domain owners exchanging ports, wires, projections, and receipts with the app host, the app UI, and the Python and TypeScript runtimes, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Persistence sub-domain owners exchanging ports, wires, projections, receipts, content keys, and contracts with the app host, the app UI, and the Python and TypeScript runtimes, one edge per kind.
     subgraph persistence[RASM.PERSISTENCE]
         Element[Element store]
         Version[Version engine]
@@ -181,13 +183,14 @@ flowchart LR
     Query e11@<-->|"[PORT]: HybridCache"| AppHost
     Store e12@<-->|"[PORT]: CoordinationOp"| AppHost
     Store e18@<-->|"[PORT]: TelemetryContributorPort"| AppHost
-    AppHost e19@-->|"[PORT]: HookPoint"| Store
+    Store e19@-->|"[PORT]: PersistenceHooks"| AppHost
     Store e13@-->|"[RECEIPT]: ProvisionVerdict"| AppHost
     Store e22@<-->|"[CONTRACT]: BackendContract"| Runtime
     Store e23@<-->|"[CONTRACT]: BackendContract"| TsData
     AppUi e14@-->|"[PROJECTION]: ReplayWindow"| Version
     AppUi e15@-->|"[CONTENT_KEY]: SnapshotAccelerator"| Store
-    Store e24@-->|"[RECEIPT]: DuckProfileReceipt"| AppUi
+    Query e24@-->|"[PROJECTION]: telemetry measure series"| AppUi
+    Query e25@-->|"[RECEIPT]: resident ReceiptEnvelope"| AppUi
 ```
 
 ## [04]-[INTERNAL]
@@ -233,6 +236,6 @@ One `IDocumentSession` commits the `GraphDelta` event and the identity row toget
 - Typed projection records and the seam `ElementGraph` are the only egress; provider failure converts once per rail, and each sub-domain outcome keeps its own typed receipt or fact record.
 - Generated rails own converters, formatters, and migration artifacts.
 - Retention reachability spans the full event history; a store class unable to prove full-history reachability retains blobs through deduplication and cold tiering instead of collecting them.
-- `ProjectionContext` is the one time seam and the HLC the one causal clock; a policy value applied at both a provider wire and a domain catalog derives once from one sampled instant threaded through the write path.
+- `ProjectionContext` is the one time AND causal seam and the HLC the one causal clock — it seats the kernel `CorrelationId`/`TenantContext` pair, so a policy value applied at both a provider wire and a domain catalog derives once from one sampled instant threaded through the write path and every receipt, RLS predicate, and blame header reads one tenancy off that frame.
 - Each spine concept keeps one owner across content hash, identity, CRDT, selection shape, and geometry representation.
 - AppHost owns scheduling, drain, hop retry, correlation, and the cache port; Persistence contributes rows and never reverses the dependency, while database retry stays outside the AppHost hop law with the relational rows owning it.

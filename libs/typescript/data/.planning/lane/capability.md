@@ -14,12 +14,12 @@ This folder's fail-closed capability rail: one closed row/ensure vocabulary, one
 ## [02]-[ROW_VOCABULARY]
 
 - Owner: `Capability.Row<G, F>` — the structural bound every `lane/postgres.md` matrix row inhabits, parameterized by its value-derived grant and flag vocabularies; `Capability.Ensure` — the `{relation, pg, sqlite}` DDL row every table-owning page publishes as data; `Capability.Demand<F, G>` — the `[flag, grant]` dependency pair; `Capability.Atomicity` — the closed interactive-transaction versus batch grant; the segment-numeric version order; the one reason-discriminated fault.
-- Packages: `effect` (`Data`, `Order`, `String`).
-- Growth: a new probe posture is a `probeSql` override on the owning matrix row; a new ensure dialect is one field on the ensure shape; a new dependency edge is one demand pair — the shapes never widen per extension.
 - Law: `floor` compares segment-numeric through `_byVersion` over one padded width, so a segment count never outranks a segment value and a real two-segment `extversion` meets an equal three-segment floor; `"0.0.0"` is the presence-only floor and the probe still fails closed on absence. Floor gating itself is a pg fact: the sqlite arm answers presence only, so its admission is membership and no pg-authored floor can refuse a present module.
 - Law: ensure rows are authored by the page owning the relation and collected by `lane/tenant.md` at Layer construction; demand pairs are authored by the page owning the matrix (`Pg.demands`). `G` and `F` infer from those values through the service factory, so `require` and `when` accept only the roster's closed grant vocabulary and a misspelled gate is unrepresentable.
 - Law: `transaction` admits `SqlClient.withTransaction`; `batch` admits an engine-native atomic batch but refuses an interactive transaction. PostgreSQL, server sqlite, wasm sqlite, and libSQL seed `transaction`; D1 seeds only `batch`, so the generic journal publisher cannot compose on D1 and a D1 publisher must submit its whole write set through the batch boundary. Atomicity is a demandable grant like any other — `Demand`'s grant slot is the full `Grant<G>` vocabulary, so a flagged row may demand `transaction` or `batch` and the fixed-point fold refuses it on D1 exactly as it refuses an absent extension grant.
-- Fault: one `CapabilityFault` family, reason-discriminated — `absent` (extension not installed), `floor` (installed below floor), `schema` (declared relation missing), `requires` (dependency grant refused); all four route identically (fail or shrink at startup, repair provision), so one class carries them and no policy table is earned.
+- Law: one `CapabilityFault` family, reason-discriminated — `absent` (extension not installed), `floor` (installed below floor), `schema` (declared relation missing), `requires` (dependency grant refused); all four route identically (fail or shrink at startup, repair provision), so one class carries them and no policy table is earned.
+- Packages: `effect` (`Data`, `Order`, `String`).
+- Growth: a new probe posture is a `probeSql` override on the owning matrix row; a new ensure dialect is one field on the ensure shape; a new dependency edge is one demand pair — the shapes never widen per extension.
 
 ```typescript signature
 import { Array, Data, Order, String, pipe } from "effect"
@@ -296,17 +296,17 @@ declare namespace Capability {
 ## [05]-[CONTRACT]
 
 - Owner: `Backend.compose` mints this branch's own contribution; `Backend.merge` folds contributions into the deployment unit; `Backend.project` decodes a foreign branch's contribution; `Backend.observe` maps local evidence; `Backend.admit` joins expected against observed.
-- Sources: Effect SQL migrations, journal DDL, the PGLite generation, and object-plane ensures each land as one `Source` row carrying key, role, bytes, providers, and dependencies — the branch composes from its own artifacts alone.
-- Shape: compose encodes the contract ONCE and digests the bytes it just framed; `project` reads transported octets and never re-encodes to compare, because `JSON.stringify` is canonical in no runtime but its own. `JSONSchema.make` derives the schema artifact from the same AST, so the encode and the schema cannot drift.
-- Identity: core `Digest.mint("content", bytes)` mints the generation over the canonical UTF-8 artifact; data imports no hash package and reads no peer's digest.
-- Merge: contributions union by artifact key under `_byKey`, artifact and capability rows alike; a key two branches claim with differing content raises `collision`, so neither first-wins nor last-wins resolves one and the merged generation re-mints from the union.
-- Order: artifact key order is the whole wire order — a dependency-depth or topological rank inside the stream mints a second generation from one artifact set, so `_projection` proves the dependency keys and no path validates by sorting.
-- Vocabulary: `failureRank` and `restartClass` decode as closed literals whose tokens are corpus law; `_RESTART_ORDER` declares the restart tokens in rank order and its index IS the rank, so `Backend.worst` folds an aggregated repair to the worst disruption across its gap set rather than the least.
-- Adapter: provider rows map the contract's canonical capability key onto the GRANT that proves it, and the granted set is the one membership value observation reads; a probed-version lookup answers floor evidence alone, and a semantic fallback proves nothing.
-- Evidence: generation, required grants, and artifact observations all hold before `Backend.Generation` exists, each proved against the corpus and the transported bytes rather than a local re-encode.
+- Cases: Effect SQL migrations, journal DDL, the PGLite generation, and object-plane ensures each land as one `Source` row carrying key, role, bytes, providers, and dependencies — the branch composes from its own artifacts alone.
+- Law: compose encodes the contract ONCE and digests the bytes it just framed; `project` reads transported octets and never re-encodes to compare, because `JSON.stringify` is canonical in no runtime but its own. `JSONSchema.make` derives the schema artifact from the same AST, so the encode and the schema cannot drift.
+- Law: core `Digest.mint("content", bytes)` mints the generation over the canonical UTF-8 artifact; data imports no hash package and reads no peer's digest.
+- Law: contributions union by artifact key under `_byKey`, artifact and capability rows alike; a key two branches claim with differing content raises `collision`, so neither first-wins nor last-wins resolves one and the merged generation re-mints from the union.
+- Law: artifact key order is the whole wire order — a dependency-depth or topological rank inside the stream mints a second generation from one artifact set, so `_projection` proves the dependency keys and no path validates by sorting.
+- Law: `failureRank` and `restartClass` decode as closed literals whose tokens are corpus law; `_RESTART_ORDER` declares the restart tokens in rank order and its index IS the rank, so `Backend.worst` folds an aggregated repair to the worst disruption across its gap set rather than the least.
+- Law: provider rows map the contract's canonical capability key onto the GRANT that proves it, and the granted set is the one membership value observation reads; a probed-version lookup answers floor evidence alone, and a semantic fallback proves nothing.
+- Law: generation, required grants, and artifact observations all hold before `Backend.Generation` exists, each proved against the corpus and the transported bytes rather than a local re-encode.
+- Packages: `effect` Schema, JSONSchema, collections, and rails; core `ContentKey` and `Digest`.
 - Growth: a provider adds adapter rows over its existing matrix; a new invariant is one `_Check` row; a generated field changes the one projection schema.
 - Boundary: a TypeScript-only application composes, merges, deploys, and admits its backend with no peer branch present; desired rows and local availability never count as realized evidence.
-- Packages: `effect` Schema, JSONSchema, collections, and rails; core `ContentKey` and `Digest`.
 
 ```typescript signature
 import { ContentKey, Digest } from "@rasm/ts/core"

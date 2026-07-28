@@ -4,11 +4,10 @@ The crash-durable workflow and persistent-job owner for the runtime spine: a `Wo
 
 ## [01]-[INDEX]
 
-- [01]-[WORKFLOW_FAMILY]: The `WorkflowInstance` record, the five-case `StepKind` union, and the per-step disposition.
-- [02]-[STEP_EXECUTOR]: One `Run` driving each step through `CommandDispatch` with timer/signal/compensation arms.
-- [03]-[STEP_STATE_SEAM]: The projected wire-stable step-state row through the decode-only Persistence PORT adapter.
-- [04]-[CRASH_RESUME]: Boot rehydration plus the fenced orphan-instance reclaim sweep over expired leases.
-- [05]-[PERSISTENT_JOB]: Crash-durable jobs on the one `SchedulePort` cadence.
+- [02]-[WORKFLOW_FAMILY]: The `WorkflowInstance` record, the five-case `StepKind` union, and the per-step disposition.
+- [03]-[STEP_EXECUTOR]: One `Run` driving each step through `CommandDispatch` with timer, signal, compensation, and crash-durable persistent-job arms on the one `SchedulePort` cadence.
+- [04]-[STEP_STATE_SEAM]: The projected wire-stable step-state row through the decode-only Persistence PORT adapter.
+- [05]-[CRASH_RESUME]: Boot rehydration plus the fenced orphan-instance reclaim sweep over expired leases.
 - [06]-[TS_PROJECTION]: Workflow-instance and step wire shapes the dashboard consumes.
 
 ## [02]-[WORKFLOW_FAMILY]
@@ -343,7 +342,9 @@ public sealed record StepStateRow(
     string ChainHead,
     long ChainSequence,
     ulong Fence,
-    string TenantId);
+    // Wire-stable edge projection of the causal tenancy: `TenantContext.Entry` fixed-width text, so this row's
+    // partition and the store's RLS predicate compare the one kernel spelling and never two renders.
+    string Tenant);
 
 public static class StepStateCodec {
     // Header-only projection (StepIndex -1) carries the instance transition with no step commit —
@@ -362,7 +363,7 @@ public static class StepStateCodec {
     static StepStateRow Row(WorkflowInstance instance, int index, string stepStatus, StepKind? kind, int attempt) =>
         new(instance.InstanceId, instance.WorkflowId, instance.Status.Key, instance.Cursor,
             index, stepStatus, KindKey(kind), Payload(kind), attempt,
-            instance.Chain.Head.Hex, instance.Chain.Sequence, (ulong)instance.Fence, instance.Tenant.TenantId.ToString());
+            instance.Chain.Head.Hex, instance.Chain.Sequence, (ulong)instance.Fence, instance.Tenant.Entry);
     // KindKey/Payload/DecodeStep/Rebuild: the total StepKind <-> (key, payload) codec — descriptor +
     // serialized arguments | fire instant | channel + timeout | undo descriptor | schedule key.
 }
@@ -434,7 +435,7 @@ public static class CrashResume {
 - Growth: one wire-member row per new instance or step field; the step kind crosses as a literal-discriminated union; zero new surface.
 - Boundary: the instance status and step status cross as their smart-enum string keys; the step kind reconstructs in TS as a literal-discriminated union on the kind, mirroring the `StepKind` union cases; the content hash crosses as its hex-string value-object key so the dashboard renders the workflow as a verifiable chained timeline; instants cross as extended-ISO text; the step receipt rides the existing `ReceiptEnvelopeWire` so a workflow step and an operator command render identically.
 
-```ts contract
+```ts signature
 type WorkflowStatusKey = "running" | "suspended" | "completed" | "compensating" | "faulted";
 type StepStatusKey = "pending" | "running" | "committed" | "waiting" | "compensated" | "failed";
 

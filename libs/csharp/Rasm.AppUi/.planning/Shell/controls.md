@@ -4,10 +4,10 @@ One typed `ControlIntent` family materializes every interactive control from a d
 
 ## [01]-[INDEX]
 
-- [01]-[CONTROL_INTENT]: One closed control vocabulary; per-kind typed shape, binding, token, and automation columns.
-- [02]-[MATERIALIZE_FOLD]: The `ControlFactory` intent-to-control fold; one `BehaviorRail.Intent` bridge; total automation derivation.
-- [03]-[CONTROL_RECYCLING]: The recycling-aware materialization boundary the `VirtualWindow` grid/tree/canvas kinds consume.
-- [04]-[TS_PROJECTION]: `ControlIntentWire` kind-discriminated control vocabulary the web head materializes.
+- [02]-[CONTROL_INTENT]: One closed control vocabulary; per-kind typed shape, binding, token, and automation columns.
+- [03]-[MATERIALIZE_FOLD]: The `ControlFactory` intent-to-control fold; one `BehaviorRail.Intent` bridge; total automation derivation.
+- [04]-[CONTROL_RECYCLING]: The recycling-aware materialization boundary the `VirtualWindow` grid/tree/canvas kinds consume.
+- [05]-[TS_PROJECTION]: `ControlIntentWire` kind-discriminated control vocabulary the web head materializes.
 
 ## [02]-[CONTROL_INTENT]
 
@@ -89,12 +89,16 @@ public sealed partial class PathBrowseMode {
 ## [03]-[MATERIALIZE_FOLD]
 
 - Owner: `ControlFactory` the one intent-to-control fold; `MaterializeContext` the composition-bound resolution columns; `ControlReceipt` the materialization evidence record.
+- Law: every `ICommand` rides `BehaviorRail.Intent` — a `BindCommand` call site is the deleted form and the intent never carries a live command, only its key.
+- Law: every brush, metric, and motion resolves through `MaterializeContext.Token` from the `TokenRow` vocabulary — a hardcoded brush is the deleted form.
+- Law: every control's id and name derive from `ControlIntent.Key` through the one `Apply` fold — a per-control automation call site is the deleted form.
+- Law: container arms recurse `Materialize` over child intents so a whole screen is one fold over one nested intent tree.
 - Entry: `public Fin<Control> Materialize(ControlIntent intent, MaterializeContext context)` — one polymorphic fold (intent → realized control) over the closed family; the `Fin` rail aborts on an unbound command key, an unresolved token role, or a recycling violation, sealing the typed `ControlFault`.
 - Auto: each arm constructs the compiled-template Avalonia control (`Button`, `TextBox`, `NumericUpDown`, `CalendarDatePicker`, `ComboBox`, `Slider`, `ToggleSwitch`, `RadioButton` group, `DataGrid` over the `VirtualWindow` source, `TreeView`-as-flat-`TreeRow` over the same window, `Menu`, `ToolBar`, `TabControl`, `Expander` accordion, the `LayoutSolver` panel, `DockControl`, `GridSplitter`), binds its `ICommand` through `BehaviorRail.Intent(context.Command(key))` exclusively, resolves every brush and metric through `context.Token(role)`, derives automation identity from the intent key, and admits values and activation through the typed `MaterializeContext.Value` and `MaterializeContext.Activate` boundaries — no reflection path, per-kind materializer call site, runtime-XAML emission, or second binding bridge.
 - Receipt: `ControlReceipt` — intent key, control type name, bound command key, resolved token role, `Instant` — minted by `Materialize` on every successful fold through the `MaterializeContext.Evidence` column bound at composition to the screen evidence stream, so a receipt record with no mint path is unrepresentable; `TelemetryRow` contributes the control-materialized and control-rejected instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: Avalonia, Avalonia.Controls.DataGrid, Xaml.Behaviors.Avalonia, ReactiveUI, LanguageExt.Core, NodaTime
-- Growth: one fold arm per new `ControlIntent` case; a new container is one nesting arm recursing `Materialize` over child intents; one control instrument is one `InstrumentRow` on `ControlFactory.TelemetryRow`; zero new surface.
-- Boundary: `ControlFactory` is the named boundary capsule for the control-construction statement carve-out — each arm carries the Avalonia control-construction statements while the dispatch stays one total generated `Switch`, so a new case breaks every site at compile time and a runtime `_` arm is the rejected form; the only `ICommand` binding bridge is `BehaviorRail.Intent`, so `PropertyBinderImplementation.Bind`/`OneWayBind`/`BindTo`, `CommandBinder.BindCommand`, and `IViewFor` property-expression wiring are rejected wholesale (the `[04]-[BOUNDARIES]` ReactiveUI-code-behind clause); the materialized control's value bridge resolves the typed `IntentBinding.ValueKey` through `MaterializeContext.Value`, never reflection over a string property path; templates are compiled `ControlTemplate`/`DataTemplate`/`ControlTheme`, the core `AvaloniaXamlLoader.Load(this)` call remains the compiled-XAML materializer, and only runtime `AvaloniaRuntimeXamlLoader` inflation is rejected by `Surfaces.RejectRuntimeInflation`; the `Grid` and `Tree` arms hand their `VirtualWindowSpec` to the `Shell/virtualization` `VirtualWindow` owner so windowing rides the one fabric and a factory-local virtualizer is the rejected form; the `Panel` and `Dock` arms hand their `ConstraintProgram` to the `Shell/solver` `LayoutSolver` panel and mount their children through `Mounted`, which stamps `LayoutSolver.ChildKeyProperty` from each child intent's `Key` before the child enters the panel — the one admitted source of solver child identity; the command key resolves against the boot-frozen `CommandDeck` so an unknown key aborts the materialize on the `Fin` rail rather than binding a dead control.
+- Growth: one fold arm per new `ControlIntent` case; a new container is one nesting arm recursing `Materialize` over child intents; one control instrument is one `InstrumentSpec` row on `ControlFactory.TelemetryRow`; zero new surface.
+- Boundary: `ControlFactory` is the named boundary capsule for the control-construction statement carve-out — each arm carries the Avalonia control-construction statements while the dispatch stays one total generated `Switch`, so a new case breaks every site at compile time and a runtime `_` arm is the rejected form; the only `ICommand` binding bridge is `BehaviorRail.Intent`, so `PropertyBinderImplementation.Bind`/`OneWayBind`/`BindTo`, `CommandBinder.BindCommand`, and `IViewFor` property-expression wiring are rejected wholesale (the `[04]-[BOUNDARIES]` ReactiveUI-code-behind clause); the materialized control's value bridge resolves the typed `IntentBinding.ValueKey` through `MaterializeContext.Value`, never reflection over a string property path; each arm binds its compiled template through `TemplatedControl.Template` (`IControlTemplate?`) and `StyledElement.Theme` (`ControlTheme?`) resolved from the `Theme/tokens` theme dictionary, the `Grid`/`Tree` cell intents bind `DataGridTemplateColumn.CellTemplate`/`CellEditingTemplate` (`IDataTemplate`), the core `AvaloniaXamlLoader.Load(this)` call remains the compiled-XAML materializer, and only runtime `AvaloniaRuntimeXamlLoader` inflation is rejected by `Surfaces.RejectRuntimeInflation`; the `Grid` and `Tree` arms hand their `VirtualWindowSpec` to the `Shell/virtualization` `VirtualWindow` owner so windowing rides the one fabric and a factory-local virtualizer is the rejected form; the `Panel` and `Dock` arms hand their `ConstraintProgram` to the `Shell/solver` `LayoutSolver` panel and mount their children through `Mounted`, which stamps `LayoutSolver.ChildKeyProperty` from each child intent's `Key` before the child enters the panel — the one admitted source of solver child identity; the command key resolves against the boot-frozen `CommandDeck` so an unknown key aborts the materialize on the `Fin` rail rather than binding a dead control.
 
 ```csharp signature
 public sealed record MaterializeContext(
@@ -124,18 +128,18 @@ public static class ControlFactory {
     public const string MaterializedInstrument = "rasm.appui.control.materialized";
     public const string RejectedInstrument = "rasm.appui.control.rejected";
 
-    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
-        AppUiTelemetry.Contribute(version, schemaUrl,
-            new(MaterializedInstrument, InstrumentKind.Count, "{control}", "controls materialized by intent case"),
-            new(RejectedInstrument, InstrumentKind.Count, "{control}", "control intents rejected"));
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            InstrumentSpec.Count(MaterializedInstrument, "{control}", "controls materialized by intent case", MeasureForm.Whole, AppUiTelemetry.IntentSlot),
+            InstrumentSpec.Count(RejectedInstrument, "{control}", "control intents rejected", MeasureForm.Whole));
 
     // Composition binds this projection beside the context's Evidence column, so both counts derive
     // from the one materialize fold outcome and no dispatch arm touches the meter.
-    public static Unit Observe(InstrumentSet set, Fin<ControlReceipt> outcome) =>
+    public static Fin<Unit> Observe(InstrumentSet set, Fin<ControlReceipt> outcome) =>
         outcome.Match(
-            Succ: receipt => ignore(set.Count(MaterializedInstrument, 1L,
-                new KeyValuePair<string, object?>("intent", receipt.IntentKey))),
-            Fail: _ => ignore(set.Count(RejectedInstrument, 1L)));
+            Succ: receipt => set.Write(MaterializedInstrument, 1L,
+                new KeyValuePair<string, object?>(AppUiTelemetry.IntentSlot, receipt.IntentKey)),
+            Fail: _ => set.Write(RejectedInstrument, 1L));
 
     // Every successful materialization seals its ControlReceipt through the context's evidence column
     // — the one mint the screen evidence stream consumes; a rejected materialize carries its fault only.
@@ -302,13 +306,6 @@ public static class ControlFactory {
 }
 ```
 
-[MATERIALIZE_LAW]:
-- One bridge: every `ICommand` rides `BehaviorRail.Intent` — a `BindCommand` call site is the deleted form and the intent never carries a live command, only its key.
-- One token: every brush, metric, and motion resolves through `MaterializeContext.Token` from the `TokenRow` vocabulary — a hardcoded brush is the deleted form.
-- One automation: every control's id and name derive from `ControlIntent.Key` through the one `Apply` fold — a per-control automation call site is the deleted form.
-- Compiled templates only: controls construct against compiled `ControlTemplate`/`ControlTheme`; only runtime `AvaloniaRuntimeXamlLoader` inflation is rejected.
-- Recursive containers: container arms recurse `Materialize` over child intents so a whole screen is one fold over one nested intent tree.
-
 ## [04]-[CONTROL_RECYCLING]
 
 - Owner: `RecycleScope` the realized-control reuse pool; `MaterializePool` the recycling-aware materialization over the `VirtualWindow` window.
@@ -422,4 +419,4 @@ interface ControlReceiptWire { readonly intentKey: string; readonly controlType:
 
 ## [06]-[RESEARCH]
 
-- [CONTROL_TEMPLATE]: the compiled `ControlTemplate`/`ControlTheme` resolution the materialize fold reads per kind — the `TemplatedControl.Template` and `ControlTheme` lookup against the theme dictionary the `Theme/tokens` owner emits, and the `DataGridTemplateColumn.CellTemplate` compiled-template binding for the `Grid`/`Tree` cell intents — resolved at implementation against the Avalonia 12 compiled-template surface; the `ControlIntent` union, the `ControlFactory` fold, the `BehaviorRail.Intent` bridge, and the `AutomationProperties.SetName` derivation are settled, the per-kind compiled-template member spellings are the unverified surface bound at composition.
+(none)

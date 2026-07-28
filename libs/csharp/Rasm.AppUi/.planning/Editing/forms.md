@@ -4,10 +4,10 @@ A declarative forms-and-selection owner family delivers schema-driven forms with
 
 ## [01]-[INDEX]
 
-- [01]-[FORM_SCHEMA]: Typed field rows materialized through `ControlFactory`; validation as the one typed rail.
-- [02]-[WIZARD_FLOW]: Multi-step wizard over the one schema; step gates ride the same validation rail.
-- [03]-[SELECTION_MODEL]: Checked-list selection over the one admitted collection backing; durable named selection sets.
-- [04]-[BATCH_EDIT]: N-item batch edit folding to one combined `CommandReceipt` through `CommandExecution.Combine`.
+- [02]-[FORM_SCHEMA]: Typed field rows materialized through `ControlFactory`; validation as the one typed rail.
+- [03]-[WIZARD_FLOW]: Multi-step wizard over the one schema; step gates ride the same validation rail.
+- [04]-[SELECTION_MODEL]: Checked-list selection over the one admitted collection backing; durable named selection sets.
+- [05]-[BATCH_EDIT]: N-item batch edit folding to one combined `CommandReceipt` through `CommandExecution.Combine`.
 
 ## [02]-[FORM_SCHEMA]
 
@@ -266,7 +266,7 @@ public sealed record SelectionSet(string Key, string Name, Set<string> Members) 
 - Auto: a batch verb over N selected items materializes one child through `CommandExecution.Combine` so its existing availability, execution, and receipt law remain authoritative; the batch availability additionally gates on non-empty selection, and an unknown verb key aborts on `Fin` rather than dropping silently. The many-item payload is the batch discriminant, so a second macro registry and N duplicated command children are deleted forms.
 - Receipt: the one command execution seals one `CommandReceipt`, and `BatchReceipt` derives item count from the executed `CommandPayload.Many` snapshot rather than mutable selection state, then adds correlation without inventing N synthetic child receipts; `TelemetryRow` contributes the batch-applied and batch-rejected instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: ReactiveUI, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new batch verb is one `CommandIntent` row the selection folds over; one batch instrument is one `InstrumentRow` on `BatchEdit.TelemetryRow`; zero new surface.
+- Growth: a new batch verb is one `CommandIntent` row the selection folds over; one batch instrument is one `InstrumentSpec` row on `BatchEdit.TelemetryRow`; zero new surface.
 - Boundary: batch editing folds through the one `CommandExecution.Combine` algebra with one intent key and one `CommandPayload.Many`; a per-macro registry, a batch payload case beside the closed four-case `CommandPayload` union, and repeated identical command children are rejected. An unknown verb key aborts the macro on the `Fin` rail through the same `TryGetValue` probe `Combine` uses; the batch correlates under one `CorrelationId` so a multi-item edit is one traceable transaction. Host-mutating batch edits route through the abstract `DocumentTransaction` surface-host port so the undo scope batches the N edits as one host transaction, and the revertible op-log records the batch as one `RevertScope` (`Editing/history`); the batch verbs derive from the command table so a coordination/inspector batch action is an intent key, never a batch-local command.
 
 ```csharp signature
@@ -278,10 +278,10 @@ public static class BatchEdit {
     public const string AppliedInstrument = "rasm.appui.batch.applied";
     public const string RejectedInstrument = "rasm.appui.batch.rejected";
 
-    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
-        AppUiTelemetry.Contribute(version, schemaUrl,
-            new(AppliedInstrument, InstrumentKind.Count, "{batch}", "batch edits applied"),
-            new(RejectedInstrument, InstrumentKind.Count, "{batch}", "batch edits rejected"));
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            InstrumentSpec.Count(AppliedInstrument, "{batch}", "batch edits applied", MeasureForm.Whole),
+            InstrumentSpec.Count(RejectedInstrument, "{batch}", "batch edits rejected", MeasureForm.Whole));
 
     extension<TItem>(Selection<TItem> selection) where TItem : notnull {
         public Fin<CombinedReactiveCommand<CommandPayload, CommandReceipt>> Combine(string verbIntent, CommandDeck deck) =>

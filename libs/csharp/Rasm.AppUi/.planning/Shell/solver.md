@@ -4,10 +4,10 @@ A declarative constraint-layout engine replaces width-breakpoint knobs with a re
 
 ## [01]-[INDEX]
 
-- [01]-[CONSTRAINT_ALGEBRA]: Edge/size/anchor variables; equality/inequality/priority rows; the typed relation vocabulary.
-- [02]-[LAYOUT_PRESETS]: Flex, grid-track, and auto-layout as constraint-row presets, never parallel panels.
-- [03]-[SOLVER_PANEL]: The one `LayoutSolver` panel folding the Kiwi solve into measure/arrange.
-- [04]-[TS_PROJECTION]: `LayoutConstraintWire` ordered constraint program the `@lume/kiwi` head re-solves.
+- [02]-[CONSTRAINT_ALGEBRA]: Edge/size/anchor variables; equality/inequality/priority rows; the typed relation vocabulary.
+- [03]-[LAYOUT_PRESETS]: Flex, grid-track, and auto-layout as constraint-row presets, never parallel panels.
+- [04]-[SOLVER_PANEL]: The one `LayoutSolver` panel folding the Kiwi solve into measure/arrange.
+- [05]-[TS_PROJECTION]: `LayoutConstraintWire` ordered constraint program the `@lume/kiwi` head re-solves.
 
 ## [02]-[CONSTRAINT_ALGEBRA]
 
@@ -418,7 +418,7 @@ public static class LayoutPrograms {
 - Auto: `MeasureOverride` builds the `Solver` from the `ConstraintProgram` once per program identity, measures each child, suggests the available size to the panel's edit variables, then suggests every measured child extent onto its `Medium` edit row through `Measured` — the flow and auto-track content-size loop, guarded by `HasEditVariable` so a cell-pinned child skips structurally — and reads the desired size from the solved panel extent; `ArrangeOverride` suggests the final size, runs `Solve`, and arranges each child at its solved `(Left, Top, Width, Height)`; runtime drag, resize, and content-size changes flow through `AddEditVariable` plus `SuggestValue` so the layout re-solves incrementally without rebuilding the tableau; the solve runs once per pass and `VariableEnv.ValueOf` reads each solved `Variable.Value` after `Solve` flushes the row constants — a direct post-solve value read, never a per-frame poll loop.
 - Receipt: `LayoutReceipt` — panel key, constraint count, solve elapsed, unsatisfiable-fold flag, `Instant` — sealed through the screen evidence stream; `TelemetryRow` contributes the layout-solve and layout-unsatisfiable instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: Kiwi, Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
-- Growth: a new layout pass concern is one `LayoutSolver` policy value; one layout instrument is one `InstrumentRow` on `LayoutSolver.TelemetryRow`; zero new surface.
+- Growth: a new layout pass concern is one `LayoutSolver` policy value; one layout instrument is one `InstrumentSpec` row on `LayoutSolver.TelemetryRow`; zero new surface.
 - Boundary: `LayoutSolver` is the named boundary capsule for the measure/arrange statement carve-out — the `Solver` mutation, the `SuggestValue` edits, and the child-arrange loop carry the only statement bodies, folding into Avalonia's native `Layoutable` pass rather than a parallel layout engine; the panel solves constraints once per surface so a per-child layout calculation is the deleted form; the `Try*` family lifts an unsatisfiable system onto the `Fin`/`LayoutReceipt` rail with the unsatisfiable-fold flag rather than throwing, so an over-constrained layout degrades to the relaxed solve rather than crashing the layout pass; the solved positions read back through `VariableEnv.ValueOf` querying each `Variable.Value` after `Solve` flushes the dual-simplex row constants (`.api/api-kiwi.md` `UpdateVariables` writes the solved row constant into each variable's store on `Solve`), so the panel reads positions by direct value lookup and a per-frame poll is the rejected form; the `ControlFactory` `Panel`/`Dock` intents (`Shell/controls`) name their `ConstraintProgram`, hand it to this one panel through `MaterializeContext.Layout`, and stamp `ChildKeyProperty` from each child intent's `Key` in their `Mounted` fold before any child enters `Children` — the one admitted source of the solver's child identity, so every arranged child resolves its four geometry variables through a program-owner key, a keyless child is unmountable at materialize rather than a post-arrange surprise, and a nullable `Control.Name` fallback is the deleted form; the panel's own measure stays Avalonia-native so a `LayoutSolver` nests inside ordinary Avalonia layout and an ordinary panel nests inside it; a variable a layout node must observe binds a custom `IVariableStore` so `Solve`'s `UpdateVariables` flush writes the solved row constant straight into the bound store — the observation growth seam, never a post-solve polling loop.
 
 ```csharp signature
@@ -550,23 +550,31 @@ public sealed class LayoutSolver : Panel {
     public const string SolveInstrument = "rasm.appui.layout.solve.elapsed";
     public const string UnsatisfiableInstrument = "rasm.appui.layout.unsatisfiable";
 
-    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
-        AppUiTelemetry.Contribute(version, schemaUrl,
-            new(SolveInstrument, InstrumentKind.Distribution, "s", "constraint solve wall duration per panel", Buckets.InteractionSeconds),
-            new(UnsatisfiableInstrument, InstrumentKind.Count, "{solve}", "solves relaxed on an unsatisfiable fold"));
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            InstrumentSpec.Advised(SolveInstrument, "s", "constraint solve wall duration per panel", MeasureForm.Real, Buckets.InteractionSeconds, AppUiTelemetry.PanelSlot),
+            InstrumentSpec.Count(UnsatisfiableInstrument, "{solve}", "solves relaxed on an unsatisfiable fold", MeasureForm.Whole, AppUiTelemetry.PanelSlot));
 
     // Composition binds this projection onto the same screen evidence stream that carries the receipt,
-    // so solve metrics derive from the sealed evidence and no measure/arrange pass touches the meter.
-    public static Unit Observe(InstrumentSet set, LayoutReceipt receipt) =>
-        (ignore(set.Record(SolveInstrument, receipt.Elapsed.TotalSeconds,
-             new KeyValuePair<string, object?>("panel", receipt.Panel))),
-         receipt.Relaxed
-            ? ignore(set.Count(UnsatisfiableInstrument, 1L, new KeyValuePair<string, object?>("panel", receipt.Panel)))
-            : unit).Item2;
+    // so solve metrics derive from the sealed evidence and no measure/arrange pass touches the meter. The
+    // one panel tag row is a PURE value both writes share, so it binds as a value before the rail rather
+    // than as a `Fin.Succ` query head — a query head sequences an effect or captures a pre-mutation read.
+    public static Fin<Unit> Observe(InstrumentSet set, LayoutReceipt receipt) =>
+        InstrumentSet.Tags((AppUiTelemetry.PanelSlot, receipt.Panel)) switch {
+            var tags => set.Write(SolveInstrument, receipt.Elapsed.TotalSeconds, tags)
+                .Bind(_ => receipt.Relaxed ? set.Write(UnsatisfiableInstrument, 1L, tags) : Fin.Succ(unit)),
+        };
 }
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     LayoutPreset --> ConstraintProgram
     ConstraintProgram --> LayoutSolver

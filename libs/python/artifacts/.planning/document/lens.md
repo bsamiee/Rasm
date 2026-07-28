@@ -11,7 +11,7 @@ Layout-dominant ops default to `LensProvider.PDFOXIDE` — the MIT/Apache Rust-c
 ## [02]-[LENS]
 
 - Owner: `DocumentLens` — the ops dispatch a provider VALUE rather than reconstructing the engine choice, the band recovered once from `provider.band`, the offload crossed through the owner's own `lane: LanePolicy` instance (`self.lane.offload`, the runtime-owned bound — never a class-qualified call nor a folder-minted limiter). One polymorphic `_node` constructor mints every node variant over a `NodeMeta` whose content key joins the structural `path` — the `tuple[int, ...]` of child ordinals from the recovery root, the node's structural uid — to the content payload, so identical-content siblings under one parent never collapse onto one slot and a content change at a fixed path re-keys without stealing a sibling's identity; `bounds` stays geometric evidence on the meta, never an identity substitute. Per-kind material admits through the closed `NodeSlot` `TypedDict`, honoring each variant's real field contract — never a per-kind sibling-factory family.
-- Cases: the non-obvious per-arm rules the fence cannot self-justify — TABLE under PDFOXIDE reads the native `extract_tables` row dicts (`rows[].cells[].text`, `is_header` folding `header_rows`, the `(x, y, w, h)` bbox converted once), under MUPDF reads the `Table.header.external` discriminant into `header_rows` (an above-body synthesized header `0`, an in-grid header row `1`, never the always-truthy `Table.header` object), and under PLUMBER folds the `Table.cells` bbox set into merged-cell `spans` quads; REGION converts the model `(x0,y0,x1,y1)` bbox once to the pdf_oxide `(x, y, w, h)` convention; OCR defaults to the in-process pdf_oxide Rust engine (no subprocess hop, no PDF/A rewrite), the gated `ocrmypdf` alternate RESERVED for the PDF/A output path with its `ExitCode` return gating the sidecar text feed, and a non-PDF raster wraps losslessly through `new_page`/`insert_image` before OCR; WIDGET folds pdf_oxide `FormField.is_required`/`is_readonly` onto `FieldNode.required`/`readonly` — the policy pair the pymupdf widget accessor cannot fill — and builds the per-mode model `FieldValue` case through the one `_FIELD_BUILDERS` token table (a raw AcroForm `/Btn` reads back as the `"button"` token, so a bool value discriminates it to `CheckboxField`), the pymupdf alternate resolving `field_type` ints via the catalogued `PDF_WIDGET_TYPE_*` names into the same token space; CLASSIFY decodes the engine's JSON verdict strings through `msgspec.json.decode`, never a rendered-string regex; DOCX_READ groups consecutive list-styled paragraphs through `groupby` into one `ListNode` and recovers `Paragraph.hyperlinks` as `AnnotationNode` link children, the inverse of the emit `List Bullet`/`List Number` lowering; YAML_READ rides `load_all` with the single-document case subsumed, never a `multi` knob; XML_READ runs the hardened parser (`resolve_entities=False`, `no_network=True`, `huge_tree=False`) and ONLY the serialized `DocumentNode` tree crosses back across the interpreter seam.
+- Cases: the non-obvious per-arm rules the fence cannot self-justify — TABLE under PDFOXIDE reads the native `extract_tables` row dicts (`rows[].cells[].text`, `is_header` folding `header_rows`, the `(x, y, w, h)` bbox converted once), under MUPDF reads the `Table.header.external` discriminant into `header_rows` (an above-body synthesized header `0`, an in-grid header row `1`, never the always-truthy `Table.header` object), and under PLUMBER folds the `Table.cells` bbox set into merged-cell `spans` quads; REGION converts the model `(x0,y0,x1,y1)` bbox once to the pdf_oxide `(x, y, w, h)` convention; OCR defaults to the in-process pdf_oxide Rust engine (no subprocess hop, no PDF/A rewrite), the gated `ocrmypdf` alternate RESERVED for the PDF/A output path with its `ExitCode` return gating the sidecar text feed, and a non-PDF raster wraps losslessly through `new_page`/`insert_image` before OCR; WIDGET folds pdf_oxide `FormField.is_required`/`is_readonly` onto `FieldNode.required`/`readonly` — the policy pair the pymupdf widget accessor cannot fill — reads `FormField.flags` as the raw AcroForm `/Ff` bitmask so `_text_mode` selects `TextMode.PASSWORD` ahead of `TextMode.MULTILINE` on a field setting both bits (a `None` there means the field dict omits `/Ff`, never a cleared bit), and builds the per-mode model `FieldValue` case through the one `_FIELD_BUILDERS` token table (a raw AcroForm `/Btn` reads back as the `"button"` token, so a bool value discriminates it to `CheckboxField`), the pymupdf alternate resolving `field_type` ints via the catalogued `PDF_WIDGET_TYPE_*` names into the same token space; CLASSIFY decodes the engine's JSON verdict strings through `msgspec.json.decode`, never a rendered-string regex; DOCX_READ groups consecutive list-styled paragraphs through `groupby` into one `ListNode` and recovers `Paragraph.hyperlinks` as `AnnotationNode` link children, the inverse of the emit `List Bullet`/`List Number` lowering; YAML_READ rides `load_all` with the single-document case subsumed, never a `multi` knob; XML_READ runs the hardened parser (`resolve_entities=False`, `no_network=True`, `huge_tree=False`) and ONLY the serialized `DocumentNode` tree crosses back across the interpreter seam.
 - Auto: every recursive foreign source — the pikepdf `/K` spine, the pdfplumber structure branches, the lxml element tree, a YAML/TOML value graph — rebuilds post-order through the one `_grown` expand/combine marker frontier on an immutable `Block` stack, so adversarial nesting depth never overflows the interpreter frame limit and every rebuilt node receives its structural path from the same frontier; the flattening walks (pypdf outline, ODT containers) run small explicit stacks under the same depth law.
 - Entry: the key mints PRE-RUN over `(op, payload, provider, scoped spec)` — the spec preimage narrowed by `_scoped` to the op's `Route.observed` roster so an unobserved knob edit never forks an op's key, and never the recovered tree, whose digest stays a `document/model#NODE` `node_digest` projection downstream consumers derive on demand. A GATED row crosses onto the worker that re-resolves the SAME `_ROUTES` row and reifies the module-scope `lazy` bindings there, so the worker lane carries no second dispatch.
 - Receipt: `contribute` reads the stepped `recovered` directly and never re-runs `_emit`, so a worker-gated arm is never re-imported on the core during the receipt harvest; the `Introspection` counts project by `walk` over the node variants, the tag riding the encoded `kind` field, never a runtime `.tag` attribute.
@@ -1308,7 +1308,7 @@ def _widget_arm(payload: bytes, provider: LensProvider, _spec: LensSpec) -> tupl
                     str(form.value).encode(),
                     path=(ordinal,),
                     name=form.name,
-                    field=_field_value(form.field_type, form.name, form.value, max_length=form.max_length),
+                    field=_field_value(form.field_type, form.name, form.value, max_length=form.max_length, flags=form.flags),
                     required=form.is_required,
                     readonly=form.is_readonly,
                     tooltip=form.tooltip or "",
@@ -1374,10 +1374,26 @@ def _widget_token(module: object, code: int) -> str:
     return {getattr(module, name): token for name, token in _WIDGET_TOKEN.items()}.get(code, "text")
 
 
-def _field_value(token: str, name: str, value: object, /, *, max_length: int | None = None) -> FieldValue:
+# AcroForm `/Ff` bit positions carry a text field's presentation mode; `pdf_oxide.FormField.flags` reflects the raw
+# bitmask and answers `None` only where the field dict omits `/Ff` entirely, so absence and a cleared bit stay distinct.
+_FF_MULTILINE: Final[int] = 1 << 12
+_FF_PASSWORD: Final[int] = 1 << 13
+_FF_MODE: Final[Map[int, TextMode]] = Map.of_seq([(_FF_PASSWORD, TextMode.PASSWORD), (_FF_MULTILINE, TextMode.MULTILINE)])
+
+
+def _text_mode(flags: int | None) -> TextMode:
+    # PASSWORD reads ahead of MULTILINE because a field setting both bits is a masked entry first — rendering it as a
+    # multiline box would echo the very characters the password bit exists to hide.
+    return next((mode for bit, mode in _FF_MODE.items() if flags is not None and flags & bit), TextMode.SINGLE)
+
+
+def _field_value(token: str, name: str, value: object, /, *, max_length: int | None = None, flags: int | None = None) -> FieldValue:
     built = _FIELD_BUILDERS.try_find(token).default_value(_FIELD_BUILDERS["text"])(name, value)
-    # `/MaxLen` is a text-field axis alone; a provider `None` keeps the unbounded default.
-    return structs.replace(built, max_length=max_length) if isinstance(built, TextField) and max_length is not None else built
+    # `/MaxLen` and the `/Ff` presentation mode are text-field axes alone; a provider `None` keeps each default.
+    if not isinstance(built, TextField):
+        return built
+    bounded = structs.replace(built, max_length=max_length) if max_length is not None else built
+    return structs.replace(bounded, mode=_text_mode(flags))
 
 
 def _choice(value: object) -> tuple[str, ...]:
@@ -1755,4 +1771,4 @@ _ROUTES: Final[Map[LensOp, Route]] = Map.of_seq([
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [OXIDE_FIELD_FF]-[OPEN]: `pdf_oxide.FormField.flags` reflects as `None` on a flag-free field — does it carry the AcroForm `Ff` bitmask int when set (bit 13 multiline, bit 14 password), so the WIDGET `"text"` builder can select `TextField(mode=TextMode.MULTILINE/PASSWORD)`; verify via `uv run python` over an authored multiline/password form.
+(none)

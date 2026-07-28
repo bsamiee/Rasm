@@ -12,11 +12,12 @@ Point-cloud and 3D-scan registration over an N-cloud session, not a fixed pair: 
 
 - Owner: `ScanRegistration` — the frozen owner discriminating by `RegistrationMode` over a `RegistrationSession`; `RegistrationPolicy` is the one tuning carrier for every voxel/correspondence/Tukey/solver-gain/multiway bar including the graduation ceilings, with a derived `voxel_schedule`; `RegistrationResult` the `gc=False` receipt whose `of` factory ravels the transform once and defaults the single-pose tuple, sharing one `_from_tensor` projector across the tensor arms and conforming structurally to the `ReceiptContributor` the weave's harvest reads; `BootstrapEngine` (`KISS_MATCHER` | `OPEN3D_FGR`) the global-coarse-pose vocabulary.
 - Cases: `RegistrationMode` rows — `GLOBAL` (initialization-free coarse pose, no initial pose), `MULTISCALE` (coarse-to-fine tensor ICP, Tukey-robust point-to-plane), `COLORED_ICP` (colored point-to-plane), `VGICP` (`small-gicp` voxelized parallel fine-refinement speed path), `MULTIWAY` (N-cloud pose-graph). `GLOBAL`'s coarse pose seeds every fine mode and every multiway pairwise edge; each arm binds the engine and estimator that owns it.
-- Entry: `register` admits a session and a mode and returns `RuntimeRail[RegistrationResult]`. Its weave opens the seeded span, `async_boundary` fences the offload, `_flat` absorbs the lane's already-fenced rail un-nested, and the harvest emits the conforming result once on the cleared `Ok` while an `open3d`/`kiss-matcher` raise stays an `Error(BoundaryFault)` on the live span. The kernel takes the lane conduit's pickled tap as its trailing offload arg and beats the graduation `GeometryPulse.REGISTRATION` point through `pulsed` — one solve-start beat per mode, one per multiway edge — so a `Hooks` tap streams convergence progress under the lane's lossy drop law.
+- Law: `_distributed` records the `REGISTRATION_TRANSFORM` charter row through the graduation `charter_record` derivation on the parent side of the offload — the HOSTILE kernel's meter is the worker's no-op, so a worker-side record meters nothing — reading the one `facts()` fold the receipt already emits, so the measure and the receipt line can never disagree and no spelling is hand-picked here.
+- Law: `bench` rides the graduation `bench_seam` fold over the whole `register` crossing — arity re-proof, offload, solver, weave — cloud-size-parameterized: the subject keys the exact `RegistrationMode` row and the source point count as `rasm.geometry.scan.registration.<mode>.p<points>`, so a latency row compares like-for-like across scan densities; latency and throughput rows per arm, zero instrument rows, graduation's `bench_terminal` wrapping the fold in the runtime `JobRun.bounded` envelope for a process-terminal run.
+- Entry: `register` admits a session and a mode and returns `RuntimeRail[RegistrationResult]`. Its weave opens the seeded span, `async_boundary` fences the offload, `_flat` absorbs the lane's already-fenced rail un-nested, and the harvest emits the conforming result once on the cleared `Ok` while an `open3d`/`kiss-matcher` raise stays an `Error(BoundaryFault)` on the live span. Kernels take the lane conduit's pickled tap as a trailing offload arg and beat the graduation `GeometryPulse.REGISTRATION` point through `pulsed` — one solve-start beat per mode, one per multiway edge — so a `Hooks` tap streams convergence progress under the lane's lossy drop law.
 - Auto: `_engine` resolves the bootstrap backend once per worker lane — `KISS_MATCHER` when `kiss_matcher` resolves, else `OPEN3D_FGR` — and every arm (`GLOBAL`, each `MULTIWAY` edge) reuses that one decision; the tensor arms share the `_tukey` robust kernel and the `_from_tensor` projector rather than re-reading the `open3d` result per arm.
 - Receipt: emission is the weave's harvest — the conforming `RegistrationResult.contribute` streams once on the cleared `Ok`, never an inline emit or page-local `@receipted` leg. `graduates` measures two keys against two policy ceilings, `inlier_rmse` against `rmse_ceiling` and the `1 - fitness` misfit against `misfit_ceiling`, so a coarse `GLOBAL` pose minting a `0.0` placeholder RMSE cannot clear on the vacuous key alone — its inlier-ratio misfit must clear the floor too. That misfit rides the graduation owner's single `_admit` residual-over-ceiling direction, so no second admission direction is minted here.
-- Bench: `bench` rides the graduation `bench_seam` fold over the whole `register` crossing — arity re-proof, offload, solver, weave — cloud-size-parameterized: the subject keys the exact `RegistrationMode` row and the source point count as `rasm.geometry.scan.registration.<mode>.p<points>`, so a latency row compares like-for-like across scan densities; latency and throughput rows per arm, zero instrument rows, graduation's `bench_terminal` wrapping the fold in the runtime `JobRun.bounded` envelope for a process-terminal run.
-- Packages: `kiss_matcher`, `open3d`, `small_gicp` (the three compiled registration backends, each imported function-local at boundary scope under `# ruff:ignore[import-outside-top-level]`, never module-top), `numpy` (transform assembly via `np.eye`/`np.ravel`/`np.reshape`, never the uncatalogued `np.identity`/`ndarray.flatten`), `expression` (`Block.mapi` the per-edge multiway fold), `msgspec`, and the geometry graduation spine and runtime rails per the fence imports.
+- Packages: `kiss_matcher`, `open3d`, `small_gicp` (the three compiled registration backends, each imported function-local at boundary scope under `# ruff:ignore[import-outside-top-level]`, never module-top), `numpy` (transform assembly via `np.eye`/`np.ravel`/`np.reshape`, never the uncatalogued `np.identity`/`ndarray.flatten`), `expression` (`Block.mapi` the per-edge multiway fold), `msgspec`, and the geometry graduation spine (`evidence_run`/`GeometryHandoff`/`GeometrySubject`, `charter_record` the charter measure authority, `bench_seam`/`bench_terminal`, `GeometryPulse`/`PulseBeat`) and runtime rails per the fence imports.
 - Growth: a new registration engine is one `RegistrationMode` row and one kernel arm; a new bootstrap backend is one `BootstrapEngine` member and one `_bootstrap` arm; a stricter graduation bar is a `RegistrationPolicy` ceiling the caller passes. `registration_ransac_based_on_feature_matching` is the named next `BootstrapEngine` row when a scene defeats both standing engines.
 - Boundary: the cleaned input `Cloud` is `scan/ingestion#INGESTION`'s product and carrier mint; deviation against a reference is `scan/deviation#DEVIATION`; surface reconstruction is `scan/reconstruction#RECONSTRUCTION`. No mesh repair, tessellation, or durable store here.
 
@@ -33,7 +34,16 @@ from expression import Error
 from expression.collections import Block
 from msgspec import Struct, field
 
-from rasm.geometry.graduation import EvidenceScope, GeometryHandoff, GeometryPulse, GeometrySubject, PulseBeat, bench_seam, evidence_run
+from rasm.geometry.graduation import (
+    EvidenceScope,
+    GeometryHandoff,
+    GeometryPulse,
+    GeometrySubject,
+    PulseBeat,
+    bench_seam,
+    charter_record,
+    evidence_run,
+)
 from rasm.geometry.scan.ingestion import Cloud
 from rasm.runtime.faults import BoundaryFault, RuntimeRail
 from rasm.runtime.identity import ContentKey
@@ -347,6 +357,14 @@ def _register_kernel(
             assert_never(unreachable)
 
 
+def _distributed(result: RegistrationResult) -> RegistrationResult:
+    # parent-side charter projection: the HOSTILE kernel's meter is the worker's no-op, so the
+    # REGISTRATION_TRANSFORM charter row records here off the returned facts — the one `facts()` fold feeds the
+    # receipt and the measure alike, spellings derived from the charter, never hand-picked.
+    charter_record(GeometrySubject.REGISTRATION_TRANSFORM, result.facts())
+    return result
+
+
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
@@ -362,12 +380,13 @@ class ScanRegistration(Struct, frozen=True):
             if len(session) < 2:
                 return Error(BoundaryFault(config=(f"scan.registration.{mode}", f"session-arity:{len(session)}<2")))
             # HOSTILE is the declared trait because the compiled registration band imports under no isolated subinterpreter;
-            # the trailing tap is the lane conduit's pickled proxy the kernel's pulse beats write through.
-            return await self.lane.offload(Kernel.of(_register_kernel, KernelTrait.HOSTILE), session, mode, self.policy, self.lane.pulses.tap)
+            # trailing tap is the lane conduit's pickled proxy the kernel's pulse beats write through.
+            offloaded = await self.lane.offload(Kernel.of(_register_kernel, KernelTrait.HOSTILE), session, mode, self.policy, self.lane.pulses.tap)
+            return offloaded.map(_distributed)
 
         return await evidence_run(EvidenceScope.SCAN_REGISTRATION, f"register.{mode}", dispatch)
 
-    def bench(self, session: RegistrationSession, mode: RegistrationMode, *, rounds: int = 32, warmup: int = 4) -> BenchmarkReceipt:
+    def bench(self, session: RegistrationSession, mode: RegistrationMode, *, rounds: int = 32, warmup: int = 4) -> "RuntimeRail[BenchmarkReceipt]":
         # cloud-size-parameterized macro-bench: the subject keys the exact mode row and the source point count, so
         # a latency row compares like-for-like across scan densities; each round drives the whole register crossing
         # — arity re-proof, offload, solver, weave — never an in-kernel probe (the pulse boundary).

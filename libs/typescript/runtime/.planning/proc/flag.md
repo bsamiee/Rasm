@@ -307,14 +307,15 @@ declare namespace Verdict {
 ## [06]-[GATE_SERVICE]
 
 [GATE_SERVICE]:
-- Owner: `Flags` — one `Effect.Service` whose `Default` is a Layer factory taking the bucket digest and a `Sticky.Mode` policy value (the root selects `none | session | durable`, never a call-site knob). The scoped build holds one `SubscriptionRef<Ruleset>` cell fed by one source — the live SSE feed (`net/channel#FEED_SEAM` on `Setting.flag.origin`, each `event.data` decoded through `Schema.parseJson(Verdict.Shift)`, every patch epoch-guarded, a decode failure folding to a skipped patch, never a cleared cell); the session reconnects internally under the feed budget, and only its exhaustion re-opens the feed on the `Setting.flag.cadence` pacing — constructs the provider over the cell, registers it through `OpenFeature.setProviderAndWait`, closes the SDK on scope release, and answers every read through the SDK client so registered hooks observe every evaluation.
+- Owner: `Flags` — one `Effect.Service` whose `Default` is a Layer factory taking the bucket digest and a `Sticky.Mode` policy value (the root selects `none | session | durable`, never a call-site knob). Its scoped build holds one `SubscriptionRef<Ruleset>` cell fed by one source — the live SSE feed (`net/channel#FEED_SEAM` on `Setting.flag.origin`, each `event.data` decoded through `Schema.parseJson(Verdict.Shift)`, every patch epoch-guarded, a decode failure folding to a skipped patch, never a cleared cell); the session reconnects internally under the feed budget, and only its exhaustion re-opens the feed on the `Setting.flag.cadence` pacing — constructs the provider over the cell, registers it through `OpenFeature.setProviderAndWait`, closes the SDK on scope release, and answers every read through the SDK client so registered hooks observe every evaluation.
 - Law: `evaluate` is total — the memo's lookup calls the SDK client's `get*Details` member for the probe's kind, projects the `EvaluationDetails` into a `Verdict`, and folds any rejection to `reason: "ERROR"` with `GENERAL` code and the stated fallback, so the error channel is `never` and every degradation is verdict evidence policy reads.
-- Law: the mode row is executable — `none` calls the lookup directly, `session` and `durable` route through `Cache.makeWith`, and `durable` additionally recalls and records `Sticky.Held` through `KeyValueStore.forSchema(Sticky.Held)`. Recall validates both epoch and lease before projecting the held variant through the current definition; storage failure degrades to live evaluation, never fails `evaluate`, while an accepted live variant is persisted through an explicitly ruled best-effort tap. `ConfigurationChanged` invalidates the process memo wholesale; durable invalidation remains epoch-based, so no ledger sweep exists.
-- Law: one telemetry hook rides registration — an SDK `Hook` whose `after` stamps the active span with the flag key and resolved reason rows — so evaluation evidence reaches the trace plane through the SDK's own lifecycle, never a hand tap inside `evaluate`.
-- Law: `Flags.gate` satisfies the `security` port — a Layer requiring the already-built `Flags` service and projecting the claim set to subject axes — so the access fold and direct consumers share one provider cell, memo, feed, and SDK lifecycle; the gate never provides a second `Flags.Default` beneath itself.
+- Law: the mode row is executable — `none` calls the lookup directly, `session` and `durable` route through `Cache.makeWith`, and `durable` recalls and records `Sticky.Held` through `KeyValueStore.forSchema(Sticky.Held)` on top of that route. Recall validates both epoch and lease before projecting the held variant through the current definition; storage failure degrades to live evaluation, never fails `evaluate`, while an accepted live variant is persisted through an explicitly ruled best-effort tap. `ConfigurationChanged` invalidates the process memo wholesale; durable invalidation remains epoch-based, so no ledger sweep exists.
+- Law: one telemetry hook rides registration — an SDK `Hook` whose `after` stamps the active span with the flag key, provider name, and resolved reason as `core/observe/convention` rows under one `Convention.Attributes`-checked record — so evaluation evidence reaches the trace plane through the SDK's own lifecycle, never a hand tap inside `evaluate` and never a free-string attribute key.
+- Law: this owner is the one dialect crossing between the SDK's uppercase `StandardResolutionReasons` and the spec's lowercase result-reason values — `_SPEC` is the total keyed map, the convention owner holds the spec vocabulary alone, and an unrecognized SDK reason folds to the spec's own unknown row rather than reaching the wire raw.
+- Law: `Flags.gate` satisfies the `security` port — a Layer requiring the already-built `Flags` service and projecting the claim set to subject axes — so the access fold and direct consumers share one provider cell, memo, feed, and SDK lifecycle; the gate never mounts a second `Flags.Default` beneath itself.
 - Entry: `Flags.Default(digest, mode)` at the root; `flags.evaluate(flag, subject, fallback)` everywhere; `Flags.gate` beside it for the access graph.
 - Receipt: every read is a `Verdict` — reason, code, variant, and instant travel with the value, so audit and telemetry consume evaluation evidence with no second surface.
-- Packages: `@openfeature/server-sdk` (`OpenFeature`, `Hook`), `@effect/platform` (`KeyValueStore.forSchema`), `effect` (`Cache`, `Data`, `Effect`, `Exit`, `HashMap`, `Match`, `Option`, `Runtime`, `Schedule`, `Schema`, `Stream`, `SubscriptionRef`), `./config.ts` (`Setting`), `../net/channel.ts` (`Feed`), `@rasm/ts/security` (`FlagGate`).
+- Packages: `@openfeature/server-sdk` (`OpenFeature`, `Hook`), `@effect/platform` (`KeyValueStore.forSchema`), `effect` (`Cache`, `Data`, `Effect`, `Exit`, `HashMap`, `Layer`, `Match`, `Option`, `Predicate`, `Record`, `Runtime`, `Schedule`, `Schema`, `Stream`, `SubscriptionRef`), `./config.ts` (`Setting`), `../net/channel.ts` (`Feed`), `@rasm/ts/core` (`Convention`), `@rasm/ts/security` (`FlagGate`).
 
 ```typescript signature
 import {
@@ -330,7 +331,8 @@ import {
     type ResolutionDetails,
 } from '@openfeature/server-sdk';
 import { KeyValueStore } from '@effect/platform';
-import { Cache, Data, Effect, Exit, HashMap, Layer, Predicate, Record, Runtime, Schedule, Stream, SubscriptionRef } from 'effect';
+import { Cache, Data, Effect, Exit, HashMap, Layer, Match, Option, Predicate, Record, Runtime, Schedule, Schema, Stream, SubscriptionRef } from 'effect';
+import { Convention } from '@rasm/ts/core';
 import { FlagGate } from '@rasm/ts/security';
 import { Setting } from './config.ts';
 import { Feed } from '../net/channel.ts';
@@ -348,6 +350,20 @@ type _Probe = {
 
 const _isReason = Schema.is(Schema.Literal(...Rollout.reasons));
 const _isCode = Schema.is(Schema.Literal(...Verdict.codes));
+
+// This owner crosses the two reason dialects: OpenFeature spells resolution reasons uppercase, the semconv value
+// family spells them lowercase, and the convention owner holds the spec vocabulary without either translation.
+const _SPEC: { readonly [R in Rollout.Reason]: Convention.FlagReason } = {
+    CACHED: Convention.value.flagCached,
+    DEFAULT: Convention.value.flagDefault,
+    DISABLED: Convention.value.flagDisabled,
+    ERROR: Convention.value.flagError,
+    SPLIT: Convention.value.flagSplit,
+    STALE: Convention.value.flagStale,
+    STATIC: Convention.value.flagStatic,
+    TARGETING_MATCH: Convention.value.flagTargeting,
+    UNKNOWN: Convention.value.flagUnknown,
+};
 
 const _kindOf = (value: Verdict.Json): Verdict.Kind =>
     Predicate.isBoolean(value) ? 'boolean' : Predicate.isString(value) ? 'string' : Predicate.isNumber(value) ? 'number' : 'object';
@@ -469,13 +485,12 @@ class Flags extends Effect.Service<Flags>()('runtime/Flags', {
             const traced: Hook = {
                 after: (hooked, details) =>
                     Runtime.runPromise(runtime)(
-                        Effect.all(
-                            [
-                                Effect.annotateCurrentSpan('flag.key', hooked.flagKey),
-                                Effect.annotateCurrentSpan('flag.reason', details.reason ?? 'UNKNOWN'),
-                            ],
-                            { concurrency: 'inherit', discard: true },
-                        ),
+                        Effect.annotateCurrentSpan({
+                            // Convention.Attributes closes the record: a key outside the vocabulary cannot ride the span
+                            [Convention.incubating.flagKey]: hooked.flagKey,
+                            [Convention.incubating.flagProvider]: provider.metadata.name,
+                            [Convention.incubating.flagReason]: _SPEC[_isReason(details.reason) ? details.reason : 'UNKNOWN'],
+                        } satisfies Convention.Attributes),
                     ),
             };
 

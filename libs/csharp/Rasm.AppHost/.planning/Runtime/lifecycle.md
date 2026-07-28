@@ -1,38 +1,30 @@
 # [APPHOST_LIFECYCLE_AND_DRAIN]
 
-Rasm.AppHost runs one process lifecycle: eight string-keyed `RuntimePhase` rows under one total transition law, one Atom-backed `Lifecycle` capsule minting a `PhaseReceipt` on every CAS commit, a four-case `FaultSource` spine with crash-marker and upgrade boot probing, the one type-enforced `FaultBand` registry every fault union's `Expected.Code` derives through, a rank-band drain conductor folding participant rows into one `DrainReceipt`, and one `CancelScope` spine beneath which every cancellation token is derived. The page owns the boot-minted `CorrelationId` identity, the phase family, the trigger vocabulary, the fault traps, the fault-band registry with its foreign mirror rows, the frozen drain bands with their store-dependency column, and cancellation provenance over Microsoft.Extensions.Hosting lifetime tokens, Thinktecture-generated vocabulary, LanguageExt rails, and NodaTime instants.
+Rasm.AppHost runs one process lifecycle: eight string-keyed `RuntimePhase` rows under one total transition law, one Atom-backed `Lifecycle` capsule minting a `PhaseReceipt` on every CAS commit, a four-case `FaultSource` spine with crash-marker and upgrade boot probing, the one type-enforced `FaultBand` registry every fault union's `Expected.Code` derives through, a rank-band drain conductor folding participant rows into one `DrainReceipt`, and one `CancelScope` spine beneath which every cancellation token is derived. Owned axes are the phase family, the trigger vocabulary, the fault traps, the fault-band registry with its foreign mirror rows, the frozen drain bands with their store-dependency column, and cancellation provenance over Microsoft.Extensions.Hosting lifetime tokens, Thinktecture-generated vocabulary, LanguageExt rails, and NodaTime instants.
+
+Settled composition: `CorrelationId` arrives from the kernel signal capsule `Rasm/Domain/telemetry#CAUSAL_FRAME`, and `Observability/telemetry#CORRELATION_SPINE` `Correlation.Mint` performs the boot mint; this capsule takes the minted value at construction and threads it as the identity every phase, fault, and drain receipt stamps, so no lifecycle member re-mints one.
 
 ## [01]-[INDEX]
 
-- [01]-[PHASE_FAMILY]: Eight phases, ten triggers, one CAS transition law, and receipted subscriptions.
-- [02]-[FAULT_SPINE]: Four fault sources, trap registrations, crash-marker, and upgrade boot probe.
-- [03]-[FAULT_TABLES]: One type-enforced band registry — own rows, event stride, foreign mirrors.
-- [04]-[DRAIN_CONDUCTOR]: Frozen rank bands fold participant rows into one unload receipt.
-- [05]-[CANCEL_SPINE]: One root source; derived scopes carry provenance and deadlines.
-- [06]-[TS_PROJECTION]: Phase, fault, and unload receipt wire shapes.
+- [02]-[PHASE_FAMILY]: Eight phases, ten triggers, one CAS transition law, and receipted subscriptions.
+- [03]-[FAULT_SPINE]: Four fault sources, trap registrations, crash-marker, and upgrade boot probe.
+- [04]-[FAULT_TABLES]: One type-enforced band registry — own rows, event stride, foreign mirrors.
+- [05]-[DRAIN_CONDUCTOR]: Frozen rank bands fold participant rows into one unload receipt.
+- [06]-[CANCEL_SPINE]: One root source; derived scopes carry provenance and deadlines.
+- [07]-[TS_PROJECTION]: Phase, fault, and unload receipt wire shapes.
 
 ## [02]-[PHASE_FAMILY]
 
-- Owner: `CorrelationId` `[ValueObject<Guid>]` boot-minted root identity; `RuntimePhase` `[SmartEnum<string>]` eight rows under the `ComparerAccessors.StringOrdinal` accessor; `PhaseTrigger` `[Union]` trigger vocabulary; `Lifecycle` boundary capsule owning the Atom-backed receipt cell; `LifecycleFault` fault family deriving its codes through `FaultBand.Lifecycle`; `PhaseSubscription` LIFO detacher composite.
+- Owner: `RuntimePhase` `[SmartEnum<string>]` eight rows under the `ComparerAccessors.StringOrdinal` accessor; `PhaseTrigger` `[Union]` trigger vocabulary; `Lifecycle` boundary capsule owning the Atom-backed receipt cell and the boot-minted `CorrelationId` value; `LifecycleFault` fault family deriving its codes through `FaultBand.Lifecycle`; `PhaseSubscription` LIFO detacher composite.
 - Cases: boot, ready, running, degraded, draining, unloaded, faulted, support-capture; ten trigger cases; `LifecycleFault` = Text | IllegalTransition.
 - Entry: `Fin<PhaseReceipt> Transition(PhaseTrigger trigger)` — `Fin` aborts on illegal transitions; the `RuntimePhase`-shaped overload admits evidence-free phase targets from host-attach injection through the same law.
 - Auto: every CAS commit fires the cell change event into subscription detachers and the latest receipt is the cell value itself; `Attach` projects the lifetime tokens into trigger values — never a second state machine; receipts flow to the receipt-sink envelope unchanged.
 - Receipt: `PhaseReceipt` — from, to, trigger key, `Instant`, held `Duration`, profile, correlation id.
 - Packages: Microsoft.Extensions.Hosting, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
-- Growth: one phase row plus its `Next` arms, or one trigger case breaking every dispatch site at compile time; zero new surface.
+- Growth: one phase row with its `Next` arms, or one trigger case breaking every dispatch site at compile time; zero new surface.
 - Boundary: `Lifecycle` is the named boundary capsule for the statement carve-out — the CAS-commit body, subscription wiring, and token registration carry language-owned statement forms while every other member stays expression-shaped; evidence-bearing targets (faulted, boot) reject the phase-shaped admission so fault evidence is never silently dropped; the Validated trigger fires from the options-admission publish; the boot self-loop row receipts upgrade detection without leaving boot; `PhaseReceipt.Trigger` is the `PhaseTrigger` case-key projection — the string key the total `Key` dispatch derives from the union case.
 
 ```csharp signature
-[ValueObject<Guid>(
-    ConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit,
-    ConversionFromKeyMemberType = ConversionOperatorsGeneration.None)]
-public readonly partial struct CorrelationId : ISpanFormattable, IUtf8SpanFormattable {
-    public static readonly CorrelationId None = Create(Guid.Empty);
-    public string ToString(string? format, IFormatProvider? formatProvider) => ((Guid)this).ToString(format, formatProvider);
-    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider) => ((Guid)this).TryFormat(destination, out charsWritten, format);
-    public bool TryFormat(Span<byte> utf8Destination, out int bytesWritten, ReadOnlySpan<char> format, IFormatProvider? provider) => ((Guid)this).TryFormat(utf8Destination, out bytesWritten, format);
-}
-
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -152,6 +144,8 @@ public sealed class Lifecycle(ConsumptionProfile profile, IClock clock, TimeProv
 
 ```mermaid
 stateDiagram-v2
+    accTitle: Lifecycle phase transitions
+    accDescr: Eight runtime phases from boot through ready, running, degraded, support-capture, and draining to unloaded, each edge labeled by the trigger case that commits it, with fault commits reaching faulted from every live phase.
     [*] --> Boot
     Boot --> Boot : UpgradeDetected
     Boot --> Ready : Validated
@@ -184,7 +178,7 @@ stateDiagram-v2
 
 - Owner: `FaultSource` `[Union]` four cases; `BootMarker` crash and upgrade marker record; `FaultRecord` kind-discriminated wire-projection record; `FaultSpine` trap and probe surface.
 - Cases: Unhandled, UnobservedTask, Signalled, HostCrashMarker.
-- Entry: `PhaseSubscription ArmTraps(CorrelationId correlation, Option<Action<SupportTrigger>> capture = default, Option<Action> reload = default)` — one LIFO detacher composite over every trap registration; the capture arm now receives one `SupportTrigger.FaultTransition(correlation, FaultRecord.From(source))` fact rather than the raw `FaultSource`, so a fault commit and its support-capture trigger are one fact stream and `ProbeMarkers` boot evidence rides the identical trigger case.
+- Entry: `PhaseSubscription ArmTraps(Option<Action<SupportTrigger>> capture = default, Option<Action> reload = default)` — one LIFO detacher composite over every trap registration; the capture arm receives one `SupportTrigger.FaultTransition(host.CorrelationId, FaultRecord.From(source))` fact rather than the raw `FaultSource`, so a fault commit and its support-capture trigger are one fact stream under the capsule's own boot identity and `ProbeMarkers` boot evidence rides the identical trigger case.
 - Auto: every in-process fault commit folds its `FaultSource` through `FaultRecord.From` into one `SupportTrigger.FaultTransition` and emits that single fact to the capture arm before the `PhaseTrigger.FaultCommitted` phase transition, so the capture trigger and the phase transition derive from one `Commit` fold, never a free capture delegate beside a separate trigger; SIGTERM and SIGQUIT project to the drain transition; SIGHUP invokes the reload delegate feeding the reload-outcome rail.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one trap registration row inside `ArmTraps` or one host-marker path value; one new fault cause is one `FaultSource` case the `FaultRecord.From` flatten and the one `SupportTrigger.FaultTransition` emission both absorb; zero new surface.
@@ -225,14 +219,14 @@ public abstract partial record FaultRecord {
 public static class FaultSpine {
     const string MarkerFile = "boot-marker.json";
     extension(Lifecycle host) {
-        public PhaseSubscription ArmTraps(CorrelationId correlation, Option<Action<SupportTrigger>> capture = default, Option<Action> reload = default) {
+        public PhaseSubscription ArmTraps(Option<Action<SupportTrigger>> capture = default, Option<Action> reload = default) {
             UnhandledExceptionEventHandler unhandled = (_, args) =>
-                Commit(host, correlation, capture, new FaultSource.Unhandled(
+                Commit(host, capture, new FaultSource.Unhandled(
                     args.ExceptionObject as Exception is { } failure ? Error.New(failure) : Error.New($"{args.ExceptionObject}"),
                     args.IsTerminating));
             EventHandler<UnobservedTaskExceptionEventArgs> unobserved = (_, args) => {
                 args.SetObserved();
-                Commit(host, correlation, capture, new FaultSource.UnobservedTask(Error.New(args.Exception)));
+                Commit(host, capture, new FaultSource.UnobservedTask(Error.New(args.Exception)));
             };
             AppDomain.CurrentDomain.UnhandledException += unhandled;
             TaskScheduler.UnobservedTaskException += unobserved;
@@ -266,11 +260,13 @@ public static class FaultSpine {
             stale.Filter(marker => marker.AppVersion != current)
                  .Map(marker => (PhaseTrigger)new PhaseTrigger.UpgradeDetected(marker.AppVersion, current)));
     }
-    // One fault fact, two consequences: the wire-stable FaultRecord rides one SupportTrigger.FaultTransition
-    // the capture arm and the durable crash-recovery both read, and the phase cell transitions on the same
-    // FaultSource. The prior capture-delegate-then-FaultCommitted two-site construction is the collapsed form.
-    static Unit Commit(Lifecycle host, CorrelationId correlation, Option<Action<SupportTrigger>> capture, FaultSource source) =>
-        (capture.Iter(arm => arm(new SupportTrigger.FaultTransition(correlation, FaultRecord.From(source)))),
+    // One fault fact carries two consequences: the wire-stable FaultRecord rides one
+    // SupportTrigger.FaultTransition both the capture arm and the durable crash-recovery read, and the phase
+    // cell transitions on the same FaultSource; a capture delegate beside FaultCommitted is the collapsed form.
+    // Identity is the capsule's boot-minted one, never a caller argument: a supplied correlation lets the
+    // capture trigger and the phase receipt name two different boots for one fault.
+    static Unit Commit(Lifecycle host, Option<Action<SupportTrigger>> capture, FaultSource source) =>
+        (capture.Iter(arm => arm(new SupportTrigger.FaultTransition(host.CorrelationId, FaultRecord.From(source)))),
          ignore(host.Transition(new PhaseTrigger.FaultCommitted(source)))).Item2;
     static Unit Drainward(Lifecycle host, PosixSignalContext context) =>
         ((context.Cancel = true), ignore(host.Transition(RuntimePhase.Draining))).Item2;
@@ -402,6 +398,10 @@ public static class DrainConductor {
     extension(DrainReceipt receipt) {
         public Seq<DrainStep> Stragglers => receipt.Steps.Filter(static step => step.Outcome == DrainOutcome.Straggled);
     }
+    // Both classifier predicates read the package's own error identities rather than a message match:
+    // `Errors.Cancelled` (-2000000001) marks a cooperative token trip and `Errors.TimedOut` (-2000000002) the
+    // `Timeout` combinator's own expiry, so a step that ignored its token and one the deadline cut apart land
+    // distinct outcomes and a rephrased message never re-classifies a straggler as an escalation.
     static IO<DrainStep> Step((string Name, DrainBand Band, int Rank, Func<CancellationToken, IO<Unit>> Drain) row, Lifecycle host, Duration cooperative, Duration forced) =>
         from mark in IO.lift(host.Time.GetTimestamp)
         from outcome in IO.lift(() => host.Spine.Derive(row.Name, host.Time, cooperative)).Bracket(
@@ -444,7 +444,7 @@ public sealed record CancelScope(string Provenance, CancellationTokenSource Sour
 - Growth: one wire-member row per new receipt field and one key literal per new vocabulary row; zero new surface.
 - Boundary: shapes transcribe the camelCase emission of the suite wire law — smart-enum rows cross as their declared keys, instants and durations cross as round-trip pattern strings, correlation ids cross as guid strings, and the fault record discriminates on the kind literals its polymorphic metadata pins.
 
-```ts contract
+```ts signature
 type RuntimePhaseKey = "boot" | "ready" | "running" | "degraded" | "draining" | "unloaded" | "faulted" | "support-capture";
 
 type DrainOutcomeKey = "flushed" | "escalated" | "straggled";
@@ -466,5 +466,4 @@ interface DrainReceiptWire { readonly steps: readonly DrainStepWire[]; readonly 
 
 ## [08]-[RESEARCH]
 
-- [FAULT_PROBES]: standalone-row crash-flag marker path and schema beneath the per-user support root; SIGHUP delivery under launchd and systemd service lifetimes for the reload trigger.
-- [DRAIN_CLASSIFIER]: `IO.Timeout` expiry error identity against the escalated and straggled classifier predicates.
+- [FAULT_PROBES]-[OPEN]: which crash-flag marker path and schema a standalone row writes beneath the per-user support root, and whether SIGHUP reaches the process under launchd and systemd service lifetimes; verify against the live host bring-up.

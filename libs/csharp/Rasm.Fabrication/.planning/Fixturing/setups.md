@@ -6,18 +6,18 @@
 
 ## [01]-[INDEX]
 
-- [01]-[VOCABULARY]: operation, relation, objective, mounting, work-offset, and evidence owners.
-- [02]-[SCHEDULE]: graph admission, candidate evidence, bounded partitioning, datum transfer, and WCS allocation.
-- [03]-[PROJECTION]: machine, probing, posting, traveler, and evidence egress.
+- [02]-[VOCABULARY]: operation, relation, objective, mounting, work-offset, and evidence owners.
+- [03]-[SCHEDULE]: graph admission, candidate evidence, bounded partitioning, datum transfer, and WCS allocation.
+- [04]-[PROJECTION]: machine, probing, posting, traveler, and evidence egress.
 
 ## [02]-[VOCABULARY]
 
 - Owner: `SetupOperation` carries one physical operation instance; `SetupRelation` carries precedence, datum, stock, probe, and resource edges without collapsing them into an untyped pair.
-- Placement: `Mounting` closes table, pallet, tombstone face, rotary index, trunnion, spindle, robot positioner, and floor-cell mounting.
-- Objective: `SetupObjective` carries setup, changeover, reorientation, travel, linear and angular datum-transfer, rigidity, and risk weights with their unit scales as one admitted policy value.
-- WCS: `WcsSlot` is a closed payload family for base, extended, dynamic, rotary, and local offsets; controller syntax remains posting-owned.
-- Carrier: `Carrier`, `CarrierStation`, and `PartInstance` model pallet and tombstone occupancy, station frames, derived local offsets, and amortized tool-change cost without cloning operations.
-- Evidence: `SetupEvidence` retains compatibility, typed kinematics, optional robot-cell placement, workholding, clearance, guard, probe, stock, datum, and resource receipts; `SetupBoundaryEvidence.Key` fingerprints every provider-owned field before admission.
+- Owner: `SetupObjective` carries setup, changeover, reorientation, travel, linear and angular datum-transfer, rigidity, and risk weights with their unit scales as one admitted policy value.
+- Owner: `WcsSlot` is a closed payload family for base, extended, dynamic, rotary, and local offsets; controller syntax remains posting-owned.
+- Owner: `Carrier`, `CarrierStation`, and `PartInstance` model pallet and tombstone occupancy, station frames, derived local offsets, and amortized tool-change cost without cloning operations.
+- Cases: `Mounting` closes table, pallet, tombstone face, rotary index, trunnion, spindle, robot positioner, and floor-cell mounting.
+- Receipt: `SetupEvidence` retains compatibility, typed kinematics, optional robot-cell placement, workholding, clearance, guard, probe, stock, datum, and resource receipts; `SetupBoundaryEvidence.Key` fingerprints every provider-owned field before admission.
 - Growth: a new scheduling concern lands as one relation case, objective column, mounting case, or evidence field; no delegate column or entrypoint appears beside the owner.
 
 ```csharp signature
@@ -250,15 +250,15 @@ public sealed record SetupEvidence(
 ## [03]-[SCHEDULE]
 
 - Owner: `SetupPlan` is raw ingress; `Setup` is one admitted physical orientation and resource custody interval; `SetupSchedule` is the proof-bearing ordered result.
-- Graph: `BidirectionalGraph<int, SetupEdge>` preserves isolated operations, typed edge payloads, source-first order, strongly connected cycle evidence, and transitive reduction.
-- Admission: identity, relation references, WCS slots, carrier stations, part instances, machine keys, fixture keys, mounting frames, objective values, and operation payloads accumulate before graph construction.
-- Search: branch-and-bound expands existing and new setups over one `SearchSpace` carrying the admission-derived operation index, and `BoundOf` derives each admissible remainder from the same nonnegative duration term used by `Cost`; ingress cannot falsify optimality.
-- Proof: `Cut` records the least bound the search refused, so present `ProvenLowerBound` states the real optimality gap. Search without a refused branch proves its incumbent optimal; rebase clears proof presence, and `NodeBudget` exhaustion fails typed.
-- Receipt: the scheduled arm fires the `FabricationFact.Engine.Of` decision-count row through the `FabricationTap` `Apply` accepts, defaulting silent for headless callers, so branch-and-bound cost attribution rides the telemetry rail with zero kernel writes.
-- Candidate: one applicative evidence fan-in composes machine or robot-cell reach, rebuilt workholding restraint and corridor checks, guard, machined-stock, datum transfer, probing, and resource availability.
-- Allocation: controller and carrier-station WCS rows come from the unconsumed admitted roster remainder; setup indices never derive controller syntax, array position, or offset availability, and makespan accumulates per machine so setups on distinct machines do not serialize.
-- Rebase: a measured frame re-enters through the same evidence boundary that admitted the setup, and a correction exceeding the tightest datum tolerance the setup's operations carry rejects rather than stamping traceability.
+- Law: branch-and-bound expands existing and new setups over one `SearchSpace` carrying the admission-derived operation index, and `BoundOf` derives each admissible remainder from the same nonnegative duration term used by `Cost`; ingress cannot falsify optimality.
+- Law: `Cut` records the least bound the search refused, so present `ProvenLowerBound` states the real optimality gap. Search without a refused branch proves its incumbent optimal; rebase clears proof presence, and `NodeBudget` exhaustion fails typed.
+- Law: controller and carrier-station WCS rows come from the unconsumed admitted roster remainder; setup indices never derive controller syntax, array position, or offset availability, and makespan accumulates per machine so setups on distinct machines do not serialize.
+- Law: a measured frame re-enters through the same evidence boundary that admitted the setup, and a correction exceeding the tightest datum tolerance the setup's operations carry rejects rather than stamping traceability.
 - Exemption: QuikGraph construction with `Search`, `Candidates`, and `Commit` forms the bounded scheduling kernel; mutation remains inside admitted graph, schedule-state, and `Atom` containers.
+- Entry: identity, relation references, WCS slots, carrier stations, part instances, machine keys, fixture keys, mounting frames, objective values, and operation payloads accumulate before graph construction.
+- Auto: one applicative evidence fan-in composes machine or robot-cell reach, rebuilt workholding restraint and corridor checks, guard, machined-stock, datum transfer, probing, and resource availability.
+- Receipt: the scheduled arm fires the `FabricationFact.Engine.Of` decision-count row through the `FabricationTap` `Apply` accepts, defaulting silent for headless callers, so branch-and-bound cost attribution rides the telemetry rail with zero kernel writes.
+- Packages: `BidirectionalGraph<int, SetupEdge>` preserves isolated operations, typed edge payloads, source-first order, strongly connected cycle evidence, and transitive reduction.
 - Boundary: ordinary infeasibility prunes one candidate as `Option.None`; malformed input, failed geometry, exhausted budget, or boundary failure remains a typed `Fin` failure.
 
 ```csharp signature
@@ -758,8 +758,8 @@ public sealed partial record SetupSchedule(
             Some: best => candidate.Match(Some: next => next.Cost < best.Cost ? candidate : current, None: () => current),
             None: () => candidate);
 
-    // A search that refused nothing proved its incumbent optimal, so the bound is the cost itself;
-    // a search that cut a branch proves only the least bound it refused.
+    // Refusing nothing proves the incumbent optimal, so the bound is the cost itself; cutting a
+    // branch proves only the least bound the search refused.
     static SetupSchedule Finalize(SetupPlan plan, BidirectionalGraph<int, SetupEdge> graph, ScheduleState state, double cut) {
         Seq<SetupEdge> reduced = graph.ComputeTransitiveReduction(static (source, target) => new SetupEdge(source, target, new SetupRelation.Precedes())).Edges.ToSeq()
             .Bind(edge => graph.Edges.Filter(reason => reason.Source == edge.Source && reason.Target == edge.Target)).Distinct().ToSeq();
@@ -977,8 +977,8 @@ public sealed record SetupChain(Seq<int> Operations, Seq<(int Before, int After)
 ## [04]-[PROJECTION]
 
 - Owner: `SetupProjection` selects machine, probing, posting, traveler, inspection, and evidence views; `SetupArtifact` carries the selected view without reopening the schedule.
-- Egress: projection preserves the keyed schedule result, WCS, precedence, datum lineage, evidence, cost, and proven bound; raw search policy and evidence-provider capabilities remain ingress-only.
 - Exemption: `Canonical`, `Frame`, `Tag`, and the three union writers are the boundary serialization kernel, and `Rebase` is the bounded frame-correction kernel; statements remain inside those seams, every adjacent collection count-framed and every discriminant an ordinal beside its framed payload.
+- Output: projection preserves the keyed schedule result, WCS, precedence, datum lineage, evidence, cost, and proven bound; raw search policy and evidence-provider capabilities remain ingress-only.
 - Boundary: posting receives WCS identity and values, probing receives datum and correction targets, and documentation receives immutable schedule evidence; no consumer derives setup order from array position alone.
 
 ```csharp signature

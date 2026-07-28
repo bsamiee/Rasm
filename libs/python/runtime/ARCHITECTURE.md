@@ -7,15 +7,16 @@
 ```text codemap
 runtime/
 ├── observability/      # Local evidence production: receipts, signals, and the one OTLP install gate
-│   ├── receipts.py     # Receipt union, drain taxonomy, and contributor-fold port
-│   ├── logging.py      # Structlog pipeline: shared chain, stdout ship law, and the log-ship policy
-│   ├── metrics.py      # One MeterProvider's instruments, the record mapping, and the instrumentor train
+│   ├── receipts.py     # Receipt union, drain taxonomy, the composition-scope axis, and contributor-fold port
+│   ├── logging.py      # Structlog pipeline: shared chain, the OTLP wire projection, log-ship policy, terminal doors
+│   ├── metrics.py      # Instrument census, metric-stream view rows and tenant budget, the record mapping, and the instrumentor train
 │   ├── hooks.py        # Scoped hook registry: point rows, modalities, and telemetry taps
 │   ├── profiles.py     # Pyroscope push, benchmark receipts, and the offline-job envelope
 │   ├── telemetry.py    # Profile-gated OTLP install owner
-│   └── bundle.py       # Pull-driven support-bundle capsule: fenced collectors and the content-keyed archive fold
+│   ├── bundle.py       # Pull-driven support-bundle capsule: fenced collectors and the content-keyed archive fold
+│   └── journal.py      # Durable fact stream: audit and meter records, retention classes, exact rating, crypto-shredding
 ├── reliability/        # One fault family and resilience policy every sibling returns through
-│   ├── faults.py       # Boundary-fault union and its exception-to-fault projector
+│   ├── faults.py       # Boundary-fault union, its exception-to-fault projector, and the versioned scope coordinate
 │   └── resilience.py   # Retry policy table, one row per retryable class
 ├── transport/          # Resource roots, the companion server, the wire vocabulary, and the wire codec
 │   ├── roots.py        # Resource roots and refs over fsspec and the remote transports
@@ -52,6 +53,7 @@ flowchart TB
     accDescr: Transitive-reduced module import rail from serve down through the execution and install strata onto the faults root.
     Serve[serve]
     Bundle[bundle]
+    Journal[journal]
     Profiles[profiles]
     Recipe[recipe]
     Telemetry[telemetry]
@@ -77,6 +79,8 @@ flowchart TB
     Bundle r28@--> Profiles
     Bundle r29@--> Hooks
     Bundle r30@--> Shapes
+    Journal r32@--> Hooks
+    Journal r33@--> Clock
     Workers r31@--> Profiles
     Profiles r23@--> Telemetry
     Profiles r24@--> Metrics
@@ -113,6 +117,7 @@ flowchart TB
 - S7–S9 composition strata — `serve` (`DiscoveryResult`/`CommandReceipt`) terminates the rail, wiring recipe, bundle, and the wire codec.
 - S7–S9 `workers` (`Kernel`) composes roots and boots its floors through profiles and telemetry; `lanes` (`StagePlan`) drives admission and workers.
 - S7–S9 `recipe` (`RecipeInterface`) composes lanes and roots; `bundle` (`SupportBundle`) folds install receipts, hook rings, and admitted context.
+- S7–S9 `journal` (`Fact`) stamps through clock and registers points on hooks; its `Ledger` binds at composition, never by import.
 
 ## [03]-[SEAMS]
 
@@ -177,6 +182,7 @@ flowchart LR
     Data e2@-->|"[CONTENT_KEY]: ContentIdentity"| Evidence
     Transport e6@-->|"[TRANSPORT]: ResourceRef"| Data
     Transport e16@-->|"[TRANSPORT]: TransportResource"| Data
+    Observability e27@-->|"[PORT]: Ledger"| Data
     Data e11@-->|"[RECEIPT]: QueryReceipt"| Observability
     Data e17@-->|"[RECEIPT]: TensorReceipt"| Observability
     Execution e14@-->|"[BOUNDARY]: on_thread"| Data
@@ -195,6 +201,8 @@ flowchart LR
     Compute e22@-->|"[PROJECTION]: BenchmarkReceipt"| Observability
     Execution e23@-->|"[PORT]: Kernel"| Geometry
     Geometry e24@-->|"[RECEIPT]: BenchmarkReceipt"| Observability
+    Observability e25@-->|"[PORT]: measured"| Geometry
+    Observability e26@-->|"[PORT]: Hooks"| Geometry
 ```
 
 Each fence's home roster holds only the sub-domains carrying a seam with that peer plane: `reliability` crosses no boundary, `clock` faces only the C# plane, `execution` only the Python plane. Frozen registry names spell from the counterpart's endpoint page; `ServerHost`/`CommandReceipt`, `PROTO_VOCABULARY`, `CrdtOp`, and `ContentKey` are this package's interior spellings behind the `DiscoveryResult`, `ProtoVocabulary`, `OpLogEntry`, and `ContentAddress` wires.
@@ -205,14 +213,22 @@ Each sub-domain charter is the codemap comment; the boundary law below fixes the
 
 - `observability` — produces local evidence only, never an AppHost envelope or health status.
 - One shared OTLP exporter and one `MeterProvider` install behind the profile gate; every receipt folds through one attribute-keyed drain.
+- Metric-stream shaping is DATA at the instrument owner and SDK construction at the install root, so no SDK type enters below the composition root.
+- Every recorded measure holds an instrument row, and every emitted scope carries the fault root's one versioned semconv coordinate.
+- Pushed values never feed an observable instrument; the owner of a bounded resource registers the read the export cycle samples.
 - Every serve-leg span rides the inbound parent context.
-- A pickled worker without its own telemetry install runs unparented; the carrier still crosses.
-- Structured JSON events ship to stdout and the collector promotes them to OTLP log records.
-- Only the telemetry root names the in-process log escape hatch.
+- Pickled workers carrying no telemetry install of their own run unparented; the carrier still crosses.
+- One chain projects every event onto the log wire and renders the operator's stdout line; the collector admits an OTLP receiver alone, so no stdout tail promotes anything.
+- Terminal interpreter hooks route into that one chain, each door chaining the predecessor it wrapped.
+- Only the telemetry root registers the `LoggerProvider` that chain resolves.
 - Hook points register composition-unique package-qualified ids, and telemetry subscribes to hook facts as taps.
 - Contrib instrumentors and the pyroscope push activate once at the composition root; offline jobs drain every provider at the job boundary.
 - Support-bundle capture is pull-driven and bounded; every archive fact passes the receipts-owned redaction before a byte lands.
 - Bundle capsules serve only through the registered diagnostic route.
+- Journal facts are the branch's evidence truth and every series projected from them is derived, dropping at warm-up cost.
+- Every fact takes its ordering coordinate from the journal writer, so a producer supplies evidence and never identity.
+- Durable ledgers bind as a port at composition beside the emitter identity their rows partition on; this stratum opens no connection and executes no retention mechanism.
+- Erasure destroys per-subject key material and rewrites no row, so unreadable IS erased and the append-only plane survives whole.
 - Worker floors boot the parent-captured install post-spawn and drain at exit.
 - Kernel-grain cost records where it is spent, under the tenant the carrier promotes.
 - `reliability` — owns the one boundary-fault surface and the single retry policy; every failure returns as a typed fault, never a sentinel.
@@ -224,5 +240,5 @@ Each sub-domain charter is the codemap comment; the boundary law below fixes the
 - `evidence` — keys identity through the Python implementation of the shared content-key contract.
 - Evidence catalogue and grammar surfaces emit what the `assay code` rail consumes.
 - `clock` — owns Python's `Hlc`/`ElementId`/`Tenant` spelling and proves its two-half encoding against the shared contract.
-- A stamp's physical half samples the admitted local clock; its element id is the `(origin, logical)` identity.
+- Every stamp's physical half samples the admitted local clock; its element id is the `(origin, logical)` identity.
 - `wire` and `admission` alone consume the clock owner.

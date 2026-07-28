@@ -1,6 +1,8 @@
 # [APPUI_CHARTS_TELEMETRY]
 
-Rasm.AppUi's telemetry board is the estate observability product surface rendered entirely through the settled chart plane: `TelemetryBoard` is the named board row whose tiles pin the `EvidenceFan` instrument roster, the frame SLO burn-rate coordinates, the Persistence store-profile receipts, and the `EvidenceJoin` uncertainty timeline onto `dashboards.md` operators — `ChartStream` feeds, `StatFold` aggregates, `DashboardTile` cases, `WatchRule` alerts, and the one `CrossFilter` brush — with zero new chart surface. This page owns the board's tile registry, the SLO tile fold over the `SloCoordinate` rows, the store-profile tile rows, and the evidence-track span projection; series rows, stream folds, tile placement, brushing, board persistence, and board telemetry are `Charts/dashboards.md` owners composed as settled vocabulary, and the instrument roster, `SloCoordinate` rows, `TenantUsage` fold, and timeline join are `Diagnostics/evidence.md` owners consumed as values.
+Rasm.AppUi's telemetry board renders the estate observability product surface entirely through the settled chart plane. `TelemetryBoard` is the named board row whose tiles pin the `EvidenceFan` roster, the frame reliability objectives, the store-profile receipts, and the `EvidenceJoin` timeline onto `dashboards.md` operators — `ChartStream` feeds, `StatFold` aggregates, `DashboardTile` cases, `WatchRule` alerts, one `CrossFilter` brush — with zero new chart surface. This page owns the tile registry, the SLO tile fold, the store-profile rows, and the evidence-track projection.
+
+Series rows, stream folds, tile placement, brushing, board persistence, and board telemetry arrive settled from `Charts/dashboards.md`; the instrument roster, `ViewportObjectives` rows, `TenantUsage` fold, and timeline join arrive as values from `Diagnostics/evidence.md`; the burn table, severity roster, and verdict fold are the kernel SLO algebra.
 
 ## [01]-[INDEX]
 
@@ -16,21 +18,21 @@ Rasm.AppUi's telemetry board is the estate observability product surface rendere
 - Entry: `TelemetryBoard.Tiles(Seq<(string Key, DashboardTile Tile, WatchRule Watch)> slo)` — the full tile registry `DashboardSurface.Resolve` consumes; `TelemetryBoard.Layout(Seq<string> sloKeys)` — the admitted placement row; `TelemetryBoard.Arm(...)` — one armed watch subscription per SLO rule over `WatchFold.Arm`.
 - Auto: feed rows reuse the settled stream table verbatim — instrument and evidence tiles ride the compute-receipt-stream window, bound, bucket, and cadence values, store-profile tiles the persistence-analytical row — so board load characteristics derive from the one feed table and a board-local sampling policy is the deleted form; board snapshot, restore, and brush reapply ride `BoardState` unchanged.
 - Packages: LiveChartsCore.SkiaSharpView.Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, DynamicData, System.Reactive, NodaTime, BCL inbox
-- Growth: a new board track is one tile row plus one placement row; a new alert is one `WatchRule` value through the same arming fold; zero new surface.
+- Growth: a new board track is one tile row with one placement row; a new alert is one `WatchRule` value through the same arming fold; zero new surface.
 - Boundary: every tile composes a dashboards operator — a chart tile is a `ChartSeriesSpec` row under `ChartPolicy.Dashboard`, a stat or gauge tile a `StatFold` row, the track tile a `CustomVisual` kind — and a board-local chart, aggregate lambda, or alert pipeline is the deleted form; board render, frame-byte, and brush facts fold onto the one meter through `BoardTelemetry.Observe`, so the board observes itself through the same spine it displays; tile keys carry the `telemetry:` prefix so a board snapshot never collides with a sibling dashboard's tile keys in the persisted blob; alert crossings raise `BurnToastIntent` through the CommandIntent table and their durable evidence is the command rail's `CommandReceipt`.
 
 | [INDEX] | [TILE_ROW]                | [TILE_CASE]            | [FEED_ROW]             | [SOURCE]                                   |
 | :-----: | :------------------------ | :--------------------- | :--------------------- | :----------------------------------------- |
 |  [01]   | telemetry:frame-pace      | Chart step-line        | compute-receipt-stream | `RenderGraph.FrameInstrument` distribution |
 |  [02]   | telemetry:frame-heat      | Chart heat             | compute-receipt-stream | `RenderGraph.GpuInstrument` distribution   |
-|  [03]   | telemetry:burn:*          | Gauge (derived family) | compute-receipt-stream | `SloCoordinate.Viewport` burn folds        |
+|  [03]   | telemetry:burn:*          | Gauge (derived family) | compute-receipt-stream | `ViewportObjectives` x `BurnRow` folds     |
 |  [04]   | telemetry:overlay-swaps   | Stat sum               | compute-receipt-stream | `BoardTelemetry.OverlaySwapsInstrument`    |
 |  [05]   | telemetry:filter-applies  | Stat sum               | compute-receipt-stream | `BoardTelemetry.FilterAppliesInstrument`   |
-|  [06]   | telemetry:store-latency   | Stat average           | persistence-analytical | store-profile receipt latency column       |
-|  [07]   | telemetry:store-blocked   | Stat maximum           | persistence-analytical | store-profile blocked-thread column        |
-|  [08]   | telemetry:store-operators | Table                  | persistence-analytical | store-profile operator rows                |
+|  [06]   | telemetry:store-latency   | Stat weighted mean     | persistence-analytical | `StoreProfileTrack` wall-phase mean rows   |
+|  [07]   | telemetry:store-blocked   | Stat maximum           | persistence-analytical | `StoreProfileTrack` blocked-phase high rows|
+|  [08]   | telemetry:store-operators | Table                  | persistence-analytical | `StoreProfileTrack.OperatorSource` rows    |
 |  [09]   | telemetry:evidence-track  | Custom gantt           | compute-receipt-stream | `EvidenceJoin.Correlate` timeline spans    |
-|  [10]   | telemetry:usage           | Table                  | compute-receipt-stream | `TenantUsageFold.Fold` tenant-window rows  |
+|  [10]   | telemetry:usage           | Table                  | compute-receipt-stream | `TenantUsageFold` live or resident rows    |
 
 ```csharp signature
 public static class TelemetryBoard {
@@ -52,11 +54,13 @@ public static class TelemetryBoard {
             ("telemetry:frame-heat", new DashboardTile.Chart("telemetry:frame-heat", ChartSeriesSpec.Heat, ChartPolicy.Dashboard, Instruments)),
             ("telemetry:overlay-swaps", new DashboardTile.Stat("telemetry:overlay-swaps", "overlay swaps", StatFold.Sum, Instruments)),
             ("telemetry:filter-applies", new DashboardTile.Stat("telemetry:filter-applies", "brush applications", StatFold.Sum, Instruments)),
-            ("telemetry:store-latency", new DashboardTile.Stat("telemetry:store-latency", "store latency", StatFold.Average, Profiles)),
+            ("telemetry:store-latency", new DashboardTile.Stat("telemetry:store-latency", "store latency", StatFold.Weighted, Profiles)),
             ("telemetry:store-blocked", new DashboardTile.Stat("telemetry:store-blocked", "blocked-thread time", StatFold.Maximum, Profiles)),
-            ("telemetry:store-operators", new DashboardTile.Table("telemetry:store-operators", "store.profile.operators")),
+            // Row-source keys read their owning projection's own declaration, so a renamed source moves one
+            // const rather than a literal this registry and that owner each spell.
+            ("telemetry:store-operators", new DashboardTile.Table("telemetry:store-operators", StoreProfileTrack.OperatorSource)),
             ("telemetry:evidence-track", new DashboardTile.Custom("telemetry:evidence-track", CustomVisual.Gantt, Evidence)),
-            ("telemetry:usage", new DashboardTile.Table("telemetry:usage", "tenant.usage")))
+            ("telemetry:usage", new DashboardTile.Table("telemetry:usage", EvidenceTrack.UsageSource)))
         + toHashMap(slo.Map(static row => (row.Key, row.Tile)));
 
     public static Fin<DashboardLayout> Layout(Seq<string> sloKeys) {
@@ -91,51 +95,114 @@ public static class TelemetryBoard {
 
 ## [03]-[SLO_TILES]
 
-- Owner: `SloTiles` — the burn-rate tile fold over the `Diagnostics/evidence.md` `SloCoordinate` rows; `BurnFeed` — the coordinate-to-stream burn projection.
-- Entry: `SloTiles.Rows(ChartStream burn)` — one gauge tile plus one armed `WatchRule` per SLO coordinate; `BurnFeed.Of(SloCoordinate coordinate, IObservable<(long Breaching, long Total)> counts)` — the windowed burn-rate stream a gauge tile binds.
-- Auto: each coordinate row yields its tile and rule from the same key derivation, so a coordinate added on the evidence page lands on the board as one gauge and one alert with zero board edit; the gauge ceiling doubles the burn threshold so a breach reads against visible headroom.
+- Owner: `SloTiles` — the burn-rate tile fold over the objectives the `Diagnostics/evidence.md` `ViewportObjectives.Pack` carries, crossed with the kernel `BurnRow` table; `BurnFeed` — the sample-to-burn stream projection.
+- Entry: `SloTiles.Rows(FrameBudget budget, Func<Objective, BurnRow, ChartStream> feed)` — one gauge tile and one armed `WatchRule` per objective and burn row, each bound to its own stream; `BurnFeed.Of(Objective objective, IObservable<SloSample> samples)` — the windowed burn stream a gauge tile binds.
+- Auto: each objective-and-burn pair yields its tile and rule from one key derivation, so an objective added on the evidence page and a burn row retuned at the kernel both land on the board with zero board edit; the gauge ceiling doubles the row's factor so a breach reads against visible headroom.
 - Packages: LanguageExt.Core, System.Reactive, NodaTime, BCL inbox
-- Growth: a new SLO objective is one `SloCoordinate` row on the evidence page; the board fold derives its tile and watch; zero new surface.
-- Boundary: burn math lives on the coordinate row (`SloCoordinate.Burn`) and the board only streams it — a board-side burn formula is the deleted form; breach counts for a row carrying a breach instrument read that counter directly, while a row without one derives breaches from the `Buckets.UiFrameSeconds` bucket edge at the frame-budget boundary, so both legs read the histograms the spine already declares and no new instrument is minted for alerting; a crossing raises `TelemetryBoard.BurnToastIntent` and holds through the rule's quiet window under the settled `WatchFold` edge law.
+- Growth: a new SLO objective is one `ViewportObjectives` row on the evidence page and a fifth burn row is one kernel table row; the board fold derives every tile and watch; zero new surface.
+- Boundary: burn math is the kernel `Slo.Burn` fold and the board only streams it — a board-side burn formula, a hand-typed window, and a local factor are the three deleted forms; every viewport indicator is a `Sli.Latency` row, so breaches derive from the declared frame and GPU histograms against the objective's own ceiling and no instrument is minted for alerting; an empty window carries no rate, so the gauge holds rather than rendering a quiet zero; a crossing raises `TelemetryBoard.BurnToastIntent` and holds through the board's own toast quiet window under the settled `WatchFold` edge law.
 
 ```csharp signature
 public static class SloTiles {
-    public static Seq<(string Key, DashboardTile Tile, WatchRule Watch)> Rows(ChartStream burn) =>
-        SloCoordinate.Viewport.Map(coordinate =>
-            $"telemetry:burn:{coordinate.Instrument}:{coordinate.Window}" switch {
-                var key => (key,
-                    (DashboardTile)new DashboardTile.Gauge(key, 0d, coordinate.BurnThreshold * 2d, StatFold.Average, burn),
-                    new WatchRule($"{key}:watch", key, WatchComparator.Above,
-                        new WatchBound(0d, coordinate.BurnThreshold), Duration.FromSeconds(30), TelemetryBoard.BurnToastIntent)),
-            });
+    // Toast dwell is BOARD policy, not SLO policy: the kernel severity's own hold governs alert routing,
+    // while this window only debounces the on-canvas notification a crossing raises.
+    static readonly Duration ToastQuiet = Duration.FromSeconds(30);
+
+    // Each pair binds its OWN stream — one shared feed across every tile renders the same series under four
+    // captions, which is why the feed arrives as a selector rather than a single stream.
+    // Objectives read off the viewport PACK the contributor port already carries, so a tile and the board panel
+    // over the same indicator resolve one row table and no consumer reaches a bare objective factory.
+    public static Seq<(string Key, DashboardTile Tile, WatchRule Watch)> Rows(
+        FrameBudget budget, Func<Objective, BurnRow, ChartStream> feed) =>
+        ViewportObjectives.Pack(budget).Objectives.Bind(objective =>
+            toSeq(BurnRow.Items).Map(row =>
+                $"telemetry:burn:{objective.Name}:{row.Key}" switch {
+                    var key => (key,
+                        (DashboardTile)new DashboardTile.Gauge(key, 0d, row.Factor * 2d, StatFold.Average, feed(objective, row)),
+                        new WatchRule($"{key}:watch", key, WatchComparator.Above,
+                            new WatchBound(0d, row.Factor), ToastQuiet, TelemetryBoard.BurnToastIntent)),
+                }));
 }
 
 public static class BurnFeed {
-    public static IObservable<double> Of(SloCoordinate coordinate, IObservable<(long Breaching, long Total)> counts) =>
-        counts.Select(sample => coordinate.Burn(sample.Breaching, sample.Total));
+    // Absence stays absence: an empty window has no rate, so the stream withholds the tick and the gauge
+    // holds its last reading rather than dropping to a zero the burn algebra never claimed.
+    public static IObservable<double> Of(Objective objective, IObservable<SloSample> samples) =>
+        samples.Choose(sample => sample.Rate.Map(rate => Slo.Burn(objective, rate)));
 }
 ```
 
 ## [04]-[STORE_PROFILE]
 
-- Owner: store-profile tile rows on the `TelemetryBoard` registry — latency, blocked-thread, and operator-row tiles bound to the persistence-analytical feed.
-- Entry: the tiles bind through the settled `ChartStream` persistence-analytical row; profile receipts arrive as values off the Persistence query lane.
-- Auto: the latency stat averages the receipt latency column, the blocked stat takes the maximum blocked-thread time, and the operator table windows the top operator rows through the one virtual window — each a `StatFold` or table row over the feed, never a board-side parse of profile JSON.
+- Owner: `StoreProfileRow` — the series coordinate one store stat tile reads; `StoreProfileTrack` — those rows, the durable series read behind them, and the row-source key the operator table binds; the tile rows themselves stay on the `TelemetryBoard` registry.
+- Entry: `StoreProfileTrack.Rows` names each stat tile's `(domain, slot, measure, projection)` coordinate on the Persistence telemetry series; `StoreProfileTrack.Series(Func<StoreProfileRow, IObservable<double>> read)` resolves each row against the pre-bucketed continuous aggregate through the injected read arrow, so the board holds one arrow and never a store client; `StoreProfileTrack.OperatorSource` names the row source the operator table binds.
+- Auto: the latency stat reads the time-weighted bucket mean and the blocked stat the bucket high — each row naming its own facet coordinate on the landed `SeriesKind.Telemetry` projection, so a tile reads a one-minute bucket rather than a live receipt window and survives the emitting process; the operator table binds a ROW SOURCE instead, because the measure projection admits numeric leaves alone and a per-receipt operator roster is evidence the wide event carries whole.
 - Packages: DynamicData, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: a new profile column is one stat or table tile row over the same feed; zero new surface.
-- Boundary: profile custody stays Persistence-side — the DuckDB profiling harvest, the pg_stat receipt slots, and the `store.<domain>.<verb>` instrument grammar are `Rasm.Persistence` `Store/observability` owners, and the board consumes their receipts as typed feed values; a typed dashboard-ingestion projection of those receipts is the Persistence counterpart obligation, and until it lands the board renders the AppUi-local roster tiles alone with the store tiles bound to the feed row and empty; AppUi never issues the profiling SQL, never opens the analytical connection, and never re-derives a profile fact from raw JSON.
+- Growth: a new profile measure is one `StoreProfileRow` with its tile row answering both the rollup and population columns; a new coordinate axis is one column on that row and widens no signature; zero new surface.
+- Boundary: profile custody stays Persistence-side — the DuckDB profiling harvest, the pg_stat receipt slots, the `store.<domain>.<verb>` slot grammar, and the residence that holds their measures are `Rasm.Persistence` owners, and the board reaches them through ONE injected read arrow the composition root binds; AppUi never issues the profiling SQL, never opens the analytical connection, never spells a table name, and never re-derives a profile fact from raw JSON; the coordinate is the whole coupling, so a Persistence measure rename breaks one row here rather than silently emptying a tile; the ROLLUP COLUMN rides that coordinate because the display fold reduces a stream rather than computing it — a maximum taken over bucket means under-reports every peak the bucket's own high column already recorded, and the tile renders that under-report as a measurement; a measure path naming a payload ARRAY resolves to no series at all, so a collection-shaped fact binds a row source and a row invented for it renders an empty tile no gate catches; the POPULATION column rides that same coordinate for the same reason — a mean-rollup row reduces AGAIN at the tile, so the bucket's own observation count crosses as the `StatSample` weight and the tile folds `Weighted`, while an extremum-rollup row answers `Unweighted` because a maximum carries no mass to average; the read arrow that dropped it turned every bucket into one observation and rendered an unweighted mean of weighted means under a latency caption.
+
+```csharp signature
+// Series coordinate on the Persistence telemetry projection: one row names the capability domain, the emitting
+// slot, the measure path the store's own receipt payload carries, and the rollup column the stream reads, so
+// this board couples to Persistence through one value per tile and a renamed measure fails one row rather than
+// emptying a tile in silence.
+public readonly record struct StoreProfileRow(string Tile, string Domain, string Slot, string Measure, string Projection, string Population);
+
+public static class StoreProfileTrack {
+    public const string Domain = "stat";
+    public const string ProfileSlot = "store.stat.duckdb";
+
+    // Rollup column names, spelled as the TEXT the store's own aggregate declares: the tile's display fold
+    // reduces a stream, so the STREAM has to already carry the statistic the caption claims — a maximum taken
+    // over bucket means under-reports every peak the bucket's own high column recorded.
+    public const string Mean = "mean";
+    public const string High = "high";
+
+    // Population column beside the rollup columns: a bucket carries the observation count its own aggregate
+    // recorded, so a display fold reducing bucket rows weighs each by what it stands for. A row whose rollup is
+    // already an extremum answers `Unweighted` — a maximum needs no mass and inventing one would imply an
+    // averaging this tile does not perform.
+    public const string Samples = "samples";
+    public const string Unweighted = "";
+
+    // SCALAR rows alone: the measure projection walks NUMERIC LEAVES of a receipt payload, so a scalar phase
+    // gains its series and a per-receipt collection does not. A path naming a payload array resolves to no
+    // stream at all, which is why the operator roster is sourced below rather than rowed here.
+    public static readonly Seq<StoreProfileRow> Rows = Seq(
+        new StoreProfileRow("telemetry:store-latency", Domain, ProfileSlot, "latencySeconds", Mean, Samples),
+        new StoreProfileRow("telemetry:store-blocked", Domain, ProfileSlot, "blockedThreadSeconds", High, Unweighted));
+
+    // ONE injected arrow taking the whole coordinate, so the board carries no store client, no residence value,
+    // and no table name, and a coordinate column added here widens no signature: the composition root binds the
+    // Persistence facet-selected series read and this fold hands it the row it already declared.
+    public static Seq<(string Tile, IObservable<StatSample> Feed)> Series(
+        Func<StoreProfileRow, IObservable<StatSample>> read) =>
+        Rows.Map(row => (row.Tile, read(row)));
+
+    // Operator rosters ride the wide EVENT a profile receipt carries whole, never a scalar a time bucket
+    // averages, so this tile binds a row source rather than a series — live rows while the emitting process
+    // holds its envelopes, resident rows off the Persistence evidence plane once it does not, exactly as
+    // `EvidenceTrack.UsageSource` binds. Declaring the key here beside the facets keeps the tile registry
+    // reading one owner rather than spelling the coupling a second time.
+    public const string OperatorSource = "store.profile.operators";
+}
+```
 
 ## [05]-[EVIDENCE_TRACK]
 
 - Owner: `EvidenceTrack` — the timeline-to-span projection the gantt track tile renders; the tenant-usage table tile over the `TenantUsageFold` rows.
-- Entry: `EvidenceTrack.Spans(EvidenceTimeline timeline, CustomVisualStyle style)` — one `CustomVisualData` span payload per correlation timeline; the usage table binds `TenantUsageFold.Fold` output as its row source at composition.
-- Auto: each timeline row projects one gantt span — the skew band is the span extent, the uncertainty group the track — so an overlap component renders as one stacked region and presentation invents no causal order the band algebra forbids; usage rows arrive already folded per tenant window, so the table renders receipt values and computes nothing.
+- Entry: `EvidenceTrack.Spans(EvidenceTimeline timeline, CustomVisualStyle style)` — one `CustomVisualData` span payload per correlation timeline; `EvidenceTrack.UsageSource` names the row source the usage table binds at composition, carrying `TenantUsageFold` output — live rows while the emitting process holds its envelopes and resident rows once it does not.
+- Auto: each timeline row projects one gantt span — the skew band is the span extent, the uncertainty group the track — so an overlap component renders as one stacked region and presentation invents no causal order the band algebra forbids; usage rows arrive already folded per tenant window from either source, so the table renders values and computes nothing and a source swap moves no tile.
 - Packages: LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new track annotation is one span-label projection column; a new usage column is one `TenantUsage` field rendered by the same table; zero new surface.
 - Boundary: the projection consumes `EvidenceTimeline` and `TenantUsage` as settled evidence vocabulary and re-derives neither the HLC fold nor the usage accrual — server-owned uncertainty groups and producer-folded usage cross this seam as values, the same law the `EvidenceTimelineWire` crossing pins for the web consumer; span extents cross to chart space as epoch milliseconds off the band instants, the one numeric projection this page owns.
 
 ```csharp signature
 public static class EvidenceTrack {
+    // Row source the usage table binds, declared beside its projection so the tile registry reads it rather
+    // than spelling the same coupling twice.
+    public const string UsageSource = "tenant.usage";
+
     // One timeline row is one gantt span: the skew band is the extent, the uncertainty group the track,
     // so an overlap component stacks as one region and no causal order is invented inside it.
     public static CustomVisualData Spans(EvidenceTimeline timeline, CustomVisualStyle style) =>
@@ -161,8 +228,8 @@ flowchart LR
     accTitle: Telemetry board composition
     accDescr: Instrument roster, SLO coordinates, store-profile receipts, and the evidence join feed chart streams into board tiles under one layout and watch fold.
     EvidenceFan --> Instruments
-    SloCoordinate --> SloTiles
-    StoreProfiles --> Profiles
+    ViewportObjectives --> SloTiles
+    StoreProfileTrack --> Profiles
     EvidenceJoin --> EvidenceTrack
     Instruments --> Tiles
     SloTiles --> Tiles

@@ -6,26 +6,27 @@ The one public front door's declarative engine: a domain folder exports its `Htt
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                                              | [PUBLIC]            |
 | :-----: | :--------------- | :---------------------------------------------------------------------------------- | :------------------ |
-|  [01]   | `CONVENTION`     | version-prefix rows, the cursor brand, page-query and page-envelope constructors    | `Convention`        |
+|  [01]   | `SURFACE`     | version-prefix rows, the cursor brand, page-query and page-envelope constructors    | `Surface`        |
 |  [02]   | `GATE_FAULT`     | the reason-discriminated refusal family with class/status/retry rows                | `GateFault`         |
 |  [03]   | `CURRENT_ROWS`   | ambient stamp/tenant/locale references, locale negotiation, trace continuation      | `Current`           |
 |  [04]   | `ADMISSION_ROWS` | `Principal`, the scheme-threaded `Authn` security middleware, pressure, idempotency | `Principal`, `Gate` |
 |  [05]   | `CONTRIBUTION`   | the http and rpc pairing constructors, protocol and codec rosters, upload modality  | `Contribution`      |
 |  [06]   | `EMIT`           | spec artifact, docs stack, derived HTTP and RPC clients, the web-handler edge form  | `Emit`              |
 
-## [02]-[CONVENTION]
+## [02]-[SURFACE]
 
-[CONVENTION]:
-- Owner: `Convention` — the shared surface vocabulary both contribution families speak: the version tuple (`v1`; a new major is one tuple entry every consumer inherits), the opaque `Cursor` brand, the `PageParams` query schema (cursor as `Option`, limit defaulted and ceiling-bounded at the declaration so no handler re-checks bounds), and `Convention.page(item)` — one generic constructor deriving the page envelope for any item schema, so a per-shape page schema cannot exist.
+[SURFACE]:
+- Owner: `Surface` — the shared surface vocabulary both contribution families speak: the version tuple (`v1`; a new major is one tuple entry every consumer inherits), the opaque `Cursor` brand, the `PageParams` query schema (cursor as `Option`, limit defaulted and ceiling-bounded at the declaration so no handler re-checks bounds), and `Surface.page(item)` — one generic constructor deriving the page envelope for any item schema, so a per-shape page schema cannot exist.
+- Law: `Surface` names the served-surface vocabulary alone, leaving `Convention` to the core telemetry owner this branch already imports.
 - Law: pagination is cursor-only — the cursor is minted by the owning read surface, opaque to the caller, bounded at the brand; `next` absent means exhausted, spelled `Option` by `optionalWith`; offset pagination has no vocabulary here and cannot be contributed.
-- Law: the version prefix attaches at the group — `group.prefix(Convention.prefix("v1"))` — so a group is versioned as contributed data and two majors of one group coexist as two contributions; a version segment hand-written into an endpoint path is the drift defect.
+- Law: the version prefix attaches at the group — `group.prefix(Surface.prefix("v1"))` — so a group is versioned as contributed data and two majors of one group coexist as two contributions; a version segment hand-written into an endpoint path is the drift defect.
 - Growth: a new convention axis (sort grammar, field selection) is one schema row on this owner, inherited by every group that composes it.
 - Packages: `effect` (`Schema`, `Option`).
 
 ```typescript
 import {
-  HttpApi, HttpApiBuilder, HttpApiClient, type HttpApiGroup, HttpApiMiddleware, HttpApiScalar, HttpApiSecurity,
-  HttpApiSwagger, type HttpClient, HttpTraceContext, OpenApi,
+  Headers, HttpApi, HttpApiBuilder, HttpApiClient, type HttpApiGroup, HttpApiMiddleware, HttpApiScalar,
+  HttpApiSecurity, HttpApiSwagger, type HttpClient, HttpTraceContext, OpenApi,
 } from "@effect/platform"
 import { PersistedCache, type Persistence, RateLimiter as Fleet } from "@effect/experimental"
 import { RpcClient, type RpcGroup, RpcSerialization, RpcServer } from "@effect/rpc"
@@ -52,18 +53,18 @@ const _page = <A, I, R>(item: Schema.Schema<A, I, R>) =>
     next: Schema.optionalWith(_Cursor, { as: "Option" }),
   })
 
-declare namespace Convention {
+declare namespace Surface {
   type Version = (typeof _VERSIONS)[number]
   type Cursor = typeof _Cursor.Type
   type PageParams = typeof _PageParams.Type
 }
 
-const Convention: {
+const Surface: {
   readonly versions: typeof _VERSIONS
   readonly Cursor: typeof _Cursor
   readonly PageParams: typeof _PageParams
   readonly page: typeof _page
-  readonly prefix: <V extends Convention.Version>(version: V) => `/${V}`
+  readonly prefix: <V extends Surface.Version>(version: V) => `/${V}`
 } = {
   versions: _VERSIONS,
   Cursor: _Cursor,
@@ -502,7 +503,8 @@ const Contribution: {
 - Law: the web-handler edge form is the platform surface composed at the app root — `HttpApiBuilder.toWebHandler(layer, options)` takes the app's implementation Layer (the one carrying `HttpApi.Api`) and yields the `Request => Response` arrow plus its `dispose` for fetch-shaped runtimes, and no `Emit` member renames it because a forwarding member is the one-hop wrapper this corpus deletes; the full-server form (api beside raw routes) is `route#SERVE_FOLD`'s `HttpLayerRouter.toWebHandler`.
 - Law: derivation is call-time and parameterized — nothing here caches, names, or holds an api instance, keeping the assembled value's no-lib-side-existence law intact; contract documentation is annotation material on the api value (`HttpApi.make(id).annotate`, endpoint schema annotations) flowing into the document through the derivation.
 - Growth: a new documentation surface (a JSON-schema bundle per owner, a second reference UI) is one derivation member over the same api parameter.
-- Packages: `@effect/platform` (`OpenApi`, `HttpApiBuilder`, `HttpApiScalar`, `HttpApiSwagger`, `HttpApiClient`, `HttpTraceContext`); `@effect/rpc` (`RpcClient`); `effect` (`Layer`, `Array`, `Record`, `Order`, `Predicate`).
+- Law: the span seed is LIVE-span-only by declaration — `HttpTraceContext.toHeaders` takes `Tracer.Span` where `Tracer.AnySpan` is the `Span | ExternalSpan` union, so a recovered `ExternalSpan` is unspellable at that member and no adapter lifts one into it; an ingress-recovered parent therefore crosses on the carried context alone, which is exactly why the inject site seeds the frame rather than deriving the hop from it.
+- Packages: `@effect/platform` (`OpenApi`, `HttpApiBuilder`, `HttpApiScalar`, `HttpApiSwagger`, `HttpApiClient`, `HttpTraceContext`, `Headers`); `@effect/rpc` (`RpcClient`); `effect` (`Layer`, `Array`, `Record`, `Order`, `Predicate`).
 
 ```typescript
 const _byKey: Order.Order<readonly [string, unknown]> = Order.mapInput(
@@ -555,7 +557,9 @@ const _traced = <A, E, R>(call: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> 
           Carrier.inject(
             "connect",
             context,
-            Option.match(span, { onNone: () => ({}), onSome: (live) => HttpTraceContext.toHeaders(live) }),
+            // `toHeaders` names `Tracer.Span` alone, so a span-less caller seeds the dialect's own empty frame
+            // rather than an untyped literal the `connect` row would then have to admit
+            Option.match(span, { onNone: () => Headers.empty, onSome: (live) => HttpTraceContext.toHeaders(live) }),
           ),
       )),
   )(call)
@@ -570,9 +574,9 @@ const Emit = {
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Contribution, Convention, Current, Emit, Gate, GateFault, Principal }
+export { Contribution, Current, Emit, Gate, GateFault, Principal, Surface }
 ```
 
 ## [08]-[RESEARCH]
 
-- [HTTP_TRACE_HEADERS]-[BLOCKED]: which exact `HttpTraceContext.toHeaders` declaration accepts the live Effect span used by `Emit.traced`, and whether its input admits a recovered `Tracer.ExternalSpan` when no child span has opened; route through `libs/typescript/.api/effect-platform.md`, and retain the current live-span arm only until the catalog carries its exact input and output types.
+(none)

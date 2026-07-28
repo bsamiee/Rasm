@@ -4,10 +4,10 @@
 
 ## [01]-[INDEX]
 
-- [01]-[CHANGEFEED]: the `OpLogEntry` projection of Marten events, HLC stamping, the trace slot, the closure manifest, and the `ReplayWindow` windowed read.
-- [02]-[MERGE_LAW]: LWW adjudication, conflict receipts, the idempotent apply fold, CRDT dispatch, and the conservation invariant.
-- [03]-[SYNC_TRANSPORTS]: the closed transport family, its `SyncFlow` disposition, the subtree-checkout diff algebra, and the Speckle marshal seam.
-- [04]-[PRESENCE]: ephemeral presence rows, the lossy awareness lane, and the working-set checkout.
+- [02]-[CHANGEFEED]: the `OpLogEntry` projection of Marten events, HLC stamping, the trace slot, the closure manifest, and the `ReplayWindow` windowed read.
+- [03]-[MERGE_LAW]: LWW adjudication, conflict receipts, the idempotent apply fold, CRDT dispatch, and the conservation invariant.
+- [04]-[SYNC_TRANSPORTS]: the closed transport family, its `SyncFlow` disposition, the subtree-checkout diff algebra, and the Speckle marshal seam.
+- [05]-[PRESENCE]: ephemeral presence rows, the lossy awareness lane, and the working-set checkout.
 
 ## [02]-[CHANGEFEED]
 
@@ -243,7 +243,7 @@ public static class OpLog {
 - Boundary: LWW per column family is the default — `Held` resolves the competing local entry per model and family, content-key equality adjudicates `LocalWin` (idempotent replay — `Conflicted: false`, a pure skip), an absent competitor adjudicates `Merged` through `Fresh` whose held slots carry the `Hlc.Zero` absence sentinel, an HLC-resolved `LocalWin`/`RemoteWin` over differing content is a genuine divergence (`Conflicted: true`) the fold counts as `Conflicted` and whose `ConflictReceipt` it records even when the winner commits, and an equal `(stamp, origin)` with divergent content is the causal fork which `Apply` halts as the epoch-class `SyncFault.Forked` carrying the two divergent content keys, never a soft conflict that counts and continues; the `FirstWriter` (`Presence`) lane is EARLIEST-wins, the INVERSE comparison direction of the LWW latest-wins default, so the older `(stamp, origin)` wins regardless of arrival order — the `Adjudicate` `(comparison, isFirstWriter)` tuple-`switch` flips both the newer-incoming and the older-incoming arm for FirstWriter, never the LWW-only direction that silently keeps a later first-writer-lane row over the genuine first writer; the `Conflicted`/`Conflicts` audit fields are thus exact (every auto-resolved divergence recorded, an idempotent replay never miscounted as a conflict), not an always-empty placeholder; HLC ordering ties break on origin store id so adjudication is deterministic across peers; the `crdt` column family routes its `Payload` through `Crdt.Apply` so a concurrent edit converges by the join-semilattice least-upper-bound rather than scalar LWW (the LWW `Adjudicate` surviving only as the `LwwRegister` arm) — the multi-writer offline + IFC 3-way merge substrate; the `SpeckleSend`/`SpeckleReceive` delegates are the marshal seam binding the DI-resolved instance `IOperations.Send`/`Receive`, projecting the returned `rootObjId` content hash onto the `ContentKey` (zero second identity) and mapping the inbound `Base`/`DataObject` graph to closed Rasm op-log entries at the seam, the SDK boundary faults lifting once into `SyncFault.SpeckleMarshal`; a winning whole-relation entry (`Kind.WholeRelation` — the `Truncate` verb) commits through the session `Truncate` delegate clearing the whole `(Model, Family)` relation (the `Held` resolver answers the relation's LATEST entry for a whole-relation verb, so the truncate still adjudicates `(Hlc, OriginStoreId)` LWW against the relation head — the policy bit selects the relation-wide commit lane, never a dead flag); a `SyncEngine` service class is the rejected form — the fold and the dispatch rows own the engine.
 
 ```csharp signature
-public readonly record struct ConflictReceipt(ModelId Model, string EntityKey, ColumnFamily Family, Hlc Held, string HeldActor, Hlc Incoming, string IncomingActor, Guid Correlation, Instant At);
+public readonly record struct ConflictReceipt(ModelId Model, string EntityKey, ColumnFamily Family, Hlc Held, string HeldActor, Hlc Incoming, string IncomingActor, CorrelationId Correlation, Instant At);
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -274,7 +274,7 @@ public readonly record struct ConflictResult(ConflictVerdict Verdict, ConflictRe
 // with no `.ToError()` hop; band membership derives `Code => FaultBand.Sync + n` through the registry row
 // (`Element/graph#FAULT_TABLES` — a bare integer literal is the deleted form), `Message` projects the case
 // detail, and `Category` the telemetry label, so a recovery reads `error.IsType<SyncFault.Forked>()` /
-// `error.HasCode(8256)` / `error.Category()`, never a message substring.
+// `error.HasCode(8256)` / `error.Category`, never a message substring.
 [Union]
 public abstract partial record SyncFault : Rasm.Domain.Expected, IValidationError<SyncFault> {
     private SyncFault() : base() { }
@@ -318,13 +318,13 @@ public abstract partial record SyncFault : Rasm.Domain.Expected, IValidationErro
 // `IValidityEvidence` arm. The parameterized `Conserves(long)` knob and a hand-rolled `&&` chain are the deleted
 // forms: the receipt reconstructs the check from its own fields, so a downstream consumer re-proves conservation
 // without the caller's batch count.
-public readonly record struct SyncApplyReceipt(long Batch, long Applied, long Skipped, long Conflicted, long Converged, long Pushed, long QueueDepth, Seq<ConflictReceipt> Conflicts, SyncCursor Cursor, SyncCursor Acked, Guid Correlation, Instant At) : IValidityEvidence {
+public readonly record struct SyncApplyReceipt(long Batch, long Applied, long Skipped, long Conflicted, long Converged, long Pushed, long QueueDepth, Seq<ConflictReceipt> Conflicts, SyncCursor Cursor, SyncCursor Acked, CorrelationId Correlation, Instant At) : IValidityEvidence {
     public long Settled => Applied + Skipped + Conflicted + Converged;
     public bool IsValid => ValidityClaim.All(ValidityClaim.Of(Batch == Settled), ValidityClaim.Of(Conflicts.Count == Conflicted));
 }
 
 // The session capsule: the injected `Element/graph#STORE_RAIL` `ProjectionContext` frame carries clock,
-// correlation, and tenant as VALUES ([A.1] — a `ClockPolicy`/`CorrelationId` field is the deleted strata
+// correlation, and tenant as VALUES ([A.1] — a `ClockPolicy` or `Principal` field is the deleted strata
 // inversion); `Truncate` is the relation-wide commit lane a winning `Kind.WholeRelation` entry takes.
 // `Cursor`/`Acked` are the two per-peer cursor SPACES — `Cursor` our read position in the PEER's feed (what
 // `Pull` resumes from), `Acked` the peer's confirmed position in OUR feed (what `Pending` reads) — one slot

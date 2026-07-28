@@ -8,7 +8,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 <!-- source-only: open task card template:
 [ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
-- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Capability: <the higher-order invariant, owner capability, or concept established — concept grain only, never a page path, row list, or member spelling>.
 - Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
 - Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
 - Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
@@ -49,7 +49,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 
 [SHARD_EVIDENCE_ROWS]-[QUEUED]: Stamp shard count, node placement, and merge evidence onto the solve receipt rail.
 - Capability: shard evidence as `Solve`/`Factorization` receipt fields and one shard instrument row the projection fan folds.
-- Shape: receipt field additions and one `InstrumentRow` in `libs/csharp/Rasm.Compute/.planning/Runtime/receipts.md`.
+- Shape: receipt field additions and one `InstrumentSpec` row in `libs/csharp/Rasm.Compute/.planning/Runtime/receipts.md`.
 - Unlocks: shard-grain observability for farm capacity planning.
 - Anchors: `ComputeInstrumentFan.Project` compile-broken switch, curated-aggregate boundary law.
 - Atomic: receipt fields and one instrument row.
@@ -95,20 +95,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `EnergySimulation.Run` fact stream, the `SqlFile` readers, `AssessmentSink` content-keyed landing.
 - Ripple: `Rasm.Bim` `[ENERGY_RESULTS_ANNOTATION]`.
 
-[PARALLEL_BUDGET_BINDINGS]-[BLOCKED]: Optimizer population parallelism binds to the sealed CPU budget.
-- Capability: `Optimizer.Optimize` — already sealing `ParallelTaskExecutor.MaxThreads` from `CpuBudget.Workers` — runs over the verified parallel population carrier.
-- Shape: the `TplPopulation` carrier replacing the verified `Population` carrier at the optimizer owner.
-- Unlocks: budget-governed parallel genetic search over a verified carrier.
-- Anchors: `api-geneticsharp.md`; the `CpuBudget.Workers` seal.
-- Arms: `api-geneticsharp.md` gains the complete `TplPopulation` constructor declaration.
-
-[SIGNAL_CAPSULE_COMPOSE]-[QUEUED]: Receipt surface composes the kernel signal capsule — spec, burn algebra, causal frame — and the alert-route vocabulary un-collides.
-- Capability: instrument specs, burn windows, and receipt-seam types arrive kernel-owned; the folder keeps only its IaC-descriptor and receipt-projection specifics, and the page/ticket routing token stops sharing the platform severity ladder's name.
-- Shape: `libs/csharp/Rasm.Compute/.planning/Runtime/receipts.md` — the folder spec record and the `CanonicalBurn` constants re-cut over the kernel owners; `AlertSeverity` renames to `AlertRoute` with its rows.
-- Unlocks: one alerting algebra across AppUi tiles, Compute IaC rows, and AppHost health rules; the severity-ladder name collision dissolves.
-- Anchors: `libs/csharp/.planning/RULINGS.md` instrument-spec and burn-rate rows; kernel `Domain/telemetry.md`.
-- Ripple: follows `Rasm` `[CAPSULE_EXTENSION_MINTS]`; mirrors `Rasm.AppUi` `[SIGNAL_CAPSULE_COMPOSE]`.
-
 [STRUCTURAL_ROW_STATICS]-[QUEUED]: Structural attribute-bag reads compose the Element-declared row statics.
 - Capability: the analysis reader keys the seam bag through owner-declared names, so a spelling divergence between writer and reader becomes uncompilable.
 - Shape: `libs/csharp/Rasm.Compute/.planning/Analysis/structural.md` — the folder `StructuralAnalysis` `PropertyName` statics retarget to the Element-declared rows.
@@ -124,34 +110,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: the `[PROTO_VOCABULARY]` service roster; the estate single-writer measure-authority row.
 - Atomic: one declaration line.
 
-[BROKER_INGEST_ROWS]-[BLOCKED]: Broker subscription, NATS decode, and W3C activity restoration join the settled MQTT decode.
-- Capability: the ingest half of the sensor loop verifies over required-tier member rows; drives from IDEAS `[TWIN_SENSOR_INGEST]`.
-- Shape: required-tier member rows on the broker ingest owners beside the settled typed MQTT message decode.
-- Unlocks: IDEAS.md [TWIN_SENSOR_INGEST] — verified broker crossings on every ingest arm.
-- Anchors: the MQTTnet, NATS.Net, and diagnostics catalogs.
-- Arms: complete MQTTnet, NATS.Net, and diagnostics catalogs and direct broker project references.
-
-[SIGNAL_ADMISSION_LOOP]-[BLOCKED]: A verified broker pump feeds `WorkLane.CaptureIngest`.
-- Capability: `TwinLoop` — typed envelope admission, serialized window updates, once-consumed recalibration edges, all settled — closes its admission loop over a verified pump; drives from IDEAS `[TWIN_SENSOR_INGEST]`.
-- Shape: the admit-sink binding from the settled broker pump onto `WorkLane.CaptureIngest`.
-- Unlocks: IDEAS.md [TWIN_SENSOR_INGEST] — the admission loop closes end to end.
-- Anchors: `TwinLoop`; `WorkLane.CaptureIngest`; the `[MQTT_SUBSCRIPTION]` and `[BROKER_NATS]` research rows.
-- Arms: `[MQTT_SUBSCRIPTION]` or `[BROKER_NATS]` settles and its admit sink binds.
-
-[ARROW_DATASET_SCHEMA]-[BLOCKED]: `DoeDataset` admits a `RecordBatch` projection over verified Arrow members.
-- Capability: the batch half of the lake egress verifies against required-tier Arrow member rows; drives from IDEAS `[DOE_LAKE_EGRESS]`.
-- Shape: required-tier Apache.Arrow member rows and the direct project reference beside the settled `OnFront` carrier.
-- Unlocks: IDEAS.md [DOE_LAKE_EGRESS] — DOE batches project typed onto the Arrow wire.
-- Anchors: `DoeDataset.OnFront`; the Apache.Arrow catalog tiers.
-- Arms: the Arrow catalog completes and the direct `Apache.Arrow` reference lands.
-
-[FLIGHT_PUSH_SEAM]-[BLOCKED]: DOE batches push over a verified Persistence Flight port.
-- Capability: the push half of the lake egress verifies against the reciprocal port and Flight SQL member rows; drives from IDEAS `[DOE_LAKE_EGRESS]`.
-- Shape: the push seam binding the DOE batch onto the reciprocal Persistence port.
-- Unlocks: IDEAS.md [DOE_LAKE_EGRESS] — DOE truth lands on the durable columnar plane.
-- Anchors: `Rasm.Persistence` `[PERS_L1]` Flight SQL serving; the `Apache.Arrow.Flight.Sql` catalog tiers.
-- Arms: the reciprocal Persistence port lands and both required catalog tiers complete.
-
 [GRADUATION_EVIDENCE_OWNER]-[QUEUED]: Land the reverse graduation-evidence envelope the python companion already decodes.
 - Capability: the C# half of the graduation crossing gains a real owner — the evidence envelope carrying owner descriptors and their leaf field shapes — so the seam is a two-ended contract rather than one branch-architecture sentence.
 - Shape: a `GraduationEvidence` cluster on a `libs/csharp/Rasm.Compute/.planning/Model/` page beside the landed `GraduationEnvelope`, spelling the descriptor and leaf-field roster the companion's stub projector reads.
@@ -166,14 +124,24 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[PARALLEL_BUDGET_BINDINGS]-[COMPLETE]: `TplPopulation(int minSize, int maxSize, IChromosome adamChromosome)` is public and takes the `Population` constructor whole, so `Solver/optimizer#OPTIMIZER_LANE` `GeneticEngine.Evolve` carries it beside the budget-sealed `ParallelTaskExecutor` and `TplOperatorsStrategy`; the recorded blocker was false — the ctor existed at the admitted pin all along.
+[BROKER_CARRIER_PARENT]-[COMPLETE]: `[BROKER_TRACE_CONTEXT]` was false — `TraceCarrier.Parent` owns the branch's one `ActivityContext.TryParse` and `SpanEdge.Under(carrier, kind = Consumer)` its ingress bracket over the collapsed `(Kind, Parent, Links)` carriage, so the ingest leg hands the carrier outward with no kernel edit owed and every 3-arg `Traced` call site stays byte-identical under `default(SpanEdge)`.
+[MQTT_INGEST_LAND]-[COMPLETE]: `Runtime/transport#BROKER_INGEST` gained the MQTT subscribe pump — a bounded channel bridging `ApplicationMessageReceivedAsync` onto the same `IAsyncEnumerable<Fin<SensorEnvelope<T>>>` the NATS pump yields, `AutoAcknowledge` false with the ack riding the successful enqueue so a shed QoS 1/2 delivery redelivers, and the W3C pair extracted from `MqttApplicationMessage.UserProperties` through `ReadValueAsString` rather than the `[Obsolete]` `Value`.
+[GOVERNOR_SERIES_ROSTER]-[COMPLETE]: `Runtime/scheduling#CPU_BUDGET` lands `UtilizationSeries` — the meter name, `process.cpu.utilization`, `dotnet.process.memory.virtual.utilization`, the four container ratios, and `container.memory.usage` — spelled as literals because `ResourceUtilizationInstruments` is `internal`, and the const identifier differs from the dotted wire name on the process-memory row.
+[SIGNAL_CAPSULE_COMPOSE]-[COMPLETE]: the folder `PanelKind`-as-instrument-kind, `InstrumentSpec`, `AlertSeverity`, `BurnWindow`/`CanonicalBurn`, and `FactMatch` twins deleted against the kernel instrument mechanism and SLO algebra; the `AlertRoute` rename is refuted — one kernel `AlertSeverity` carries `page` and `ticket` with rank, hold, tone, and urgency columns, so no second routing token exists to rename. `ComputeObjective` keeps the typed fact sampler, `ComputeTraces` composes the kernel `SpanBand`, `ComputeDescriptors` composes the kernel `PanelSpec`/`BoardPack` with each panel breaking on its declaring row's `Dimensions`, the kind registry freezes at type init, and every ratio pair declares one dimension set.
 [HOOK_POINT_ROSTER]-[COMPLETE]: five-point roster landed in `.planning/Runtime/receipts#HOOK_POINTS` (`ComputeHookRail.Live`, `HookId.Create` four-segment ids, one payload type and modality per point) with the admit/dispatch thread on `.planning/Runtime/admission#SUBSTRATE_AXIS`; `rasm.compute.solve.iteration` is Replay depth 256, not Observe.
 [HOOK_FAULT_ISOLATION]-[COMPLETE]: `.planning/Runtime/receipts#HOOK_POINTS` boundary law composes the kernel capsule fork-shield — subscriber faults park as `IsolatedFault` rows on the roster evidence cell — with the bounded replay buffer under the progress cadence gate and telemetry-as-tap.
 [GOVERNOR_UTILIZATION_FOLD]-[COMPLETE]: `.planning/Runtime/scheduling#CPU_BUDGET` `ResourceGovernor.Steer` folds `UtilizationSample` values into the reserve-and-memory-scale re-resolve, returns no fact for a steady sample, and emits one `Governor` fact for each budget or spill transition; `JobGraph` seals the current effective memory limit onto each `JobRun` per invocation.
 [COST_VECTOR_ROWS]-[COMPLETE]: `.planning/Runtime/receipts#COST_LEDGER` `CostPolicy.Admit` rate rows price elapsed, token, byte, and remote axes into the `CostVector` monoid with the `rasm.compute.cost.units` roster row.
 [TENANT_PARTITIONED_FOLDS]-[COMPLETE]: `.planning/Runtime/receipts#FOLD_PROJECTIONS` `Journal` joins the envelope tenant; `TenantCosts`/`TenantRouteCosts`/`TenantFacts` and `ChargebackDataset.Of` fold the partitioned ledger.
-[DESCRIPTOR_PROJECTION]-[COMPLETE]: `.planning/Runtime/receipts#DASHBOARD_DESCRIPTOR` `ComputeDescriptors.Panels` derives from the primary `ReceiptSurface.Specs` roster (not the mounted `Instruments` table), thresholds from the explicit spec column.
-[SLO_ALERT_ROWS]-[COMPLETE]: `.planning/Runtime/receipts#DASHBOARD_DESCRIPTOR` lands solve-nonconvergence, remote-call-failure, backpressure-drop, and twin-anomaly `SloAlertRow` values over `CanonicalBurn` multiwindow pairs.
+[DESCRIPTOR_PROJECTION]-[COMPLETE]: `.planning/Runtime/receipts#DASHBOARD_DESCRIPTOR` derives one kernel `BoardPack` from the primary `ReceiptSurface.Specs` roster — each `PanelSpec` titled by its row description and broken on that row's declared `Dimensions` — and `ComputeDescriptors.Panels` projects the pack outward with widget, unit, and bucket edges read from the same row.
+[SLO_ALERT_ROWS]-[COMPLETE]: `.planning/Runtime/receipts#DASHBOARD_DESCRIPTOR` lands solve-convergence, remote-call, backpressure, and twin-anomaly `ComputeObjective` rows whose specs, windows, factors, and severities derive from the kernel burn table.
 [PROFILE_ARTIFACT_UNION]-[COMPLETE]: `.planning/Runtime/receipts#BENCHMARK_CLAIMS` `ProfileArtifact` (ChromeTrace/BenchmarkExport/EpContext) replaces the loose strings on `ModelRun.Profile` and `BenchmarkClaim.Artifacts`; `.planning/Model/inference.md` `RunOps.Profile` mints `ChromeTrace` from the admitted row's `ContentAddress` and `ProfilingStartTimeNs`.
 [SPAN_PROFILE_CORRELATION]-[COMPLETE]: `.planning/Runtime/receipts#TELEMETRY_PROJECTION` boundary states the shared-`TraceId` join to the root-span `pyroscope.profile.id` stamp with zero Compute OTel reference.
 [MONITOR_PAGE_SPINE]-[COMPLETE]: `.planning/Stats/monitor.md` lands `StreamMonitor` EWMA/P²/`FittedModel` detector capsules, `MonitorChannel` extraction rows, and `MonitorLane` advance/observe folds; detector verdicts call the fitted estimator instead of fabricating window-only results.
+[SIGNAL_ADMISSION_LOOP]-[COMPLETE]: the sensor loop closes at `.planning/Runtime/transport#BROKER_INGEST` — `CaptureAdmission` seats `WorkLane.CaptureIngest` itself and `BrokerChannels.Capture` folds each pump delivery through `AdmittedIntent.Admit` onto `LaneRuntime.Enqueue`, the new `ComputeIntent.SensorAdmit` case carrying the typed envelope with its own `Measured`/`Derived` arms; the recorded `[BROKER_NATS]` blocker was already settled, the NATS pump cataloged and landed.
+[BROKER_CARRIER_COLLAPSE]-[COMPLETE]: the folder `W3cCarrier` record and the `SensorEnvelope` two-field trace flattening collapsed onto the kernel `TraceCarrier`, so the branch carries one causal-pair spelling; `libs/csharp/.api/api-diagnostics-activity.md` already rows `ActivityContext.TryParse` and the kernel owns the one parse behind `TraceCarrier.Parent`, so no folder spelling of it survives.
+[GEOMETRY_ARENA_COLUMNS]-[COMPLETE]: `Runtime/codecs#ARROW_BATCH` gained `GeometryDataset`, the `Lanes`/`ArenaLane` quantization-row wrap, `ArrowBatch.Geometry`, and the `LandingArm.Geometry` `Landing` overload; every channel column borrows the kernel arena through `ArrowBuffer(ReadOnlyMemory<byte>)` at its stored width, so a landing allocates only the `source`/`ordinal` join pair. `Tensor/residency#GEOMETRY_ENCODING` was repaired in the same pass to hold `EncodedGeometry` whole rather than a float-typed payload the dtype-strided arena never carried.
+[FLIGHT_PUSH_SEAM]-[COMPLETE]: DOE and chargeback batches land through `.planning/Runtime/codecs#ARROW_BATCH` `ArrowBatch.Landing` — one projection overloaded on dataset shape emitting the `FlatTableEgress.Land` triple over `LandingArm.Doe`/`LandingArm.Cost` and a `Schema.FieldsList`-derived schema key; the "Flight port" the card named is refuted — `#FLIGHT_RESULT_PLANE` is the read end and `Query/columnar#FLAT_TABLE_EGRESS` is the one landing custodian.
+[ARROW_DATASET_SCHEMA]-[COMPLETE]: `ArrowBatch.Doe`/`ArrowBatch.Chargeback` already realized the batch projection against a landed `Apache.Arrow` reference and the folder catalog tier, so the card's arming condition had long since resolved.
 [MONITOR_VERDICT_SEAM]-[COMPLETE]: `MonitorVerdict.Receipt` mints the `Drift` receipt case the `ComputeInstrumentFan` counts onto `rasm.compute.monitor.breaches`, and `MonitorLane.AsDetector` satisfies the `Solver/clash` injected-detector slot.

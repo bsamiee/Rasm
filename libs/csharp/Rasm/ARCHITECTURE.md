@@ -14,7 +14,7 @@ Rasm/
 │   ├── Normalization.cs     # Topology/kind taxonomy and coercion lattice
 │   ├── Evaluation.cs        # Closest-hit evaluation over frames, sampling, and signed distance
 │   ├── Stats.cs             # Scalar-metric statistics vocabulary
-│   └── Telemetry.cs         # Branch signal capsule, receipt-tap fabric, op-cost capsule, bench-claim ledger
+│   └── Telemetry.cs         # Branch signal capsule, causal frame, receipt-tap fabric, SLO algebra, op-cost capsule, bench-claim ledger
 ├── Numerics/                # Exact-predicate floor and host-neutral-shaped numerics
 │   ├── Predicates.cs        # Exact geometric-predicate precision ladder
 │   ├── Faults.cs            # Consolidated band-2400 geometry fault family
@@ -84,7 +84,7 @@ Rasm/
 
 Four strata order the sub-domains; a co-recursive pair co-seats one stratum, so every cross-stratum consumption edge points down the ladder.
 
-- S0 `Domain` — seats `Op`, `Context`, `ContentHash`, `CurveForm`, and `TelemetrySink`; every sibling threads the rail.
+- S0 `Domain` — seats `Op`, `Context`, `ContentHash`, `CurveForm`, `TelemetrySink`, and the causal frame; every sibling threads the rail.
 - S0 `Numerics` — seats `MatrixKernel`, `GeometryFault`, `PerceptualColor`, and `AtomProjection`; every sibling threads the exact-predicate floor.
 - S0 reach — `Op` into integration and `AtomProjection` into evaluation stay same-stratum.
 - S1 `Spatial` — seats `SpatialIndex`, `VectorCloud`, `GeometryHash`, and `ScalarField`, composing the floor alone.
@@ -153,7 +153,7 @@ config:
 ---
 flowchart LR
     accTitle: Kernel content-key and compute-plane seams
-    accDescr: Kernel owners federating content keys and exchanging compute, measure, and signal shapes with same-branch and cross-runtime peers.
+    accDescr: Kernel owners federating content keys and handing compute, measure, and signal shapes, causal-frame ports, and encoded wires to same-branch and cross-runtime peers.
     subgraph rasm[RASM KERNEL]
         Domain[Domain floor]
         Numerics[Numerics floor]
@@ -187,8 +187,13 @@ flowchart LR
     Processing e13@-->|"[SHAPE]: RemeshOp"| Compute
     Drawing e14@-->|"[WIRE]: EncodedGeometry"| Compute
     Drawing e15@-->|"[WIRE]: EncodedGeometry"| AppHost
+    Drawing e24@-->|"[CONTRACT]: PackWireContext"| AppHost
     Domain e17@-->|"[SHAPE]: TelemetrySink"| AppHost
     Domain e18@-->|"[WIRE]: BenchClaim"| AppHost
+    Domain e20@-->|"[SHAPE]: InstrumentSpec + AlertSeverity"| AppHost
+    Domain e21@-->|"[PORT]: ReceiptSinkPort + TenantContext"| AppHost
+    Domain e22@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + Slo"| AppUi
+    Domain e23@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + SpanBand + Slo"| Compute
     Analysis e19@-->|"[SHAPE]: GeometryMeasures"| Bim
 ```
 
@@ -261,7 +266,7 @@ flowchart LR
     Numerics e15@-->|"[BOUNDARY]: VectorFrame"| Rhino
 ```
 
-Content-key edges federate one hasher: `Domain/Identity` mints the seed-zero `XxHash128` entry every partner composes, and `Spatial/Reconciliation` reproduces that seed byte-for-byte with the Python and TypeScript peers so one content space addresses across runtimes. A second hasher or a non-zero seed is the named cross-folder drift.
+Content-key edges federate one hasher: `Domain/Identity` mints the seed-zero `XxHash128` entry every partner composes, and `Spatial/Reconciliation` reproduces that seed byte-for-byte with the Python and TypeScript peers so one content space addresses across runtimes. Second hashers and non-zero seeds are the named cross-folder drift.
 
 Each partner edge carries its load-bearing shape on the graph; the owning sub-domain page enumerates the rest. Invariants the graph cannot show:
 - `Meshing` shares one 2D/3D clearance family with the fabrication toolpath planner rather than crossing a second boundary for it.
@@ -269,6 +274,8 @@ Each partner edge carries its load-bearing shape on the graph; the owning sub-do
 - `PackSchema` columnar identity, `ContentHash`-derived, rides that same wire as the one schema authority storage adapters read.
 - Signal exits once: `Domain/Telemetry` owns the branch's OTel-free signal capsule, and every stratum composes it downward as instances.
 - `TelemetrySink` is the kernel's first-consumer arm the AppHost fan admits by name — `rasm.kernel` meter, `rasm.rasm.<domain>` sources.
+- Causal-frame vocabulary seats here: `TelemetrySource`, `CorrelationId`, `TenantId`/`TenantContext`, `ReceiptEnvelope`, and `ReceiptSinkPort` name the receipt seam for every emitting stratum without an upward reference, while the OTel baggage store, foreign-source rows, and resource lacing register at the app platform as composition rows.
+- Objectives are policy, not signal: the indicator family, the burn table, the routing severity, the panel vocabulary, and the `BoardPack` descriptor carrier seat here, so every descriptor plane compiles one burn discipline and re-declares no panel row; a pack travels downward on `TelemetryContributorPort` beside the rows it names, so the root mounting the port is the one surface that proves it.
 - `BenchClaim` rows are the enumeration the telemetry corpus gate ingests.
 
 ## [04]-[NAMESPACES]
