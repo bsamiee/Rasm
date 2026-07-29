@@ -134,8 +134,9 @@ Every state fact binds through the one atom bridge, so a component projects and 
 
 ## [05]-[BOUNDARIES]
 
-- IFC semantics and geometry stay unowned; GLB, BCF, WKB, and selection arrive decoded through the core interchange plane, rendered, never re-authored.
-- Every GPU resource is scope-bracketed, so a lost context or a torn-down surface releases its allocations through the same bracket that acquired them.
+- IFC semantics and geometry stay unowned.
+- GLB, BCF, WKB, and selection arrive decoded through the core interchange plane, rendered, never re-authored.
+- Every GPU resource is scope-bracketed, so a lost context or torn-down surface releases its allocations through the same bracket that acquired them.
 - Browser composition roots — `GlbViewport` from Depot arrivals, host planes bound into atoms — are app composition, out of scope here.
 - `EXT_meshopt_compression` assets refuse with the `codec-absent` reason until the iac plane admits the wasm decoder identity and its serving row.
 - History consumers compose from the landed system pages; a second history owner never appears beside the selection atom.

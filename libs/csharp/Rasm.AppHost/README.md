@@ -172,7 +172,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `Microsoft.Extensions.Caching.Hybrid`
 
 [MACHINE_CONNECTIVITY]:
-- `MTConnect.NET-Common` — connectivity partition behind the machine-tool `mtconnect` `ExternalTransport` row feeding Fabrication tool-life and probing.
+- `MTConnect.NET-Common` — connectivity partition behind the machine-tool `mtconnect` `ExternalTransport` row.
 - `MQTTnet` — subscribe-shaped `mqtt` `ExternalTransport` row, its held client, and the consumer-kinded receive bracket.
 
 [DATA_CLASSIFICATION]:

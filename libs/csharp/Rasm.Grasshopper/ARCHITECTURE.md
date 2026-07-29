@@ -198,5 +198,5 @@ Boundary compiles as ONE assembly — the single `Rasm.Grasshopper.csproj` — s
 Host-name resolution is one law:
 - Inside `Rasm.Grasshopper.*` a partial qualification re-resolves against the boundary's own namespaces, so fences name host members bare.
 - Host types no global using reaches spell `global::` in full.
-- Simple-name collisions between host namespaces resolve through one project-level alias row in the csproj — the resolution law homes at `libs/csharp/.planning/RULINGS.md`.
+- Simple-name collisions between host namespaces resolve through one project-level alias row in the csproj; the branch `RULINGS.md` homes the law.
 - Fully-qualified `Grasshopper2.*` spellings stay valid because no boundary namespace shadows that root.

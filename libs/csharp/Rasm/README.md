@@ -23,7 +23,7 @@
 - [12]-[MATRIX](.planning/Numerics/matrix.md): Dense/sparse/complex linear-algebra owner and the `MatrixKernel` solve and eigen family.
 - [13]-[INTEGRATE](.planning/Numerics/integrate.md): ODE integration floor — data-driven tableau vocabulary and `FieldIntegrator` adaptive stepper.
 - [14]-[SPECTRAL](.planning/Numerics/spectral.md): Mesh-free spectral algebra — `DiscreteCalculus` with transfer-function and descriptor algebra.
-- [15]-[CALCULUS](.planning/Numerics/calculus.md): Sample-anywhere math floor — central-difference stencils, noise lattices, falloff profiles, and solar almanac.
+- [15]-[CALCULUS](.planning/Numerics/calculus.md): Sample-anywhere math floor — stencils, noise lattices, falloff profiles, solar almanac.
 
 [SPATIAL]:
 - [16]-[INDEX](.planning/Spatial/index.md): Polymorphic `SpatialIndex` behind one apply entry — queries, refit, and compute node-array wire.

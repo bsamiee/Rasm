@@ -278,8 +278,12 @@ Each partner edge carries its load-bearing shape on the graph; the owning sub-do
 - `PackSchema` columnar identity, `ContentHash`-derived, rides that same wire as the one schema authority storage adapters read.
 - Signal exits once: `Domain/Telemetry` owns the branch's OTel-free signal capsule, and every stratum composes it downward as instances.
 - `TelemetrySink` is the kernel's first-consumer arm the AppHost fan admits by name — `rasm.kernel` meter, `rasm.rasm.<domain>` sources.
-- Causal-frame vocabulary seats here: `TelemetrySource`, `CorrelationId`, `TenantId`/`TenantContext`, `ReceiptEnvelope`, and `ReceiptSinkPort` name the receipt seam for every emitting stratum without an upward reference, while the OTel baggage store, foreign-source rows, and resource lacing register at the app platform as composition rows.
-- Objectives are policy, not signal: the indicator family, the burn table, the routing severity, the panel vocabulary, and the `BoardPack` descriptor carrier seat here, so every descriptor plane compiles one burn discipline and re-declares no panel row; a pack travels downward on `TelemetryContributorPort` beside the rows it names, so the root mounting the port is the one surface that proves it.
+- Causal-frame vocabulary seats here: `TelemetrySource` `CorrelationId` `TenantId`/`TenantContext` `ReceiptEnvelope` `ReceiptSinkPort`.
+- Causal frame names the receipt seam for every emitting stratum without an upward reference.
+- OTel baggage store, foreign-source rows, and resource lacing register at the app platform as composition rows.
+- Objectives are policy, not signal: the indicator family, burn table, routing severity, panel vocabulary, and `BoardPack` carrier seat here.
+- Every descriptor plane compiles one burn discipline and re-declares no panel row.
+- Packs travel downward on `TelemetryContributorPort` beside the rows they name; the mounting root is the proving surface.
 - `BenchClaim` rows are the enumeration the telemetry corpus gate ingests.
 
 ## [04]-[NAMESPACES]

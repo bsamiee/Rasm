@@ -1,6 +1,6 @@
 # [PY_DATA_ARCHITECTURE]
 
-`data` maps host-free data interchange onto one module per domain concept, each closing its whole concern behind a single polymorphic owner. A `tabular` interchange core carries the columnar, lakehouse, query, materialize, contract, interop, and egress spine, and the `spatial`, `gridded`, `graph`, and `impact` planes each own a distinct domain. Every `from rasm.data.*` import binds a strictly-earlier module, so the module set is a provable acyclic DAG; `[03]-[SEAMS]` records only the cross-`libs/` and cross-language crossings, never an intra-`data` composition.
+`data` maps host-free data interchange onto one module per domain concept, each closing its whole concern behind a single polymorphic owner. `tabular` carries the columnar, lakehouse, query, materialize, contract, interop, and egress interchange spine; the `spatial`, `gridded`, `graph`, and `impact` planes each own a distinct domain. Every `from rasm.data.*` import binds a strictly-earlier module, so the module set is a provable acyclic DAG; `[03]-[SEAMS]` records only the cross-`libs/` and cross-language crossings, never an intra-`data` composition.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -225,6 +225,6 @@ flowchart LR
 
 Fences split by peer plane — host runtime, Python siblings, C# peers. Each collapsed edge stands for every contract at that kind between the two owners, and the owning pages enumerate the rest.
 
-An intra-`data` relation is composition, never a seam; `[02]-[STRATA]` renders the acyclic import DAG this registry excludes.
+Intra-`data` relations are composition, never seams; `[02]-[STRATA]` renders the acyclic import DAG this registry excludes.
 
-Every `[CONTENT_KEY]` edge derives one typed identity through the runtime `ContentIdentity` primitive over the public `arrow_bytes` fold, never a per-page hash, and each crossing agrees with its counterpart page verbatim. A single-sided edge is declared on the producing side and binds its counterpart when that page lands its mirror row.
+Every `[CONTENT_KEY]` edge derives one typed identity through the runtime `ContentIdentity` primitive over the public `arrow_bytes` fold, never a per-page hash, and each crossing agrees with its counterpart page verbatim. Single-sided edges declare on the producing side and bind their counterpart when that page lands its mirror row.

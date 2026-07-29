@@ -45,9 +45,9 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 - `UnitsNet` — typed quantity boundary.
 
 [GPU_DEVICE]:
-- `Silk.NET.WebGPU` — the WebGPU binding three folders compose: AppUi mints the presented device, Compute dispatches GPGPU over it, Materials acquires a surfaceless bake device of its own.
-- `Silk.NET.WebGPU.Extensions.WGPU` — `wgpu_native` extension table: `DevicePoll` map advance, `QueueSubmitForIndex` completion, native log routing, and adapter enumeration.
-- `Silk.NET.WebGPU.Native.WGPU` — the `wgpu_native` runtime binaries the binding P/Invokes; a display or bake device carries it, a dispatch-only lane binds the peer's.
+- `Silk.NET.WebGPU` — WebGPU binding behind the presented, surfaceless-bake, and GPGPU-dispatch device mints.
+- `Silk.NET.WebGPU.Extensions.WGPU` — `wgpu_native` extension surface past the standard WebGPU binding.
+- `Silk.NET.WebGPU.Native.WGPU` — P/Invoked `wgpu_native` runtime binaries; a device mint carries it, a dispatch-only lane binds the peer's.
 
 [GRAPH_ALGORITHM]:
 - `QuikGraph` — pure-managed graph containers and `AlgorithmExtensions` for the graph-algorithm walks.
@@ -67,7 +67,7 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 
 [OBSERVABILITY]:
 - `Microsoft.Extensions.Logging.Abstractions` — `ILogger` emission contract and the `[LoggerMessage]` generator.
-- `Microsoft.Extensions.Telemetry.Abstractions` — `[LogProperties]`/`[TagProvider]` emission grammar, metric-factory attributes, enricher contracts, and the latency ledger.
+- `Microsoft.Extensions.Telemetry.Abstractions` — `[LogProperties]` emission grammar, enricher contracts, and the latency ledger.
 
 [AI_CONTRACTS]:
 - `Microsoft.Extensions.AI` — provider-neutral chat, embedding, and tool-call contracts; runtime `Microsoft.Extensions.AI.Abstractions`.
@@ -82,7 +82,7 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 - `Riok.Mapperly` — compile-time graph↔DTO/proto/record mapping; runtime `Riok.Mapperly.Abstractions`.
 
 [MACHINE_CONNECTIVITY]:
-- `MTConnect.NET-Common` — MTConnect observation/streams/agent model and the ISO-13399 cutting-tool asset graph, two disjoint namespace partitions under one catalogue.
+- `MTConnect.NET-Common` — MTConnect observation/streams/agent model and the ISO-13399 cutting-tool asset graph.
 - `MQTTnet` — MQTT v5 broker-client transport in both directions behind the live-wire row, the egress sink, and the sensor-ingest pump.
 
 [RUNTIME_INBOX]:
@@ -92,7 +92,7 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 - `System.Security.Cryptography` — PEM, X.509, and ECDSA custody with zeroization at credential and receipt boundaries.
 - `System.Runtime.InteropServices` — POSIX signal registration behind drain traps and reload.
 - `System.Xml` — LINQ-to-XML, streaming reader/writer, schema, and XSLT behind MaterialX, BCF, and SVG payloads.
-- `System.Text.Json` — contract-frozen JSON wire: source-generated contracts, converter dispatch, node and document models, and the schema exporter behind contract self-description.
+- `System.Text.Json` — contract-frozen JSON wire: source-generated contracts, converter dispatch, node models, and the schema exporter.
 
 [DEPENDENCY_FLOORS]:
 - `System.Configuration.ConfigurationManager` — transitive XML-configuration floor under log4net and PerformanceCounter, never a direct reference.

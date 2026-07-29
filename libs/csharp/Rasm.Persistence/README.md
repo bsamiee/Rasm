@@ -204,7 +204,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 
 [RUNTIME_INBOX]:
 - `System.Net.Http` — blob-store client, ranged reads, and multipart upload legs of the object plane.
-- `System.Text.Json` — generated wire contexts and the `JsonDocument`/`JsonElement` payload plane behind the element codec, version records, and registry seams.
+- `System.Text.Json` — generated wire contexts and the `JsonDocument`/`JsonElement` payload plane.
 
 [TEST_SUBSTRATE]: Rows bind in branch test and benchmark projects, never the package csproj.
 - `Verify.XunitV3`

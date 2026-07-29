@@ -125,7 +125,8 @@ flowchart LR
 
 ## [05]-[BOUNDARIES]
 
-- Persistence lives outside by construction: every store is a port Tag the data stratum satisfies and the app root binds, so a consumer carrying zero durable state composes the folder whole.
+- Persistence lives outside by construction: every store is a port Tag the data stratum satisfies and the app root binds.
+- Consumers carrying zero durable state compose the folder whole.
 - Every credential-verify surface is throttled and telemetered structurally, and a rejected credential is a verdict arm, never a fault.
 - Growth is one table row per provider, dialect, surface, or role; no capability class earns a sibling owner beside its table.
 - Content-identity digesting stays core's; this folder owns secret derivation and authenticated crypto only.

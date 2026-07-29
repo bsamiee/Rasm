@@ -77,7 +77,7 @@ Five strata order the seven sub-domains; `Runtime` seats lowest as the vocabular
 - S2 `Stats` — the `EstimatorKind` fit axis, the spectral rail, and the `StreamMonitor` capsule family.
 - S3 `Solver` — the discretize-solve-optimize-sweep spine over tensors, symbols, surrogates, and estimators.
 - S3 `Solver` — `MeshKernel`, `OptimizerKind`, `SweepLane`, the `ClashScale` collision fold, and the `DoeDataset` wire shape.
-- S4 `Analysis` — the discipline-assessment rail nothing composes: `AssessmentRoute`, `AssemblyAggregator`, the `DaylightAnalysis` runner over the kernel solar almanac.
+- S4 `Analysis` — the discipline-assessment rail nothing composes: `AssessmentRoute`, `AssemblyAggregator`, `DaylightAnalysis`.
 - S4 reach — `Analysis` reads the `ElementGraph` and writes content-keyed deltas.
 
 ```mermaid
@@ -290,13 +290,19 @@ Spine admits once, selects substrate over row data, enqueues on bounded lanes, d
 
 Seam graph carries which owner exchanges which shape; the load-bearing cross-boundary invariants each Compute owner holds are:
 - `Substrate.DeviceWgpu` binds the AppUi-owned wgpu device and holds compute-only resources; no second device or residency lattice.
-- `Tensor/residency` consumes the host-neutral `EncodedGeometry` whole as `EncodedTensor` for the model lane, and `Runtime/codecs` reads the same carrier for the lake landing; both compose the kernel's dtype-dispatched channel readers rather than re-slicing its arena.
+- `Tensor/residency` consumes the host-neutral `EncodedGeometry` whole as `EncodedTensor` for the model lane.
+- `Runtime/codecs` reads the same `EncodedGeometry` carrier for the lake landing.
+- Geometry consumers compose the kernel's dtype-dispatched channel readers rather than re-slicing its arena.
 - Host geometry folds at the kernel and AppHost capsules; no host type reaches an interior `Tensor`/`Solve`/`Estimator` signature.
 - Compute owns the channel and companion-rpc orchestration; `Rasm.Bim` owns every semantic read, and neither crosses the seam.
 - Strata run one direction: the AEC peers admit `UnitsNet` in-folder rather than reference the app-platform unit and solve owners downward.
 - `Analysis` reads the concrete `ElementGraph` upward and writes a content-keyed assessment `GraphDelta` the caller applies; it mutates nothing.
 - C# owns inference and classical fit; Python compute owns offline-learned models exchanged by content key over graduation evidence.
-- `Rasm.Materials` SPECIFIES photo-to-PBR inference and `Model/inference` EXECUTES it: stage, model-card, and role identities cross as opaque KEYS this side dispatches on none of, the licence spelling RESOLVES here to a grant verdict on the roster this side owns (fail-closed on an unrostered spelling — the one wire column an executing end never takes on trust), every plane crosses as a content address injected ports resolve, and the strata forbid a reference in either direction — so admitting a model at the specifying end moves no Compute surface and the wire mints no corpus contract entry.
+- `Rasm.Materials` SPECIFIES photo-to-PBR inference and `Model/inference` EXECUTES it; the branch-interior wire mints no corpus contract entry.
+- Stage, model-card, and role identities cross as opaque keys this side dispatches on none of.
+- Licence spellings resolve here to a grant verdict on the Compute-owned roster, fail-closed on an unrostered spelling.
+- Every plane crosses as a content address injected ports resolve.
+- Strata forbid a reference in either direction; admitting a model at the specifying end moves no Compute surface.
 - `EnergyToolchain` resolves EnergyPlus by env var, configured path, or bundle; no hardcoded path or token column enters the policy.
 - `EnergyRoute` converges local and cloud runs on the one `SqlFile` fold.
 - Closed-form ISO/EN folds and the multi-ply `AssemblyAggregator` live in `Analysis`; single-material folds stay seam-owned, composed here.
@@ -305,11 +311,11 @@ Seam graph carries which owner exchanges which shape; the load-bearing cross-bou
 - Daylight content key folds the assessment content key, so a re-shaded site re-keys; site evidence is the EPW header or the explicit `SolarSite`.
 - `Runtime/receipts` descriptor and chargeback rows stay Compute-owned data a composition owner encodes onward; Compute owns no IaC surface.
 - Every ledger fold reads the kernel `TenantContext` stamped on the envelope as its tenant partition, never a Compute-minted tenancy.
-- `Runtime/transport` decodes typed MQTT and NATS CloudEvents onto the kernel `TraceCarrier` — MQTT from composition, NATS inline from `NatsMsg.Headers`.
-- NATS Core pump drains `SubscribeAsync<byte[]>` and `BrokerChannels.Capture` admits each sample as `ComputeIntent.SensorAdmit` on `WorkLane.CaptureIngest`.
+- `Runtime/transport` decodes MQTT and NATS CloudEvents onto the kernel `TraceCarrier` — MQTT from composition, NATS inline from `NatsMsg.Headers`.
+- NATS Core pump drains `SubscribeAsync<byte[]>`; `BrokerChannels.Capture` admits samples as `ComputeIntent.SensorAdmit` on `WorkLane.CaptureIngest`.
 - MQTT's event-delivered receive loop bridges through one bounded channel onto that same stream, its ack riding a successful enqueue alone.
 - Parent adoption off that carrier is the kernel causal-frame band's; neither pump opens a span nor re-mints the pair.
-- `Runtime/codecs` builds every columnar `RecordBatch` Compute produces — the `DoeDataset` and `ChargebackDataset` row-major folds beside the `GeometryDataset` arena wrap over the kernel encode.
+- `Runtime/codecs` builds every columnar `RecordBatch` Compute produces over the kernel encode.
 - Persistence `api-arrow` overlay carries IPC, LZ4/Zstd, ADBC, and Flight-SQL; its `Query/columnar` `Land` port redeems the batch.
 - Compute holds one core `Apache.Arrow` reference and opens no Flight listener.
 

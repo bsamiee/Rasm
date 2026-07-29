@@ -294,12 +294,15 @@ Seam edges carry which package exchanges which shape; the load-bearing cross-pac
 - Program delivery closes chain-of-custody by value: the cell drive receipt re-mints a content key from the exact controller-bound records.
 - `Posting/dialect` `ProgramDelivery` proves transfer integrity by digest equality; the delivery fact rides the tap onto the receipt rail.
 - Fabrication facts leave through the one `FabricationTap` port onto the AppHost receipt rail as `FabricationFact` envelopes.
-- `TelemetryContributorPort` carries the `rasm.fabrication.*` instrument roster and the board pack over it inward at composition, where the mounting root proves both.
+- `TelemetryContributorPort` carries the `rasm.fabrication.*` instrument roster and board pack inward at composition; the mounting root proves both.
 - `FabricationInstruments.Arms` kind-arm table merges onto the AppHost receipt fan beside its own arms.
 - Classification federates by value to the suite `DataClassification` taxonomy — never a type reference in either direction.
 - Fabrication hook points register on the AppHost hook registry at composition through the runtime-carried `FabricationHooks` roster.
 - Hook modality and payload close at declaration; subscribers attach only at app roots.
-- Solver spans ride `FabricationTrace.Scopes` — one `TraceScope` per `FabricationEngine` row — admitted into the composing root's kernel `SpanBand`; the meter scope stays `TelemetrySource.Fabrication` and neither grammar derives from the other. Every traced lane takes the band as a trailing nullable parameter beside its `FabricationTap`, so a headless caller supplying neither runs untraced and silent with no ambient source and no branch of its own.
+- Solver spans ride `FabricationTrace.Scopes` — one `TraceScope` per `FabricationEngine` row — admitted into the composing root's kernel `SpanBand`.
+- Meter scope stays `TelemetrySource.Fabrication`; neither grammar derives from the other.
+- Every traced lane takes the band as a trailing nullable parameter beside its `FabricationTap`.
+- Headless callers run untraced and silent — no ambient source, no branch of their own.
 - Trace-based exemplars join the fabrication histograms to their solve traces.
-- `FabricationDescriptors` binds one kernel `BoardPack` value the contributor port carries outward to the AppHost alert rail and the deploy-plane dashboard compile.
+- `FabricationDescriptors` binds one kernel `BoardPack` the contributor port carries to the AppHost alert rail and deploy-plane dashboard compile.
 - Indicator, severity, panel, and burn vocabularies stay the kernel signal capsule's and cross as values, never re-decided here.

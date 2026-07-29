@@ -114,7 +114,7 @@
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Domain-specific libraries admitted by this folder; versions centralize in the root `pyproject.toml` and corroborate against this folder's `.api/`. FLOOR-GATED marks a row whose `python_version` marker in that manifest no supported interpreter satisfies, so the module resolves nowhere and the arms composing it are unreachable until the marker retires — admission stands, reach does not, and the mark keeps a gated row from reading as a live provider. A Forge python-overlay row keeps its marker yet imports at the floor off the overlay `.pth`, so admission and reach diverge the other way. Cards naming host binaries carry no manifest row and state their provisioning lane instead.
+Domain-specific libraries admitted by this folder; versions centralize in the root `pyproject.toml` and corroborate against this folder's `.api/`. FLOOR-GATED marks a row whose `python_version` marker no supported interpreter satisfies — the module resolves nowhere and its composing arms stay unreachable until the marker retires; admission stands, reach does not. Forge python-overlay rows keep their marker yet import at the floor off the overlay `.pth`, so admission and reach diverge the other way. Cards naming host binaries carry no manifest row and state their provisioning lane instead.
 
 [DOCUMENTS]:
 - `reportlab`

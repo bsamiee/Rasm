@@ -122,11 +122,15 @@ Growth is one row on the owning surface — a cloud, capability, credential, ten
 ## [05]-[BOUNDARIES]
 
 - Nothing imports this package at runtime; values cross back only as typed stack outputs read from env at boot.
-- Coordinates publish and material never does: the output gate refuses any secret-flagged value, and the one secret source of truth reaches external stores only as mirrors.
+- Coordinates publish and material never does: the output gate refuses any secret-flagged value.
+- One secret source of truth reaches external stores only as mirrors.
 - IaC builds unpublished generations and re-runs convergence on deployment fences; data admits the published generation read-only.
-- Telemetry residences provision here and read nowhere: the deploy plane plants the schema and publishes the door on the `analytics` output plane, and the data planes bind that door as an ordinary query end.
+- Telemetry residences provision here and read nowhere: the deploy plane plants the schema and publishes the door on the `analytics` output plane.
+- Data planes bind the published door as an ordinary query end.
 - Convergence treats recovery as clean-target materialization and returns it through the normal publication path.
 - Every workload role mounts the proved contract and active-generation pointer before scheduling.
 - Object-engine admission requires conditional-create semantics; `minio | ceph` are the conforming rows.
-- Static distribution publishes caller-owned artifact rows — every leaf of a row under one lowercase `assets/<digest>/` directory beside the one served-header roster every arm reads — on the `served` plane and carries no UI codec semantics; a served address IS the object key, so every declared leaf proves present under the built directory before the dialect converges.
+- Static distribution publishes caller-owned artifact rows on the `served` plane and carries no UI codec semantics.
+- Every leaf of a row lands under one lowercase `assets/<digest>/` directory beside the one served-header roster every arm reads.
+- Served addresses ARE object keys; every declared leaf proves present under the built directory before the dialect converges.
 - Queue durability is the SKIP-LOCKED outbox with the runtime relay owned by the data and runtime planes.

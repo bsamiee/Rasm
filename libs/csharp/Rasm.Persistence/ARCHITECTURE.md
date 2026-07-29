@@ -226,17 +226,25 @@ One `IDocumentSession` commits the `GraphDelta` event and the identity row toget
 ## [05]-[BOUNDARIES]
 
 - Persistence is not a domain service layer, repository framework, ORM wrapper, provider wrapper, or host-boundary package; it is RhinoCommon-free.
-- It depends up on the `Rasm.Element` seam and the `Rasm` kernel; the seam and the content-keyed wire carry every sibling-domain and host alignment, so no AEC peer or host-SDK type is referenced.
-- Public capability extends its budgeted sub-domain owner region as a row, case, or policy value; a public type outside an owner region draws on no budget.
+- Persistence depends upward on the `Rasm.Element` seam and the `Rasm` kernel alone.
+- Seam and content-keyed wire carry every sibling-domain and host alignment; no AEC peer or host-SDK type is referenced.
+- Public capability extends its sub-domain owner region as a row, case, or policy value; a public type outside an owner region draws on no budget.
 - `Store/Schema` owns contract composition, generated artifacts, generation identity, and admission verdicts.
-- `Store/Provisioning` verifies PostgreSQL state and emits reconcile artifacts; PostgreSQL is the sole relational engine, deployment owns the process, and no Rasm process spawns one.
-- Marten owns the op-log at per-model stream grain carrying `GraphDelta` bodies — a per-node stream grain and a whole-graph event body are the two rejected granularities.
+- `Store/Provisioning` verifies PostgreSQL state and emits reconcile artifacts.
+- PostgreSQL is the sole relational engine; deployment owns the process, and no Rasm process spawns one.
+- Marten owns the op-log at per-model stream grain carrying `GraphDelta` bodies.
 - Identity lands as the compiled-model upsert `IdentityStore.Stamp` queues on the `IDocumentSession`, never a Marten document or second ORM write.
 - Geometry blobs are write-first and reference-after, with no free two-ORM atomicity.
-- Interactive-correctness reads bind the inline projection and the in-process QuikGraph view, blocking on non-stale data; async projections serve analytical lanes under a watermark alone.
-- Typed projection records and the seam `ElementGraph` are the only egress; provider failure converts once per rail, and each sub-domain outcome keeps its own typed receipt or fact record.
+- Interactive-correctness reads bind the inline projection and the in-process QuikGraph view, blocking on non-stale data.
+- Async projections serve analytical lanes under a watermark alone.
+- Typed projection records and the seam `ElementGraph` are the only egress.
+- Provider failure converts once per rail; each sub-domain outcome keeps its own typed receipt or fact record.
 - Generated rails own converters, formatters, and migration artifacts.
-- Retention reachability spans the full event history; a store class unable to prove full-history reachability retains blobs through deduplication and cold tiering instead of collecting them.
-- `ProjectionContext` is the one time AND causal seam and the HLC the one causal clock — it seats the kernel `CorrelationId`/`TenantContext` pair, so a policy value applied at both a provider wire and a domain catalog derives once from one sampled instant threaded through the write path and every receipt, RLS predicate, and blame header reads one tenancy off that frame.
+- Retention reachability spans the full event history.
+- Store classes unable to prove full-history reachability retain blobs through deduplication and cold tiering instead of collecting them.
+- `ProjectionContext` is the one time and causal seam, seating the kernel `CorrelationId`/`TenantContext` pair; the HLC is the one causal clock.
+- Policy values applied at provider wire and domain catalog alike derive once from one sampled instant threaded through the write path.
+- Every receipt, RLS predicate, and blame header reads one tenancy off the `ProjectionContext` frame.
 - Each spine concept keeps one owner across content hash, identity, CRDT, selection shape, and geometry representation.
-- AppHost owns scheduling, drain, hop retry, correlation, and the cache port; Persistence contributes rows and never reverses the dependency, while database retry stays outside the AppHost hop law with the relational rows owning it.
+- AppHost owns scheduling, drain, hop retry, correlation, and the cache port; Persistence contributes rows, never reversing the dependency.
+- Database retry stays outside the AppHost hop law; the relational rows own it.

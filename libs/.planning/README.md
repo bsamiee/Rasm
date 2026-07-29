@@ -8,12 +8,13 @@ Authoring standard for the `libs/` corpus, it owns the doc-set per tier, index-d
 
 This planning corpus widens by scope: a folder owns one package, a branch aggregates one independently adoptable language estate, and the cross-`libs/` core owns polyglot contracts. Peer languages appear in a branch or folder doc only as seam-registry counterpart nodes; every capability, ownership, and dependency claim spanning languages stays at the cross-`libs/` core.
 
-- Cross-`libs/` core (`libs/.planning/`): `ARCHITECTURE.md`, `campaign-method.md`, `README.md`, `planning-targets.md`, `RULINGS.md`, `IDEAS.md`, `TASKLOG.md`.
 - Branch (`libs/<lang>/.planning/`): `README.md`, `ARCHITECTURE.md`, `RULINGS.md`, `IDEAS.md`, `TASKLOG.md`.
 - Folder (`<pkg>/`): branch index docs at root; design pages in `.planning/` use `<sub-domain>/<page>.md`, or `<page>.md` for a single-page concept.
+- Cross-`libs/` core (`libs/.planning/`): the branch doc-set beside `campaign-method.md` and `planning-targets.md`.
 
 [API_TIERS] — this section owns the two-tier catalogue law; every other surface points here:
-- Catalogues document external distributions and host SDK assemblies alone; a sibling package inside this corpus declares its own members on its design pages, so a member crossing a folder boundary verifies at that owning page under `docs/laws/topology.md` `[FENCE_SEAM]` and a `.api/` file named for a corpus package never exists.
+- Catalogues document external distributions and host SDK assemblies alone; a corpus package declares its members on its own design pages.
+- Cross-folder member use verifies at the owning design page under `docs/laws/topology.md` `[FENCE_SEAM]`.
 - Branch `.api/` (`libs/<lang>/.api/`): one catalogue per language-wide substrate package.
 - Folder `.api/`: exists in two tiers, Domain and Substrate, the former being specific to a package, and the latter being language branch wide.
 - Every folder consuming a substrate package reads the branch catalogue and lists the package in its README `## [03]-[SUBSTRATE_PACKAGES]` section.
@@ -39,7 +40,7 @@ Each index doc opens on its own charter law, then its content. Keep each load-be
 - Branch architecture owns dependency direction and the folder roster with one-line charters; folder architecture composes that direction.
 - Every seam appears at both endpoint folders with identical kind and direction; a new kind amends this standard before use.
 - Settled architecture contains no owner-state registry or transient build order; task cards own construction order.
-- `[<KIND>]: <shape>`; `KIND = WIRE | CONTRACT | SHAPE | PROJECTION | PORT | BOUNDARY | RECEIPT | CONTENT_KEY | TRANSPORT | TESSELLATION | GRADUATION | FAULT`.
+- `[<KIND>]: <shape>`; `KIND = WIRE|CONTRACT|SHAPE|PROJECTION|PORT|BOUNDARY|RECEIPT|CONTENT_KEY|TRANSPORT|TESSELLATION|GRADUATION|FAULT`.
 - Codemap edges carry `IMPORT` — a sub-domain composing a sibling owner — and `COUNTER` — the strata counter-edge — under the same label grammar.
 
 [RULINGS] — the folder's permanent decision registry:
@@ -71,11 +72,11 @@ Design pages live at `<pkg>/.planning/<sub-domain>/<page>.md`, one sub-domain fo
 - Research rows record epistemic debt in place of a guessed spelling; `(none)` marks the empty section, and a resolved row is deleted whole.
 - SPIKE markers name a design element whose convergence only live-host evidence finalizes; the page ships its deterministic floor beside it.
 - Each cluster carries a card, then transcription-complete signature fences, then at most one Mermaid diagram.
-- Card fields are a closed vocabulary — `Owner`, `Cases`, `Law`, `Exemption`, `Entry`, `Auto`, `Output`, `Receipt`, `Packages`, `Growth`, `Boundary`, in that order.
+- Card fields are a closed ordered vocabulary: `Owner` `Cases` `Law` `Exemption` `Entry` `Auto` `Output` `Receipt` `Packages` `Growth` `Boundary`.
 - Each card field is earned: a field that decides nothing for the cluster is omitted.
 - Card bullets carry only what the fence cannot show — the decision, invariant, boundary, ownership ruling, trap, or rejection-with-reason.
 - `[01]-[INDEX]` indexes the page's clusters in section order, one entry per cluster and never an owner roster or a card restatement.
-- Each index entry leads `[NN]-[CLUSTER]` restating that cluster's own header number, so a leader list is the only conforming form — a table seats its ordinal in `[INDEX]` and strands the coordinate.
+- Each index entry leads `[NN]-[CLUSTER]` restating its cluster's header number — a leader list, never a table seating the ordinal in `[INDEX]`.
 - Signature fences are transcription-complete: every generated-owner knob, closed-family key, union case, and entrypoint signature copies verbatim.
 - Fence bodies land only where the body is the law.
 - Fence comments carry one in-situ constraint the code cannot show, never a duplicate of a card line; cluster invariants live on the card.
@@ -89,8 +90,8 @@ Design pages live at `<pkg>/.planning/<sub-domain>/<page>.md`, one sub-domain fo
 
 One integration-point notation, scope-qualified by distance: `page#CLUSTER` inside a folder, `pkg/page#CLUSTER` across folders in a language, `lang:pkg/page#CLUSTER` across languages (cross-`libs/` only). Type names recur across packages only when the concepts are genuinely distinct in distinct namespaces; a recurring wire-projection name is disambiguated at the source, never carried twice.
 
-- Path segments name the page and every folder above it under its package, carrying no `.md` suffix, no `.planning/` or `.api/` tier segment, and no hyphen-joined stand-in for a path separator.
-- `#CLUSTER` names a `## [NN]-[CLUSTER]` section header on that page — never a code symbol, a fence-local binding, or a table row index, which the owning table renumbers out from under the reference.
+- Path segments name the page and every folder above it in its package — no `.md` suffix, `.planning/`/`.api/` segment, or hyphen standing in for `/`.
+- `#CLUSTER` names a `## [NN]-[CLUSTER]` header on that page — never a code symbol, fence-local binding, or table row index the table renumbers away.
 - References into a live table name the row's stable token, so growth in the table never silently re-points them.
 
 ## [05]-[LANGUAGE]

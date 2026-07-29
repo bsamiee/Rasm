@@ -2,7 +2,7 @@
 
 `Rasm.Grasshopper` is the single Grasshopper 2 host boundary — the GH2, Eto, Rhino UI, and macOS native surface captured as typed, leased capability. Every sub-domain folds through one owner, with `GhSession`, `EtoDispatch`, and `MacGate` bounding live host access and `Lease<T>` carrying every retained resource and its inverse lifecycle. Its bar is native-fidelity product capability: components, canvas interaction, and motion land at the grade of GH2's own built-in surfaces — vsync-paced, undo-sealed, wide-color-aware — composed as typed rails rather than raw host calls.
 
-The kernel admits as a boundary contract alone.
+`Rasm.Grasshopper` admits the kernel as a boundary contract alone.
 
 ## [01]-[ROUTER]
 

@@ -215,8 +215,9 @@ flowchart LR
 
 Boundaries state one positive ownership line each at the folder's own grain — one owner per axis, one entrypoint family per rail, growth by data; per-page boundary cards carry the concrete seams.
 
-- Materials owns substance, appearance, and buildable type: one `Component` over the closed profile algebra, one capacity rail, one `MaterialGraph`, one `TextureSet`.
-- Appearance CORE stays pointwise and the plane algebra neighbourhood: a DAG node has no neighbours to read, so every filter, integration, and tiling kernel is `Raster/filter`'s or `Raster/tile`'s and never a node case.
+- Materials owns substance, appearance, and buildable type: one `Component`, one capacity rail, one `MaterialGraph`, one `TextureSet`.
+- Appearance CORE stays pointwise — a DAG node has no neighbours to read; neighbourhood work is the plane algebra's.
+- Every filter, integration, and tiling kernel homes at `Raster/filter` or `Raster/tile`, never a node case.
 - Persisted plane bytes are CPU-minted; the GPU lane is an accelerator whose product carries no set and therefore no content key.
 - `ComponentFamily` closes the family axis and `ComponentClass` the structural-class axis, each family row carrying its class discriminant.
 - `SEED_ROW_LAW` seats standards data as in-fence C# under per-column provenance, and every seed row flows the one catalogue-to-solver rail.

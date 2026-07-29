@@ -199,9 +199,14 @@ flowchart LR
     Collab <-->|"[TRANSPORT]: CollabWireContext"| AppHost
 ```
 
-- `[BOUNDARY]: LayeredBsdf + SurfaceShade + EnvironmentLight + TextureSet` into `Render` — the appearance edge, VALUES only: Materials lowers the layered BSDF and the channel-value closure, presses or ingests the plane set, and prefilters the dome, while `Render/pathtrace` shades and draws the dome and `Render/shading` uploads planes and binds the prefiltered products. Every plane read, transfer decode, mip fold, sampler law, channel name, equirect projection, SH band, and prefilter integral stays Materials-side; Render supplies the point, the UV, the mip level, and the device.
+- `[BOUNDARY]: LayeredBsdf + SurfaceShade + EnvironmentLight + TextureSet` into `Render` — the appearance edge, VALUES only.
+- Materials lowers the layered BSDF and channel-value closure, presses or ingests the plane set, and prefilters the dome.
+- `Render/pathtrace` shades and draws the dome; `Render/shading` uploads planes and binds the prefiltered products.
+- Appearance semantics stay Materials-side; Render supplies the point, the UV, the mip level, and the device.
 - `[PORT]: DeterminismContext` into `Document` — the AppHost runtime port spine composed at app composition; `CapabilityPin` anchors it.
-- `[PORT]` into `Diagnostics` — observability spine: owners seal evidence through the kernel `ReceiptSinkPort`, declare instruments as kernel `InstrumentSpec` rows, and bind objectives through the kernel SLO algebra; telemetry projects facts, never produces them, and the AppHost half of the edge is the `HookRail` receipt point the fan taps.
+- `[PORT]` into `Diagnostics` — the observability spine; telemetry projects facts, never produces them.
+- Owners seal evidence through kernel `ReceiptSinkPort`, declare instruments as `InstrumentSpec` rows, and bind objectives through the SLO algebra.
+- AppHost's half of the edge is the `HookRail` receipt point the fan taps.
 - Instrument rows contribute through `TelemetryContributorPort` on the `TelemetrySource.AppUi` meter.
 - Evidence fan subscribes to the `HookRail` receipt point as one observe row.
 - `[CONTENT_KEY]` edges are one idiom — every content-identity mint composes the kernel `ContentHash.Of` seed-zero entry.
@@ -209,8 +214,10 @@ flowchart LR
 - `[PROJECTION]: ReplayWindow` also serves the Render version-compare lane — values only, AppUi runs no ledger read.
 - Persistence `ReplayWindow`/commit-DAG fold derives the `(ElementId, DiffClass)` classification `VersionGhost` renders as `VisibilityOverride` rows.
 - `[RECEIPT]: ConstructionState` — `SchedulePlayback.FromSchedule` reads `ConstructionState.At`/`TaskKind` as Bim-owned 4D schedule values.
-- `[PROJECTION]: telemetry measure series` into `Charts` — store tiles name a facet coordinate beside its rollup column on the Persistence telemetry series and reach it through one injected read arrow.
-- `[RECEIPT]: resident ReceiptEnvelope` into `Diagnostics` — the `EvidenceSource.Resident` arrow hands back envelopes, so the correlation join and the billing accrual stay one fold over two sources.
+- `[PROJECTION]: telemetry measure series` into `Charts` — store tiles name a facet coordinate beside its rollup column on the Persistence series.
+- Tiles reach the series through one injected read arrow.
+- `[RECEIPT]: resident ReceiptEnvelope` into `Diagnostics` — the `EvidenceSource.Resident` arrow hands back envelopes.
+- Correlation join and billing accrual stay one fold over two sources.
 - Profiling custody, the pg_stat slots, and the `store.<domain>.<verb>` grammar stay Persistence-side.
 - `[TRANSPORT]: CollabWireContext` — `Collab/sync` frames each delta as a `CollabFrame`, W3C carrier and Loro bytes.
 - Merge extracts the originating correlation; AppUi holds only the composition-bound `Inject`/`Extract` delegates of AppHost `TraceContext`.
@@ -228,20 +235,24 @@ flowchart LR
 - Cost and schedule dashboards consume the Bim `CostSchedule` and `ScheduleNetwork` planning receipts as `Charts/dashboards` feed values.
 - Whisper.net owns translate-to-English captioning; broader translation binds through a locale service row.
 - Kernel `Analyze` receipt projection enters inspector and dashboard surfaces through the receipt spine.
-- `SurfaceMount.Panel` mounts on an embedded host surface only when a Rhino lease supplies `EmbedCapsule` and the `Render/pipeline` render-graph GPU lease.
+- `SurfaceMount.Panel` mounts on an embedded host surface only when a Rhino lease supplies `EmbedCapsule` and the `Render/pipeline` GPU lease.
 - `Surfaces` mount gate admits a production view only as its compiled-XAML class, so a runtime XAML load has no mount path.
 - Avalonia owns GPU backend selection through `EmbedOptions.RenderingMode`; no dispatch arm constructs a per-host `GpuBackend` or `GRContext`.
 - `Offscreen` capsule owns the one Skia draw boundary and every `SKSurface` inside it.
 - `BehaviorRail` intent bridge is the single C# view-binding seam and rejects binder symbols, so ReactiveUI code-behind binding has no seam to enter.
-- `AppUiTelemetry.Contribute` is the one spine every owner routes image-load, telemetry, and receipt facts through; every receipt stays a typed record sealed at `ReceiptSinkPort`.
+- `AppUiTelemetry.Contribute` is the one spine every owner routes image-load, telemetry, and receipt facts through.
+- Every receipt stays a typed record sealed at `ReceiptSinkPort`.
 - `CommandIntent` table is the one verb registry — hotkey, palette, and conflict views are derivation folds over it.
-- `ControlIntent` union through `ControlFactory` materializes every control, and the `LayoutConstraint` algebra solved by one `LayoutSolver` panel owns every layout.
+- `ControlIntent` union through `ControlFactory` materializes every control.
+- `LayoutConstraint` algebra solved by one `LayoutSolver` panel owns every layout.
 - `VirtualWindow` over `DynamicData` change-sets owns every windowed surface.
 - Every AppUi fault union derives its `Code` through its `AppUiFaultBand` row in the `Diagnostics/evidence` registry.
-- Durable truth is the one `EditIntent` union projected onto Persistence-owned `OpLogEntry` rows; a Loro snapshot survives only as a content-keyed cold-start accelerator.
+- Durable truth is the one `EditIntent` union projected onto Persistence-owned `OpLogEntry` rows.
+- Loro snapshots survive only as content-keyed cold-start accelerators.
 - `RevertibleOp` folds forward and inverse deltas across the recorder and the durable inverse stream.
 - `Rasm.Bim` owns openBIM and coordination semantics; AppUi keeps the `Viewpoint` board projection alone.
 - Every AppUi content hash composes the one kernel `ContentHash.Of` seed-zero entry, the branch's frozen content-key entry.
 - Bim, the `Rasm` kernel, and the AppHost `RecomputeGraph` own geodesy, solar position, clustering, and recompute.
-- `Rasm.Materials` owns appearance whole — the channel roster, plane storage and its decode ladder, sampler reconstruction, set admission, and the prefiltered environment — so a Render-side channel vocabulary, texture sampler, transfer curve, mip fold, SH reconstruction, or prefilter integral has no seam to enter; Render binds the values and holds the device.
-- Texture-plane VRAM is budgeted at `Render/shading` under the byte-ceiling and least-recently-touched law `Render/meshlets` `ResidencyBudget` holds for geometry VRAM; an unbounded native-handle cache is the rejected form on either plane.
+- `Rasm.Materials` owns appearance whole — channel roster, plane storage, decode ladder, sampler reconstruction, set admission, prefiltered dome.
+- Render-side appearance machinery has no seam to enter; Render binds the values and holds the device.
+- Texture-plane VRAM budgets at `Render/shading` under the byte-ceiling law `Render/meshlets` `ResidencyBudget` holds for geometry VRAM.

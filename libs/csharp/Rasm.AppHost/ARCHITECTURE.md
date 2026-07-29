@@ -247,7 +247,7 @@ Boot resolves the one `ResolvedProfile`, folds and freezes the module graph behi
 
 - AppHost is not a domain-service, job, DI, telemetry, UI, persistence, compute, or host-boundary package.
 - AppHost owns runtime state and policy; app roots own process attachment and host events.
-- AppHost IS the branch's telemetry composition owner: the OTLP exporter seats, the Serilog bridge and sinks, and the durable egress queue live on `Observability/telemetry`, and the no-exporter-below-composition law scopes to the S0-S2 library tiers.
+- Telemetry composition homes at `Observability/telemetry`: OTLP exporter seats, Serilog bridge and sinks, durable egress queue.
 - Composition-root-only pins — gRPC-Web middleware, Kestrel public binding, sink instances, and the exporter endpoint value — stay at the app root.
 - Protocol-runtime types the fences carry stay lib references, never app-root pins; the Sandbox and Wire owners hold the certified transport stack.
 - Statement carve-outs are boundary capsules named per fence on the owning page; every other member stays expression-shaped on typed rails.
@@ -256,23 +256,27 @@ Boot resolves the one `ResolvedProfile`, folds and freezes the module graph behi
 - Grant broker owns permission-shape evaluation as its own typed `PermissionShape` × `GrantScope` value-object predicate.
 - Sentinels stop at the admission seam: `ClockPolicy.Admit` projects defaults to `Option<Instant>`; interiors never see provider shapes.
 - AppHost owns support trigger and correlation; contributors own classification and payload projection through `SupportContributorPort` rows.
-- S0-S2 tiers emit `ILogger` and minted `ActivitySource`/`Meter` pairs only; exporter projection, SDK wiring, and ambient sinks enter at AppHost, and each instrument lives and dies with its provider.
+- S0-S2 tiers emit `ILogger` and minted `ActivitySource`/`Meter` pairs only; exporter projection, SDK wiring, and ambient sinks enter at AppHost.
+- Each instrument lives and dies with its provider.
 - Public capability extends its sub-domain owner region as a row, case, or policy value; the port records own the cross-package seam.
 - `Lifecycle` is the one runtime phase cell — shutdown and readiness read it rather than a parallel flag or sibling phase enum.
 - `CancelScope` owns every cancellation source below the composition root.
 - `ClockPolicy` owns the wall clock and the monotonic clock, and every duration bound traces to a `DeadlineClass` row or a page policy table.
 - Interiors read frozen policy records published at ready; `IConfiguration` and `IOptions` handles stop at bootstrap.
-- `Describe`/`DescribeKeyed` rows and `FromAssemblies` own every service registration, so no descriptor spelling is hand-written and no closure walk scans for one.
+- `Describe`/`DescribeKeyed` rows and `FromAssemblies` own every service registration; descriptor spellings are never hand-written.
 - Generated Thinktecture and NodaTime converters own STJ serialization, and classified values redact at every exporter and bundle seam.
 - One scheduler, one cache owner, and one retry owner sit on each seam; database retry stays at the Persistence execution strategy.
 - Every outcome stays its own typed receipt record rather than a shared ledger or reported-value abstraction.
-- `DeliveryFanout`, `LiveWire`, `AlertEngine`, and `FidelityScale` read the existing hop, health, and power signals as their only state, and each is the one notification sender, external-binding poller, alerting owner, and power monitor.
+- `DeliveryFanout`, `LiveWire`, `AlertEngine`, and `FidelityScale` are the one notification sender, binding poller, alerter, and power monitor.
+- Notification, polling, alerting, and power monitoring read the existing hop, health, and power signals as their only state.
 - Plugin rows drive their phases through host-attach injection; posix traps and single-instance enforcement belong to the service and standalone rows.
 - Third-party plugins run inside the isolation boundary and speak `EncodedTensor`, so no plugin-private geometry shape crosses.
 - `DeterminismContext` owns seed and float mode, and `EventLog` is the one hash-chained command log.
 - `Agent/identity` authorities own token validation, JWKS, OAuth, and claims, producing the one `Principal`.
-- `CapabilityDescriptor` owns op metadata and `GrantBroker` owns permission shape and cost, consuming that `Principal`; federated capability enters as brokered descriptor rows, the one tool catalog.
-- Reasoning-loop tool adoption rides the one brokered `CommandAIFunction`, and every `IChatClient` call rides the one middleware pipeline — metered by `GrantBroker`, cached, and traced.
+- `CapabilityDescriptor` owns op metadata and `GrantBroker` owns permission shape and cost, consuming that `Principal`.
+- Federated capability enters as brokered descriptor rows — the one tool catalog.
+- Reasoning-loop tool adoption rides the one brokered `CommandAIFunction`.
+- Every `IChatClient` call rides the one middleware pipeline — metered by `GrantBroker`, cached, and traced.
 - ArchUnitNET asserts no GeometryGym edge at or below the element seam; `Rasm.Bim` is the sole owner above it.
 - NEVER an unverified release or plugin install; `SupplyChainGate.Admit` proves signature and provenance against the pinned offline root first.
 - NEVER a backing-service probe outside the one `DriverProbe` adapter or on a second connection; a driver row binds the shared pooled driver.

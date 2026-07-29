@@ -223,7 +223,8 @@ Each sub-domain charter is the codemap comment; the boundary law below fixes the
 - Pushed values never feed an observable instrument; the owner of a bounded resource registers the read the export cycle samples.
 - Every serve-leg span rides the inbound parent context.
 - Pickled workers carrying no telemetry install of their own run unparented; the carrier still crosses.
-- One chain projects every event onto the log wire and renders the operator's stdout line; the collector admits an OTLP receiver alone, so no stdout tail promotes anything.
+- One chain projects every event onto the log wire and renders the operator's stdout line.
+- Collector ingest admits an OTLP receiver alone; no stdout tail promotes anything.
 - Terminal interpreter hooks route into that one chain, each door chaining the predecessor it wrapped.
 - Only the telemetry root registers the `LoggerProvider` that chain resolves.
 - Hook points register composition-unique package-qualified ids, and telemetry subscribes to hook facts as taps.
@@ -232,7 +233,8 @@ Each sub-domain charter is the codemap comment; the boundary law below fixes the
 - Bundle capsules serve only through the registered diagnostic route.
 - Journal facts are the branch's evidence truth and every series projected from them is derived, dropping at warm-up cost.
 - Every fact takes its ordering coordinate from the journal writer, so a producer supplies evidence and never identity.
-- Durable ledgers bind as a port at composition beside the emitter identity their rows partition on; this stratum opens no connection and executes no retention mechanism.
+- Durable ledgers bind as a port at composition beside the emitter identity their rows partition on.
+- This stratum opens no connection and executes no retention mechanism.
 - Erasure destroys per-subject key material and rewrites no row, so unreadable IS erased and the append-only plane survives whole.
 - Worker floors boot the parent-captured install post-spawn and drain at exit.
 - Kernel-grain cost records where it is spent, under the tenant the carrier promotes.

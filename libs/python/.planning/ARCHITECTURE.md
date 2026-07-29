@@ -23,7 +23,7 @@ Cross-package coupling is a published boundary import or a content-keyed wire; n
 - S3 `artifacts` — composes runtime and compute's graduation handoff; geometry scene facts cross one-way as GLB bytes through `SceneGrid.of_glb`.
 - S4 app root — the composing application seats outside `libs/python` and binds every declared port.
 - S4 port law — `runtime` declares a port at S0, an upper stratum binds it at the root, and an unbound port refuses with typed evidence.
-- S4 counter-edge — `data` supplies the `Ledger` implementation the journal plane writes through and the S4 root binds it in; S0 consumes that value and imports no owner.
+- S4 counter-edge — `data` supplies the `Ledger` the journal plane writes through, root-bound; S0 consumes the value, importing no owner.
 
 ```mermaid
 ---
