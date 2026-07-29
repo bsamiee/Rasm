@@ -1005,6 +1005,13 @@ internal static partial class GeodesicKernel {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Fields["fields: Geodesic / MCF / VectorHeat / GeodesicTangent / TangentLogMap cases"] --> GeodesicKernel
     GeodesicKernel -->|"heat: (M+tL)u=δ → ∇ → div → pinned Poisson"| Cache["mesh: LaplacianCache factors + memos"]

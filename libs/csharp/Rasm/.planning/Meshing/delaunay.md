@@ -1080,6 +1080,13 @@ public static class Delaunay {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     TessellationOp -->|Morton order over Round| Insert
     Insert -->|projected Orient2D over Implicit rows| Locate

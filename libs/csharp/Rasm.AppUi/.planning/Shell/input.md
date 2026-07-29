@@ -247,6 +247,13 @@ public sealed record ClipboardRow(
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Admit --> DragPayload
     Paste --> DragPayload

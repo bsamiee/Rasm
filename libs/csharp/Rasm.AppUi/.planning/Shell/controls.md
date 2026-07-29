@@ -360,6 +360,13 @@ public static class MaterializePool {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     ControlIntent --> ControlFactory
     ControlFactory --> Visual

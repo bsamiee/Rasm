@@ -71,6 +71,9 @@ public static class CommandDispatch {
 ---
 config:
   layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
 ---
 flowchart LR
     accTitle: One command-dispatch front door, three callers, one chain

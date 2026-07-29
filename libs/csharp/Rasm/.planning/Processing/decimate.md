@@ -606,6 +606,13 @@ public static class Simplify {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     SimplifyOp -->|MeshEdit.Of arena| MeshEdit
     SimplifyOp -.->|VoxelRemesh only| Resample["SignedDistanceFromMeshCase + IsoSurface.Detailed"]

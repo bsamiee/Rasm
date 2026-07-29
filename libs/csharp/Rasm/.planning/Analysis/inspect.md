@@ -543,6 +543,13 @@ public static partial class Analyze {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Topologies -->|OnGeometry gate| Duality[Mesh · Brep · brep-coercible]
     Duality -->|Euler · BoundaryLoops · Components| Genus["g = (2C − χ − B) / 2"]

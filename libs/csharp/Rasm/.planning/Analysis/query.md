@@ -427,6 +427,13 @@ internal static class ValidationLifts {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     accTitle: Analysis query dispatch and execution flow
     accDescr: The request algebra dispatching by arity into the operation algebra beside the family unions forwarding through their internal operation builder, the operation preparing and applying over the Eff runtime and charging the telemetry sink on both exits, the runtime environment feeding the Eff, the output projecting through the one validity oracle, the facade entering the operation, and the Eff lowering onto the validation result carrier.

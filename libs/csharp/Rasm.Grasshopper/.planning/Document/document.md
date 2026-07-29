@@ -278,6 +278,13 @@ public static partial class DocumentScope {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     accTitle: One transaction gate pairs verb, seal, and causal deltas
     accDescr: Boundary consumers enter DocumentScope through the Transact and Apply gates; Transact attaches document event observation, runs the host verb into an ActionList, seals through the history ledger, and folds published UiEvent deltas into the receipt.

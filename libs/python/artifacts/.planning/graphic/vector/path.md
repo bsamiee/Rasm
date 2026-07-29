@@ -614,6 +614,13 @@ __all__ = (
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Over["Path.over (PathOp | Iterable)"] --> Of["Path.of(lane) -> offload PROCESS -> flatten to PathRail"]
     Of --> Disp["_dispatch (@beartype FAULT_CONF) match per op"]

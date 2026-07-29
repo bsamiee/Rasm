@@ -1228,6 +1228,9 @@ public static class SupportCodec {
 ---
 config:
   layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
 ---
 flowchart LR
     Stack["SliceStack"] --> Audit["Audit.Preflight"]

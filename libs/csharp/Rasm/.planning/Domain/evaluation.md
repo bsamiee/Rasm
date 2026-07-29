@@ -309,6 +309,13 @@ internal static class Evaluation {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Raw["object? geometry + Point3d target"] -->|Capability.Closest gate + oracle| ClosestOf
     ClosestOf -->|18-arm recovery lattice| Hit["ClosestHit 9-field receipt"]

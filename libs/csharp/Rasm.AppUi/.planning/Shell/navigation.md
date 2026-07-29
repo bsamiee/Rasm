@@ -349,6 +349,13 @@ public static class LayoutLedger {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     ScheduleEntry -->|"Every cadence"| LayoutLedger
     DrainParticipantPort -->|"drain-row flush"| LayoutLedger

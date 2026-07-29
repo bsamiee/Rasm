@@ -347,6 +347,13 @@ public static class AccessProof {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     ScreenCatalog --> AccessProof
     AccessProof --> AccessAudit

@@ -131,6 +131,13 @@ public sealed record Issue(
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     BcfTopic -->|FromTopic| Issue
     Issue --> IssueBinding

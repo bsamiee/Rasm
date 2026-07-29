@@ -565,6 +565,13 @@ public static partial class Analyze {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Curves -->|EdgeDescriptor.Features data taxonomy| Extraction[edges · loops · segments · iso · silhouette]
     Extraction -->|TopologyProjection + ComponentIndex| Carrier[provenance carriers]

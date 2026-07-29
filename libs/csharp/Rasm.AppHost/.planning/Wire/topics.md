@@ -163,6 +163,9 @@ public static class EventBus {
 ---
 config:
   layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
 ---
 flowchart LR
     accTitle: One topic fan, bounded subscriptions, one drain

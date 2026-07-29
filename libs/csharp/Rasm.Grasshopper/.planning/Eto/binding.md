@@ -210,6 +210,13 @@ public static class StoreRail {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     accTitle: Binding rail fuses controls, gates, and stores onto Eto
     accDescr: GH2-hosted panels fuse control bindings through BindingRail onto the Eto dual-binding machinery, value gates admit domain values through the Thinktecture bridge, DataScope marshals context assignment, and store rails mount collection carriers.

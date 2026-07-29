@@ -130,6 +130,13 @@ public static class SupplyChainGate {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart TD
     Release[UpdateRail.Stage] -->|AdmissionSubject.Release| Admit[SupplyChainGate.Admit]
     Plugin[SandboxRows.Load] -->|AdmissionSubject.Plugin| Admit

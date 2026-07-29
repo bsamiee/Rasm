@@ -566,6 +566,13 @@ class VirtualReference(Struct, frozen=True):
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     accTitle: Virtual manifest and reference flow
     accDescr: Manifest aggregation and icechunk registration folding into the version operations and the Merkle-keyed receipt.

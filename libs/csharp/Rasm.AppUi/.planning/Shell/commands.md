@@ -414,6 +414,13 @@ The ControlService operational verbs surface as ordinary table rows on companion
 |  [03]   | control.reload-options  | ReloadOutcome transition on the options rail         |
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     CommandInvocationWire --> CommandDeck
     CommandDeck --> CommandPayload

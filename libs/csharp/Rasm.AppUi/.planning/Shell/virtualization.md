@@ -378,6 +378,13 @@ public static class HierarchyFlatten {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     IChangeSet --> HierarchyFlatten
     HierarchyFlatten --> FlatNode

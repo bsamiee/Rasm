@@ -606,6 +606,13 @@ public static class Intersection {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     IntersectOp -->|Orient3D / projected Orient2D straddles| Predicate
     IntersectOp -->|Overlap pairs / ray-reach Range via Spatial.Apply| SpatialIndex

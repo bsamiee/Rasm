@@ -342,6 +342,13 @@ public static class PlaybackTransport {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     MarkdownDocumentRows --> MarkdownInlineRenderer
     MarkdownInlineRenderer --> MarkdownRendered

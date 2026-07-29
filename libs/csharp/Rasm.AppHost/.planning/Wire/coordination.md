@@ -250,6 +250,9 @@ public static class DistributedLock {
 ---
 config:
   layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
 ---
 flowchart LR
     accTitle: One coordination surface over the fenced lease and the endpoint resolver

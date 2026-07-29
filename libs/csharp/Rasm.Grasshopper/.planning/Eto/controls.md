@@ -611,6 +611,13 @@ public static class ControlForge {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     accTitle: Eto control generator
     accDescr: ControlSpec rows realized by ControlForge into a plant, harvested to a FieldReport, driven by view verbs

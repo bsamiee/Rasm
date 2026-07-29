@@ -1179,6 +1179,9 @@ public static class ThreeMf {
 ---
 config:
   layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
 ---
 flowchart LR
     accTitle: Additive production flow

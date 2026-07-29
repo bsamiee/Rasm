@@ -175,6 +175,13 @@ public static class Subdivision {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     accTitle: Subdivision refinement and limit lanes
     accDescr: SubdivideOp requests fold through one Apply over scheme stencil rows into the sparse operator, publish through the arena or MeshSpace, and the Stam eigen lane serves limit samples.

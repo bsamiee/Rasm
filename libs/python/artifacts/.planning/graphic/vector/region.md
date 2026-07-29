@@ -678,6 +678,13 @@ __all__ = [
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Applied["applied(op) — the ONE public dispatch (@_contracted)"] --> Disp["total match per RegionOp case"]
     Over["Region.over (RegionOp | Iterable)"] --> Of["Region.of(lane) -> offload PROCESS (TERMINAL when rasterize-bearing) -> flatten"]

@@ -1367,6 +1367,9 @@ public static class ProcessPhysics {
 ---
 config:
   layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
 ---
 flowchart LR
     accTitle: Constitutive physics and budget flow

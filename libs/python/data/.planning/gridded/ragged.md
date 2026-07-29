@@ -391,6 +391,13 @@ def _receipt(ragged: RaggedArray, key: ContentKey) -> RaggedReceipt:
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     accTitle: Ragged array flow
     accDescr: RaggedSource admission into the RaggedArray owner, transform dispatch over the op tables, Arrow carrier crossing, and content-keyed egress into the receipt.

@@ -284,6 +284,13 @@ public static class ToastGate {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Toast["Toast"] --> Admit["ToastGate.Admit"]
     Admit -->|"ToastOutcome.Shown"| Pipe["ToastPipe"]

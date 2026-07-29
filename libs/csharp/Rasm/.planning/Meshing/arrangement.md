@@ -486,6 +486,13 @@ file static partial class ManifoldGate {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     ArrangementOp -->|MeshMesh lattice| Intersection
     Intersection -->|CrossLattice: defining-entity carriage| Substrate["Tessellation.Build (constrained)"]

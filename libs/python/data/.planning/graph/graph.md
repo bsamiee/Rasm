@@ -548,6 +548,13 @@ _EGRESS: "Final[Map[GraphBackend, Map[GraphFormat, Callable[[Any], bytes]]]]" = 
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart TD
     accTitle: Graph payload flow
     accDescr: Source admission into the payload, coercion onto the rustworkx kernel, the community delegation, result frames joining the tabular plane, and the receipt.

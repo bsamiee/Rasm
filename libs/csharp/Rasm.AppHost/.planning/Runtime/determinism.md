@@ -323,6 +323,13 @@ public sealed record RecomputeRuntime(CommandRuntime Command, Func<RecomputeNode
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart TD
     Change[input changed] --> Invalidate[Invalidate: walk dependents]
     Invalidate --> Topo[topological downstream order]

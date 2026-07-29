@@ -593,6 +593,13 @@ internal static class MeshKernel {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Mesh -->|Of: validate + DuplicateMesh| MeshSpace
     MeshSpace -->|ConditionalWeakTable by Mesh identity| LaplacianCache

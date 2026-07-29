@@ -154,6 +154,13 @@ public static class Development {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     UvT["surface.md UvTessellation — mesh + (u,v) + binding"] -->|"Development.Apply — ONE Switch"| Rails["Surfaces.Apply(Geodesics) — Grade PINNED Exact"]
     Rails -->|"iso-distance rails at k·StripWidth"| Strips["strip bands"]

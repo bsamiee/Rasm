@@ -412,6 +412,13 @@ __all__ = [
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Spec["PatternSpec (StrokeFamily angle/origin/delta/Motif + spacing + DensityLaw)"] --> Op["PatternOp dxf|svg|geometry"]
     Op --> Admit["_admitted(op) -> accumulated faults | resolved spacing"]

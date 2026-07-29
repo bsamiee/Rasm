@@ -163,6 +163,13 @@ public static class EditorShell {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     accTitle: Three editor-shell gates over one singleton
     accDescr: Boundary consumers reach the GH2 editor singleton through three EditorShell gates — command settlement, state snapshot, and typed pane projection — each acquiring scope through the session rows and resolving panes through the slot column inside one marshal.

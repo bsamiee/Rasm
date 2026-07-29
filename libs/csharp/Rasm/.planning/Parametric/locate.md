@@ -472,6 +472,13 @@ internal static class Locate {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Query["Analysis/query AnalysisQuery.Location"] -->|Location.Operation| Location["Location aspect Switch"]
     Location -->|At| Rows["LocationValue case rows — Key · Closest column · OnCurve / OnSurface / OnPerpendicular"]

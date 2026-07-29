@@ -787,6 +787,13 @@ public static class Cameras {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Consumer["command / panel / GH2 node"] -->|CameraOp| Rail["Cameras.Apply"]
     Rail -->|ViewportTarget| Lease["ViewportLease — camera.md scope"]

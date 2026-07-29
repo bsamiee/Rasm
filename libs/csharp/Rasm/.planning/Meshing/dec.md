@@ -344,6 +344,13 @@ internal static class DecAssembly {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     MeshSpace -->|cache snapshot| IntrinsicMesh
     IntrinsicMesh -->|d0/d1 incidence + Cotangent star1| AssembleDecOperators

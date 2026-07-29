@@ -307,6 +307,13 @@ public static class ScreenStateOps {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Rehydrate --> Load
     Load --> Merge

@@ -577,6 +577,13 @@ internal static class AlignKernel {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     accTitle: Registration dispatch
     accDescr: Alignment flows through neighborhood correspondence, solver rows, matrix owners, and a gated transform receipt.

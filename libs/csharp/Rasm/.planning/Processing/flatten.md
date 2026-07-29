@@ -663,6 +663,13 @@ file sealed class MeshDec {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Chart["MeshSpace chart"] -->|MeshAdjointSnapshot.Of| DEC["DiscreteCalculus D0/Star1"]
     DEC -->|eliminate pinned rows| Reduced["ReducedSystem (SPD, no shift)"]

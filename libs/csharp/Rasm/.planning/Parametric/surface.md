@@ -240,6 +240,13 @@ public static class Surfaces {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     accTitle: Surface op dispatch and result carriers
     accDescr: Surfaces.Apply folds the SurfaceOp cases over nurbs.md engine members into typed SurfaceResult carriers; UvTessellation is the tier seam feeding develop, panelize, and patternmap, and refusals route to GeometryFault.

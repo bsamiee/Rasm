@@ -575,6 +575,13 @@ __all__ = [
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Over["Mark.over (MarkOp | Iterable)"] --> Of["Mark.of(lane): task-group fan-out + per-op trait + flattened MarkRail"]
     Over --> Emit["Mark.emit(lane): one ArtifactWork per encode/verify row (pre-run key)"]

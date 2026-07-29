@@ -214,6 +214,13 @@ public static class Patterning {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Plan["PatternPlan — group row + basis + motif + grade"] -->|"Patterning.Apply — ONE Switch"| Orbit["orbit fold — seats × anchors × cells"]
     Groups["WallpaperGroup — 17 theorem-closed Seitz rows"] -->|"Seats() via ONE SeatKernel.Rows"| Orbit

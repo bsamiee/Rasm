@@ -322,6 +322,13 @@ public static class Bridge {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     accTitle: Platform handlers seam
     accDescr: PlatformSeam, Handlers, Styler, and Bridge gates over the Eto platform substrate

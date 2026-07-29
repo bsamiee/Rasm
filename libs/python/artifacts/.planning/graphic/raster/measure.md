@@ -287,6 +287,13 @@ MEASURE_TRANSFORMS: Final[frozendict[Transform, TransformArm]] = frozendict({
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Tx["graphic/raster/io: _transformed arm"] --> Table["(TRANSFORMS | MEASURE_TRANSFORMS)[kind].arm after the row's needs gate"]
     Table --> Acc["3 measured-score acceptors"]

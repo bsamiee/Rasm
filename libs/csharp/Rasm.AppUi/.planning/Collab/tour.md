@@ -254,6 +254,13 @@ public abstract partial record TourSource {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     TourSource -->|Build| ReviewTour
     BcfTopic -->|FromBcf| ReviewTour

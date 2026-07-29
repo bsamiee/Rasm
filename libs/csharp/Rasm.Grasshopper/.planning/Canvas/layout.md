@@ -378,6 +378,13 @@ public static class CanvasLayout {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     accTitle: Sealed arrangement flow through the layout gate
     accDescr: Arrangement consumers enter one CanvasLayout gate that acquires document scope, folds candidate and lattice deltas through host solvers, and seals every move into the history ledger, while drag-time snap fields feed interaction and paint windows.

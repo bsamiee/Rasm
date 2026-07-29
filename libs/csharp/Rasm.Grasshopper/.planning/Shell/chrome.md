@@ -379,6 +379,13 @@ public static class Chrome {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     accTitle: One chrome gate settles every family
     accDescr: Boundary consumers and the canvas float collection enter one Chrome.Apply gate that folds bar items, panel plans, tooltip content, and float verbs onto their GH2 chrome hosts, composing icon handles and marshalling once per intent through EtoDispatch.

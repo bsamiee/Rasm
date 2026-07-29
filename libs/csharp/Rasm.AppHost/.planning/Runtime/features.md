@@ -203,6 +203,9 @@ public static class KillSwitchFold {
 ---
 config:
   layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
 ---
 flowchart LR
     accTitle: One features rail projecting a verdict to the routing consumers

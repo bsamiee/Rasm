@@ -517,6 +517,13 @@ public static class Heal {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     HealPlan -->|MeshEdit.Of + ArenaPolicy| MeshEdit
     MeshEdit -->|Heal.Repair fold| HealOp

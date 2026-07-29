@@ -492,6 +492,9 @@ public static class ModelGovernance {
 ---
 config:
   layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
 ---
 flowchart LR
     accTitle: One model-governance pipeline, two front doors

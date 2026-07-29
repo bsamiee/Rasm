@@ -570,6 +570,13 @@ public sealed record LiveWire(
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Edit[typed EditIntent] -->|Commit: durable-first| Ledger["Persistence Version/ledger crdt lane (Version/commits CrdtOpWire · ReplayWindow.ForEntity)"]
     Edit -->|IntentApply.Apply| CollabDoc
@@ -765,6 +772,13 @@ public sealed record TimeTravel(
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     CollabDoc --> CollabContainer
     CollabDoc --> LiveWire

@@ -1118,6 +1118,13 @@ internal static partial class SegmentKernel {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Fields["fields: CrossField / Stripe / SpectralDistance cases"] --> SegmentKernel
     Intent["intent: Descriptor / Segmentation / Features / Remesh / Flatten"] --> SegmentKernel

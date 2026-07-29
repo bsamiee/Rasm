@@ -354,6 +354,13 @@ public static class NotebookReplay {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Notebook --> NotebookCell
     NotebookCell --> CapabilityPin

@@ -364,6 +364,13 @@ __all__ = [
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Rail["encode Mark.of: MarkOp.Decode / MarkOp.Verify (lane dispatch by source case)"] --> Scan["DecodeScope.scan(source) -> Result[RasterFact, MarkFault]"]
     Scan --> Args["_reader_args: TAXONOMY-derived scope | unscannable + getattr provider rows"]
