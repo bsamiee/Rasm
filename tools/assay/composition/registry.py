@@ -105,12 +105,6 @@ _DISPATCH_NONE: Final = f"{Step.DISPATCH}=none"
 # Per-invocation counter; long-lived automation processes must not trip the one-Envelope guard on reuse.
 _WRITES: ContextVar[Iterator[int]] = ContextVar("assay_writes")
 _PYPROJECT: Final[Path] = Path(__file__).resolve().parents[3] / "pyproject.toml"
-# --- [MODELS] ---------------------------------------------------------------------------
-
-
-# --- [TABLES] ---------------------------------------------------------------------------
-
-_ENVELOPE_DECODER: Final[msgspec.json.Decoder[Envelope]] = msgspec.json.Decoder(Envelope)
 
 # --- [SERVICES] -------------------------------------------------------------------------
 

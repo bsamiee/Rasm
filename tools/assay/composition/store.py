@@ -78,6 +78,10 @@ _BUILD: Final[str] = "build"
 # so the codec is one store-owned boundary no caller re-derives. Content size rides the frame header; plain decompress inflates.
 _HISTORY_COMPRESSOR: Final[zstandard.ZstdCompressor] = zstandard.ZstdCompressor(level=10)
 _HISTORY_DECOMPRESSOR: Final[zstandard.ZstdDecompressor] = zstandard.ZstdDecompressor()
+# History decode binds its type once per process; inlining these back to `msgspec.json.decode(type=…)` re-resolves the
+# struct schema on every read, and `delta` alone folds four decodes per invocation across its two endpoints.
+_ENVELOPE_DECODER: Final[msgspec.json.Decoder[Envelope]] = msgspec.json.Decoder(Envelope)
+_REPORT_DECODER: Final[msgspec.json.Decoder[Report]] = msgspec.json.Decoder(Report)
 # A cold build-closure scope points DOTNET_CLI_HOME at an empty tree, so the first dotnet invocation pays the full
 # first-run experience (NuGet warm-up, ASP.NET dev-cert primer, tool-path init) and writes three sentinels under
 # `<home>/.dotnet/<sdk>.<suffix>`. The SDK is pinned in `global.json` (rollForward disabled), so the sentinel names are
@@ -491,7 +495,7 @@ class ArtifactStore:
                 return None
             case _:
                 try:
-                    env = msgspec.json.decode(self.read_bytes(ArtifactKind.HISTORY.value, run_id, "envelope.json"), type=Envelope)
+                    env = _ENVELOPE_DECODER.decode(self.read_bytes(ArtifactKind.HISTORY.value, run_id, "envelope.json"))
                     return self.restore_full_report(env)
                 except OSError, msgspec.MsgspecError:
                     return None
@@ -510,7 +514,7 @@ class ArtifactStore:
                 if artifact is None:
                     return env
                 try:
-                    restored = msgspec.json.decode(self.read_path(artifact.path), type=Report)
+                    restored = _REPORT_DECODER.decode(self.read_path(artifact.path))
                 except OSError, msgspec.MsgspecError:
                     return env
                 return msgspec.structs.replace(env, report=restored)
