@@ -99,27 +99,28 @@
 
 `T[,]` projects whole or windowed `(row, column, height, width)` planes, `T[,,]` adds a leading `(depth)` selector, and `Memory<T>` with `Span<T>` project `(height, width)` or padded `(offset, height, width, pitch)` planes. `Memory2D<T>` mirrors the `Span2D<T>` window, copy, and contiguity-probe family over owned storage and hands the plane over as `.Span`; `AsBytes` and `Cast` admit unmanaged elements only, so a reinterpreted payload crosses a process boundary through its codec.
 
-| [INDEX] | [SURFACE]                                    | [SHAPE]   | [CAPABILITY]                       |
-| :-----: | :------------------------------------------- | :-------- | :--------------------------------- |
-|  [01]   | `AsSpan2D<T>`                                | extension | project a plane view               |
-|  [02]   | `AsMemory2D<T>`                              | extension | project an owned plane             |
-|  [03]   | `ArrayExtensions.GetRow<T>(T[,], int)`       | extension | walk one row as `RefEnumerable<T>` |
-|  [04]   | `ArrayExtensions.GetColumn<T>(T[,], int)`    | extension | walk one column by ref             |
-|  [05]   | `ArrayExtensions.GetRowSpan<T>(T[,], int)`   | extension | contiguous row span                |
-|  [06]   | `ArrayExtensions.GetRowMemory<T>(T[,], int)` | extension | contiguous row memory              |
-|  [07]   | `Span2D<T>.Slice(int, int, int, int)`        | instance  | window a sub-plane                 |
-|  [08]   | `Span2D<T>.GetRowSpan(int)`                  | instance  | contiguous row of a plane          |
-|  [09]   | `Span2D<T>.TryGetSpan(out Span<T>)`          | instance  | probe plane contiguity             |
-|  [10]   | `Span2D<T>.CopyTo(Span2D<T>)`                | instance  | blit plane to plane                |
-|  [11]   | `Span2D<T>.Fill(T)`                          | instance  | write one value across the plane   |
-|  [12]   | `Span2D<T>.Clear()`                          | instance  | zero the plane                     |
-|  [13]   | `Memory2D<T>.Span -> Span2D<T>`              | property  | address the owned plane            |
-|  [14]   | `DangerousGetReference<T>`                   | extension | root reference of a span or array  |
-|  [15]   | `DangerousGetReferenceAt<T>`                 | extension | indexed reference, no bounds check |
-|  [16]   | `AsBytes<T>`                                 | extension | reinterpret unmanaged storage      |
-|  [17]   | `Cast<TFrom, TTo>`                           | extension | reinterpret element width          |
-|  [18]   | `Tokenize`                                   | extension | split on a separator value         |
-|  [19]   | `Enumerate`                                  | extension | index-paired or by-ref enumeration |
+| [INDEX] | [SURFACE]                                    | [SHAPE]   | [CAPABILITY]                                         |
+| :-----: | :------------------------------------------- | :-------- | :--------------------------------------------------- |
+|  [01]   | `AsSpan2D<T>`                                | extension | project a plane view                                 |
+|  [02]   | `AsMemory2D<T>`                              | extension | project an owned plane                               |
+|  [03]   | `ArrayExtensions.GetRow<T>(T[,], int)`       | extension | walk one row as `RefEnumerable<T>`                   |
+|  [04]   | `ArrayExtensions.GetColumn<T>(T[,], int)`    | extension | walk one column by ref                               |
+|  [05]   | `ArrayExtensions.GetRowSpan<T>(T[,], int)`   | extension | contiguous row span                                  |
+|  [06]   | `ArrayExtensions.GetRowMemory<T>(T[,], int)` | extension | contiguous row memory                                |
+|  [07]   | `Span2D<T>.Slice(int, int, int, int)`        | instance  | window a sub-plane                                   |
+|  [08]   | `Span2D<T>.GetRowSpan(int)`                  | instance  | contiguous row of a plane                            |
+|  [09]   | `Span2D<T>.TryGetSpan(out Span<T>)`          | instance  | probe plane contiguity                               |
+|  [10]   | `ReadOnlySpan2D<T>.GetRowSpan(int)`          | instance  | contiguous read row of a plane, `-> ReadOnlySpan<T>` |
+|  [11]   | `Span2D<T>.CopyTo(Span2D<T>)`                | instance  | blit plane to plane                                  |
+|  [12]   | `Span2D<T>.Fill(T)`                          | instance  | write one value across the plane                     |
+|  [13]   | `Span2D<T>.Clear()`                          | instance  | zero the plane                                       |
+|  [14]   | `Memory2D<T>.Span -> Span2D<T>`              | property  | address the owned plane                              |
+|  [15]   | `DangerousGetReference<T>`                   | extension | root reference of a span or array                    |
+|  [16]   | `DangerousGetReferenceAt<T>`                 | extension | indexed reference, no bounds check                   |
+|  [17]   | `AsBytes<T>`                                 | extension | reinterpret unmanaged storage                        |
+|  [18]   | `Cast<TFrom, TTo>`                           | extension | reinterpret element width                            |
+|  [19]   | `Tokenize`                                   | extension | split on a separator value                           |
+|  [20]   | `Enumerate`                                  | extension | index-paired or by-ref enumeration                   |
 
 [ENTRYPOINT_SCOPE]: `AsStream` byte bridge
 

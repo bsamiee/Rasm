@@ -87,21 +87,21 @@
 
 [CODEC_AND_FORMAT_TYPES]: format, pixel layout, blend, and sampling enums
 
-| [INDEX] | [SYMBOL]                          | [CAPABILITY]                                          |
-| :-----: | :-------------------------------- | :---------------------------------------------------- |
-|  [01]   | `SKEncodedImageFormat`            | Png/Jpeg/Webp/Avif/Heif/Gif/Bmp/Ico/Dng/Ktx/Pkm/Astc  |
-|  [02]   | `SKColorType`                     | pixel layout (`PlatformColorType` for native default) |
-|  [03]   | `SKAlphaType`                     | opaque/premul/unpremul                                |
-|  [04]   | `SKBlendMode`                     | Porter-Duff + separable blend modes                   |
-|  [05]   | `SKShaderTileMode`                | clamp/repeat/mirror/decal gradient tiling             |
-|  [06]   | `SKFilterMode`                    | nearest/linear sampling                               |
-|  [07]   | `SKMipmapMode`                    | none/nearest/linear mip selection                     |
-|  [08]   | `SKClipOperation`                 | intersect/difference clip combine                     |
-|  [09]   | `SKPathOp`                        | difference/intersect/union/xor/reverse-difference     |
-|  [10]   | `SKCodecResult`                   | decode-step status for `SKCodec`                      |
-|  [11]   | `SKPaintStyle`                    | `Fill` / `Stroke` / `StrokeAndFill` (`SKPaint.Style`) |
-|  [12]   | `SKPathDirection`                 | `Clockwise` / `CounterClockwise` add-shape winding    |
-|  [13]   | `SKPathArcSize` / `SKPathAddMode` | arc large/small + `Append`/`Extend` path-append mode  |
+| [INDEX] | [SYMBOL]                          | [CAPABILITY]                                                                              |
+| :-----: | :-------------------------------- | :---------------------------------------------------------------------------------------- |
+|  [01]   | `SKEncodedImageFormat`            | Png/Jpeg/Webp/Avif/Heif/Gif/Bmp/Ico/Dng/Ktx/Pkm/Astc                                      |
+|  [02]   | `SKColorType`                     | pixel layout — `PlatformColorType` default, `RgbaF16`/`RgbaF16Clamped`/`RgbaF32` HDR rows |
+|  [03]   | `SKAlphaType`                     | opaque/premul/unpremul                                                                    |
+|  [04]   | `SKBlendMode`                     | Porter-Duff + separable blend modes                                                       |
+|  [05]   | `SKShaderTileMode`                | clamp/repeat/mirror/decal gradient tiling                                                 |
+|  [06]   | `SKFilterMode`                    | nearest/linear sampling                                                                   |
+|  [07]   | `SKMipmapMode`                    | none/nearest/linear mip selection                                                         |
+|  [08]   | `SKClipOperation`                 | intersect/difference clip combine                                                         |
+|  [09]   | `SKPathOp`                        | difference/intersect/union/xor/reverse-difference                                         |
+|  [10]   | `SKCodecResult`                   | decode-step status for `SKCodec`                                                          |
+|  [11]   | `SKPaintStyle`                    | `Fill` / `Stroke` / `StrokeAndFill` (`SKPaint.Style`)                                     |
+|  [12]   | `SKPathDirection`                 | `Clockwise` / `CounterClockwise` add-shape winding                                        |
+|  [13]   | `SKPathArcSize` / `SKPathAddMode` | arc large/small + `Append`/`Extend` path-append mode                                      |
 
 [GPU_TYPES]: GPU context and backend handles
 

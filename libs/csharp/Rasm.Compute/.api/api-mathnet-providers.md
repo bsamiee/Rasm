@@ -25,17 +25,17 @@
 
 [PUBLIC_TYPE_SCOPE]: adapter control classes and the payload-tuning vocabulary
 
-| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY] | [CAPABILITY]                                            |
-| :-----: | :------------------------------ | :------------ | :------------------------------------------------------ |
-|  [01]   | `MklProvider`                   | static class  | MKL payload load, memory pool, and diagnostic surface    |
-|  [02]   | `MklLinearAlgebraControl`       | class         | mints and selects the MKL `ILinearAlgebraProvider`       |
-|  [03]   | `MklSparseSolverControl`        | class         | mints the MKL `ISparseSolverProvider`                    |
-|  [04]   | `MklFourierTransformControl`    | class         | mints the MKL `IFourierTransformProvider`                |
-|  [05]   | `MklConsistency`                | enum          | run-to-run reproducibility floor across CPU generations  |
-|  [06]   | `MklPrecision`                  | enum          | internal working precision                               |
-|  [07]   | `MklAccuracy`                   | enum          | vector-math accuracy tier                                |
-|  [08]   | `OpenBlasProvider`              | static class  | OpenBLAS payload load and diagnostic surface             |
-|  [09]   | `OpenBlasLinearAlgebraControl`  | class         | mints and selects the OpenBLAS `ILinearAlgebraProvider`  |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                                            |
+| :-----: | :----------------------------- | :------------ | :------------------------------------------------------ |
+|  [01]   | `MklProvider`                  | static class  | MKL payload load, memory pool, and diagnostic surface   |
+|  [02]   | `MklLinearAlgebraControl`      | class         | mints and selects the MKL `ILinearAlgebraProvider`      |
+|  [03]   | `MklSparseSolverControl`       | class         | mints the MKL `ISparseSolverProvider`                   |
+|  [04]   | `MklFourierTransformControl`   | class         | mints the MKL `IFourierTransformProvider`               |
+|  [05]   | `MklConsistency`               | enum          | run-to-run reproducibility floor across CPU generations |
+|  [06]   | `MklPrecision`                 | enum          | internal working precision                              |
+|  [07]   | `MklAccuracy`                  | enum          | vector-math accuracy tier                               |
+|  [08]   | `OpenBlasProvider`             | static class  | OpenBLAS payload load and diagnostic surface            |
+|  [09]   | `OpenBlasLinearAlgebraControl` | class         | mints and selects the OpenBLAS `ILinearAlgebraProvider` |
 
 - `MklConsistency`: `Auto=2` `Compatible=3` `SSE2=4` `SSE4_2=8` `AVX=9` `AVX2=10` — `Auto` is same-CPU-only reproducibility at maximum speed and `Compatible` the SSE2 floor across Intel-compatible parts.
 - `MklPrecision`: `Single=0x10` `Double=0x20`. `MklAccuracy`: `Low=1` `High=2`.
@@ -45,46 +45,46 @@
 
 [ENTRYPOINT_SCOPE]: payload availability and load — every member static, `IsAvailable` probing without loading and `Load` returning the native revision
 
-| [INDEX] | [SURFACE]                                                           | [SHAPE] | [CAPABILITY]                                    |
-| :-----: | :------------------------------------------------------------------ | :------ | :---------------------------------------------- |
-|  [01]   | `MklProvider.IsAvailable(string hintPath = null) -> bool`           | static  | probe the payload without binding it            |
-|  [02]   | `MklProvider.Load(string hintPath = null) -> int`                   | static  | load at the default consistency triple          |
-|  [03]   | `MklProvider.Load(hintPath, MklConsistency, MklPrecision, MklAccuracy)` | static | load under an explicit tuning triple         |
-|  [04]   | `MklProvider.Describe() -> string`                                  | static  | active native revision and tuning receipt line  |
-|  [05]   | `OpenBlasProvider.IsAvailable(string hintPath = null) -> bool`      | static  | probe the payload without binding it            |
-|  [06]   | `OpenBlasProvider.Load(string hintPath = null) -> int`              | static  | load the payload                                |
-|  [07]   | `OpenBlasProvider.Describe() -> string`                             | static  | active native revision receipt line             |
+| [INDEX] | [SURFACE]                                                               | [SHAPE] | [CAPABILITY]                                   |
+| :-----: | :---------------------------------------------------------------------- | :------ | :--------------------------------------------- |
+|  [01]   | `MklProvider.IsAvailable(string hintPath = null) -> bool`               | static  | probe the payload without binding it           |
+|  [02]   | `MklProvider.Load(string hintPath = null) -> int`                       | static  | load at the default consistency triple         |
+|  [03]   | `MklProvider.Load(hintPath, MklConsistency, MklPrecision, MklAccuracy)` | static  | load under an explicit tuning triple           |
+|  [04]   | `MklProvider.Describe() -> string`                                      | static  | active native revision and tuning receipt line |
+|  [05]   | `OpenBlasProvider.IsAvailable(string hintPath = null) -> bool`          | static  | probe the payload without binding it           |
+|  [06]   | `OpenBlasProvider.Load(string hintPath = null) -> int`                  | static  | load the payload                               |
+|  [07]   | `OpenBlasProvider.Describe() -> string`                                 | static  | active native revision receipt line            |
 
 - Both `Load` overloads default `hintPath` to `null`, falling back to the branch `Control.NativeProviderPath` probe root and then the platform default paths.
 - `Load`'s tuning triple defaults to `(MklConsistency.Auto, MklPrecision.Double, MklAccuracy.High)`.
 
 [ENTRYPOINT_SCOPE]: provider mint and selection — the `Use*` form throws on a missing payload and its `Try*` twin returns the verdict
 
-| [INDEX] | [SURFACE]                                                        | [SHAPE]  | [CAPABILITY]                                |
-| :-----: | :--------------------------------------------------------------- | :------- | :------------------------------------------ |
-|  [01]   | `MklLinearAlgebraControl.CreateNativeMKL(consistency, precision, accuracy)` | static | mint the provider without selecting it |
-|  [02]   | `MklLinearAlgebraControl.UseNativeMKL(consistency, precision, accuracy)`    | static | mint and select, throwing on absence   |
-|  [03]   | `MklLinearAlgebraControl.TryUseNativeMKL(consistency, precision, accuracy)` | static | the same selection returning `bool`    |
-|  [04]   | `OpenBlasLinearAlgebraControl.CreateNativeOpenBLAS()`            | static   | mint the provider without selecting it      |
-|  [05]   | `OpenBlasLinearAlgebraControl.UseNativeOpenBLAS()`               | static   | mint and select, throwing on absence        |
-|  [06]   | `OpenBlasLinearAlgebraControl.TryUseNativeOpenBLAS()`            | static   | the same selection returning `bool`         |
-|  [07]   | `IProviderCreator<T>.CreateProvider() -> T`                      | instance | the uniform mint an instance control exposes |
+| [INDEX] | [SURFACE]                                                                   | [SHAPE]  | [CAPABILITY]                                 |
+| :-----: | :-------------------------------------------------------------------------- | :------- | :------------------------------------------- |
+|  [01]   | `MklLinearAlgebraControl.CreateNativeMKL(consistency, precision, accuracy)` | static   | mint the provider without selecting it       |
+|  [02]   | `MklLinearAlgebraControl.UseNativeMKL(consistency, precision, accuracy)`    | static   | mint and select, throwing on absence         |
+|  [03]   | `MklLinearAlgebraControl.TryUseNativeMKL(consistency, precision, accuracy)` | static   | the same selection returning `bool`          |
+|  [04]   | `OpenBlasLinearAlgebraControl.CreateNativeOpenBLAS()`                       | static   | mint the provider without selecting it       |
+|  [05]   | `OpenBlasLinearAlgebraControl.UseNativeOpenBLAS()`                          | static   | mint and select, throwing on absence         |
+|  [06]   | `OpenBlasLinearAlgebraControl.TryUseNativeOpenBLAS()`                       | static   | the same selection returning `bool`          |
+|  [07]   | `IProviderCreator<T>.CreateProvider() -> T`                                 | instance | the uniform mint an instance control exposes |
 
 - Every MKL selection argument carries the same tuning-triple default as `MklProvider.Load`, so a call naming none binds `Auto`/`Double`/`High`.
 
 [ENTRYPOINT_SCOPE]: MKL native memory custody and telemetry — no OpenBLAS counterpart exists
 
-| [INDEX] | [SURFACE]                                             | [SHAPE] | [CAPABILITY]                                    |
-| :-----: | :---------------------------------------------------- | :------ | :---------------------------------------------- |
-|  [01]   | `MklProvider.FreeResources()`                         | static  | release the loaded payload whole                |
-|  [02]   | `MklProvider.FreeBuffers()`                           | static  | drop every pooled buffer across threads         |
-|  [03]   | `MklProvider.ThreadFreeBuffers()`                     | static  | drop the calling thread's pooled buffers        |
-|  [04]   | `MklProvider.DisableMemoryPool()`                     | static  | run allocation-transparent, no pooling          |
-|  [05]   | `MklProvider.MemoryStatistics(out int) -> long`       | static  | live allocated bytes with the buffer count      |
-|  [06]   | `MklProvider.EnablePeakMemoryStatistics()`            | static  | begin peak tracking                             |
-|  [07]   | `MklProvider.DisablePeakMemoryStatistics()`           | static  | end peak tracking                               |
-|  [08]   | `MklProvider.PeakMemoryStatistics(bool reset = true)` | static  | peak bytes, resetting the watermark by default  |
-|  [09]   | `OpenBlasProvider.FreeResources()`                    | static  | release the loaded payload whole                |
+| [INDEX] | [SURFACE]                                             | [SHAPE] | [CAPABILITY]                                   |
+| :-----: | :---------------------------------------------------- | :------ | :--------------------------------------------- |
+|  [01]   | `MklProvider.FreeResources()`                         | static  | release the loaded payload whole               |
+|  [02]   | `MklProvider.FreeBuffers()`                           | static  | drop every pooled buffer across threads        |
+|  [03]   | `MklProvider.ThreadFreeBuffers()`                     | static  | drop the calling thread's pooled buffers       |
+|  [04]   | `MklProvider.DisableMemoryPool()`                     | static  | run allocation-transparent, no pooling         |
+|  [05]   | `MklProvider.MemoryStatistics(out int) -> long`       | static  | live allocated bytes with the buffer count     |
+|  [06]   | `MklProvider.EnablePeakMemoryStatistics()`            | static  | begin peak tracking                            |
+|  [07]   | `MklProvider.DisablePeakMemoryStatistics()`           | static  | end peak tracking                              |
+|  [08]   | `MklProvider.PeakMemoryStatistics(bool reset = true)` | static  | peak bytes, resetting the watermark by default |
+|  [09]   | `OpenBlasProvider.FreeResources()`                    | static  | release the loaded payload whole               |
 
 - `PeakMemoryStatistics` resets the watermark unless the caller passes `false`, so a sampling loop reading it every interval measures per-interval peaks rather than a running maximum.
 

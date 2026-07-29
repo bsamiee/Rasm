@@ -18,15 +18,15 @@ Every heavy codec is injected, never imported: `meshopt` and `reorder` take a `M
 
 [PUBLIC_TYPE_SCOPE]: option records — one per transform, each the whole knob surface of its row
 
-| [INDEX] | [SYMBOL]                 | [REQUIRED_SLOT] | [SHAPE]                                          |
-| :-----: | :----------------------- | :-------------- | :------------------------------------------------ |
-|  [01]   | `MeshoptOptions`         | `encoder`       | `level` over the `QuantizeOptions` set less patterns |
-|  [02]   | `ReorderOptions`         | `encoder`       | `target` `cleanup`                                |
-|  [03]   | `SimplifyOptions`        | `simplifier`    | `ratio` `error` `lockBorder`                      |
-|  [04]   | `UnwrapOptions`          | `watlas`        | `texcoord` `overwrite` `groupBy`                  |
-|  [05]   | `SparseOptions`          | `ratio`         | the only field                                    |
-|  [06]   | `ColorSpaceOptions`      | `inputColorSpace` | `srgb` or `srgb-linear`                         |
-|  [07]   | `TextureCompressOptions` | none            | `encoder` is OPTIONAL; see the codec caveat below |
+| [INDEX] | [SYMBOL]                 | [REQUIRED_SLOT]   | [SHAPE]                                              |
+| :-----: | :----------------------- | :---------------- | :--------------------------------------------------- |
+|  [01]   | `MeshoptOptions`         | `encoder`         | `level` over the `QuantizeOptions` set less patterns |
+|  [02]   | `ReorderOptions`         | `encoder`         | `target` `cleanup`                                   |
+|  [03]   | `SimplifyOptions`        | `simplifier`      | `ratio` `error` `lockBorder`                         |
+|  [04]   | `UnwrapOptions`          | `watlas`          | `texcoord` `overwrite` `groupBy`                     |
+|  [05]   | `SparseOptions`          | `ratio`           | the only field                                       |
+|  [06]   | `ColorSpaceOptions`      | `inputColorSpace` | `srgb` or `srgb-linear`                              |
+|  [07]   | `TextureCompressOptions` | none              | `encoder` is OPTIONAL; see the codec caveat below    |
 
 `[PRUNE_FIELD]: `propertyTypes` `keepLeaves` `keepAttributes` `keepIndices` `keepSolidTextures` `keepExtras``
 
@@ -46,7 +46,7 @@ Every heavy codec is injected, never imported: `meshopt` and `reorder` take a `M
 
 [PUBLIC_TYPE_SCOPE]: bounded vocabularies and the census report
 
-| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY] | [CAPABILITY]                                    |
+| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY] | [CAPABILITY]                                     |
 | :-----: | :----------------------------------- | :------------ | :----------------------------------------------- |
 |  [01]   | `VertexCountMethod`                  | count policy  | `RENDER` `RENDER_CACHED` `UPLOAD` `UPLOAD_NAIVE` |
 |  [02]   | `TextureResizeFilter`                | resample set  | `LANCZOS3` `LANCZOS2`                            |
@@ -60,36 +60,36 @@ Every heavy codec is injected, never imported: `meshopt` and `reorder` take a `M
 
 [ENTRYPOINT_SCOPE]: the transform rows — every one folds through `document.transform(...)`
 
-| [INDEX] | [SURFACE]                         | [DEPENDENCY]        | [CAPABILITY]                                       |
-| :-----: | :-------------------------------- | :------------------ | :------------------------------------------------- |
-|  [01]   | `prune(options?)`                 | none                | drop unused properties and solid-color textures    |
-|  [02]   | `dedup(options?)`                 | none                | merge identical accessors, textures, materials     |
-|  [03]   | `quantize(options?)`              | none                | narrow attribute component types                   |
-|  [04]   | `meshopt(options)`                | `MeshoptEncoder`    | reorder + quantize + `EXT_meshopt_compression`     |
-|  [05]   | `reorder(options)`                | `MeshoptEncoder`    | vertex-cache and overdraw ordering alone           |
-|  [06]   | `simplify(options)`               | `MeshoptSimplifier` | decimate to a ratio or error bound                 |
-|  [07]   | `draco(options?)`                 | `draco3d` encoder   | `KHR_draco_mesh_compression`                       |
-|  [08]   | `textureCompress(options)`        | `sharp` (optional)  | re-encode textures across `jpeg`/`png`/`webp`/`avif` |
-|  [09]   | `palette(options?)`               | none                | fold solid-color materials into one palette texture |
-|  [10]   | `unwrap(options)`                 | `watlas`            | generate a UV atlas                                |
+| [INDEX] | [SURFACE]                  | [DEPENDENCY]        | [CAPABILITY]                                         |
+| :-----: | :------------------------- | :------------------ | :--------------------------------------------------- |
+|  [01]   | `prune(options?)`          | none                | drop unused properties and solid-color textures      |
+|  [02]   | `dedup(options?)`          | none                | merge identical accessors, textures, materials       |
+|  [03]   | `quantize(options?)`       | none                | narrow attribute component types                     |
+|  [04]   | `meshopt(options)`         | `MeshoptEncoder`    | reorder + quantize + `EXT_meshopt_compression`       |
+|  [05]   | `reorder(options)`         | `MeshoptEncoder`    | vertex-cache and overdraw ordering alone             |
+|  [06]   | `simplify(options)`        | `MeshoptSimplifier` | decimate to a ratio or error bound                   |
+|  [07]   | `draco(options?)`          | `draco3d` encoder   | `KHR_draco_mesh_compression`                         |
+|  [08]   | `textureCompress(options)` | `sharp` (optional)  | re-encode textures across `jpeg`/`png`/`webp`/`avif` |
+|  [09]   | `palette(options?)`        | none                | fold solid-color materials into one palette texture  |
+|  [10]   | `unwrap(options)`          | `watlas`            | generate a UV atlas                                  |
 
 `[GEOMETRY_ROW]: `weld` `unweld` `join` `flatten` `dequantize` `normals` `tangents` `sparse` `partition` `unpartition` `instance` `uninstance` `center` `resample` `sequence` `metalRough` `unlit` `vertexColorSpace`` — the remaining rows, each `(options?) => Transform`.
 
 [ENTRYPOINT_SCOPE]: graph readers, called directly rather than folded
 
-| [INDEX] | [SURFACE]                                          | [CAPABILITY]                          |
+| [INDEX] | [SURFACE]                                          | [CAPABILITY]                           |
 | :-----: | :------------------------------------------------- | :------------------------------------- |
-|  [01]   | `inspect(doc) -> InspectReport`                     | the whole-document census              |
-|  [02]   | `listTextureChannels(texture) -> TextureChannel[]`  | channels a texture is actually read on |
-|  [03]   | `getTextureChannelMask(texture) -> number`          | the same fact as an R/G/B/A bitmask    |
-|  [04]   | `listTextureSlots(texture) -> string[]`             | material slot names binding it         |
-|  [05]   | `listTextureInfo(texture) -> TextureInfo[]`         | sampler records bound to it            |
-|  [06]   | `listTextureInfoByMaterial(material)`               | the same, scoped to one material       |
-|  [07]   | `getTextureColorSpace(texture) -> 'srgb' \| null`   | color space its slots imply            |
-|  [08]   | `getBounds(node \| scene) -> bbox`                  | world-space extent                     |
-|  [09]   | `getSceneVertexCount(scene, method) -> number`      | counts under a `VertexCountMethod`     |
-|  [10]   | `compressTexture(texture, options)`                 | single-texture `textureCompress`       |
-|  [11]   | `createTransform(name, fn) -> Transform`            | mint a branch-owned row                |
+|  [01]   | `inspect(doc) -> InspectReport`                    | the whole-document census              |
+|  [02]   | `listTextureChannels(texture) -> TextureChannel[]` | channels a texture is actually read on |
+|  [03]   | `getTextureChannelMask(texture) -> number`         | the same fact as an R/G/B/A bitmask    |
+|  [04]   | `listTextureSlots(texture) -> string[]`            | material slot names binding it         |
+|  [05]   | `listTextureInfo(texture) -> TextureInfo[]`        | sampler records bound to it            |
+|  [06]   | `listTextureInfoByMaterial(material)`              | the same, scoped to one material       |
+|  [07]   | `getTextureColorSpace(texture) -> 'srgb' \| null`  | color space its slots imply            |
+|  [08]   | `getBounds(node \| scene) -> bbox`                 | world-space extent                     |
+|  [09]   | `getSceneVertexCount(scene, method) -> number`     | counts under a `VertexCountMethod`     |
+|  [10]   | `compressTexture(texture, options)`                | single-texture `textureCompress`       |
+|  [11]   | `createTransform(name, fn) -> Transform`           | mint a branch-owned row                |
 
 `[VERTEX_COUNT]: `getSceneVertexCount` `getNodeVertexCount` `getMeshVertexCount` `getPrimitiveVertexCount`` — one per grain, each taking the same `VertexCountMethod`.
 

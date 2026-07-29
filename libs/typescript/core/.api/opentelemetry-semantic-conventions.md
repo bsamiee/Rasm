@@ -41,17 +41,17 @@ Promotion moves a name between the two module families, never between spellings,
 
 Stable (`.`) namespaces, imported by default:
 
-| [INDEX] | [NAMESPACE]                                              | [CONSUMER]                                                      |
-| :-----: | :------------------------------------------------------- | :-------------------------------------------------------------- |
-|  [01]   | `service.*` (name/version/instance.id/namespace)         | `Resource` identity spine — `AppIdentity → resource`            |
-|  [02]   | `container.image.*`, `k8s.*`                             | collector `k8s_attributes` enrichment; the cluster identity fold|
-|  [03]   | `http.request.method`, `http.route`                      | collector `span_metrics` RED dimensions                         |
-|  [04]   | `url.full`, `client.address`, `user_agent.original`      | egress-redaction seal set at `runtime/otel/emit`                |
-|  [05]   | `url.path`                                               | collector probe-traffic filter at `iac/operate/observe`         |
-|  [06]   | `error.type`, `EVENT_EXCEPTION`                          | fatal-capture dimension and event at `runtime/otel/crash`       |
-|  [07]   | `deployment.environment.name`                            | environment tier on the identity projection                     |
-|  [08]   | `exception.*`, `code.*`                                  | `value/fault` `FaultCapture.Forensic` — direct import, unrowed  |
-|  [09]   | `telemetry.*`, `otel.*`, `network.*`, `db.*`, `server.*` | unrowed — consumer-earned admission law                         |
+| [INDEX] | [NAMESPACE]                                              | [CONSUMER]                                                       |
+| :-----: | :------------------------------------------------------- | :--------------------------------------------------------------- |
+|  [01]   | `service.*` (name/version/instance.id/namespace)         | `Resource` identity spine — `AppIdentity → resource`             |
+|  [02]   | `container.image.*`, `k8s.*`                             | collector `k8s_attributes` enrichment; the cluster identity fold |
+|  [03]   | `http.request.method`, `http.route`                      | collector `span_metrics` RED dimensions                          |
+|  [04]   | `url.full`, `client.address`, `user_agent.original`      | egress-redaction seal set at `runtime/otel/emit`                 |
+|  [05]   | `url.path`                                               | collector probe-traffic filter at `iac/operate/observe`          |
+|  [06]   | `error.type`, `EVENT_EXCEPTION`                          | fatal-capture dimension and event at `runtime/otel/crash`        |
+|  [07]   | `deployment.environment.name`                            | environment tier on the identity projection                      |
+|  [08]   | `exception.*`, `code.*`                                  | `value/fault` `FaultCapture.Forensic` — direct import, unrowed   |
+|  [09]   | `telemetry.*`, `otel.*`, `network.*`, `db.*`, `server.*` | unrowed — consumer-earned admission law                          |
 
 Incubating (`./incubating`) namespaces, imported behind the alias row:
 

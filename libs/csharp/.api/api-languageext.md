@@ -37,26 +37,26 @@
 
 [PUBLIC_TYPE_SCOPE]: immutable carriers, state, and optics
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]   | [CAPABILITY]                             |
-| :-----: | :---------------------- | :-------------- | :--------------------------------------- |
-|  [01]   | `Seq<A>`                | readonly struct | default ordered carrier with `AsSpan`    |
-|  [02]   | `Arr<A>`                | readonly struct | indexed immutable array                  |
-|  [03]   | `Lst<A>`                | readonly struct | persistent linked list                   |
-|  [04]   | `HashMap<K, V>`         | readonly struct | hashed persistent map                    |
-|  [05]   | `Map<K, V>`             | readonly struct | ordered persistent map                   |
-|  [06]   | `TrackingHashMap<K, V>` | readonly struct | map carrying its own change log          |
-|  [07]   | `HashSet<A>`            | readonly struct | hashed persistent set                    |
-|  [08]   | `Set<A>`                | readonly struct | ordered persistent set                   |
-|  [09]   | `Stck<A>`               | readonly struct | persistent LIFO stack                    |
-|  [10]   | `Que<A>`                | readonly struct | persistent FIFO queue                    |
-|  [11]   | `Iterable<A>`           | abstract class  | lazy sync or async sequence              |
-|  [12]   | `Atom<A>`               | sealed class    | lock-free CAS cell with `Change`         |
-|  [13]   | `Atom<M, A>`            | sealed class    | CAS cell threading construction metadata |
-|  [14]   | `Ref<A>`                | sealed class    | transactional cell `atomic` commits      |
-|  [15]   | `Memo<A>`               | class           | resettable memoized thunk                |
-|  [16]   | `Lens<A, B>`            | readonly struct | composable get and immutable set         |
-|  [17]   | `Range<A>`              | record          | generated bounded sequence               |
-|  [18]   | `AtomChangedEvent<A>`   | delegate        | `Atom.Change` handler over the new value |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]   | [CAPABILITY]                                            |
+| :-----: | :---------------------- | :-------------- | :------------------------------------------------------ |
+|  [01]   | `Seq<A>`                | readonly struct | default ordered carrier with `AsSpan`                   |
+|  [02]   | `Arr<A>`                | readonly struct | indexed immutable array                                 |
+|  [03]   | `Lst<A>`                | readonly struct | persistent linked list                                  |
+|  [04]   | `HashMap<K, V>`         | readonly struct | hashed persistent map                                   |
+|  [05]   | `Map<K, V>`             | readonly struct | ordered persistent map                                  |
+|  [06]   | `TrackingHashMap<K, V>` | readonly struct | map carrying its own change log                         |
+|  [07]   | `HashSet<A>`            | readonly struct | hashed persistent set                                   |
+|  [08]   | `Set<A>`                | readonly struct | ordered persistent set                                  |
+|  [09]   | `Stck<A>`               | readonly struct | persistent LIFO stack                                   |
+|  [10]   | `Que<A>`                | readonly struct | persistent FIFO queue                                   |
+|  [11]   | `Iterable<A>`           | abstract class  | lazy sync or async sequence                             |
+|  [12]   | `Atom<A>`               | sealed class    | lock-free CAS cell with `Change`                        |
+|  [13]   | `Atom<M, A>`            | sealed class    | CAS cell threading construction metadata                |
+|  [14]   | `Ref<A>`                | sealed class    | transactional cell `atomic` commits                     |
+|  [15]   | `Memo<A>`               | class           | resettable memoized thunk                               |
+|  [16]   | `Lens<A, B>`            | readonly struct | composable get and immutable set                        |
+|  [17]   | `Range<A>`              | record          | generated bounded sequence, `Range.fromMinMax` mints it |
+|  [18]   | `AtomChangedEvent<A>`   | delegate        | `Atom.Change` handler over the new value                |
 
 [PUBLIC_TYPE_SCOPE]: traits and monad transformers (`LanguageExt.Traits`)
 

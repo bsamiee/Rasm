@@ -14,15 +14,15 @@
 
 [PUBLIC_TYPE_SCOPE]: the instrumentation row, its config, and the request and response shapes its hooks receive
 
-| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY] | [CAPABILITY]                                        |
-| :-----: | :----------------------------------- | :------------ | :-------------------------------------------------- |
-|  [01]   | `UndiciInstrumentation`              | class         | the `Instrumentation` row                           |
-|  [02]   | `UndiciInstrumentationConfig<Q, S>`  | interface     | the whole knob surface, generic over request/response |
-|  [03]   | `UndiciRequest`                      | interface     | origin, method, path, headers, body, and lifecycle flags |
-|  [04]   | `UndiciResponse`                     | interface     | raw header buffers, status code, status text        |
-|  [05]   | `IgnoreRequestFunction<Q>`           | interface     | `(request) => boolean`                              |
-|  [06]   | `RequestHookFunction<Q>` / `ResponseHookFunction<Q, S>` | interface | span enrichment at request and response |
-|  [07]   | `StartSpanHookFunction<Q>`           | interface     | attributes computed at span start                   |
+| [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY] | [CAPABILITY]                                             |
+| :-----: | :------------------------------------------------------ | :------------ | :------------------------------------------------------- |
+|  [01]   | `UndiciInstrumentation`                                 | class         | the `Instrumentation` row                                |
+|  [02]   | `UndiciInstrumentationConfig<Q, S>`                     | interface     | the whole knob surface, generic over request/response    |
+|  [03]   | `UndiciRequest`                                         | interface     | origin, method, path, headers, body, and lifecycle flags |
+|  [04]   | `UndiciResponse`                                        | interface     | raw header buffers, status code, status text             |
+|  [05]   | `IgnoreRequestFunction<Q>`                              | interface     | `(request) => boolean`                                   |
+|  [06]   | `RequestHookFunction<Q>` / `ResponseHookFunction<Q, S>` | interface     | span enrichment at request and response                  |
+|  [07]   | `StartSpanHookFunction<Q>`                              | interface     | attributes computed at span start                        |
 
 - `UndiciInstrumentationConfig` extends `InstrumentationConfig` (`enabled?`) with `ignoreRequestHook?`, `requestHook?`, `responseHook?`, `startSpanHook?`, `requireParentforSpans?`, and `headersToSpanAttributes?: { requestHeaders?: string[]; responseHeaders?: string[] }`.
 - `UndiciRequest.origin` carries scheme and authority, so an ignore hook matches an endpoint by origin without reassembling a URL.
@@ -33,11 +33,11 @@
 
 [ENTRYPOINT_SCOPE]: construction — the row is data, activation belongs to `registerInstrumentations`
 
-| [INDEX] | [SURFACE]                              | [SHAPE]  | [CAPABILITY]                                |
-| :-----: | :------------------------------------- | :------- | :------------------------------------------ |
-|  [01]   | `new UndiciInstrumentation(config?)`   | ctor     | one row in the registered array             |
-|  [02]   | `.setConfig(config)` / `.getConfig()`  | instance | replace or read the row's config live       |
-|  [03]   | `.enable()` / `.disable()`             | instance | the `Instrumentation` contract's own toggle |
+| [INDEX] | [SURFACE]                             | [SHAPE]  | [CAPABILITY]                                |
+| :-----: | :------------------------------------ | :------- | :------------------------------------------ |
+|  [01]   | `new UndiciInstrumentation(config?)`  | ctor     | one row in the registered array             |
+|  [02]   | `.setConfig(config)` / `.getConfig()` | instance | replace or read the row's config live       |
+|  [03]   | `.enable()` / `.disable()`            | instance | the `Instrumentation` contract's own toggle |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

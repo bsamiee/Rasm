@@ -181,15 +181,15 @@
 - `FlightClient` carry: `FlightClient(location, tls_root_certs=None, *, cert_chain=None, private_key=None, override_hostname=None, middleware=None, write_size_limit_bytes=None, disable_server_verification=None, generic_options=None)`, a context manager whose `close` releases the transport
 - `FlightCallOptions` carry: `FlightCallOptions(timeout=None, write_options=None, headers=None, read_options=None)`; `headers` is a sequence of `(bytes, bytes)` pairs
 
-| [INDEX] | [SURFACE]                                                        | [SHAPE] | [CAPABILITY]                                      |
-| :-----: | :--------------------------------------------------------------- | :------ | :------------------------------------------------ |
-|  [01]   | `flight.FlightDescriptor.for_command(bytes)`                     | factory | address a flight by an opaque command payload     |
+| [INDEX] | [SURFACE]                                                         | [SHAPE] | [CAPABILITY]                                      |
+| :-----: | :---------------------------------------------------------------- | :------ | :------------------------------------------------ |
+|  [01]   | `flight.FlightDescriptor.for_command(bytes)`                      | factory | address a flight by an opaque command payload     |
 |  [02]   | `FlightClient.get_flight_info(descriptor, options) -> FlightInfo` | rpc     | plan a flight and receive its endpoint set        |
-|  [03]   | `FlightInfo.endpoints` / `.schema` / `.ordered`                  | member  | endpoint fan-out, result schema, meaningful order |
-|  [04]   | `FlightEndpoint.ticket` / `.locations` / `.expiration_time`      | member  | redemption ticket and the peers serving it        |
-|  [05]   | `flight.Location.uri` (`bytes`)                                  | member  | peer coordinate a per-endpoint client connects to |
-|  [06]   | `FlightClient.do_get(ticket, options) -> FlightStreamReader`     | rpc     | redeem one ticket as record batches               |
-|  [07]   | `flight.FlightError` family                                      | error   | eight leaves the wire fault vocabulary folds      |
+|  [03]   | `FlightInfo.endpoints` / `.schema` / `.ordered`                   | member  | endpoint fan-out, result schema, meaningful order |
+|  [04]   | `FlightEndpoint.ticket` / `.locations` / `.expiration_time`       | member  | redemption ticket and the peers serving it        |
+|  [05]   | `flight.Location.uri` (`bytes`)                                   | member  | peer coordinate a per-endpoint client connects to |
+|  [06]   | `FlightClient.do_get(ticket, options) -> FlightStreamReader`      | rpc     | redeem one ticket as record batches               |
+|  [07]   | `flight.FlightError` family                                       | error   | eight leaves the wire fault vocabulary folds      |
 
 [FLIGHT_ERRORS]: `FlightCancelledError` `FlightInternalError` `FlightServerError` `FlightTimedOutError` `FlightUnauthenticatedError` `FlightUnauthorizedError` `FlightUnavailableError` `FlightWriteSizeExceededError`
 

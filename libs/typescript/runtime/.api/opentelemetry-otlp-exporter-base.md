@@ -14,15 +14,15 @@
 
 [PUBLIC_TYPE_SCOPE]: the exporter configuration records and the transport contracts
 
-| [INDEX] | [SYMBOL]                                              | [TYPE_FAMILY] | [CAPABILITY]                                             |
-| :-----: | :---------------------------------------------------- | :------------ | :------------------------------------------------------- |
-|  [01]   | `CompressionAlgorithm`                                | enum          | `NONE = "none"` \| `GZIP = "gzip"`                       |
-|  [02]   | `OTLPExporterConfigBase`                              | interface     | signal-neutral transport options                         |
-|  [03]   | `OTLPExporterNodeConfigBase`                          | interface     | node record adding keep-alive, agent, compression        |
-|  [04]   | `OtlpSharedConfiguration`                             | interface     | resolved timeout, concurrency, and compression triple    |
-|  [05]   | `IExporterTransport` / `IOtlpExportDelegate`          | interface     | send and delegate contracts behind every exporter        |
-|  [06]   | `ExportResponse` (`Success`/`Failure`/`Retryable`)    | union         | transport verdict retry policy dispatches on             |
-|  [07]   | `OTLPExporterError`                                   | class         | transport error carrying status and data                 |
+| [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY] | [CAPABILITY]                                          |
+| :-----: | :------------------------------------------------- | :------------ | :---------------------------------------------------- |
+|  [01]   | `CompressionAlgorithm`                             | enum          | `NONE = "none"` \| `GZIP = "gzip"`                    |
+|  [02]   | `OTLPExporterConfigBase`                           | interface     | signal-neutral transport options                      |
+|  [03]   | `OTLPExporterNodeConfigBase`                       | interface     | node record adding keep-alive, agent, compression     |
+|  [04]   | `OtlpSharedConfiguration`                          | interface     | resolved timeout, concurrency, and compression triple |
+|  [05]   | `IExporterTransport` / `IOtlpExportDelegate`       | interface     | send and delegate contracts behind every exporter     |
+|  [06]   | `ExportResponse` (`Success`/`Failure`/`Retryable`) | union         | transport verdict retry policy dispatches on          |
+|  [07]   | `OTLPExporterError`                                | class         | transport error carrying status and data              |
 
 - `OTLPExporterConfigBase` carries `headers?` (`Record<string,string>` or an async `HeadersFactory`), `url?`, `concurrencyLimit?`, `timeoutMillis?` (default 10000), and `selfObsMeterProvider?` (`@experimental`).
 - `OTLPExporterNodeConfigBase` extends it with `keepAlive?`, `compression?: CompressionAlgorithm`, `httpAgentOptions?` (`http.AgentOptions`, `https.AgentOptions`, or an async factory), and `userAgent?` prepended to the exporter's own value.
@@ -33,13 +33,13 @@
 
 [ENTRYPOINT_SCOPE]: configuration merge and delegate construction — the surface exporters build on
 
-| [INDEX] | [SURFACE]                                                            | [SHAPE]  | [CAPABILITY]                                    |
-| :-----: | :------------------------------------------------------------------- | :------- | :---------------------------------------------- |
-|  [01]   | `mergeOtlpSharedConfigurationWithDefaults(user, fallback, defaults)` | function | fold user options over env and spec defaults    |
-|  [02]   | `getSharedConfigurationDefaults()`                                   | function | spec transport defaults                         |
-|  [03]   | `createOtlpNetworkExportDelegate(config, serializer, transport)`     | factory  | delegate an exporter's `export` drives          |
-|  [04]   | `OTLPExporterBase`                                                   | class    | base class every signal exporter extends        |
-|  [05]   | `ExporterMetrics`                                                    | class    | exporter self-observability counters            |
+| [INDEX] | [SURFACE]                                                            | [SHAPE]  | [CAPABILITY]                                 |
+| :-----: | :------------------------------------------------------------------- | :------- | :------------------------------------------- |
+|  [01]   | `mergeOtlpSharedConfigurationWithDefaults(user, fallback, defaults)` | function | fold user options over env and spec defaults |
+|  [02]   | `getSharedConfigurationDefaults()`                                   | function | spec transport defaults                      |
+|  [03]   | `createOtlpNetworkExportDelegate(config, serializer, transport)`     | factory  | delegate an exporter's `export` drives       |
+|  [04]   | `OTLPExporterBase`                                                   | class    | base class every signal exporter extends     |
+|  [05]   | `ExporterMetrics`                                                    | class    | exporter self-observability counters         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

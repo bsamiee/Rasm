@@ -152,7 +152,7 @@
 - `lxml`(`.api/lxml.md`): owns the element serialization and relationship/content-type part graph every `add_*` writes through.
 - `pillow`(`.api/pillow.md`)/`numpy`(`.api/numpy.md`): an RGBA overlay/QR/chart raster arrives as a numpy array -> PNG and anchors through `add_picture`, Pillow sizing the image part.
 - `msgspec`(`.api/msgspec.md`)/`pydantic`(`.api/pydantic.md`): the office-receipt model is one `Struct` admitted through a `TypeAdapter`, capturing paragraph/table/image/section/comment/style counts and output byte length onto the `EmitFact`.
-- rail: the lowering op is `@beartype`-guarded, emits one `structlog` event inside an `opentelemetry` span, retries transient save I/O under `stamina`(`.api/stamina.md`), and a provider raise converts to the `expression`(`.api/expression.md`) `Result` rail; Excel routes to `openpyxl`, PowerPoint to `python-pptx`, ODF to `odfpy`, PDF render to `pymupdf`/`weasyprint`.
+- rail: the lowering op is `@beartype`-guarded, emits one `structlog` event inside an `opentelemetry` span, retries transient save I/O under `stamina`(`libs/python/runtime/.api/stamina.md`), and a provider raise converts to the `expression`(`.api/expression.md`) `Result` rail; Excel routes to `openpyxl`, PowerPoint to `python-pptx`, ODF to `odfpy`, PDF render to `pymupdf`/`weasyprint`.
 
 [LOCAL_ADMISSION]:
 - Import at boundary scope (`import docx`); the distribution is `python-docx`, the import name `docx`.

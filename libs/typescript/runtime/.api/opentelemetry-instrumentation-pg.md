@@ -14,14 +14,14 @@
 
 [PUBLIC_TYPE_SCOPE]: the instrumentation row, its config, and the hook payload shapes
 
-| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY] | [CAPABILITY]                                              |
-| :-----: | :------------------------------------------ | :------------ | :--------------------------------------------------------- |
-|  [01]   | `PgInstrumentation`                         | class         | the `Instrumentation` row                                  |
-|  [02]   | `PgInstrumentationConfig`                   | interface     | the whole knob surface                                     |
-|  [03]   | `AttributeNames`                            | enum          | the package's own attribute-key roster                     |
-|  [04]   | `PgRequestHookInformation`                  | interface     | query text and name beside the connection coordinates      |
-|  [05]   | `PgResponseHookInformation`                 | interface     | the settled `QueryResult` or `QueryArrayResult`            |
-|  [06]   | `PgInstrumentationExecutionRequestHook` / `…ResponseHook` | interface | span enrichment at request and response    |
+| [INDEX] | [SYMBOL]                                                  | [TYPE_FAMILY] | [CAPABILITY]                                          |
+| :-----: | :-------------------------------------------------------- | :------------ | :---------------------------------------------------- |
+|  [01]   | `PgInstrumentation`                                       | class         | the `Instrumentation` row                             |
+|  [02]   | `PgInstrumentationConfig`                                 | interface     | the whole knob surface                                |
+|  [03]   | `AttributeNames`                                          | enum          | the package's own attribute-key roster                |
+|  [04]   | `PgRequestHookInformation`                                | interface     | query text and name beside the connection coordinates |
+|  [05]   | `PgResponseHookInformation`                               | interface     | the settled `QueryResult` or `QueryArrayResult`       |
+|  [06]   | `PgInstrumentationExecutionRequestHook` / `…ResponseHook` | interface     | span enrichment at request and response               |
 
 - `PgInstrumentationConfig` extends `InstrumentationConfig` (`enabled?`) with `enhancedDatabaseReporting?`, `requestHook?`, `responseHook?`, `requireParentSpan?`, `addSqlCommenterCommentToQueries?`, `ignoreConnectSpans?`, `enableTraceContextPropagation?`.
 - `enhancedDatabaseReporting` attaches the statement's bound parameter values to the span; parameters are identifier-grade material, so the field is a compliance decision rather than a verbosity one.
@@ -34,11 +34,11 @@
 
 [ENTRYPOINT_SCOPE]: construction — the row is data, activation belongs to `registerInstrumentations`
 
-| [INDEX] | [SURFACE]                            | [SHAPE]  | [CAPABILITY]                                |
-| :-----: | :----------------------------------- | :------- | :------------------------------------------ |
-|  [01]   | `new PgInstrumentation(config?)`     | ctor     | one row in the registered array             |
+| [INDEX] | [SURFACE]                             | [SHAPE]  | [CAPABILITY]                                |
+| :-----: | :------------------------------------ | :------- | :------------------------------------------ |
+|  [01]   | `new PgInstrumentation(config?)`      | ctor     | one row in the registered array             |
 |  [02]   | `.setConfig(config)` / `.getConfig()` | instance | replace or read the row's config live       |
-|  [03]   | `.enable()` / `.disable()`           | instance | the `Instrumentation` contract's own toggle |
+|  [03]   | `.enable()` / `.disable()`            | instance | the `Instrumentation` contract's own toggle |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

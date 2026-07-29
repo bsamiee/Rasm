@@ -77,7 +77,7 @@
 |  [05]   | `BptcTextureCoder`                                               | sealed class  | BC6H unsigned and signed float, BC7 UNorm and sRGB |
 |  [06]   | `S3tcTextureCoder`                                               | sealed class  | BC1, BC2, BC3 (DXT1/3/5)                           |
 |  [07]   | `RgtcLatcTextureCoder`                                           | sealed class  | BC4 and BC5 scalar and two-channel                 |
-|  [08]   | `AstcTextureCoder` / `Astc3DTextureCoder`                        | sealed class  | ASTC: 15 2D extents (`RgbaAstc4x4*`..`RgbaAstc12x12*`) + 10 3D extents (`RgbaAstc3x3x3*`..`RgbaAstc6x6x6*`), each in `UNorm`/`Srgb`/`Float` arms — the HDR arm SPELLS `Float`, never `Hdr` |
+|  [08]   | `AstcTextureCoder` / `Astc3DTextureCoder`                        | sealed class  | ASTC 2D and 3D block extents                       |
 |  [09]   | `EtcTextureCoder`                                                | sealed class  | ETC1, ETC2, and EAC R11/RG11                       |
 |  [10]   | `BasisUastcLdr4x4TextureCoder`                                   | sealed class  | Basis UASTC LDR 4x4                                |
 |  [11]   | `BasisEtc1sTextureCoder`                                         | sealed class  | Basis ETC1S with endpoint and selector palettes    |
@@ -90,6 +90,7 @@
 |  [18]   | `PlanarYuv`/`PackedYuv422`/`PackedYuva444`/`PackedRgb422` coders | sealed class  | video chroma layouts                               |
 |  [19]   | `TextureArrayCoder` / `PitchTextureArrayCoder`                   | sealed class  | array-layer coding over a per-slice coder          |
 
+- `AstcTextureCoder` spans the `RgbaAstc4x4*`..`RgbaAstc12x12*` 2D extents and `Astc3DTextureCoder` the `RgbaAstc3x3x3*`..`RgbaAstc6x6x6*` 3D extents, each extent carrying `UNorm`, `Srgb`, and `Float` arms — the HDR arm spells `Float`.
 - `BasisEtc1sTextureCoder` and `BasisUastcLdr4x4TextureCoder`: `TextureFormats.RgbaBasisEtc1sUNorm`/`RgbaBasisEtc1sSrgb` and `TextureFormats.RgbaBasisUastcLdr4x4UNorm`/`RgbaBasisUastcLdr4x4Srgb` are the four `TextureFormats` fields the KTX2 wire-legal payload classes ride.
 - `BptcTextureCoder`, `S3tcTextureCoder`, and `RgtcLatcTextureCoder` bind these `TextureFormats` fields: `Bc1Rgb` `Bc1RgbSrgb` `Bc1Rgba` `Bc1RgbaSrgb` `Bc2Rgba` `Bc2RgbaSrgb` `Bc3Rgba` `Bc3RgbaSrgb` `Bc4UNorm` `Bc4SNorm` `Bc5UNorm` `Bc5SNorm` `Bc6HUFloat` `Bc6HSFloat` `Bc7UNorm` `Bc7Srgb` — the field name, never a `BC1_RGB_UNORM_BLOCK`-style token, is what a static reference spells.
 - `TextureFormatCatalog.TryGet(string, out TextureFormat)` matches EITHER the declaring field name or the format's own `Name`, ordinal-ignore-case, so a caller holding either spelling resolves; binding the static field directly is the compile-checked form and the lookup serves a runtime-sourced name alone.
@@ -105,7 +106,7 @@
 |  [05]   | `TextureConversionMipmaps`                                       | enum          | `None` `Generate`                                  |
 |  [06]   | `TextureAssembler` / `TextureExtractor`                          | class         | subresource assembly and extraction                |
 |  [07]   | `TextureExtractedImage`                                          | class         | one extracted subresource image                    |
-|  [08]   | `TextureCompressionRegistrationFactory`                          | static class  | register the coders one format and level need      |
+|  [08]   | `TextureCompressionOptions`                                      | class         | per-coder compression-mode options record          |
 |  [09]   | `TextureCompressionOptions`                                      | class         | `CompressionMode` carrier                          |
 |  [10]   | `TextureCompressionLevel`                                        | enum          | `Fast` `Normal` `High`                             |
 |  [11]   | `TextureFileFormatManager`                                       | sealed class  | file-format registry with a global instance        |
@@ -133,23 +134,24 @@
 
 [ENTRYPOINT_SCOPE]: the generic coding rail — `ITextureCoder` / `TextureCoderManager`
 
-| [INDEX] | [SURFACE]                                                                   | [SHAPE]         | [CAPABILITY]                           |
-| :-----: | :-------------------------------------------------------------------------- | :-------------- | :------------------------------------- |
-|  [01]   | `ITextureCoder.Encode<TPixel>(BitmapView<TPixel>, Span<byte>)`              | instance        | encode any texel type to the payload   |
-|  [02]   | `ITextureCoder.Decode<TPixel>(ReadOnlySpan<byte>, BitmapView<TPixel>)`      | instance        | decode the payload to any texel type   |
-|  [03]   | `ITextureCoder.GetEncodedByteCount(int, int) -> int`                        | instance        | payload sizing for an extent           |
-|  [04]   | `ITextureCoder.Format`                                                      | property        | the format the coder claims            |
-|  [05]   | `TextureCoderManager.Global`                                                | static property | the process-wide registry              |
-|  [06]   | `TextureCoderManager.Register(TextureFormat, ITextureCoder) -> IDisposable` | instance        | scoped one-format registration         |
-|  [07]   | `TextureCoderManager.Register(IEnumerable<TextureFormat>, Func<…>)`         | instance        | scoped family registration             |
-|  [08]   | `TextureCoderManager.TryGetCoder(TextureFormat, out ITextureCoder) -> bool` | instance        | probe a registration                   |
-|  [09]   | `TextureCoderManager.GetCoder(TextureFormat) -> ITextureCoder`              | instance        | resolve or throw                       |
-|  [10]   | `TextureCoderManager.Register3D` / `TryGetCoder3D` / `GetCoder3D`           | instance        | the volume peers                       |
-|  [11]   | `TextureCoderManager.Combine(params ReadOnlySpan<IDisposable>)`             | instance        | one scope over many registrations      |
-|  [12]   | `TextureCompressionRegistrationFactory.Create(…) -> IDisposable?`           | static          | register one format and level's coders |
+| [INDEX] | [SURFACE]                                                                   | [SHAPE]         | [CAPABILITY]                         |
+| :-----: | :-------------------------------------------------------------------------- | :-------------- | :----------------------------------- |
+|  [01]   | `ITextureCoder.Encode<TPixel>(BitmapView<TPixel>, Span<byte>)`              | instance        | encode any texel type to the payload |
+|  [02]   | `ITextureCoder.Decode<TPixel>(ReadOnlySpan<byte>, BitmapView<TPixel>)`      | instance        | decode the payload to any texel type |
+|  [03]   | `ITextureCoder.GetEncodedByteCount(int, int) -> int`                        | instance        | payload sizing for an extent         |
+|  [04]   | `ITextureCoder.Format`                                                      | property        | the format the coder claims          |
+|  [05]   | `TextureCoderManager.Global`                                                | static property | the process-wide registry            |
+|  [06]   | `TextureCoderManager.Register(TextureFormat, ITextureCoder) -> IDisposable` | instance        | scoped one-format registration       |
+|  [07]   | `TextureCoderManager.Register(IEnumerable<TextureFormat>, Func<…>)`         | instance        | scoped family registration           |
+|  [08]   | `TextureCoderManager.TryGetCoder(TextureFormat, out ITextureCoder) -> bool` | instance        | probe a registration                 |
+|  [09]   | `TextureCoderManager.GetCoder(TextureFormat) -> ITextureCoder`              | instance        | resolve or throw                     |
+|  [10]   | `TextureCoderManager.Register3D` / `TryGetCoder3D` / `GetCoder3D`           | instance        | the volume peers                     |
+|  [11]   | `TextureCoderManager.Combine(params ReadOnlySpan<IDisposable>)`             | instance        | one scope over many registrations    |
 
 - Every `Register*` returns the registration's `IDisposable` scope; dropping it leaves the coder resident on `Global` for the process.
-- `TextureCompressionRegistrationFactory.Create` returns null where the format needs no compression-level-bound coder, so a null result is a satisfied registration, never a failure.
+- `TextureCompressionRegistrationFactory` is INTERNAL — its `Create` is public on an unreachable class, so no consumer registers through it; the PUBLIC spelling of the same ladder is the per-family coder constructor over `(TextureFormat, TextureCompressionOptions)` handed to `Register`, and the family classes (`S3tcTextureCoder`, `EtcTextureCoder`, `RgtcLatcTextureCoder`, `BptcTextureCoder`, `AstcTextureCoder`, `BasisUastcLdr4x4TextureCoder`, `BasisEtc1sTextureCoder`, …) each carry `IsSupported(TextureFormat)` and `SupportedFormats`.
+- `TryGetCoder` CREATES the built-in coder for a standard format lazily ON ITS OWN INSTANCE and caches it there, so a bare `new TextureCoderManager()` resolves the standard roster with zero registrations — a bake-scoped manager is one constructor call, and only an options-bearing coder (a compression level) needs an explicit `Register`.
+- `KtxCodec.Encode`/`EncodeMipChain`/`Decode<TPixel>` resolve their coders from `TextureCoderManager.Global` INTERNALLY — a bake-scoped manager reaches only the per-subresource `ITextureCoder.Decode`/`Encode` path a caller drives itself, so an options-bearing encode through the container codec is not expressible without touching the process-global registry.
 
 [ENTRYPOINT_SCOPE]: plane carriers and mip generation
 
@@ -188,25 +190,32 @@
 
 [ENTRYPOINT_SCOPE]: texture pyramid navigation — `TextureImage`
 
-| [INDEX] | [SURFACE]                                                                      | [SHAPE]  | [CAPABILITY]                      |
-| :-----: | :----------------------------------------------------------------------------- | :------- | :-------------------------------- |
-|  [01]   | `new TextureImage(TextureFormat, int, int, byte[])`                            | ctor     | single-subresource texture        |
-|  [02]   | `new TextureImage(TextureFormat, IReadOnlyList<TextureSubresource>, int, int)` | ctor     | array-layer and face pyramid      |
-|  [03]   | `TextureImage.GetSubresource(int, TextureCubeFace, int) -> TextureSubresource` | instance | mip and face lookup               |
-|  [04]   | `TextureImage.GetSubresource(int, int, int) -> TextureSubresource`             | instance | mip, layer, face-index lookup     |
-|  [05]   | `TextureImage.MipLevelCount` / `ArrayLayerCount` / `FaceCount` / `IsCubeMap`   | property | pyramid shape                     |
-|  [06]   | `TextureImage.GetFullMipLevelCount(int, int) -> int`                           | static   | full-chain level count            |
-|  [07]   | `TextureImage.GetMipDimension(int, int) -> int`                                | static   | one level's extent                |
-|  [08]   | `new TextureSubresource(int, int, int, int, int, byte[])`                      | ctor     | mip, layer, face, extent, payload |
+| [INDEX] | [SURFACE]                                                                               | [SHAPE]  | [CAPABILITY]                      |
+| :-----: | :-------------------------------------------------------------------------------------- | :------- | :-------------------------------- |
+|  [01]   | `new TextureImage(TextureFormat, int, int, byte[])`                                     | ctor     | single-subresource texture        |
+|  [02]   | `new TextureImage(TextureFormat, IReadOnlyList<TextureSubresource>, int, int)`          | ctor     | array-layer and face pyramid      |
+|  [03]   | `TextureImage.GetSubresource(int, TextureCubeFace, int) -> TextureSubresource`          | instance | mip and face lookup               |
+|  [04]   | `TextureImage.GetSubresource(int, int = 0, int = 0) -> TextureSubresource`              | instance | mip, layer, face-index lookup     |
+|  [05]   | `TextureImage.Format` / `MipLevelCount` / `ArrayLayerCount` / `FaceCount` / `IsCubeMap` | property | declared format, pyramid shape    |
+|  [06]   | `TextureImage.GetFullMipLevelCount(int, int) -> int`                                    | static   | full-chain level count            |
+|  [07]   | `TextureImage.GetMipDimension(int, int) -> int`                                         | static   | one level's extent                |
+|  [08]   | `new TextureSubresource(int, int, int, int, int, byte[])`                               | ctor     | mip, layer, face, extent, payload |
+|  [09]   | `new TextureSubresource(int, int, int, int, int, int, byte[])`                          | ctor     | the depth-bearing volume peer     |
+|  [10]   | `TextureSubresource.Width` / `Height` / `Depth`                                         | property | one level's own extent            |
+|  [11]   | `TextureSubresource.MipLevel` / `ArrayLayer` / `FaceIndex`                              | property | the slot this payload occupies    |
+|  [12]   | `TextureSubresource.Payload -> byte[]`                                                  | property | the block bytes a coder decodes   |
+|  [13]   | `TextureSubresource.Data -> byte[]`                                                     | property | the `Payload` alias               |
+|  [14]   | `TextureImage.Subresources -> IReadOnlyList<TextureSubresource>`                        | property | the whole ordered slot list       |
+|  [15]   | `TextureImage.Width` / `Height` / `Depth` / `Payload` / `Data`                          | property | subresource-zero projections      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `TextureFormat` is a VALUE, not an enum: name, kind, components, value kind, per-channel bit counts, block extent, and bits-per-block fully describe a layout, so a format the standing catalogue omits is a `BlockCompressed`/`Uncompressed`/`Paletted` construction rather than a library change, and `GetByteCount`/`GetRowByteCount` size any payload from that description alone.
 - Coding is a two-level rail: `TextureCoderManager` maps a `TextureFormat` to an `ITextureCoder`, and the coder encodes and decodes generically over `IPixel<TSelf>`. Pixel type belongs to the caller, not the coder — `Rgba32Float` in for BC6H, `Rgba8UNorm` in for BC7, one member either way.
-- Registration is scoped and lazy: `TextureCompressionRegistrationFactory.Create(coders, format, level)` registers exactly the coders one format and compression level need and hands back the `IDisposable` that retires them, so a bake never loads the whole coder estate to write one channel.
+- Registration is scoped and lazy: `TryGetCoder` on a fresh manager creates each standard coder on demand, and an options-bearing coder registers through the family constructor + `Register`, whose `IDisposable` retires it — so a bake never loads the whole coder estate to write one channel.
 - `BitmapView<TPixel>` is the coding boundary. Every coder takes and returns a borrowed span plane, so the arena belongs to the caller and `ArrayBitmap<TPixel>` is a convenience owner rather than a required one.
-- `TextureImage` carries the whole pyramid — mip levels, array layers, cube faces — as an ordered `TextureSubresource` list, and `GetSubresource(mip, face, layer)` is the one navigator; `IsCubeMap` reads `FaceCount == 6`.
+- `TextureImage` carries the whole pyramid — mip levels, array layers, cube faces — as an ordered `TextureSubresource` list, and `GetSubresource(mip, face, layer)` is the one navigator; `IsCubeMap` reads `FaceCount == 6`. Each slot states its OWN `Width`/`Height`/`Depth`, so a level's extent reads off the subresource rather than halving the base — and `Payload` is a bare `byte[]`, which the coder's `ReadOnlySpan<byte>` parameter takes directly; a `.Span` projection on it does not compile.
 - Mip generation is deliberately minimal: `MipmapFilter` offers `Box` and `Triangle` alone, and `MipmapColorSpace`/`MipmapAlphaMode` decide whether the fold decodes sRGB and un-premultiplies first. Any wider mip law — windowed-sinc, normal renormalization, roughness-variance coupling — is the composing folder's fold over `BitmapView` rows, never a knob here.
 - `TextureCompressionLevel` (`Fast`/`Normal`/`High`) is the sole quality dial and it reaches the block encoders through `TextureCompressionOptions.CompressionMode`; per-block RDO and error-metric selection are not exposed.
 - `TextureFileFormatManager` splits the way the coder rail does: `IImageFileFormat` reads and writes a FLAT pixel image generically over `IPixel`, `ITextureFileFormat` reads and writes a `TextureImage` container. Container packages register one row each on this manager.
@@ -217,7 +226,7 @@
 - `SixLabors.ImageSharp`(`.api/api-imagesharp.md`): the container split — that surface owns PNG, TIFF, WebP, QOI, and JPEG files and this one owns GPU block payloads; a plane crosses as raw bytes through `Image<TPixel>.CopyPixelDataTo(Span<byte>)` into an `ArrayBitmap<TPixel>.PixelSpan` reinterpretation, so one pooled arena serves both and no `Image` instance enters a coder.
 - `CommunityToolkit.HighPerformance`(`libs/csharp/.api/api-highperformance.md`): `MemoryOwner<T>.Allocate(width * height)` rents the texel arena and `MemoryOwner<T>.Span` is exactly the `Span<TPixel>` `new BitmapView<TPixel>(span, width, height)` binds, while `ArrayPoolBufferWriter<byte>` receives the `GetEncodedByteCount`-sized payload; `Span2D<T>.GetRowSpan` and `BitmapView<TPixel>.GetRowSpan` window the same rows, so a neighbourhood fold and a block encode read one plane.
 - `Silk.NET.WebGPU`(`libs/csharp/.api/api-silk-webgpu.md`): a `TextureFormat` row and a wgpu `TextureFormat` enum row are two spellings of one layout — `GetRowByteCount(width)` computes the `TextureDataLayout.BytesPerRow` `QueueWriteTexture` demands (padded to the 256-byte copy alignment), so a block payload uploads as a compressed GPU texture wherever the device declares the matching `FeatureName` row.
-- within-lib: the codec fold owns one `TextureCoderManager` per bake rather than `Global`, registering through `TextureCompressionRegistrationFactory.Create` per channel format and disposing the scope with the bake, so a long-lived process never accumulates the whole coder estate.
+- within-lib: the codec fold owns one `TextureCoderManager` per bake rather than `Global`, resolving standard coders through the instance's own lazy creation and registering options-bearing family coders per channel format, disposing each scope with the bake, so a long-lived process never accumulates the whole coder estate.
 
 [LOCAL_ADMISSION]:
 - `TextureConverter` is admitted for container-to-container transcode alone (`Convert`, `TranscodeTexture`); `EncodeTexture` and `DecodeTexture` are `Rgba8UNorm`-bound and never touch a texture channel plane.
@@ -228,5 +237,5 @@
 [RAIL_LAW]:
 - Package: `TextureCompressor`
 - Owns: the managed GPU-texture payload engine — the `TextureFormat` value description and its size math, the coder registry, and pure-managed block encoders for BC1-BC7 including BC6H, ASTC LDR/sRGB/HDR, ETC1/ETC2/EAC, Basis UASTC and ETC1S, PVRTC, ATC, and FXT1, beside packed, palette, depth-stencil, and chroma layouts, mip-chain generation, and the `TextureImage` subresource pyramid.
-- Accept: `ITextureCoder.Encode<TPixel>`/`Decode<TPixel>` over a `BitmapView<TPixel>` at the plane's own depth; per-bake `TextureCoderManager` and `TextureFileFormatManager` instances; scoped registration through `TextureCompressionRegistrationFactory.Create`; `TextureFormat.GetByteCount` for every payload sizing; `TextureImage` for the mip, layer, and face pyramid.
+- Accept: `ITextureCoder.Encode<TPixel>`/`Decode<TPixel>` over a `BitmapView<TPixel>` at the plane's own depth; per-bake `TextureCoderManager` and `TextureFileFormatManager` instances; family-coder registration over `(TextureFormat, TextureCompressionOptions)`; `TextureFormat.GetByteCount` for every payload sizing; `TextureImage` for the mip, layer, and face pyramid.
 - Reject: `TextureConverter.EncodeTexture`/`DecodeTexture` on a float or 16-bit channel plane; the `Global` registries in a composing folder; a hand-rolled BCn or ASTC block encoder; a mip law beyond `Box`/`Triangle` expressed as a knob here rather than a fold over `BitmapView` rows; a registration scope dropped rather than disposed.

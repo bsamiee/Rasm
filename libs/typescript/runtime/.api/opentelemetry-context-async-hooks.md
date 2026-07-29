@@ -14,21 +14,21 @@
 
 [PUBLIC_TYPE_SCOPE]: the two manager implementations of the api `ContextManager` contract
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [CAPABILITY]                                          |
-| :-----: | :-------------------------------- | :------------ | :---------------------------------------------------- |
-|  [01]   | `AsyncLocalStorageContextManager` | class         | `ContextManager` over `AsyncLocalStorage`             |
-|  [02]   | `AsyncHooksContextManager`        | class         | `ContextManager` over raw `async_hooks` bookkeeping   |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [CAPABILITY]                                        |
+| :-----: | :-------------------------------- | :------------ | :-------------------------------------------------- |
+|  [01]   | `AsyncLocalStorageContextManager` | class         | `ContextManager` over `AsyncLocalStorage`           |
+|  [02]   | `AsyncHooksContextManager`        | class         | `ContextManager` over raw `async_hooks` bookkeeping |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction and the context lifecycle — the shape both classes share
 
-| [INDEX] | [SURFACE]                                 | [SHAPE]  | [CAPABILITY]                             |
-| :-----: | :---------------------------------------- | :------- | :--------------------------------------- |
-|  [01]   | `new AsyncLocalStorageContextManager()`   | ctor     | one instance at the composition root     |
+| [INDEX] | [SURFACE]                                 | [SHAPE]  | [CAPABILITY]                                  |
+| :-----: | :---------------------------------------- | :------- | :-------------------------------------------- |
+|  [01]   | `new AsyncLocalStorageContextManager()`   | ctor     | one instance at the composition root          |
 |  [02]   | `.enable()` / `.disable()`                | instance | bracket the active window; both return `this` |
-|  [03]   | `.active()` / `.with(context, fn, …args)` | instance | read and run within a context            |
-|  [04]   | `.bind(context, target)`                  | instance | bind a context to a function or emitter  |
+|  [03]   | `.active()` / `.with(context, fn, …args)` | instance | read and run within a context                 |
+|  [04]   | `.bind(context, target)`                  | instance | bind a context to a function or emitter       |
 
 - `.enable()` returns the manager, so `context.setGlobalContextManager(new AsyncLocalStorageContextManager().enable())` is the one-expression install.
 - `.with(context, fn, thisArg?, …args)` runs `fn` inside the storage frame; every async continuation created within it inherits the frame.

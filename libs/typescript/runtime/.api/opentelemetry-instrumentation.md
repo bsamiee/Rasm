@@ -28,11 +28,11 @@
 
 [ENTRYPOINT_SCOPE]: activation
 
-| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                         |
-| :-----: | :---------------------------------------------- | :------------- | :---------------------------------------------------------- |
-|  [01]   | `registerInstrumentations(options): () => void` | activation     | one call inside the `Instrument` bracket; thunk on release  |
-|  [02]   | `tracerProvider`/`meterProvider`/`loggerProvider` | provider bind  | the lane's three exposed provider Tags — none omitted       |
-|  [03]   | `isWrapped` / `safeExecuteInTheMiddle`          | author util    | row-author interior; no Rasm call site                      |
+| [INDEX] | [SURFACE]                                         | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                        |
+| :-----: | :------------------------------------------------ | :------------- | :--------------------------------------------------------- |
+|  [01]   | `registerInstrumentations(options): () => void`   | activation     | one call inside the `Instrument` bracket; thunk on release |
+|  [02]   | `tracerProvider`/`meterProvider`/`loggerProvider` | provider bind  | the lane's three exposed provider Tags — none omitted      |
+|  [03]   | `isWrapped` / `safeExecuteInTheMiddle`            | author util    | row-author interior; no Rasm call site                     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

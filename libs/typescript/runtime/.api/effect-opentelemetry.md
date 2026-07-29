@@ -85,11 +85,11 @@
 [PIN_BLOCK_PARITY]: criteria the block carries — each names the seat the pin withholds and what the estate loses until it opens; every criterion clears before the block retires
 
 | [INDEX] | [CRITERION]         | [WITHHELD_SEAT]                                         | [COST_UNTIL_IT_OPENS]                                |
-| :-----: | :------------------ | :------------------------------------------------------ | :---------------------------------------------------- |
-|  [01]   | boundary scrub      | native lane exposes no span-attribute hook               | a scrub-mandating posture selects an SDK lane        |
-|  [02]   | sender encoding     | native options carry no compression field                | the gzip pin holds on the SDK node sender alone      |
-|  [03]   | producer governance | producer seats on the reader, past every view selector   | dimension governance rides the collection projection |
-|  [04]   | exemplar seat       | `sdk-metrics` exports no `ExemplarFilter`, reaches none  | click-through rides the gateway span-derived series  |
+| :-----: | :------------------ | :------------------------------------------------------ | :--------------------------------------------------- |
+|  [01]   | boundary scrub      | native lane exposes no span-attribute hook              | a scrub-mandating posture selects an SDK lane        |
+|  [02]   | sender encoding     | native options carry no compression field               | the gzip pin holds on the SDK node sender alone      |
+|  [03]   | producer governance | producer seats on the reader, past every view selector  | dimension governance rides the collection projection |
+|  [04]   | exemplar seat       | `sdk-metrics` exports no `ExemplarFilter`, reaches none | click-through rides the gateway span-derived series  |
 
 - Law: criteria state capability facts re-proved on the installed rail, never preferences — the browser exporter build declares neither `compression` nor `keepAlive` while the node build declares both, so criterion [02] is a SENDER column rather than a lane-wide gap.
 - Law: criteria [03] and [04] compound — the producer emits data points carrying no exemplar slot, so opening the SDK filter alone leaves every `rasm.*` series exemplar-free and both seats gate one criterion clear.

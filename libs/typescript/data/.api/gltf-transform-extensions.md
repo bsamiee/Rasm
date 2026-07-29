@@ -20,39 +20,39 @@ Admission is a roster on the IO: `registerExtensions` states which extensions th
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]                                        |
 | :-----: | :------------------- | :------------ | :-------------------------------------------------- |
-|  [01]   | `KHRONOS_EXTENSIONS` | closed roster | every ratified `KHR_*` extension class               |
-|  [02]   | `ALL_EXTENSIONS`     | open roster   | the Khronos set plus every `EXT_*` vendor extension  |
+|  [01]   | `KHRONOS_EXTENSIONS` | closed roster | every ratified `KHR_*` extension class              |
+|  [02]   | `ALL_EXTENSIONS`     | open roster   | the Khronos set plus every `EXT_*` vendor extension |
 
 [PUBLIC_TYPE_SCOPE]: texture and compression extensions — the asset-pipeline set
 
-| [INDEX] | [SYMBOL]                    | [EXTENSION_NAME]              | [CAPABILITY]                                   |
-| :-----: | :-------------------------- | :---------------------------- | :--------------------------------------------- |
-|  [01]   | `KHRTextureBasisu`          | `KHR_texture_basisu`          | KTX2 Basis image source on a `Texture`         |
-|  [02]   | `KHRTextureTransform`       | `KHR_texture_transform`       | per-`TextureInfo` UV offset/rotation/scale     |
-|  [03]   | `EXTTextureWebP`            | `EXT_texture_webp`            | WebP image source                              |
-|  [04]   | `EXTTextureAVIF`            | `EXT_texture_avif`            | AVIF image source                              |
-|  [05]   | `EXTMeshoptCompression`     | `EXT_meshopt_compression`     | meshopt-encoded buffer views                   |
-|  [06]   | `KHRDracoMeshCompression`   | `KHR_draco_mesh_compression`  | Draco-encoded primitives                       |
-|  [07]   | `KHRMeshQuantization`       | `KHR_mesh_quantization`       | declares quantized attribute types legal       |
+| [INDEX] | [SYMBOL]                  | [EXTENSION_NAME]             | [CAPABILITY]                               |
+| :-----: | :------------------------ | :--------------------------- | :----------------------------------------- |
+|  [01]   | `KHRTextureBasisu`        | `KHR_texture_basisu`         | KTX2 Basis image source on a `Texture`     |
+|  [02]   | `KHRTextureTransform`     | `KHR_texture_transform`      | per-`TextureInfo` UV offset/rotation/scale |
+|  [03]   | `EXTTextureWebP`          | `EXT_texture_webp`           | WebP image source                          |
+|  [04]   | `EXTTextureAVIF`          | `EXT_texture_avif`           | AVIF image source                          |
+|  [05]   | `EXTMeshoptCompression`   | `EXT_meshopt_compression`    | meshopt-encoded buffer views               |
+|  [06]   | `KHRDracoMeshCompression` | `KHR_draco_mesh_compression` | Draco-encoded primitives                   |
+|  [07]   | `KHRMeshQuantization`     | `KHR_mesh_quantization`      | declares quantized attribute types legal   |
 
 [PUBLIC_TYPE_SCOPE]: material extensions and their property classes
 
-| [INDEX] | [EXTENSION]                       | [PROPERTY]            | [TEXTURE_SLOTS]                                                |
-| :-----: | :-------------------------------- | :-------------------- | :------------------------------------------------------------- |
-|  [01]   | `KHRMaterialsClearcoat`           | `Clearcoat`           | clearcoat · clearcoatRoughness · clearcoatNormal               |
-|  [02]   | `KHRMaterialsSheen`               | `Sheen`               | sheenColor · sheenRoughness                                    |
-|  [03]   | `KHRMaterialsSpecular`            | `Specular`            | specular · specularColor                                       |
-|  [04]   | `KHRMaterialsTransmission`        | `Transmission`        | transmission                                                   |
-|  [05]   | `KHRMaterialsVolume`              | `Volume`              | thickness                                                      |
-|  [06]   | `KHRMaterialsIridescence`         | `Iridescence`         | iridescence · iridescenceThickness                             |
-|  [07]   | `KHRMaterialsAnisotropy`          | `Anisotropy`          | anisotropy                                                     |
-|  [08]   | `KHRMaterialsDiffuseTransmission` | `DiffuseTransmission` | diffuseTransmission · diffuseTransmissionColor                 |
-|  [09]   | `KHRMaterialsIOR`                 | `IOR`                 | none — scalar only                                             |
-|  [10]   | `KHRMaterialsDispersion`          | `Dispersion`          | none — scalar only                                             |
-|  [11]   | `KHRMaterialsEmissiveStrength`    | `EmissiveStrength`    | none — scalar only                                             |
-|  [12]   | `KHRMaterialsUnlit`               | `Unlit`               | none — marker only                                             |
-|  [13]   | `KHRMaterialsVariants`            | `Variant` / `Mapping` / `MappingList` | none — material swap sets                      |
-|  [14]   | `KHRMaterialsPBRSpecularGlossiness` | `PBRSpecularGlossiness` | diffuse · specularGlossiness — RETIRED upstream vocabulary |
+| [INDEX] | [EXTENSION]                         | [PROPERTY]                            | [TEXTURE_SLOTS]                                            |
+| :-----: | :---------------------------------- | :------------------------------------ | :--------------------------------------------------------- |
+|  [01]   | `KHRMaterialsClearcoat`             | `Clearcoat`                           | clearcoat · clearcoatRoughness · clearcoatNormal           |
+|  [02]   | `KHRMaterialsSheen`                 | `Sheen`                               | sheenColor · sheenRoughness                                |
+|  [03]   | `KHRMaterialsSpecular`              | `Specular`                            | specular · specularColor                                   |
+|  [04]   | `KHRMaterialsTransmission`          | `Transmission`                        | transmission                                               |
+|  [05]   | `KHRMaterialsVolume`                | `Volume`                              | thickness                                                  |
+|  [06]   | `KHRMaterialsIridescence`           | `Iridescence`                         | iridescence · iridescenceThickness                         |
+|  [07]   | `KHRMaterialsAnisotropy`            | `Anisotropy`                          | anisotropy                                                 |
+|  [08]   | `KHRMaterialsDiffuseTransmission`   | `DiffuseTransmission`                 | diffuseTransmission · diffuseTransmissionColor             |
+|  [09]   | `KHRMaterialsIOR`                   | `IOR`                                 | none — scalar only                                         |
+|  [10]   | `KHRMaterialsDispersion`            | `Dispersion`                          | none — scalar only                                         |
+|  [11]   | `KHRMaterialsEmissiveStrength`      | `EmissiveStrength`                    | none — scalar only                                         |
+|  [12]   | `KHRMaterialsUnlit`                 | `Unlit`                               | none — marker only                                         |
+|  [13]   | `KHRMaterialsVariants`              | `Variant` / `Mapping` / `MappingList` | none — material swap sets                                  |
+|  [14]   | `KHRMaterialsPBRSpecularGlossiness` | `PBRSpecularGlossiness`               | diffuse · specularGlossiness — RETIRED upstream vocabulary |
 
 `[SCENE_EXTENSION]: `KHRLightsPunctual`/`Light` `KHRNodeVisibility`/`Visibility` `EXTMeshGPUInstancing`/`InstancedMesh` `KHRMeshPrimitiveRestart` `KHRXMP`/`Packet` `KHRAccessorFloat16` `KHRAccessorFloat64``
 
@@ -65,15 +65,15 @@ Admission is a roster on the IO: `registerExtensions` states which extensions th
 
 [ENTRYPOINT_SCOPE]: admission, attachment, and the codec dependency seam
 
-| [INDEX] | [SURFACE]                                             | [SHAPE]  | [CAPABILITY]                             |
-| :-----: | :---------------------------------------------------- | :------- | :--------------------------------------- |
-|  [01]   | `io.registerExtensions([...])`                        | fold     | THE closed roster this IO honors         |
-|  [02]   | `io.registerDependencies({ key: instance })`          | fold     | keyed codecs an extension demands        |
-|  [03]   | `document.createExtension(Ctor) -> Extension`         | instance | attach one extension to a document       |
-|  [04]   | `<Extension>.EXTENSION_NAME`                          | static   | the wire name; the roster's identity     |
-|  [05]   | `setRequired(required) / isRequired()`                | instance | `extensionsRequired` membership          |
-|  [06]   | `listProperties() -> ExtensionProperty[]`             | instance | every property this extension minted     |
-|  [07]   | `EXTMeshoptCompression.setEncoderOptions({ method })` | instance | `QUANTIZE` or `FILTER` encode mode       |
+| [INDEX] | [SURFACE]                                             | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :---------------------------------------------------- | :------- | :----------------------------------- |
+|  [01]   | `io.registerExtensions([...])`                        | fold     | THE closed roster this IO honors     |
+|  [02]   | `io.registerDependencies({ key: instance })`          | fold     | keyed codecs an extension demands    |
+|  [03]   | `document.createExtension(Ctor) -> Extension`         | instance | attach one extension to a document   |
+|  [04]   | `<Extension>.EXTENSION_NAME`                          | static   | the wire name; the roster's identity |
+|  [05]   | `setRequired(required) / isRequired()`                | instance | `extensionsRequired` membership      |
+|  [06]   | `listProperties() -> ExtensionProperty[]`             | instance | every property this extension minted |
+|  [07]   | `EXTMeshoptCompression.setEncoderOptions({ method })` | instance | `QUANTIZE` or `FILTER` encode mode   |
 
 - `readDependencies`/`writeDependencies` declare the keys `registerDependencies` must supply: `EXT_meshopt_compression` reads `meshopt.decoder` and writes `meshopt.encoder`; `KHR_draco_mesh_compression` reads `draco3d.decoder` and writes `draco3d.encoder`. Omitting a key throws at read or write, naming the extension and the key in the message.
 - Each image-source extension carries a `static register()` installing its `ImageUtilsFormat` on `ImageUtils.impls`: `KHRTextureBasisu` installs `image/ktx2`, `EXTTextureWebP` `image/webp`, `EXTTextureAVIF` `image/avif`. Calling `document.createExtension(Ctor)` does NOT run it, so a `Texture` of that mime type answers `getSize()` as `null` until the STATIC runs.

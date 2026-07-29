@@ -94,7 +94,7 @@
 
 | [INDEX] | [SURFACE]                                                         | [SHAPE] | [CAPABILITY]                                  |
 | :-----: | :---------------------------------------------------------------- | :------ | :-------------------------------------------- |
-|  [01]   | `fromBinary<Desc>(schema, bytes, options?): MessageShape<Desc>`   | static  | decode a conforming `*Wire` payload            |
+|  [01]   | `fromBinary<Desc>(schema, bytes, options?): MessageShape<Desc>`   | static  | decode a conforming `*Wire` payload           |
 |  [02]   | `mergeFromBinary<Desc>(schema, target, bytes, options?)`          | static  | accumulate a partial into a message           |
 |  [03]   | `toBinary<Desc>(schema, message, options?): Uint8Array`           | static  | egress + the canonical content-key bytes      |
 |  [04]   | `sizeDelimitedEncode<Desc>(desc, message, options?): Uint8Array`  | static  | length-prefix a frame for egress              |
@@ -137,7 +137,7 @@
 
 | [INDEX] | [SURFACE]                                                | [SHAPE] | [CAPABILITY]                                |
 | :-----: | :------------------------------------------------------- | :------ | :------------------------------------------ |
-|  [01]   | `createFileRegistry(fileDescriptorSet)`                  | static  | decode a conforming set, then walk `files` |
+|  [01]   | `createFileRegistry(fileDescriptorSet)`                  | static  | decode a conforming set, then walk `files`  |
 |  [02]   | `createFileRegistry(proto, resolve)`                     | static  | build from a proto with a resolver          |
 |  [03]   | `createFileRegistry(...registries)`                      | static  | merge existing registries                   |
 |  [04]   | `createRegistry(...input)`                               | static  | assemble the `Any`/extension resolver       |

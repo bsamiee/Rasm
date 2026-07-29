@@ -16,18 +16,18 @@ DuckDB loadable extensions install in-engine into a live `DuckDBPyConnection` th
 
 Each extension loads through `install_extension(name, *, repository)` / `load_extension(name)` or SQL `INSTALL <ext> [FROM community]; LOAD <ext>;`; the `[REPOSITORY]` row property selects the source, never a call-site branch.
 
-| [INDEX] | [EXTENSION]        | [REPOSITORY] | [CONSUMER]                                       |
-| :-----: | :----------------- | :----------- | :----------------------------------------------- |
-|  [01]   | `httpfs`           | core         | remote `read_parquet` object scans               |
-|  [02]   | `spatial`          | core         | `spatial/query` geometry SQL                     |
-|  [03]   | `h3`               | community    | H3 bin and neighborhood SQL                      |
-|  [04]   | `iceberg`          | core         | Iceberg metadata and table reads                 |
-|  [05]   | `substrait`        | community    | SQL to Substrait plan bridge                     |
-|  [06]   | `ducklake`         | core         | DuckLake table-format catalog                    |
-|  [07]   | `aws`              | core         | s3/gcs/r2 credential-chain PROVIDER over httpfs   |
-|  [08]   | `azure`            | core         | azure protocol beside its own secret type        |
-|  [09]   | `postgres_scanner` | core         | operational-store `ATTACH … (TYPE postgres)`     |
-|  [10]   | `delta`            | core         | `delta_scan` transaction-log table reads         |
+| [INDEX] | [EXTENSION]        | [REPOSITORY] | [CONSUMER]                                      |
+| :-----: | :----------------- | :----------- | :---------------------------------------------- |
+|  [01]   | `httpfs`           | core         | remote `read_parquet` object scans              |
+|  [02]   | `spatial`          | core         | `spatial/query` geometry SQL                    |
+|  [03]   | `h3`               | community    | H3 bin and neighborhood SQL                     |
+|  [04]   | `iceberg`          | core         | Iceberg metadata and table reads                |
+|  [05]   | `substrait`        | community    | SQL to Substrait plan bridge                    |
+|  [06]   | `ducklake`         | core         | DuckLake table-format catalog                   |
+|  [07]   | `aws`              | core         | s3/gcs/r2 credential-chain PROVIDER over httpfs |
+|  [08]   | `azure`            | core         | azure protocol beside its own secret type       |
+|  [09]   | `postgres_scanner` | core         | operational-store `ATTACH … (TYPE postgres)`    |
+|  [10]   | `delta`            | core         | `delta_scan` transaction-log table reads        |
 
 [SECRET_ENTRY_SCOPE]: object-plane credential resolution
 
@@ -48,14 +48,14 @@ Provider rows carry DIFFERENT halves. `httpfs` registers the `s3`, `gcs`, and `r
 
 `postgres_scanner` attaches a live PostgreSQL database as a DuckDB catalog whose tables read as ordinary relations, so one statement joins columnar files against operational rows with no second transport. `ATTACH` names the mount TYPE and never the extension: the row installs as `postgres_scanner` and attaches as `TYPE postgres`.
 
-| [INDEX] | [SURFACE]      | [SHAPE]                                            | [CAPABILITY]                    |
-| :-----: | :------------- | :------------------------------------------------- | :------------------------------ |
-|  [01]   | attach catalog | `ATTACH '<dsn>' AS <n> (TYPE postgres)`            | mount a live database           |
-|  [02]   | read-only      | `ATTACH '<dsn>' AS <n> (TYPE postgres, READ_ONLY)` | refuse write-back at the mount  |
-|  [03]   | scan function  | `postgres_scan('<dsn>', '<schema>', '<table>')`    | one relation with no attach     |
-|  [04]   | pushdown scan  | `postgres_scan_pushdown('<dsn>', '<s>', '<t>')`    | filter and projection pushdown  |
-|  [05]   | passthrough    | `postgres_query('<n>', '<sql>')`                   | server-side statement execution |
-|  [06]   | statement      | `postgres_execute('<n>', '<sql>')`                 | non-returning server statement  |
+| [INDEX] | [SURFACE]      | [SHAPE]                                            | [CAPABILITY]                     |
+| :-----: | :------------- | :------------------------------------------------- | :------------------------------- |
+|  [01]   | attach catalog | `ATTACH '<dsn>' AS <n> (TYPE postgres)`            | mount a live database            |
+|  [02]   | read-only      | `ATTACH '<dsn>' AS <n> (TYPE postgres, READ_ONLY)` | refuse write-back at the mount   |
+|  [03]   | scan function  | `postgres_scan('<dsn>', '<schema>', '<table>')`    | one relation with no attach      |
+|  [04]   | pushdown scan  | `postgres_scan_pushdown('<dsn>', '<s>', '<t>')`    | filter and projection pushdown   |
+|  [05]   | passthrough    | `postgres_query('<n>', '<sql>')`                   | server-side statement execution  |
+|  [06]   | statement      | `postgres_execute('<n>', '<sql>')`                 | non-returning server statement   |
 |  [07]   | pool tuning    | `postgres_configure_pool('<n>', <size>)`           | connection-pool sizing per mount |
 |  [08]   | secret mount   | `CREATE SECRET <n> (TYPE postgres, ...)`           | credential off the attach string |
 
@@ -65,13 +65,13 @@ Provider rows carry DIFFERENT halves. `httpfs` registers the `s3`, `gcs`, and `r
 
 `delta` reads a Delta table's transaction log natively and exposes `delta_scan('<uri>')` as a SQL TABLE FUNCTION — like every reader here and unlike a connection method, so a binding names the function and the arm spells `SELECT * FROM delta_scan(<uri>)`. Live-verified: `duckdb_extensions()` rows it `core`, and once loaded `duckdb_functions()` types `delta_scan` as `table` beside `delta_list_files`, `delta_domain_metadata`, and the transaction-version pair.
 
-| [INDEX] | [SURFACE]                     | [SHAPE]                             | [CAPABILITY]                      |
-| :-----: | :---------------------------- | :---------------------------------- | :-------------------------------- |
-|  [01]   | `delta_scan`                  | `SELECT * FROM delta_scan('<uri>')` | read a Delta table as a relation  |
-|  [02]   | `delta_list_files`            | `delta_list_files('<uri>')`         | active data-file roster           |
-|  [03]   | `delta_domain_metadata`       | `delta_domain_metadata('<uri>')`    | domain metadata rows              |
-|  [04]   | `delta_get_transaction_version` | `delta_get_transaction_version(...)` | last committed app version      |
-|  [05]   | `delta_set_transaction_version` | `delta_set_transaction_version(...)` | record an app version           |
+| [INDEX] | [SURFACE]                       | [SHAPE]                              | [CAPABILITY]                     |
+| :-----: | :------------------------------ | :----------------------------------- | :------------------------------- |
+|  [01]   | `delta_scan`                    | `SELECT * FROM delta_scan('<uri>')`  | read a Delta table as a relation |
+|  [02]   | `delta_list_files`              | `delta_list_files('<uri>')`          | active data-file roster          |
+|  [03]   | `delta_domain_metadata`         | `delta_domain_metadata('<uri>')`     | domain metadata rows             |
+|  [04]   | `delta_get_transaction_version` | `delta_get_transaction_version(...)` | last committed app version       |
+|  [05]   | `delta_set_transaction_version` | `delta_set_transaction_version(...)` | record an app version            |
 
 [CONSUMER]: `tabular/columnar#SCAN` `_DUCK_READER` rows `delta_scan` beside this extension for both `DatasetKind.DELTA` and `DatasetKind.RECEIPTS`, so `ScanPlan.DuckDb` binds the analytics evidence residence as its one `source` view and the DuckDB arm answers an interactive read of the receipt stream.
 
@@ -100,33 +100,33 @@ DuckLake is a DuckDB core extension attaching a table-format catalog backed by P
 
 [ATTACH_CLAUSES]: `DATA_PATH` `METADATA_SCHEMA` `ENCRYPTED` `DATA_INLINING_ROW_LIMIT` `READ_ONLY` `AUTOMATIC_MIGRATION` `CREATE_IF_NOT_EXISTS` `OVERRIDE_DATA_PATH`
 
-| [INDEX] | [SURFACE]                  | [SHAPE]                                                              | [CAPABILITY]                |
-| :-----: | :------------------------- | :------------------------------------------------------------------- | :-------------------------- |
-|  [01]   | attach DuckDB metadata     | `ATTACH 'ducklake:<file>.ducklake' AS <n> (DATA_PATH '<dir>/')`      | mount DuckLake catalog      |
-|  [02]   | attach SQLite metadata     | `ATTACH 'ducklake:sqlite:<file>' AS <n> (DATA_PATH '<dir>/')`        | mount SQLite catalog        |
-|  [03]   | attach Postgres metadata   | `ATTACH 'ducklake:postgres:<dsn>' AS <n> (DATA_PATH '<uri>')`        | mount Postgres catalog      |
-|  [04]   | secret attach              | `CREATE SECRET (TYPE ducklake, ...)` + `ATTACH 'ducklake:<secret>'`  | secret-backed mount         |
-|  [05]   | snapshots                  | `<cat>.snapshots()` / `ducklake_snapshots('<cat>')`                  | list snapshot history       |
-|  [06]   | current and last committed | `<cat>.current_snapshot()` / `ducklake_last_committed_snapshot(...)` | snapshot identity           |
-|  [07]   | time travel                | `FROM <table> AT (VERSION => n)` / `AT (TIMESTAMP => ts)`            | historical table read       |
-|  [08]   | change feed                | `table_changes('<t>', <from>, <to>)`, `table_insertions`, `table_deletions` | row-level lineage     |
-|  [09]   | commit metadata            | `set_commit_message`                                                 | commit author/message/extra |
-|  [10]   | data-file registration     | `ducklake_add_data_files`                                            | register existing Parquet   |
-|  [11]   | scans and file listing     | `ducklake_scan` / `ducklake_list_files`                              | scan or list physical files |
-|  [12]   | expire snapshots           | `ducklake_expire_snapshots`                                          | drop old snapshot history   |
-|  [13]   | merge adjacent files       | `ducklake_merge_adjacent_files`                                      | compact adjacent data files |
-|  [14]   | rewrite data files         | `ducklake_rewrite_data_files`                                        | rewrite by delete ratio     |
-|  [15]   | cleanup old files          | `ducklake_cleanup_old_files`                                         | clean superseded files      |
-|  [16]   | delete orphaned files      | `ducklake_delete_orphaned_files`                                     | delete orphaned Parquet     |
-|  [17]   | flush inlined data         | `ducklake_flush_inlined_data`                                        | flush inlined data rows     |
+| [INDEX] | [SURFACE]                  | [SHAPE]                                                                     | [CAPABILITY]                |
+| :-----: | :------------------------- | :-------------------------------------------------------------------------- | :-------------------------- |
+|  [01]   | attach DuckDB metadata     | `ATTACH 'ducklake:<file>.ducklake' AS <n> (DATA_PATH '<dir>/')`             | mount DuckLake catalog      |
+|  [02]   | attach SQLite metadata     | `ATTACH 'ducklake:sqlite:<file>' AS <n> (DATA_PATH '<dir>/')`               | mount SQLite catalog        |
+|  [03]   | attach Postgres metadata   | `ATTACH 'ducklake:postgres:<dsn>' AS <n> (DATA_PATH '<uri>')`               | mount Postgres catalog      |
+|  [04]   | secret attach              | `CREATE SECRET (TYPE ducklake, ...)` + `ATTACH 'ducklake:<secret>'`         | secret-backed mount         |
+|  [05]   | snapshots                  | `<cat>.snapshots()` / `ducklake_snapshots('<cat>')`                         | list snapshot history       |
+|  [06]   | current and last committed | `<cat>.current_snapshot()` / `ducklake_last_committed_snapshot(...)`        | snapshot identity           |
+|  [07]   | time travel                | `FROM <table> AT (VERSION => n)` / `AT (TIMESTAMP => ts)`                   | historical table read       |
+|  [08]   | change feed                | `table_changes('<t>', <from>, <to>)`, `table_insertions`, `table_deletions` | row-level lineage           |
+|  [09]   | commit metadata            | `set_commit_message`                                                        | commit author/message/extra |
+|  [10]   | data-file registration     | `ducklake_add_data_files`                                                   | register existing Parquet   |
+|  [11]   | scans and file listing     | `ducklake_scan` / `ducklake_list_files`                                     | scan or list physical files |
+|  [12]   | expire snapshots           | `ducklake_expire_snapshots`                                                 | drop old snapshot history   |
+|  [13]   | merge adjacent files       | `ducklake_merge_adjacent_files`                                             | compact adjacent data files |
+|  [14]   | rewrite data files         | `ducklake_rewrite_data_files`                                               | rewrite by delete ratio     |
+|  [15]   | cleanup old files          | `ducklake_cleanup_old_files`                                                | clean superseded files      |
+|  [16]   | delete orphaned files      | `ducklake_delete_orphaned_files`                                            | delete orphaned Parquet     |
+|  [17]   | flush inlined data         | `ducklake_flush_inlined_data`                                               | flush inlined data rows     |
 
 [CHANGE_FEED_SHAPE]: `table_changes` prepends three columns to the table's own, then repeats every table column
 
-| [INDEX] | [COLUMN]      | [TYPE]    | [CAPABILITY]                                                            |
-| :-----: | :------------ | :-------- | :------------------------------------------------------------------------ |
-|  [01]   | `snapshot_id` | `BIGINT`  | the snapshot the change committed under                                 |
-|  [02]   | `rowid`       | `BIGINT`  | row identity within the changed file                                    |
-|  [03]   | `change_type` | `VARCHAR` | `insert`, `delete`, `update_preimage`, `update_postimage`               |
+| [INDEX] | [COLUMN]      | [TYPE]    | [CAPABILITY]                                              |
+| :-----: | :------------ | :-------- | :-------------------------------------------------------- |
+|  [01]   | `snapshot_id` | `BIGINT`  | the snapshot the change committed under                   |
+|  [02]   | `rowid`       | `BIGINT`  | row identity within the changed file                      |
+|  [03]   | `change_type` | `VARCHAR` | `insert`, `delete`, `update_preimage`, `update_postimage` |
 
 - DuckLake spells the discriminant `change_type`, dropping the underscore Delta's `_change_type` carries
 - Consumers keying one spelling across both formats filter a real feed to silent emptiness

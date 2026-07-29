@@ -61,15 +61,15 @@
 
 [PUBLIC_TYPE_SCOPE]: profiling annotations and the in-process trace reader (`jax.profiler`)
 
-| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY] | [CAPABILITY]                                                                |
-| :-----: | :--------------------------- | :------------ | :-------------------------------------------------------------------------- |
-|  [01]   | `ProfileOptions()`           | class         | collector levels the trace arms; subclasses the jaxlib native options       |
-|  [02]   | `ProfileData`                | native class  | an opened `.xplane.pb` trace; the root of the in-process reader walk        |
-|  [03]   | `ProfilePlane`               | native class  | one device or host plane inside a trace; `.name`, `.lines`, `.stats`        |
-|  [04]   | `ProfileLine`                | native class  | one timeline row inside a plane; `.name`, `.events`                         |
-|  [05]   | `ProfileEvent`               | native class  | one timed event; `.name`, `.start_ns`, `.duration_ns`, `.end_ns`, `.stats`  |
-|  [06]   | `TraceAnnotation(name)`      | context class | names a span on the trace timeline for the enclosed block                   |
-|  [07]   | `StepTraceAnnotation(name)`  | context class | names a step span; `step_num=` keyword drives per-step analysis             |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                                                               |
+| :-----: | :-------------------------- | :------------ | :------------------------------------------------------------------------- |
+|  [01]   | `ProfileOptions()`          | class         | collector levels the trace arms; subclasses the jaxlib native options      |
+|  [02]   | `ProfileData`               | native class  | an opened `.xplane.pb` trace; the root of the in-process reader walk       |
+|  [03]   | `ProfilePlane`              | native class  | one device or host plane inside a trace; `.name`, `.lines`, `.stats`       |
+|  [04]   | `ProfileLine`               | native class  | one timeline row inside a plane; `.name`, `.events`                        |
+|  [05]   | `ProfileEvent`              | native class  | one timed event; `.name`, `.start_ns`, `.duration_ns`, `.end_ns`, `.stats` |
+|  [06]   | `TraceAnnotation(name)`     | context class | names a span on the trace timeline for the enclosed block                  |
+|  [07]   | `StepTraceAnnotation(name)` | context class | names a step span; `step_num=` keyword drives per-step analysis            |
 
 - `ProfileData`/`ProfilePlane`/`ProfileLine`/`ProfileEvent` bind from the jaxlib native extension, so they carry no stub file and reflect only under an installed `jaxlib`.
 - Plane traversal is four tiers: `ProfileData.planes` -> `ProfilePlane.lines` -> `ProfileLine.events` -> `ProfileEvent`; reading events off a plane skips the line tier and yields nothing.
@@ -112,19 +112,19 @@
 - `Lowered.cost_analysis` and `Compiled.cost_analysis`/`memory_analysis` answer `None` on a backend or runtime that reports nothing, so every read admits the absent case rather than assuming a mapping.
 - Cost and memory payloads are unstructured nested data whose keys shift across jax and jaxlib releases; fold them by tally or key lookup, never by a pinned field roster.
 
-| [INDEX] | [SURFACE]                                            | [SHAPE]  | [CAPABILITY]                                        |
-| :-----: | :--------------------------------------------------- | :------- | :-------------------------------------------------- |
-|  [01]   | `Wrapped.trace(*args, **kwargs) -> Traced`           | instance | stage a jitted function to its traced form          |
-|  [02]   | `Wrapped.lower(*args, **kwargs) -> Lowered`          | instance | trace and lower in one step                         |
-|  [03]   | `Traced.lower(*, lowering_platforms) -> Lowered`     | instance | lower a traced stage for named target platforms     |
-|  [04]   | `Lowered.compile(compiler_options) -> Compiled`      | instance | compile a lowered stage to an executable            |
-|  [05]   | `Lowered.as_text(dialect, *, debug_info) -> str`     | instance | StableHLO (or `"hlo"`) text of the lowered program  |
-|  [06]   | `Lowered.compiler_ir(dialect)`                       | instance | the lowering's IR object; `None` when unavailable   |
-|  [07]   | `Lowered.cost_analysis()`                            | instance | pre-compile execution-cost estimates; `None` if any |
-|  [08]   | `Compiled.as_text() -> str`                          | instance | optimized-HLO text of the compiled executable       |
-|  [09]   | `Compiled.cost_analysis()`                           | instance | post-compile cost estimates; `None` when absent     |
-|  [10]   | `Compiled.memory_analysis()`                         | instance | peak/argument/output memory estimates; `None` if so |
-|  [11]   | `Compiled.input_shardings` / `output_shardings`      | property | resolved per-argument and per-output shardings      |
+| [INDEX] | [SURFACE]                                        | [SHAPE]  | [CAPABILITY]                                        |
+| :-----: | :----------------------------------------------- | :------- | :-------------------------------------------------- |
+|  [01]   | `Wrapped.trace(*args, **kwargs) -> Traced`       | instance | stage a jitted function to its traced form          |
+|  [02]   | `Wrapped.lower(*args, **kwargs) -> Lowered`      | instance | trace and lower in one step                         |
+|  [03]   | `Traced.lower(*, lowering_platforms) -> Lowered` | instance | lower a traced stage for named target platforms     |
+|  [04]   | `Lowered.compile(compiler_options) -> Compiled`  | instance | compile a lowered stage to an executable            |
+|  [05]   | `Lowered.as_text(dialect, *, debug_info) -> str` | instance | StableHLO (or `"hlo"`) text of the lowered program  |
+|  [06]   | `Lowered.compiler_ir(dialect)`                   | instance | the lowering's IR object; `None` when unavailable   |
+|  [07]   | `Lowered.cost_analysis()`                        | instance | pre-compile execution-cost estimates; `None` if any |
+|  [08]   | `Compiled.as_text() -> str`                      | instance | optimized-HLO text of the compiled executable       |
+|  [09]   | `Compiled.cost_analysis()`                       | instance | post-compile cost estimates; `None` when absent     |
+|  [10]   | `Compiled.memory_analysis()`                     | instance | peak/argument/output memory estimates; `None` if so |
+|  [11]   | `Compiled.input_shardings` / `output_shardings`  | property | resolved per-argument and per-output shardings      |
 
 [ENTRYPOINT_SCOPE]: profiling capture, annotation, and the in-process reader (`jax.profiler`)
 - `trace`/`start_trace` write a TensorBoard-layout tree under `log_dir`: `<log_dir>/plugins/profile/<run>/` holds one `*.xplane.pb` beside one gzipped `*.trace.json.gz` Chrome trace, both written on every run.

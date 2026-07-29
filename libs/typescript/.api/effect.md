@@ -100,7 +100,7 @@
 |  [12]   | `JSONSchema.make` / `Pretty.make` / `Schema.equivalence` | derive        | OpenAPI node, printer, structural equality                |
 |  [13]   | `standardSchemaV1(schema)`                               | interop       | `ui` forms + Standard-Schema consumers bind the decoder   |
 |  [14]   | `attachPropertySignature(key, value)`                    | project       | restores a family tag a draft projection omitted          |
-|  [15]   | `decodeOption(schema)` / `decodeSync` / `decode`          | decode        | takes the ENCODED value, never an `Option` wrapper        |
+|  [15]   | `decodeOption(schema)` / `decodeSync` / `decode`         | decode        | takes the ENCODED value, never an `Option` wrapper        |
 
 - `Schema.decodeOption(schema)` returns `(encoded, options?) => Option<A>` and answers `none` on ANY parse failure, so handing it a value already wrapped in `Option` type-checks against `unknown`-tolerant call sites and returns `none` for every input alike — a decode inside an optional pipeline composes as `Option.flatMap(held, Schema.decodeOption(schema))`, never by passing the wrapper through.
 
@@ -167,7 +167,7 @@
 |  [02]   | `Subscribable` / `SynchronizedRef`                      | shared cell   | read-only `{ get, changes }`; `ui/system/atom` observes   |
 |  [03]   | `Deferred.make` / `Deferred.await` / `Deferred.succeed` | one-shot      | fiber handoff, `haltWhen` signals, promise-once           |
 |  [04]   | `Queue.bounded` / `Queue.sliding`                       | channel       | `work/queue` job intake with backpressure                 |
-|  [05]   | `PubSub.bounded` / `Mailbox.make`                       | channel       | `serve/live` fan-out, quarantine, `journal/fact` drain     |
+|  [05]   | `PubSub.bounded` / `Mailbox.make`                       | channel       | `serve/live` fan-out, quarantine, `journal/fact` drain    |
 |  [06]   | `FiberRef.make` / `FiberRef.locallyScoped`              | fiber-local   | `serve/api` middleware; built-in `currentLogAnnotations`  |
 |  [07]   | `Effect.makeSemaphore(n)` / `Effect.makeLatch`          | bound / track | concurrency caps for `serve` load-shed                    |
 |  [08]   | `FiberSet.make` / `FiberMap.make`                       | bound / track | keyed fiber registries; `work/entity` per-entity          |
@@ -240,8 +240,8 @@
 |  [14]   | `HashMap.modifyAt(self, key, f)`                | collection   | one descent fusing lookup and upsert per row       |
 |  [15]   | `Array.partition(self, predicate)`              | stdlib fold  | `[excluded, satisfying]` — order is load-bearing   |
 |  [16]   | `BigDecimal.make(bigint, scale)` / `fromBigInt` | exact money  | every currency value; `bigint` preimage, no float  |
-|  [17]   | `BigDecimal.multiply` / `sum` / `round({...})`  | exact money  | `round` takes `{ mode, scale }`; one terminal call  |
-|  [18]   | `Ref.make` / `Ref.modify(self, f)`              | cell         | atomic read-modify-write; stamp and sequence cells  |
+|  [17]   | `BigDecimal.multiply` / `sum` / `round({...})`  | exact money  | `round` takes `{ mode, scale }`; one terminal call |
+|  [18]   | `Ref.make` / `Ref.modify(self, f)`              | cell         | atomic read-modify-write; stamp and sequence cells |
 
 - `RegExp.escape` neutralizes `/ \ ^ $ * + ? . ( ) | [ ] { }` and leaves `-` intact, so a literal spliced inside a `[...]` character class still mints a range — that construction concatenates outside the class.
 - `Cache.ConsumerCache` carries the read-side census `Cache` inherits — `cacheStats: Effect<CacheStats>` returning `{ hits, misses, size }` as CUMULATIVE totals, beside `size`, `keys`, `values`, `contains`, `entryStats`, `invalidate`, `invalidateWhen`, and `invalidateAll` — so a hit-economics projection SETS levels from one periodic snapshot and instruments no lookup; a tally minted beside the cache re-implements a counter the substrate already keeps.

@@ -85,25 +85,31 @@
 
 [PUBLIC_TYPE_SCOPE]: provider control, sparse storage, and the iterative-solve carriers of the linear-algebra plane
 
-| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [CAPABILITY]                                              |
-| :-----: | :------------------------------------ | :------------ | :-------------------------------------------------------- |
-|  [01]   | `Control`                             | static class  | package-wide provider, threading, and diagnostic façade   |
-|  [02]   | `LinearAlgebraControl`                | static class  | linear-algebra provider selection and native probe path   |
-|  [03]   | `ILinearAlgebraProvider`              | interface     | the BLAS-class kernel every dense product routes through  |
-|  [04]   | `ManagedLinearAlgebraProvider`        | class         | the pure-managed provider carrying `Instance`             |
-|  [05]   | `SparseMatrix`                        | class         | double-precision sparse carrier over CSR storage          |
-|  [06]   | `SparseCompressedRowMatrixStorage<T>` | class         | the one native sparse form; every other layout ingests    |
-|  [07]   | `Iterator<T>`                         | sealed class  | stop-criteria fold carrying `IterationStatus`             |
-|  [08]   | `IIterationStopCriterion<T>`          | interface     | one stop criterion the iterator composes                  |
-|  [09]   | `IIterativeSolver<T>`                 | interface     | Krylov solver seam writing into a caller result vector    |
-|  [10]   | `IPreconditioner<T>`                  | interface     | left preconditioner the solver applies per iteration      |
-|  [11]   | `DiagonalPreconditioner`              | sealed class  | Jacobi preconditioner for the Krylov lane                 |
-|  [12]   | `QRMethod`                            | enum          | `Full` or `Thin` QR shape                                 |
-|  [13]   | `IterationStatus`                     | enum          | per-iteration verdict the iterator settles on             |
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [CAPABILITY]                                                      |
+| :-----: | :------------------------------------ | :------------ | :---------------------------------------------------------------- |
+|  [01]   | `Control`                             | static class  | package-wide provider, threading, and diagnostic façade           |
+|  [02]   | `LinearAlgebraControl`                | static class  | linear-algebra provider selection and native probe path           |
+|  [03]   | `ILinearAlgebraProvider`              | interface     | the BLAS-class kernel every dense product routes through          |
+|  [04]   | `ManagedLinearAlgebraProvider`        | class         | the pure-managed provider carrying `Instance`                     |
+|  [05]   | `SparseMatrix`                        | class         | double-precision sparse carrier over CSR storage                  |
+|  [06]   | `SparseCompressedRowMatrixStorage<T>` | class         | the one native sparse form; every other layout ingests            |
+|  [07]   | `Iterator<T>`                         | sealed class  | stop-criteria fold carrying `IterationStatus`                     |
+|  [08]   | `IIterationStopCriterion<T>`          | interface     | one stop criterion the iterator composes                          |
+|  [09]   | `IIterativeSolver<T>`                 | interface     | Krylov solver seam writing into a caller result vector            |
+|  [10]   | `IPreconditioner<T>`                  | interface     | left preconditioner the solver applies per iteration              |
+|  [11]   | `DiagonalPreconditioner`              | sealed class  | Jacobi preconditioner for the Krylov lane                         |
+|  [12]   | `ILU0Preconditioner`                  | sealed class  | zero-fill incomplete LU; parameterless ctor, zero knobs           |
+|  [13]   | `MILU0Preconditioner`                 | sealed class  | modified ILU(0), row-sum-preserving                               |
+|  [14]   | `ILUTPPreconditioner`                 | sealed class  | threshold-and-pivot ILU                                           |
+|  [15]   | `UnitPreconditioner<T>`               | class         | identity preconditioner, generic `.Solvers` tier                  |
+|  [16]   | `CompositeSolver`                     | sealed class  | `.ctor(IEnumerable<IIterativeSolverSetup<double>>)` solver ladder |
+|  [17]   | `QRMethod`                            | enum          | `Full` or `Thin` QR shape                                         |
+|  [18]   | `IterationStatus`                     | enum          | per-iteration verdict the iterator settles on                     |
 
 [ITERATION_STATUS]: `Continue` `Converged` `Diverged` `StoppedWithoutConvergence` `Cancelled` `Failure`
-[DENSE_FACTORIZATION]: `LU<T>` `QR<T>` `Cholesky<T>` `Svd<T>` `Evd<T>` `GramSchmidt<T>` — each an `MathNet.Numerics.LinearAlgebra.Factorization` owner a `Matrix<T>` instance member builds.
-[ITERATIVE_SOLVER]: `BiCgStab` `GpBiCg` `TFQMR` `MlkBiCgStab` — `MathNet.Numerics.LinearAlgebra.Double.Solvers` owners; each precision plane (`Single`, `Double`, `Complex`, `Complex32`) carries its own closed set, so the solver and its preconditioner spell the plane's namespace and never a shared generic.
+[DENSE_FACTORIZATION]: `LU<T>` `QR<T>` `Cholesky<T>` `Svd<T>` `Evd<T>` `GramSchmidt<T>` — each an `MathNet.Numerics.LinearAlgebra.Factorization` owner a `Matrix<T>` instance member builds. `SparseMatrix` declares NO `Cholesky()` override — a sparse operator routed there factorizes DENSELY through `UserCholesky.Create` with no fill-reducing ordering; sparse direct stays the CSparse peer's.
+[ITERATIVE_SOLVER]: `BiCgStab` `GpBiCg` `TFQMR` `MlkBiCgStab` — `MathNet.Numerics.LinearAlgebra.Double.Solvers` owners; each precision plane (`Single`, `Double`, `Complex`, `Complex32`) carries its own closed set (`IncompleteLU` exists on NO plane — the spellings are the `ILU*Preconditioner` trio), so the solver and its preconditioner spell the plane's namespace and never a shared generic.
+[PRECONDITIONER_CTOR]: `MILU0Preconditioner(bool modified = true)` exposing `UseModified` · `ILUTPPreconditioner()` and `ILUTPPreconditioner(double fillLevel, double dropTolerance, double pivotTolerance)` over defaults `200.0`/`1e-4`/`0.0`, pivoting off at zero.
 [STOP_CRITERION]: `IterationCountStopCriterion<T>` `ResidualStopCriterion<T>` `DivergenceStopCriterion<T>` `FailureStopCriterion<T>` `DelegateStopCriterion<T>`
 
 ## [03]-[ENTRYPOINTS]
@@ -304,43 +310,54 @@
 - `Control.CheckDistributionParameters` and `ThreadSafeRandomNumberGenerators` are the two admission switches: the first gates every distribution constructor's parameter validation, the second decides whether `SystemRandomSource.Default` is shared or per-thread.
 - `LinearAlgebraControl.Provider`'s setter runs `InitializeVerify()` on the incoming provider, so an unusable native provider faults at assignment rather than at first GEMM.
 
-[ENTRYPOINT_SCOPE]: dense factorization and solve — every builder is a `Matrix<T>` instance member, every solve a factorization instance member
+[ENTRYPOINT_SCOPE]: dense factorization and solve — every factorization is a `Matrix<T>` instance member, every solve a factorization instance member, and every construction a builder-handle member
 
-| [INDEX] | [SURFACE]                                          | [SHAPE]  | [CAPABILITY]                                      |
-| :-----: | :------------------------------------------------- | :------- | :------------------------------------------------ |
-|  [01]   | `Matrix<T>.QR(QRMethod)`                           | instance | QR, `Thin` by default                             |
-|  [02]   | `Matrix<T>.Cholesky() -> Cholesky<T>`              | instance | SPD factorization                                 |
-|  [03]   | `Matrix<T>.LU() -> LU<T>`                          | instance | pivoted LU                                        |
-|  [04]   | `Matrix<T>.GramSchmidt() -> GramSchmidt<T>`        | instance | modified Gram-Schmidt QR                          |
-|  [05]   | `Matrix<T>.Svd(bool computeVectors)`               | instance | singular values, vectors optional                 |
-|  [06]   | `Matrix<T>.Evd(Symmetricity)`                      | instance | eigen decomposition under a symmetry hint         |
-|  [07]   | `QR<T>.Solve(Vector<T>) -> Vector<T>`              | instance | least-squares solve allocating the result         |
-|  [08]   | `QR<T>.Solve(Vector<T>, Vector<T>)`                | instance | the same solve into a caller-owned result         |
-|  [09]   | `QR<T>.Solve(Matrix<T>)` / `Solve(Matrix, Matrix)` | instance | multi-right-hand-side pair                        |
-|  [10]   | `QR<T>.Q` / `.R` / `.Determinant`                  | property | the standing factors and the determinant          |
-|  [11]   | `Matrix<T>.TransposeThisAndMultiply(Matrix<T>)`    | instance | Gram product with no explicit transpose allocated |
+| [INDEX] | [SURFACE]                                           | [SHAPE]  | [CAPABILITY]                                      |
+| :-----: | :-------------------------------------------------- | :------- | :------------------------------------------------ |
+|  [01]   | `Matrix<T>.QR(QRMethod)`                            | instance | QR, `Thin` by default                             |
+|  [02]   | `Matrix<T>.Cholesky() -> Cholesky<T>`               | instance | SPD factorization                                 |
+|  [03]   | `Matrix<T>.LU() -> LU<T>`                           | instance | pivoted LU                                        |
+|  [04]   | `Matrix<T>.GramSchmidt() -> GramSchmidt<T>`         | instance | modified Gram-Schmidt QR                          |
+|  [05]   | `Matrix<T>.Svd(bool computeVectors)`                | instance | singular values, vectors optional                 |
+|  [06]   | `Matrix<T>.Evd(Symmetricity)`                       | instance | eigen decomposition under a symmetry hint         |
+|  [07]   | `QR<T>.Solve(Vector<T>) -> Vector<T>`               | instance | least-squares solve allocating the result         |
+|  [08]   | `QR<T>.Solve(Vector<T>, Vector<T>)`                 | instance | the same solve into a caller-owned result         |
+|  [09]   | `QR<T>.Solve(Matrix<T>)` / `Solve(Matrix, Matrix)`  | instance | multi-right-hand-side pair                        |
+|  [10]   | `QR<T>.Q` / `.R` / `.Determinant`                   | property | the standing factors and the determinant          |
+|  [11]   | `Matrix<T>.TransposeThisAndMultiply(Matrix<T>)`     | instance | Gram product with no explicit transpose allocated |
+|  [12]   | `Matrix<T>.Build` / `Vector<T>.Build`               | static   | root handle every builder factory hangs off       |
+|  [13]   | `MatrixBuilder<T>.Dense(int, int, Func<int,int,T>)` | instance | dense matrix off an index projection              |
+|  [14]   | `MatrixBuilder<T>.DenseOfArray(T[,])`               | instance | dense matrix over a rectangular buffer            |
+|  [15]   | `VectorBuilder<T>.Dense(int, Func<int,T>)`          | instance | dense vector off an index projection              |
+|  [16]   | `Svd<T>.ConditionNumber` / `Svd<T>.Rank`            | property | conditioning witness on the factorization handle  |
+|  [17]   | `Vector<T>.L2Norm()`                                | instance | Euclidean norm                                    |
+|  [18]   | `Vector<T>.Enumerate()`                             | instance | lazy element walk carrying the finiteness probe   |
 
 - Every factorization owner mirrors the four `Solve` shapes; the allocating forms are `virtual` over the `abstract` result-writing pair, so a hot loop reuses one result carrier.
 
 [ENTRYPOINT_SCOPE]: sparse ingestion and Krylov solve — `SparseCompressedRowMatrixStorage<T>` (namespace `MathNet.Numerics.LinearAlgebra.Storage`) is the one storage form, and each `Of*` static converts its layout into it
 
-| [INDEX] | [SURFACE]                                                                 | [SHAPE]  | [CAPABILITY]                            |
-| :-----: | :------------------------------------------------------------------------ | :------- | :-------------------------------------- |
-|  [01]   | `OfCompressedSparseRowFormat(r, c, nnz, rowPointers, columnIndices, v)`   | static   | admit CSR                               |
+| [INDEX] | [SURFACE]                                                                  | [SHAPE]  | [CAPABILITY]                            |
+| :-----: | :------------------------------------------------------------------------- | :------- | :-------------------------------------- |
+|  [01]   | `OfCompressedSparseRowFormat(r, c, nnz, rowPointers, columnIndices, v)`    | static   | admit CSR                               |
 |  [02]   | `OfCompressedSparseColumnFormat(r, c, nnz, rowIndices, columnPointers, v)` | static   | admit CSC                               |
-|  [03]   | `OfCoordinateFormat(r, c, nnz, rowIndices, columnIndices, v)`             | static   | admit COO triplets                      |
-|  [04]   | `OfIndexedEnumerable(r, c, IEnumerable<(int, int, T)>)`                   | static   | admit an indexed triplet sequence       |
-|  [05]   | `SparseMatrix.OfIndexed(r, c, IEnumerable<(int, int, double)>)`           | static   | the same admission returning the matrix |
-|  [06]   | `new SparseMatrix(SparseCompressedRowMatrixStorage<double>)`              | ctor     | wrap prepared storage as the carrier    |
-|  [07]   | `IIterativeSolver<T>.Solve(A, b, x, Iterator<T>, IPreconditioner<T>)`     | instance | Krylov solve into a caller result       |
-|  [08]   | `new Iterator<T>(params IIterationStopCriterion<T>[])`                    | ctor     | compose the stop-criteria set           |
-|  [09]   | `Iterator<T>.DetermineStatus(int, Vector<T>, Vector<T>, Vector<T>)`       | instance | per-iteration verdict off the residual  |
-|  [10]   | `Iterator<T>.Status` / `Reset()` / `Cancel()` / `Clone()`                 | instance | verdict read, re-arm, abort, reuse      |
+|  [03]   | `OfCoordinateFormat(r, c, nnz, rowIndices, columnIndices, v)`              | static   | admit COO triplets                      |
+|  [04]   | `OfIndexedEnumerable(r, c, IEnumerable<(int, int, T)>)`                    | static   | admit an indexed triplet sequence       |
+|  [05]   | `SparseMatrix.OfIndexed(r, c, IEnumerable<(int, int, double)>)`            | static   | the same admission returning the matrix |
+|  [06]   | `new SparseMatrix(SparseCompressedRowMatrixStorage<double>)`               | ctor     | wrap prepared storage as the carrier    |
+|  [07]   | `IIterativeSolver<T>.Solve(A, b, x, Iterator<T>, IPreconditioner<T>)`      | instance | Krylov solve into a caller result       |
+|  [08]   | `new Iterator<T>(params IIterationStopCriterion<T>[])`                     | ctor     | compose the stop-criteria set           |
+|  [09]   | `Iterator<T>.DetermineStatus(int, Vector<T>, Vector<T>, Vector<T>)`        | instance | per-iteration verdict off the residual  |
+|  [10]   | `Iterator<T>.Status` / `Reset()` / `Cancel()` / `Clone()`                  | instance | verdict read, re-arm, abort, reuse      |
 
 - `A`, `b`, and `x` abbreviate the coefficient `Matrix<T>`, the source `Vector<T>`, and the result `Vector<T>`; rows [01]-[04] are `SparseCompressedRowMatrixStorage<T>` statics and `v` abbreviates the `T[]` value buffer.
 
 - `OfCompressedSparseColumnFormat`: row INDICES precede column POINTERS — the argument-order trap CSR inverts; `OfIndexedEnumerable` carries a `Tuple<int, int, T>` twin beside the value-tuple form.
+- `SparseMatrix.OfIndexed` APPENDS duplicate `(row, column)` triplets — it sorts and emits without summing, silently corrupting an accumulated assembly; `SparseCompressedRowMatrixStorage<double>.NormalizeDuplicates()` is the one member that adds coincident entries, and zero-valued triplets DROP at admission so a cancelled diagonal goes structurally missing until `PopulateExplicitZerosOnDiagonal()` restores it.
 - `IIterativeSolver<T>.Solve` returns `void` and writes into the `result` vector, so the convergence verdict reads from `Iterator<T>.Status` alone; the solver, its preconditioner, and its stop criteria all bind at one precision, and a plane switch re-spells the whole triple.
+- `Solve` calls `preconditioner.Initialize(matrix)` ITSELF on every invocation — the factorization cannot amortize across right-hand sides through this seam, so a multi-RHS solve re-pays the incomplete factor per call; null `iterator`/`preconditioner` arguments substitute `new Iterator<double>()` / `new UnitPreconditioner<double>()`.
+- `MILU0Preconditioner.Initialize` REQUIRES `matrix.Storage is SparseCompressedRowMatrixStorage<double>` — a dense matrix throws — and is the only ILU whose cost tracks nnz (the Saad MSR kernel over raw CSR buffers); `ILU0Preconditioner` runs an indexer triple-loop and materializes a dense row per `Approximate`, so the MODIFIED row is the production spelling on any real grid.
+- The canonical production stop set (what the parameterless `Iterator<double>()` seeds, order semantic — `DetermineStatus` short-circuits on the first non-`Continue`): `FailureStopCriterion<double>()`, `DivergenceStopCriterion<double>()`, `IterationCountStopCriterion<double>(1000)`, `ResidualStopCriterion<double>(1e-12)`. `ResidualStopCriterion` tests `‖r‖∞ ≤ tolerance · ‖b‖∞` — infinity-norm RELATIVE, never absolute L2.
 
 [ENTRYPOINT_SCOPE]: statistics, differentiation, and the numeric-utility owners
 
@@ -381,12 +398,12 @@
 [STACKING]:
 - `Rasm.Materials` `Raster/tile#TILE_GATE` reads `Fourier.Forward2D` + `ComplexExtensions.MagnitudeSquared` for the periodicity spectrum, `Raster/filter#HEIGHT_FIELD` runs `Fourier.Forward2D`/`Inverse2D` for the Frankot-Chellappa integration, and `Raster/tile#TILE_SYNTH` reads `Distributions.Normal.InvCDF`/`CDF` for the variance-preserving rank blend; every `Forward*` carries an on-disk `Inverse*` mirror, so the round trip is the catalogued pair, never a hand-built adjoint.
 - `LanguageExt.Core`(`.api/api-languageext.md`): `Brent.TryFindRoot`'s `bool`/`out` pair and `NonlinearMinimizationResult.ReasonForExit` lift to `Fin<double>` and `Fin<Vector<double>>` at the seam, so non-convergence lands as a typed failure row instead of an exception crossing the receipt path.
-- `CSparse`(`.api/api-csparse.md`): a residual Jacobian assembled as `CompressedColumnStorage<double>` factors on the direct sparse lane and steps through `ISolver<double>.Solve`, while this package keeps the model, the tolerances, and the exit condition; matrix density and factor reuse select between that direct lane and the Krylov solvers under an `Iterator<T>` stop-criteria control.
+- `CSparse`(`.api/api-csparse.md`): a residual Jacobian assembled as `CompressedColumnStorage<double>` factors on the direct sparse lane and steps through `ISolver<double>.Solve`, while this package keeps the model, the tolerances, and the exit condition; matrix density and factor reuse select between that direct lane and the Krylov solvers under an `Iterator<T>` stop-criteria control. The split is STRUCTURAL for SPD grids: MathNet ships NO sparse Cholesky (a `SparseMatrix.Cholesky()` densifies), so the direct SPD route is always the CSparse `CholeskySparse` peer, and this package's contribution above the direct ceiling is the PRECONDITIONED KRYLOV lane — `MILU0Preconditioner` under `BiCgStab.Solve` over the same CSR assembly, the composition the `Rasm.Materials` `Raster/filter#HEIGHT_FIELD` bounded Poisson arm rides at large extents.
 - `MathNet.Numerics.Providers.MKL` and `.Providers.OpenBLAS`(`Rasm.Compute/.api/api-mathnet-providers.md`): the two native adapter packages this assembly probes by type name, each carrying its own control class and native asset matrix and no algebra of its own; that catalogue also owns how `Rasm.Compute` folds this plane onto its solve receipt.
 - `System.Numerics.Tensors`(`.api/api-tensors.md`): `TensorPrimitives` folds the split `double[] real, double[] imaginary` spectral spans and the `Generate`/`Window` axes in place, so magnitude, phase, and taper application vectorize with no `Complex` marshalling.
 - `UnitsNet`(`.api/api-unitsnet.md`): a quantity-typed integrand or sample set enters through `IQuantity.As(Enum)` as a base-unit `double` and the returned scalar re-enters its quantity type, so dimensional identity rides the caller and never the kernel.
 - Numeric-rail fold: one `Generate.LinearSpaced` axis threads `Interpolate` fitting the sampled response, `IInterpolation.Differentiate` and `Differentiate` supplying the Jacobian column, `Integrate` reducing over the domain, and `Fourier` under a `Window` taper reading the spectrum.
-- `Rasm.Materials`: `acquisition#ACQUISITION` `SolveGgx` runs the thin-QR Gauss-Newton step `Δp = Matrix.Build.Dense(m, 2, Jacobian).QR(QRMethod.Thin).Solve(−r)` over the log-residual, switches to `Svd(true).Solve` on a non-finite step, and witnesses `‖r‖/‖logMeasured‖` via `Vector.L2Norm` — the `bsdf#MICROFACET_KERNEL` GGX/Smith/Fresnel form stays the forward model, MathNet owning only the dense solve; the fitted `FitResidual` and the `Wacton.Unicolour` spectral-grounded scene-linear base colour pair on one `Provenance` receipt, never a fused colour-plus-numeric kernel, and MathNet is a direct Materials pin — the acyclic strata forbids a `Rasm.Compute` project reference to obtain it transitively.
+- `Rasm.Materials`: `acquisition#ACQUISITION` `SolveGgx` runs the thin-QR Gauss-Newton step `Δp = Matrix.Build.Dense(m, n, Jacobian).QR(QRMethod.Thin).Solve(−r)` (`n ∈ {2, 3}` — the conductor arm fits alphas alone, the dielectric adds η) over the log-residual, switches to `Svd(true).Solve` on a non-finite step, and witnesses `‖r‖/‖logMeasured‖` via `Vector.L2Norm` — the `bsdf#MICROFACET_KERNEL` GGX/Smith/Fresnel form stays the forward model, MathNet owning only the dense solve; the fitted `FitResidual` and the `Wacton.Unicolour` spectral-grounded scene-linear base colour pair on one `Provenance` receipt, never a fused colour-plus-numeric kernel, and MathNet is a direct Materials pin — the acyclic strata forbids a `Rasm.Compute` project reference to obtain it transitively.
 
 [LOCAL_ADMISSION]:
 - Every analytic kernel on the numeric rail enters through a `MathNet.Numerics` static owner; a parallel sampler owns one distribution instance and one `RandomSource` per worker.

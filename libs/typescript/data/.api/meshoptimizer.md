@@ -18,26 +18,26 @@ Each JS module base64-inlines its own wasm, so NO sidecar binary ships: one file
 
 [PUBLIC_TYPE_SCOPE]: the five module records and their shared gate
 
-| [INDEX] | [SYMBOL]             | [SUBPATH]        | [CAPABILITY]                                       |
-| :-----: | :------------------- | :--------------- | :-------------------------------------------------- |
-|  [01]   | `MeshoptEncoder`     | `./encoder`      | vertex/index encode, reorder, attribute filters      |
-|  [02]   | `MeshoptDecoder`     | `./decoder`      | vertex/index decode, optional worker pool            |
-|  [03]   | `MeshoptSimplifier`  | `./simplifier`   | error-bounded decimation and point simplification    |
-|  [04]   | `MeshoptClusterizer` | `./clusterizer`  | meshlet build and cluster/sphere bounds              |
-|  [05]   | `MeshoptTangents`    | `./tangents`     | tangent generation from position, normal, and UV     |
+| [INDEX] | [SYMBOL]             | [SUBPATH]       | [CAPABILITY]                                      |
+| :-----: | :------------------- | :-------------- | :------------------------------------------------ |
+|  [01]   | `MeshoptEncoder`     | `./encoder`     | vertex/index encode, reorder, attribute filters   |
+|  [02]   | `MeshoptDecoder`     | `./decoder`     | vertex/index decode, optional worker pool         |
+|  [03]   | `MeshoptSimplifier`  | `./simplifier`  | error-bounded decimation and point simplification |
+|  [04]   | `MeshoptClusterizer` | `./clusterizer` | meshlet build and cluster/sphere bounds           |
+|  [05]   | `MeshoptTangents`    | `./tangents`    | tangent generation from position, normal, and UV  |
 
 Each record carries `supported: boolean` and `ready: Promise<void>`; every member throws before `ready` resolves.
 
 [PUBLIC_TYPE_SCOPE]: bounded vocabularies and clusterizer value types
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [CAPABILITY]                                                                          |
-| :-----: | :----------------- | :------------ | :-------------------------------------------------------------------------------------- |
-|  [01]   | `SimplifierFlags`  | flag set      | `LockBorder` `Sparse` `ErrorAbsolute` `Prune` `Regularize` `Permissive` `RegularizeLight` |
-|  [02]   | `TangentsFlags`    | flag set      | `Compatible` `ZeroFallback`                                                              |
-|  [03]   | `ExpMode`          | filter mode   | `Separate` `SharedVector` `SharedComponent` `Clamped`                                    |
-|  [04]   | `MeshletBuffers`   | cluster batch | `meshlets` `vertices` `triangles` `meshletCount`                                         |
-|  [05]   | `Meshlet`          | cluster slice | one extracted `{ vertices, triangles }`                                                  |
-|  [06]   | `Bounds`           | culling bound | sphere center and radius plus the normal-cone apex, axis, and cutoff                     |
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [CAPABILITY]                                                                              |
+| :-----: | :---------------- | :------------ | :---------------------------------------------------------------------------------------- |
+|  [01]   | `SimplifierFlags` | flag set      | `LockBorder` `Sparse` `ErrorAbsolute` `Prune` `Regularize` `Permissive` `RegularizeLight` |
+|  [02]   | `TangentsFlags`   | flag set      | `Compatible` `ZeroFallback`                                                               |
+|  [03]   | `ExpMode`         | filter mode   | `Separate` `SharedVector` `SharedComponent` `Clamped`                                     |
+|  [04]   | `MeshletBuffers`  | cluster batch | `meshlets` `vertices` `triangles` `meshletCount`                                          |
+|  [05]   | `Meshlet`         | cluster slice | one extracted `{ vertices, triangles }`                                                   |
+|  [06]   | `Bounds`          | culling bound | sphere center and radius plus the normal-cone apex, axis, and cutoff                      |
 
 `Flags` is a deprecated alias of `SimplifierFlags`; the flag arrays are optional trailing parameters, never an options record.
 
@@ -45,28 +45,28 @@ Each record carries `supported: boolean` and `ready: Promise<void>`; every membe
 
 [ENTRYPOINT_SCOPE]: `MeshoptEncoder` — codec and ordering
 
-| [INDEX] | [SURFACE]                                                              | [CAPABILITY]                          |
-| :-----: | :--------------------------------------------------------------------- | :------------------------------------- |
-|  [01]   | `encodeVertexBuffer(source, count, size) -> Uint8Array`                | vertex stream codec                    |
-|  [02]   | `encodeVertexBufferLevel(source, count, size, level, version?)`        | the same with an explicit effort level |
-|  [03]   | `encodeIndexBuffer(source, count, size) -> Uint8Array`                 | triangle index codec                   |
-|  [04]   | `encodeIndexSequence(source, count, size) -> Uint8Array`               | non-triangle index codec               |
-|  [05]   | `encodeGltfBuffer(source, count, size, mode, version?)`                | the glTF buffer-view form              |
-|  [06]   | `reorderMesh(indices, triangles, optsize) -> [Uint32Array, number]`    | vertex-cache/overdraw order + remap    |
-|  [07]   | `reorderPoints(positions, positions_stride) -> Uint32Array`            | spatial order for point clouds         |
+| [INDEX] | [SURFACE]                                                           | [CAPABILITY]                           |
+| :-----: | :------------------------------------------------------------------ | :------------------------------------- |
+|  [01]   | `encodeVertexBuffer(source, count, size) -> Uint8Array`             | vertex stream codec                    |
+|  [02]   | `encodeVertexBufferLevel(source, count, size, level, version?)`     | the same with an explicit effort level |
+|  [03]   | `encodeIndexBuffer(source, count, size) -> Uint8Array`              | triangle index codec                   |
+|  [04]   | `encodeIndexSequence(source, count, size) -> Uint8Array`            | non-triangle index codec               |
+|  [05]   | `encodeGltfBuffer(source, count, size, mode, version?)`             | the glTF buffer-view form              |
+|  [06]   | `reorderMesh(indices, triangles, optsize) -> [Uint32Array, number]` | vertex-cache/overdraw order + remap    |
+|  [07]   | `reorderPoints(positions, positions_stride) -> Uint32Array`         | spatial order for point clouds         |
 
 `[ATTRIBUTE_FILTER]: `encodeFilterOct(source, count, stride, bits)` `encodeFilterQuat(source, count, stride, bits)` `encodeFilterExp(source, count, stride, bits, mode?)` `encodeFilterColor(source, count, stride, bits)`` — octahedral normals, quaternion rotations, shared-exponent floats under an `ExpMode`, and quantized color.
 
 [ENTRYPOINT_SCOPE]: `MeshoptDecoder` — the consumer half
 
-| [INDEX] | [SURFACE]                                                                        | [CAPABILITY]                     |
-| :-----: | :------------------------------------------------------------------------------- | :-------------------------------- |
-|  [01]   | `decodeVertexBuffer(target, count, size, source, filter?)`                        | decode into a caller-owned target |
-|  [02]   | `decodeIndexBuffer(target, count, size, source)`                                  | triangle index decode             |
-|  [03]   | `decodeIndexSequence(target, count, size, source)`                                | non-triangle index decode         |
-|  [04]   | `decodeGltfBuffer(target, count, size, source, mode, filter?)`                    | the glTF buffer-view form         |
+| [INDEX] | [SURFACE]                                                                          | [CAPABILITY]                      |
+| :-----: | :--------------------------------------------------------------------------------- | :-------------------------------- |
+|  [01]   | `decodeVertexBuffer(target, count, size, source, filter?)`                         | decode into a caller-owned target |
+|  [02]   | `decodeIndexBuffer(target, count, size, source)`                                   | triangle index decode             |
+|  [03]   | `decodeIndexSequence(target, count, size, source)`                                 | non-triangle index decode         |
+|  [04]   | `decodeGltfBuffer(target, count, size, source, mode, filter?)`                     | the glTF buffer-view form         |
 |  [05]   | `decodeGltfBufferAsync(count, size, source, mode, filter?) -> Promise<Uint8Array>` | the worker-pool form              |
-|  [06]   | `useWorkers(count)`                                                              | size the decode worker pool       |
+|  [06]   | `useWorkers(count)`                                                                | size the decode worker pool       |
 
 Every synchronous decoder writes into a target the CALLER allocates and returns `void`; only the async form allocates and answers its own buffer.
 
@@ -74,17 +74,17 @@ Every synchronous decoder writes into a target the CALLER allocates and returns 
 
 Every decimating member takes `(indices, positions, stride, …, target_index_count, target_error)` and answers `[Uint32Array, number]` — the surviving indices and the achieved error.
 
-| [INDEX] | [SURFACE]                | [EXTRA_PARAMETERS]                                       | [CAPABILITY]                    |
-| :-----: | :----------------------- | :------------------------------------------------------- | :------------------------------- |
-|  [01]   | `simplify`               | `flags?`                                                 | decimate under an error bound    |
-|  [02]   | `simplifyWithAttributes` | `attributes` `attr_stride` `weights` `lock` `flags?`     | attribute-aware decimation       |
-|  [03]   | `simplifyWithUpdate`     | the `simplifyWithAttributes` set                         | in-place form; answers two counts |
-|  [04]   | `simplifySloppy`         | `lock`                                                   | topology-ignoring fast path      |
-|  [05]   | `simplifyPoints`         | `colors?` `colors_stride?` `color_weight?`               | point-cloud decimation           |
-|  [06]   | `simplifyPrune`          | none                                                     | drop components under the error  |
-|  [07]   | `getScale`               | `(positions, stride) -> number`                          | the scale `target_error` is in   |
-|  [08]   | `compactMesh`            | `(indices)`                                              | drop unreferenced vertices       |
-|  [09]   | `generatePositionRemap`  | `(positions, stride) -> Uint32Array`                     | weld-equivalent position remap   |
+| [INDEX] | [SURFACE]                | [EXTRA_PARAMETERS]                                   | [CAPABILITY]                      |
+| :-----: | :----------------------- | :--------------------------------------------------- | :-------------------------------- |
+|  [01]   | `simplify`               | `flags?`                                             | decimate under an error bound     |
+|  [02]   | `simplifyWithAttributes` | `attributes` `attr_stride` `weights` `lock` `flags?` | attribute-aware decimation        |
+|  [03]   | `simplifyWithUpdate`     | the `simplifyWithAttributes` set                     | in-place form; answers two counts |
+|  [04]   | `simplifySloppy`         | `lock`                                               | topology-ignoring fast path       |
+|  [05]   | `simplifyPoints`         | `colors?` `colors_stride?` `color_weight?`           | point-cloud decimation            |
+|  [06]   | `simplifyPrune`          | none                                                 | drop components under the error   |
+|  [07]   | `getScale`               | `(positions, stride) -> number`                      | the scale `target_error` is in    |
+|  [08]   | `compactMesh`            | `(indices)`                                          | drop unreferenced vertices        |
+|  [09]   | `generatePositionRemap`  | `(positions, stride) -> Uint32Array`                 | weld-equivalent position remap    |
 
 `simplifyPoints` answers a `Uint32Array` of kept indices and `simplifyPrune` a `Uint32Array` of surviving indices; both stand outside the pair-returning shape.
 
@@ -94,16 +94,16 @@ Every decimating member takes `(indices, positions, stride, …, target_index_co
 
 Every clusterizer builder takes `(indices, positions, stride, max_vertices, …)` and answers `MeshletBuffers`.
 
-| [INDEX] | [SURFACE]              | [EXTRA_PARAMETERS]                                        | [CAPABILITY]                    |
-| :-----: | :--------------------- | :--------------------------------------------------------- | :------------------------------- |
-|  [01]   | `buildMeshlets`        | `max_triangles` `cone_weight?`                             | fixed-bound meshlet build        |
-|  [02]   | `buildMeshletsFlex`    | `min_triangles` `max_triangles` `cone_weight?` `split_factor?` | variable-size meshlets       |
-|  [03]   | `buildMeshletsSpatial` | `min_triangles` `max_triangles` `fill_weight?`             | spatially coherent meshlets      |
-|  [04]   | `extractMeshlet`       | `(buffers, index) -> Meshlet`                              | one meshlet out of the batch     |
-|  [05]   | `computeMeshletBounds` | `(buffers, positions, stride) -> Bounds[]`                 | per-meshlet sphere and cone      |
-|  [06]   | `computeClusterBounds` | `(indices, positions, stride) -> Bounds`                   | one cluster's bound              |
-|  [07]   | `computeSphereBounds`  | `(positions, stride, radii?, radii_stride?) -> Bounds`     | bounding sphere over points      |
-|  [08]   | `generateTangents`     | `(indices, positions, stride, normals, n_stride, uvs, uv_stride, flags?)` | tangent basis  |
+| [INDEX] | [SURFACE]              | [EXTRA_PARAMETERS]                                                        | [CAPABILITY]                 |
+| :-----: | :--------------------- | :------------------------------------------------------------------------ | :--------------------------- |
+|  [01]   | `buildMeshlets`        | `max_triangles` `cone_weight?`                                            | fixed-bound meshlet build    |
+|  [02]   | `buildMeshletsFlex`    | `min_triangles` `max_triangles` `cone_weight?` `split_factor?`            | variable-size meshlets       |
+|  [03]   | `buildMeshletsSpatial` | `min_triangles` `max_triangles` `fill_weight?`                            | spatially coherent meshlets  |
+|  [04]   | `extractMeshlet`       | `(buffers, index) -> Meshlet`                                             | one meshlet out of the batch |
+|  [05]   | `computeMeshletBounds` | `(buffers, positions, stride) -> Bounds[]`                                | per-meshlet sphere and cone  |
+|  [06]   | `computeClusterBounds` | `(indices, positions, stride) -> Bounds`                                  | one cluster's bound          |
+|  [07]   | `computeSphereBounds`  | `(positions, stride, radii?, radii_stride?) -> Bounds`                    | bounding sphere over points  |
+|  [08]   | `generateTangents`     | `(indices, positions, stride, normals, n_stride, uvs, uv_stride, flags?)` | tangent basis                |
 
 `generateTangents` is `MeshoptTangents`' only member and answers a `Float32Array`; every other row above belongs to `MeshoptClusterizer`.
 

@@ -17,14 +17,14 @@ Encoding stays outside: the provisioned `ktx` CLI mints every KTX2 the branch se
 
 [PUBLIC_TYPE_SCOPE]: the container and its nested records
 
-| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]    | [CAPABILITY]                                 |
-| :-----: | :----------------------------------- | :--------------- | :------------------------------------------- |
-|  [01]   | `KTX2Container`                      | container record | the whole unpacked file as a plain object    |
-|  [02]   | `KTX2Level`                          | level record     | `levelData` bytes + `uncompressedByteLength` |
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]    | [CAPABILITY]                                 |
+| :-----: | :------------------------------------ | :--------------- | :------------------------------------------- |
+|  [01]   | `KTX2Container`                       | container record | the whole unpacked file as a plain object    |
+|  [02]   | `KTX2Level`                           | level record     | `levelData` bytes + `uncompressedByteLength` |
 |  [03]   | `KTX2DataFormatDescriptorBasicFormat` | DFD record       | payload class, transfer, primaries, alpha    |
-|  [04]   | `KTX2BasicFormatSample`              | DFD sample       | per-channel bit layout inside a texel block  |
-|  [05]   | `KTX2GlobalDataBasisLZ`              | BasisLZ tables   | endpoint/selector/table blobs for ETC1S      |
-|  [06]   | `KTX2GlobalDataBasisLZImageDesc`     | BasisLZ slice    | per-image RGB/alpha slice offsets            |
+|  [04]   | `KTX2BasicFormatSample`               | DFD sample       | per-channel bit layout inside a texel block  |
+|  [05]   | `KTX2GlobalDataBasisLZ`               | BasisLZ tables   | endpoint/selector/table blobs for ETC1S      |
+|  [06]   | `KTX2GlobalDataBasisLZImageDesc`      | BasisLZ slice    | per-image RGB/alpha slice offsets            |
 
 - `KTX2Container` carries `vkFormat`, `typeSize`, `pixelWidth`, `pixelHeight`, `pixelDepth`, `layerCount`, `faceCount`, `levelCount`, `supercompressionScheme`, `levels`, `dataFormatDescriptor`, `keyValue`, and `globalData`.
 - `pixelDepth` and `layerCount` are ZERO on a real 2D non-array file, never one — `ktx create` writes 0 for both, and only `faceCount` uses 1 as its non-cube value. Reading either as a ≥1 count multiplies level arithmetic by zero.
@@ -33,14 +33,14 @@ Encoding stays outside: the provisioned `ktx` CLI mints every KTX2 the branch se
 
 [PUBLIC_TYPE_SCOPE]: bounded vocabularies, each a union over exported numeric constants
 
-| [INDEX] | [SYMBOL]         | [CONSTANT_FAMILY]                                       | [DISCRIMINATES]                            |
-| :-----: | :--------------- | :------------------------------------------------------ | :----------------------------------------- |
-|  [01]   | `Supercompression` | `KHR_SUPERCOMPRESSION_{NONE,BASISLZ,ZSTD,ZLIB}`        | how `levelData` is packed                  |
-|  [02]   | `VKFormat`       | `VK_FORMAT_*`                                            | the uncompressed or block storage format   |
-|  [03]   | `Transfer`       | `KHR_DF_TRANSFER_*`                                      | the encoded transfer function              |
-|  [04]   | `Primaries`      | `KHR_DF_PRIMARIES_*`                                     | the color primaries                        |
-|  [05]   | `Channel`        | `KHR_DF_CHANNEL_RGBSDA_*`                                | which channel a DFD sample describes       |
-|  [06]   | `SampleDatatype` | `KHR_DF_SAMPLE_DATATYPE_{FLOAT,SIGNED,EXPONENT,LINEAR}`  | sample numeric interpretation              |
+| [INDEX] | [SYMBOL]           | [CONSTANT_FAMILY]                                       | [DISCRIMINATES]                          |
+| :-----: | :----------------- | :------------------------------------------------------ | :--------------------------------------- |
+|  [01]   | `Supercompression` | `KHR_SUPERCOMPRESSION_{NONE,BASISLZ,ZSTD,ZLIB}`         | how `levelData` is packed                |
+|  [02]   | `VKFormat`         | `VK_FORMAT_*`                                           | the uncompressed or block storage format |
+|  [03]   | `Transfer`         | `KHR_DF_TRANSFER_*`                                     | the encoded transfer function            |
+|  [04]   | `Primaries`        | `KHR_DF_PRIMARIES_*`                                    | the color primaries                      |
+|  [05]   | `Channel`          | `KHR_DF_CHANNEL_RGBSDA_*`                               | which channel a DFD sample describes     |
+|  [06]   | `SampleDatatype`   | `KHR_DF_SAMPLE_DATATYPE_{FLOAT,SIGNED,EXPONENT,LINEAR}` | sample numeric interpretation            |
 
 `[PAYLOAD_MODEL]: `KHR_DF_MODEL_UASTC` `KHR_DF_MODEL_ETC1S` `KHR_DF_MODEL_ASTC` `KHR_DF_MODEL_ETC1` `KHR_DF_MODEL_ETC2` `KHR_DF_MODEL_RGBSDA` `KHR_DF_MODEL_UNSPECIFIED`` — the `dataFormatDescriptor[0].colorModel` roster; UASTC and ETC1S are the two Basis-transcodable classes.
 
@@ -50,11 +50,11 @@ Encoding stays outside: the provisioned `ktx` CLI mints every KTX2 the branch se
 
 [ENTRYPOINT_SCOPE]: the whole surface — three functions
 
-| [INDEX] | [SURFACE]                                     | [SHAPE] | [CAPABILITY]                          |
-| :-----: | :-------------------------------------------- | :------ | :------------------------------------ |
-|  [01]   | `read(data: Uint8Array) -> KTX2Container`     | static  | unpack a delivered file for classify  |
-|  [02]   | `write(container, options?) -> Uint8Array`    | static  | repack an edited container            |
-|  [03]   | `createDefaultContainer() -> KTX2Container`   | factory | an empty container to populate        |
+| [INDEX] | [SURFACE]                                   | [SHAPE] | [CAPABILITY]                         |
+| :-----: | :------------------------------------------ | :------ | :----------------------------------- |
+|  [01]   | `read(data: Uint8Array) -> KTX2Container`   | static  | unpack a delivered file for classify |
+|  [02]   | `write(container, options?) -> Uint8Array`  | static  | repack an edited container           |
+|  [03]   | `createDefaultContainer() -> KTX2Container` | factory | an empty container to populate       |
 
 - `write` copies every binary region into the returned array, so the source container is free to mutate or drop afterwards.
 - `WriteOptions.keepWriter` is the ONLY option. Left false, `write` overwrites the `KTXwriter` key/value with its own version string; set true, it emits the container's `KTXwriter` verbatim.

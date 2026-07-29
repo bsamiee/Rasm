@@ -171,10 +171,14 @@
 |  [04]   | `new TileDescription(uint, uint, TileLevelMode, TileRoundingMode)`                        | ctor     | declare tiling and levels |
 |  [05]   | `new Box2i(int, int, int, int)`                                                           | ctor     | declare a window          |
 |  [06]   | `new Image(IEnumerable<Part>)` / `new Part(Header, IEnumerable<PartLevel>, bool)`         | ctor     | assemble the model        |
-|  [07]   | `Image.GetPart(string) -> Part` / `Part.GetLevel(int, int) -> PartLevel`                  | instance | name and level lookup     |
-|  [08]   | `PartLevel.GetChannel(string) -> ChannelBuffer` / `PartLevel.Channels`                    | instance | channel access            |
-|  [09]   | `Header.IsTiled` / `IsDeep` / `Channels` / `Attributes` / `DataWindow` / `Chromaticities` | property | declared part facts       |
-|  [10]   | `ChannelBuffer.Data` / `ByteLength` / `SampleCount`                                       | property | the raw channel window    |
+|  [07]   | `new FlatLevel(int, int, Box2i, IEnumerable<ChannelBuffer>)`                              | ctor     | one flat level            |
+|  [08]   | `new DeepLevel(int, int, Box2i, ReadOnlySpan<int>, IEnumerable<ChannelBuffer>)`           | ctor     | one deep level and counts |
+|  [09]   | `Image.Parts -> IReadOnlyList<Part>` / `Image.IsMultipart` / `Image.GetPart(string)`      | instance | part roster and lookup    |
+|  [10]   | `Part.Levels -> IReadOnlyList<PartLevel>` / `Part.GetLevel(int, int) -> PartLevel`        | instance | level roster and lookup   |
+|  [11]   | `PartLevel.GetChannel(string) -> ChannelBuffer` / `PartLevel.Channels` / `Region`         | instance | channel access, extent    |
+|  [12]   | `DeepLevel.SampleCounts -> ReadOnlySpan<int>` / `DeepLevel.TotalSamples`                  | property | per-texel deep counts     |
+|  [13]   | `Header.IsTiled` / `IsDeep` / `Channels` / `Attributes` / `DataWindow` / `Chromaticities` | property | declared part facts       |
+|  [14]   | `ChannelBuffer.Data` / `ByteLength` / `SampleCount` / `Name` / `PixelType`                | property | the raw channel window    |
 
 [ENTRYPOINT_SCOPE]: pixel conversion, resample, tone map, transfer, and LUT
 

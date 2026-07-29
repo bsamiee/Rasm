@@ -26,15 +26,15 @@
 
 [ENTRYPOINT_SCOPE]: IPC decode, encode, and the streaming reader
 
-| [INDEX] | [SURFACE]                                              | [SHAPE]  | [CAPABILITY]                                           |
-| :-----: | :----------------------------------------------------- | :------- | :----------------------------------------------------- |
-|  [01]   | `tableFromIPC(bytes) -> Table`                         | static   | sync decode; a stream/promise source returns `Promise` |
-|  [02]   | `tableToIPC(table, type?, compression?) -> Uint8Array` | static   | file/stream IPC encode with optional body compression  |
-|  [03]   | `RecordBatchReader.from(source)`                       | factory  | opens the incremental reader, sync or async by source  |
-|  [04]   | `reader[Symbol.asyncIterator]()`                       | instance | batch pull; no whole-`Table` materialization           |
-|  [05]   | `isArrowTable(x)` / `isArrowRecordBatch(x)`            | static   | narrowing guards the ingest discriminant folds through |
-|  [06]   | `Table.numRows` / `Table.schema.fields`                | instance | row arity and the ordered field roster a projection walks |
-|  [07]   | `Table.getChild(name) -> Vector \| null`               | instance | one column BY NAME; a null answer means the frame lacks it |
+| [INDEX] | [SURFACE]                                              | [SHAPE]  | [CAPABILITY]                                                    |
+| :-----: | :----------------------------------------------------- | :------- | :-------------------------------------------------------------- |
+|  [01]   | `tableFromIPC(bytes) -> Table`                         | static   | sync decode; a stream/promise source returns `Promise`          |
+|  [02]   | `tableToIPC(table, type?, compression?) -> Uint8Array` | static   | file/stream IPC encode with optional body compression           |
+|  [03]   | `RecordBatchReader.from(source)`                       | factory  | opens the incremental reader, sync or async by source           |
+|  [04]   | `reader[Symbol.asyncIterator]()`                       | instance | batch pull; no whole-`Table` materialization                    |
+|  [05]   | `isArrowTable(x)` / `isArrowRecordBatch(x)`            | static   | narrowing guards the ingest discriminant folds through          |
+|  [06]   | `Table.numRows` / `Table.schema.fields`                | instance | row arity and the ordered field roster a projection walks       |
+|  [07]   | `Table.getChild(name) -> Vector \| null`               | instance | one column BY NAME; a null answer means the frame lacks it      |
 |  [08]   | `Vector.get(index) -> value \| null`                   | instance | one cell, so a bounded frame projects to rows without `toArray` |
 
 ## [04]-[IMPLEMENTATION_LAW]

@@ -77,6 +77,8 @@
 |  [18]   | `Extent3D`                                 | struct        | copy and allocation extent                      |
 |  [19]   | `ChainedStruct` / `ChainedStructOut`       | struct        | input and output extension chains               |
 
+[DISPATCH_CEILING]: `Limits.MaxComputeWorkgroupsPerDimension` (`uint`) `Limits.MaxStorageBufferBindingSize` (`ulong`) `Limits.MaxComputeInvocationsPerWorkgroup` (`uint`) — a compute gate reads these three; no timestamp-period member exists on any tier, and resolved `QueryType.Timestamp` values are nanoseconds directly.
+
 [PUBLIC_TYPE_SCOPE]: resource and pipeline descriptors
 
 | [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [CAPABILITY]                                                   |
@@ -116,21 +118,24 @@
 |  [06]   | `BufferBindingType`         | enum          | `Uniform`/`Storage`/`ReadOnlyStorage` binding kind                |
 |  [07]   | `BufferMapState`            | enum          | unmapped/pending/mapped poll                                      |
 |  [08]   | `MapMode`                   | enum          | readback/upload map direction                                     |
-|  [09]   | `ShaderStage`               | flags enum    | vertex/fragment/compute visibility                                |
-|  [10]   | `PresentMode`               | enum          | present mode                                                      |
-|  [11]   | `BackendType`               | enum          | graphics backend                                                  |
-|  [12]   | `PowerPreference`           | enum          | adapter power class for `RequestAdapterOptions`                   |
-|  [13]   | `FeatureName`               | enum          | device feature, gating `TimestampQuery` and the BC/ASTC/ETC2 rows |
-|  [14]   | `WGSLFeatureName`           | enum          | WGSL language feature                                             |
-|  [15]   | `QueryType`                 | enum          | timestamp/occlusion query kind                                    |
-|  [16]   | `ErrorFilter`               | enum          | `Validation`/`OutOfMemory`/`Internal` capture-scope selector      |
-|  [17]   | `ErrorType`                 | enum          | NoError/Validation/OutOfMemory/Internal/Unknown/DeviceLost        |
-|  [18]   | `PfnRequestAdapterCallback` | delegate ptr  | adapter result                                                    |
-|  [19]   | `PfnRequestDeviceCallback`  | delegate ptr  | device result                                                     |
-|  [20]   | `PfnBufferMapCallback`      | delegate ptr  | buffer-map result                                                 |
-|  [21]   | `PfnQueueWorkDoneCallback`  | delegate ptr  | queue-work result                                                 |
-|  [22]   | `PfnErrorCallback`          | delegate ptr  | validation error                                                  |
-|  [23]   | `PfnDeviceLostCallback`     | delegate ptr  | device-lost result                                                |
+|  [09]   | `BufferMapAsyncStatus`      | enum          | map-callback verdict                                              |
+|  [10]   | `ShaderStage`               | flags enum    | vertex/fragment/compute visibility                                |
+|  [11]   | `PresentMode`               | enum          | present mode                                                      |
+|  [12]   | `BackendType`               | enum          | graphics backend                                                  |
+|  [13]   | `PowerPreference`           | enum          | adapter power class for `RequestAdapterOptions`                   |
+|  [14]   | `FeatureName`               | enum          | device feature, gating `TimestampQuery` and the BC/ASTC/ETC2 rows |
+|  [15]   | `WGSLFeatureName`           | enum          | WGSL language feature                                             |
+|  [16]   | `QueryType`                 | enum          | timestamp/occlusion query kind                                    |
+|  [17]   | `ErrorFilter`               | enum          | `Validation`/`OutOfMemory`/`Internal` capture-scope selector      |
+|  [18]   | `ErrorType`                 | enum          | NoError/Validation/OutOfMemory/Internal/Unknown/DeviceLost        |
+|  [19]   | `PfnRequestAdapterCallback` | delegate ptr  | adapter result                                                    |
+|  [20]   | `PfnRequestDeviceCallback`  | delegate ptr  | device result                                                     |
+|  [21]   | `PfnBufferMapCallback`      | delegate ptr  | buffer-map result                                                 |
+|  [22]   | `PfnQueueWorkDoneCallback`  | delegate ptr  | queue-work result                                                 |
+|  [23]   | `PfnErrorCallback`          | delegate ptr  | validation error                                                  |
+|  [24]   | `PfnDeviceLostCallback`     | delegate ptr  | device-lost result                                                |
+
+[BUFFER_MAP_STATUS]: `Success` = 0 `ValidationError` `Unknown` `DeviceLost` `DestroyedBeforeCallback` `UnmappedBeforeCallback` `MappingAlreadyPending` `OffsetOutOfRange` `SizeOutOfRange`
 
 ## [03]-[ENTRYPOINTS]
 

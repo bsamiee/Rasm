@@ -56,33 +56,33 @@
 
 [PUBLIC_TYPE_SCOPE]: SDE solvers and stochastic terms
 
-| [INDEX] | [SYMBOL]                           | [PACKAGE_ROLE]               | [CAPABILITY]                                          |
-| :-----: | :--------------------------------- | :--------------------------- | :---------------------------------------------------- |
-|  [01]   | `EulerHeun`                        | Stratonovich SDE solver      | Euler-Heun, no Levy area                              |
-|  [02]   | `ItoMilstein`                      | Ito SDE solver               | Milstein order 1 Ito                                  |
-|  [03]   | `StratonovichMilstein`             | Stratonovich SDE solver      | Milstein order 1 Stratonovich                         |
-|  [04]   | `ReversibleHeun`                   | reversible SDE solver        | reversible Heun for structure-preserving              |
-|  [05]   | `LeapfrogMidpoint`                 | SDE solver                   | leapfrog midpoint                                     |
-|  [06]   | `SemiImplicitEuler`                | semi-implicit solver         | semi-implicit Euler for separable/stiff SDEs          |
-|  [07]   | `SRA1`                             | additive-noise SDE solver    | strong order 1.5, space-time Levy area                |
-|  [08]   | `ShARK`                            | high-order SDE solver        | strong order 1.5 additive noise, space-time Levy area |
-|  [09]   | `GeneralShARK`                     | high-order SDE solver        | strong order 1.5 general noise, space-time Levy area  |
-|  [10]   | `SlowRK`                           | commutative-noise SDE solver | strong order 1.5, space-time-time Levy area           |
-|  [11]   | `SPaRK`                            | general SDE solver           | strong order 1.5 general Runge-Kutta                  |
-|  [12]   | `SEA`                              | additive-noise SDE solver    | shifted Euler, weak order, space-time Levy area       |
-|  [13]   | `ALIGN`                            | underdamped Langevin solver  | structure-preserving Langevin SDE integrator          |
-|  [14]   | `ShOULD`                           | underdamped Langevin solver  | structure-preserving Langevin SDE integrator          |
-|  [15]   | `QUICSORT`                         | underdamped Langevin solver  | structure-preserving Langevin SDE integrator          |
-|  [16]   | `ControlTerm`                      | SDE term                     | diffusion term driven by a control path               |
-|  [17]   | `WeaklyDiagonalControlTerm`        | SDE term                     | weakly diagonal diffusion term                        |
-|  [18]   | `MultiTerm`                        | term combiner                | combines drift + diffusion terms into one term        |
-|  [19]   | `UnderdampedLangevinDriftTerm(gamma, u, grad_f)`  | Langevin term     | drift term for the Langevin solvers                   |
-|  [20]   | `UnderdampedLangevinDiffusionTerm(gamma, u, bm)`  | Langevin term     | diffusion term for the Langevin solvers               |
-|  [21]   | `VirtualBrownianTree`              | Brownian path                | reproducible Brownian tree with selectable Levy area  |
-|  [22]   | `UnsafeBrownianPath`               | Brownian path                | fast non-reproducible path (forward solve only)       |
-|  [23]   | `BrownianIncrement`                | Levy-area level              | increment-only Levy area                              |
-|  [24]   | `SpaceTimeLevyArea`                | Levy-area level              | space-time Levy area                                  |
-|  [25]   | `SpaceTimeTimeLevyArea`            | Levy-area level              | space-time-time Levy area                             |
+| [INDEX] | [SYMBOL]                                         | [PACKAGE_ROLE]               | [CAPABILITY]                                          |
+| :-----: | :----------------------------------------------- | :--------------------------- | :---------------------------------------------------- |
+|  [01]   | `EulerHeun`                                      | Stratonovich SDE solver      | Euler-Heun, no Levy area                              |
+|  [02]   | `ItoMilstein`                                    | Ito SDE solver               | Milstein order 1 Ito                                  |
+|  [03]   | `StratonovichMilstein`                           | Stratonovich SDE solver      | Milstein order 1 Stratonovich                         |
+|  [04]   | `ReversibleHeun`                                 | reversible SDE solver        | reversible Heun for structure-preserving              |
+|  [05]   | `LeapfrogMidpoint`                               | SDE solver                   | leapfrog midpoint                                     |
+|  [06]   | `SemiImplicitEuler`                              | semi-implicit solver         | semi-implicit Euler for separable/stiff SDEs          |
+|  [07]   | `SRA1`                                           | additive-noise SDE solver    | strong order 1.5, space-time Levy area                |
+|  [08]   | `ShARK`                                          | high-order SDE solver        | strong order 1.5 additive noise, space-time Levy area |
+|  [09]   | `GeneralShARK`                                   | high-order SDE solver        | strong order 1.5 general noise, space-time Levy area  |
+|  [10]   | `SlowRK`                                         | commutative-noise SDE solver | strong order 1.5, space-time-time Levy area           |
+|  [11]   | `SPaRK`                                          | general SDE solver           | strong order 1.5 general Runge-Kutta                  |
+|  [12]   | `SEA`                                            | additive-noise SDE solver    | shifted Euler, weak order, space-time Levy area       |
+|  [13]   | `ALIGN`                                          | underdamped Langevin solver  | structure-preserving Langevin SDE integrator          |
+|  [14]   | `ShOULD`                                         | underdamped Langevin solver  | structure-preserving Langevin SDE integrator          |
+|  [15]   | `QUICSORT`                                       | underdamped Langevin solver  | structure-preserving Langevin SDE integrator          |
+|  [16]   | `ControlTerm`                                    | SDE term                     | diffusion term driven by a control path               |
+|  [17]   | `WeaklyDiagonalControlTerm`                      | SDE term                     | weakly diagonal diffusion term                        |
+|  [18]   | `MultiTerm`                                      | term combiner                | combines drift + diffusion terms into one term        |
+|  [19]   | `UnderdampedLangevinDriftTerm(gamma, u, grad_f)` | Langevin term                | drift term for the Langevin solvers                   |
+|  [20]   | `UnderdampedLangevinDiffusionTerm(gamma, u, bm)` | Langevin term                | diffusion term for the Langevin solvers               |
+|  [21]   | `VirtualBrownianTree`                            | Brownian path                | reproducible Brownian tree with selectable Levy area  |
+|  [22]   | `UnsafeBrownianPath`                             | Brownian path                | fast non-reproducible path (forward solve only)       |
+|  [23]   | `BrownianIncrement`                              | Levy-area level              | increment-only Levy area                              |
+|  [24]   | `SpaceTimeLevyArea`                              | Levy-area level              | space-time Levy area                                  |
+|  [25]   | `SpaceTimeTimeLevyArea`                          | Levy-area level              | space-time-time Levy area                             |
 
 [PUBLIC_TYPE_SCOPE]: step-size controllers and adjoints
 

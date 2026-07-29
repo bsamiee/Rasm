@@ -89,6 +89,7 @@
 - Supercompression is orthogonal to block format: `KtxSupercompressionScheme.Zstandard` (level on `ZstandardCompressionLevel`) and `Zlib` (`ZlibCompressionLevel`) compress an already-block-encoded payload, while `BasisLz` is the scheme a Basis ETC1S payload carries. `None` writes the blocks raw.
 - Block encoding happens BEFORE this surface: a plane reaches `Encode<TPixel>` and the container leg resolves the coder for `KtxEncodingOptions.TextureFormat` off the `TextureCompressor` registry, so the payload class is the format row the caller names, never a container-side choice.
 - `EncodeMipChain` writes the pyramid the caller built; a KTX file holds its own mip levels, so a per-mip file series is the wrong shape against this container.
+- `KtxCodec.Encode`/`EncodeMipChain`/`Decode<TPixel>` resolve their coders from `TextureCoderManager.Global` INTERNALLY — a bake-scoped manager never reaches a container-codec call, so an options-bearing coder either registers on `Global` (resident for the process) or the caller drives the per-subresource `ITextureCoder` path itself.
 - Supercompressed KTX2 declares `vk_format = VK_FORMAT_UNDEFINED` until transcode, so `KtxTexture.VkFormat` reading `KtxVkFormat.Undefined` is the NORMAL state of a wire-legal UASTC or ETC1S file; a reader branching on that token classes every transcodable payload as malformed.
 
 [STACKING]:

@@ -191,19 +191,19 @@ Every graph interface named in a signature is `<TVertex, TEdge>`-parameterized a
 
 [ENTRYPOINT_SCOPE]: maximum-flow objects — the augmentation lifecycle and the residual state a minimum cut reads; the solver constructor closes on `EdgeFactory<TVertex, TEdge>` and a constructed `ReversedEdgeAugmentorAlgorithm<TVertex, TEdge>` after its capacity fold
 
-| [INDEX] | [SURFACE]                                                                                     | [SHAPE]  | [CAPABILITY]              |
-| :-----: | :-------------------------------------------------------------------------------------------- | :------- | :------------------------ |
-|  [01]   | `ReversedEdgeAugmentorAlgorithm(IMutableVertexAndEdgeListGraph, EdgeFactory<TVertex, TEdge>)` | ctor     | augmentor over one graph  |
-|  [02]   | `ReversedEdgeAugmentorAlgorithm.AddReversedEdges()`                                           | instance | mint the missing reverses |
-|  [03]   | `ReversedEdgeAugmentorAlgorithm.RemoveReversedEdges()`                                        | instance | retire the auxiliaries    |
-|  [04]   | `ReversedEdgeAugmentorAlgorithm.ReversedEdges -> IDictionary<TEdge, TEdge>`                   | instance | forward-to-reverse map    |
-|  [05]   | `ReversedEdgeAugmentorAlgorithm.Augmented -> bool`                                            | instance | augmentation state        |
-|  [06]   | `EdmondsKarpMaximumFlowAlgorithm(graph, Func<TEdge, double>, …)`                              | ctor     | augmenting solver         |
-|  [07]   | `MaximumFlowAlgorithm.Compute(TVertex, TVertex)`                                              | instance | run source to sink        |
-|  [08]   | `MaximumFlowAlgorithm.MaxFlow -> double`                                                      | instance | the flow value            |
-|  [09]   | `MaximumFlowAlgorithm.ResidualCapacities -> Dictionary<TEdge, double>`                        | instance | residual state per edge   |
-|  [10]   | `MaximumFlowAlgorithm.Predecessors -> Dictionary<TVertex, TEdge>`                             | instance | augmenting-path parents   |
-|  [11]   | `MaximumFlowAlgorithm.VerticesColors -> IDictionary<TVertex, GraphColor>`                     | instance | last traversal colouring  |
+| [INDEX] | [SURFACE]                                                                     | [SHAPE]  | [CAPABILITY]              |
+| :-----: | :---------------------------------------------------------------------------- | :------- | :------------------------ |
+|  [01]   | `ReversedEdgeAugmentorAlgorithm(IMutableVertexAndEdgeListGraph, EdgeFactory)` | ctor     | augmentor over one graph  |
+|  [02]   | `ReversedEdgeAugmentorAlgorithm.AddReversedEdges()`                           | instance | mint the missing reverses |
+|  [03]   | `ReversedEdgeAugmentorAlgorithm.RemoveReversedEdges()`                        | instance | retire the auxiliaries    |
+|  [04]   | `ReversedEdgeAugmentorAlgorithm.ReversedEdges -> IDictionary<TEdge, TEdge>`   | instance | forward-to-reverse map    |
+|  [05]   | `ReversedEdgeAugmentorAlgorithm.Augmented -> bool`                            | instance | augmentation state        |
+|  [06]   | `EdmondsKarpMaximumFlowAlgorithm(graph, Func<TEdge, double>, …)`              | ctor     | augmenting solver         |
+|  [07]   | `MaximumFlowAlgorithm.Compute(TVertex, TVertex)`                              | instance | run source to sink        |
+|  [08]   | `MaximumFlowAlgorithm.MaxFlow -> double`                                      | instance | the flow value            |
+|  [09]   | `MaximumFlowAlgorithm.ResidualCapacities -> Dictionary<TEdge, double>`        | instance | residual state per edge   |
+|  [10]   | `MaximumFlowAlgorithm.Predecessors -> Dictionary<TVertex, TEdge>`             | instance | augmenting-path parents   |
+|  [11]   | `MaximumFlowAlgorithm.VerticesColors -> IDictionary<TVertex, GraphColor>`     | instance | last traversal colouring  |
 
 - `ReversedEdgeAugmentorAlgorithm` is `IDisposable` and its dispose runs `RemoveReversedEdges()`, so a `using` scope bounds the auxiliary edges to the solve.
 - `EdmondsKarpMaximumFlowAlgorithm` throws `ArgumentException` when the augmentor targets a different graph instance, so both take the SAME container reference.

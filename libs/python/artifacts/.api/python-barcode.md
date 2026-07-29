@@ -50,15 +50,15 @@
 
 [ENTRYPOINT_SCOPE]: `Barcode` render and serialize
 
-| [INDEX] | [SURFACE]                 | [CALL_SHAPE]                                     | [CAPABILITY]                                         |
-| :-----: | :------------------------ | :----------------------------------------------- | :--------------------------------------------------- |
-|  [01]   | `Barcode.render`          | `render(writer_options=None, text=None)`         | in-memory SVG `str` or `PIL.Image`                   |
-|  [02]   | `Barcode.write`           | `write(fp, options=None, text=None) -> None`     | open binary stream; the `graphic/marks/encode#MARK` `BytesIO` sink |
-|  [03]   | `Barcode.save`            | `save(filename, options=None, text=None) -> str` | file write; extension by writer; full filename       |
-|  [04]   | `Barcode.build`           | `build() -> list[str]`                           | single-element 1s/0s module-extent list              |
-|  [05]   | `Barcode.get_fullcode`    | `get_fullcode() -> str`                          | check-digit-completed code; `linear` score evidence  |
-|  [06]   | `Barcode.to_ascii`        | `to_ascii() -> str`                              | encoding rendered as `X`/space ASCII                 |
-|  [07]   | `Barcode.name` / `digits` | class attributes                                 | symbology name; fixed-length digit-count arity       |
+| [INDEX] | [SURFACE]                 | [CALL_SHAPE]                                     | [CAPABILITY]                                        |
+| :-----: | :------------------------ | :----------------------------------------------- | :-------------------------------------------------- |
+|  [01]   | `Barcode.render`          | `render(writer_options=None, text=None)`         | in-memory SVG `str` or `PIL.Image`                  |
+|  [02]   | `Barcode.write`           | `write(fp, options=None, text=None) -> None`     | open binary stream; the `BytesIO` sink              |
+|  [03]   | `Barcode.save`            | `save(filename, options=None, text=None) -> str` | file write; extension by writer; full filename      |
+|  [04]   | `Barcode.build`           | `build() -> list[str]`                           | single-element 1s/0s module-extent list             |
+|  [05]   | `Barcode.get_fullcode`    | `get_fullcode() -> str`                          | check-digit-completed code; `linear` score evidence |
+|  [06]   | `Barcode.to_ascii`        | `to_ascii() -> str`                              | encoding rendered as `X`/space ASCII                |
+|  [07]   | `Barcode.name` / `digits` | class attributes                                 | symbology name; fixed-length digit-count arity      |
 
 - `Barcode.__init__(code, writer, **options)`: `writer` is positional with no default; the registry factories supply `None`, resolved to `default_writer()`.
 - `render` stamps the human-readable line whenever `default_writer_options["write_text"]` (default `True`) holds or a `text` argument is passed, `text` overriding the `get_fullcode()` string.

@@ -37,14 +37,14 @@ This catalogue is the kernel's `RhinoCommon` partition: the host-ABI surface `Ra
 
 [PUBLIC_TYPE_SCOPE]: curve, mesh, brep reference geometry and topology accessors
 
-| [INDEX] | [SYMBOL]        | [TYPE_FAMILY]           | [CAPABILITY]      |
-| :-----: | :-------------- | :---------------------- | :---------------- |
-|  [01]   | `Curve`         | abstract reference      | curve geometry    |
-|  [02]   | `NurbsCurve`    | reference               | NURBS curve       |
-|  [03]   | `PolylineCurve` | reference               | polyline curve    |
-|  [04]   | `Polyline`      | `List<Point3d>` value   | polyline geometry |
-|  [05]   | `Mesh`          | reference               | mesh geometry     |
-|  [06]   | `Brep`          | reference               | boundary geometry |
+| [INDEX] | [SYMBOL]        | [TYPE_FAMILY]         | [CAPABILITY]      |
+| :-----: | :-------------- | :-------------------- | :---------------- |
+|  [01]   | `Curve`         | abstract reference    | curve geometry    |
+|  [02]   | `NurbsCurve`    | reference             | NURBS curve       |
+|  [03]   | `PolylineCurve` | reference             | polyline curve    |
+|  [04]   | `Polyline`      | `List<Point3d>` value | polyline geometry |
+|  [05]   | `Mesh`          | reference             | mesh geometry     |
+|  [06]   | `Brep`          | reference             | boundary geometry |
 
 - Reference geometry descends from the substrate's `GeometryBase`, so identity, duplication, `ObjectType`, disposal, and the bounds triple read there; this partition owns what each concrete type adds.
 - `NurbsCurve` exposes control-point and knot access, the densest `Curve` realization; `PolylineCurve` lowers a polyline to `Curve`, bridging `Curve.TryGetPolyline`.

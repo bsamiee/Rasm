@@ -18,38 +18,38 @@
 
 [PUBLIC_TYPE_SCOPE]: the document, its root, and the IO shapes
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]  | [CAPABILITY]                                |
-| :-----: | :----------------------------- | :------------- | :------------------------------------------ |
-|  [01]   | `Document`                     | graph owner    | the whole asset; every property mints here  |
-|  [02]   | `Root`                         | property index | lists every property family in the asset    |
-|  [03]   | `JSONDocument`                 | IO record      | `{ json, resources }` — glTF plus its files |
-|  [04]   | `PlatformIO`                   | abstract IO    | read/write over an injected host            |
-|  [05]   | `NodeIO` / `WebIO` / `DenoIO`  | IO hosts       | fs, fetch, and Deno bindings                |
-|  [06]   | `Transform` / `TransformContext` | fold shape   | `(doc, context?) => void`                   |
-|  [07]   | `Extension` / `ExtensionProperty` | extension seam | the base every extension package extends |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]  | [CAPABILITY]                                |
+| :-----: | :-------------------------------- | :------------- | :------------------------------------------ |
+|  [01]   | `Document`                        | graph owner    | the whole asset; every property mints here  |
+|  [02]   | `Root`                            | property index | lists every property family in the asset    |
+|  [03]   | `JSONDocument`                    | IO record      | `{ json, resources }` — glTF plus its files |
+|  [04]   | `PlatformIO`                      | abstract IO    | read/write over an injected host            |
+|  [05]   | `NodeIO` / `WebIO` / `DenoIO`     | IO hosts       | fs, fetch, and Deno bindings                |
+|  [06]   | `Transform` / `TransformContext`  | fold shape     | `(doc, context?) => void`                   |
+|  [07]   | `Extension` / `ExtensionProperty` | extension seam | the base every extension package extends    |
 
 [PUBLIC_TYPE_SCOPE]: the property families the graph holds
 
-| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [CAPABILITY]                             |
-| :-----: | :---------------------------------------------- | :------------ | :--------------------------------------- |
-|  [01]   | `Property` / `ExtensibleProperty`               | base          | name, extras, and extension attachment   |
-|  [02]   | `Scene` / `Node` / `Mesh` / `Primitive`         | scene graph   | hierarchy and drawable geometry          |
-|  [03]   | `Accessor` / `Buffer`                           | binary plane  | typed vertex and index storage           |
-|  [04]   | `Material` / `Texture` / `TextureInfo`          | appearance    | PBR factors, image bytes, sampler state  |
-|  [05]   | `Animation` / `AnimationChannel` / `AnimationSampler` | motion  | keyframe tracks                          |
-|  [06]   | `Skin` / `PrimitiveTarget` / `Camera`           | rig and view  | joints, morph targets, projection        |
+| [INDEX] | [SYMBOL]                                              | [TYPE_FAMILY] | [CAPABILITY]                            |
+| :-----: | :---------------------------------------------------- | :------------ | :-------------------------------------- |
+|  [01]   | `Property` / `ExtensibleProperty`                     | base          | name, extras, and extension attachment  |
+|  [02]   | `Scene` / `Node` / `Mesh` / `Primitive`               | scene graph   | hierarchy and drawable geometry         |
+|  [03]   | `Accessor` / `Buffer`                                 | binary plane  | typed vertex and index storage          |
+|  [04]   | `Material` / `Texture` / `TextureInfo`                | appearance    | PBR factors, image bytes, sampler state |
+|  [05]   | `Animation` / `AnimationChannel` / `AnimationSampler` | motion        | keyframe tracks                         |
+|  [06]   | `Skin` / `PrimitiveTarget` / `Camera`                 | rig and view  | joints, morph targets, projection       |
 
 [PUBLIC_TYPE_SCOPE]: bounded vocabularies and utility statics
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                                          |
-| :-----: | :----------------------------- | :------------ | :---------------------------------------------------- |
-|  [01]   | `PropertyType`                 | family key    | the string tag every property answers                 |
-|  [02]   | `Format`                       | file form     | `GLTF` (JSON + sidecars) or `GLB` (one binary)        |
-|  [03]   | `TextureChannel`               | channel mask  | `R = 4096` `G = 256` `B = 16` `A = 1`, bitwise-ORed   |
-|  [04]   | `VertexLayout`                 | write policy  | `INTERLEAVED` or `SEPARATE` buffer views              |
-|  [05]   | `Verbosity` / `Logger` / `ILogger` | diagnostics | `SILENT` `ERROR` `WARN` `INFO` `DEBUG`              |
-|  [06]   | `ImageUtils` / `ImageUtilsFormat` | image probe | registerable size/channel/VRAM readers per mime type  |
-|  [07]   | `BufferUtils` / `FileUtils` / `MathUtils` / `ColorUtils` | helpers | byte, path, matrix, and color-space statics |
+| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY] | [CAPABILITY]                                         |
+| :-----: | :------------------------------------------------------- | :------------ | :--------------------------------------------------- |
+|  [01]   | `PropertyType`                                           | family key    | the string tag every property answers                |
+|  [02]   | `Format`                                                 | file form     | `GLTF` (JSON + sidecars) or `GLB` (one binary)       |
+|  [03]   | `TextureChannel`                                         | channel mask  | `R = 4096` `G = 256` `B = 16` `A = 1`, bitwise-ORed  |
+|  [04]   | `VertexLayout`                                           | write policy  | `INTERLEAVED` or `SEPARATE` buffer views             |
+|  [05]   | `Verbosity` / `Logger` / `ILogger`                       | diagnostics   | `SILENT` `ERROR` `WARN` `INFO` `DEBUG`               |
+|  [06]   | `ImageUtils` / `ImageUtilsFormat`                        | image probe   | registerable size/channel/VRAM readers per mime type |
+|  [07]   | `BufferUtils` / `FileUtils` / `MathUtils` / `ColorUtils` | helpers       | byte, path, matrix, and color-space statics          |
 
 `[GEOMETRY_ALIAS]: `vec2` `vec3` `vec4` `mat3` `mat4` `bbox` `TypedArray` `TypedArrayConstructor`` — the structural aliases every accessor and transform member takes.
 
@@ -59,15 +59,15 @@
 
 [ENTRYPOINT_SCOPE]: the document, its property mints, and the transform fold
 
-| [INDEX] | [SURFACE]                                        | [SHAPE]  | [CAPABILITY]                             |
-| :-----: | :----------------------------------------------- | :------- | :--------------------------------------- |
-|  [01]   | `new Document()`                                 | factory  | an empty asset with a `Root`             |
-|  [02]   | `getRoot() -> Root`                              | instance | the property index                       |
-|  [03]   | `transform(...transforms) -> Promise<this>`      | fold     | THE fold — every function composes here  |
-|  [04]   | `createExtension(ctor) -> T`                     | instance | bind one extension to the document       |
-|  [05]   | `hasExtension(name)` / `disposeExtension(name)`  | instance | extension presence and removal           |
-|  [06]   | `setLogger(logger)` / `getLogger()`              | instance | verbosity for every operation on the doc |
-|  [07]   | `Document.fromGraph(graph) -> Document \| null`  | static   | recover the document owning a graph      |
+| [INDEX] | [SURFACE]                                       | [SHAPE]  | [CAPABILITY]                             |
+| :-----: | :---------------------------------------------- | :------- | :--------------------------------------- |
+|  [01]   | `new Document()`                                | factory  | an empty asset with a `Root`             |
+|  [02]   | `getRoot() -> Root`                             | instance | the property index                       |
+|  [03]   | `transform(...transforms) -> Promise<this>`     | fold     | THE fold — every function composes here  |
+|  [04]   | `createExtension(ctor) -> T`                    | instance | bind one extension to the document       |
+|  [05]   | `hasExtension(name)` / `disposeExtension(name)` | instance | extension presence and removal           |
+|  [06]   | `setLogger(logger)` / `getLogger()`             | instance | verbosity for every operation on the doc |
+|  [07]   | `Document.fromGraph(graph) -> Document \| null` | static   | recover the document owning a graph      |
 
 `[PROPERTY_MINT]: `createScene` `createNode` `createMesh` `createPrimitive` `createPrimitiveTarget` `createMaterial` `createTexture` `createAccessor` `createBuffer` `createAnimation` `createAnimationChannel` `createAnimationSampler` `createSkin` `createCamera`` — every property mints from its document and attaches to the `Root`.
 
@@ -75,16 +75,16 @@
 
 [ENTRYPOINT_SCOPE]: IO — the one read/write surface and its host bindings
 
-| [INDEX] | [SURFACE]                                      | [SHAPE]  | [CAPABILITY]                            |
-| :-----: | :--------------------------------------------- | :------- | :-------------------------------------- |
-|  [01]   | `readBinary(glb) -> Promise<Document>`          | instance | decode `.glb` bytes already in hand     |
-|  [02]   | `writeBinary(doc) -> Promise<Uint8Array>`       | instance | encode the graph back to `.glb` bytes   |
-|  [03]   | `read(uri) -> Promise<Document>`                | instance | host-resolved read with sidecar resolve |
-|  [04]   | `NodeIO.write(uri, doc) -> Promise<void>`       | instance | fs sink; `NodeIO` alone declares it     |
-|  [05]   | `readJSON(jsonDoc)` / `writeJSON(doc, opts?)`   | instance | the `JSONDocument` round trip           |
-|  [06]   | `binaryToJSON(glb) -> Promise<JSONDocument>`    | instance | container split without graph build     |
-|  [07]   | `registerExtensions(extensions) -> this`        | fold     | the CLOSED extension roster for this IO |
-|  [08]   | `registerDependencies(deps) -> this`            | fold     | keyed codec instances extensions demand |
+| [INDEX] | [SURFACE]                                     | [SHAPE]  | [CAPABILITY]                            |
+| :-----: | :-------------------------------------------- | :------- | :-------------------------------------- |
+|  [01]   | `readBinary(glb) -> Promise<Document>`        | instance | decode `.glb` bytes already in hand     |
+|  [02]   | `writeBinary(doc) -> Promise<Uint8Array>`     | instance | encode the graph back to `.glb` bytes   |
+|  [03]   | `read(uri) -> Promise<Document>`              | instance | host-resolved read with sidecar resolve |
+|  [04]   | `NodeIO.write(uri, doc) -> Promise<void>`     | instance | fs sink; `NodeIO` alone declares it     |
+|  [05]   | `readJSON(jsonDoc)` / `writeJSON(doc, opts?)` | instance | the `JSONDocument` round trip           |
+|  [06]   | `binaryToJSON(glb) -> Promise<JSONDocument>`  | instance | container split without graph build     |
+|  [07]   | `registerExtensions(extensions) -> this`      | fold     | the CLOSED extension roster for this IO |
+|  [08]   | `registerDependencies(deps) -> this`          | fold     | keyed codec instances extensions demand |
 
 - `lastReadBytes` and `lastWriteBytes` populate on the URI path ALONE — `readAsJSON`/`read` and `NodeIO.write` set them, while `readBinary`/`writeBinary` leave both at zero, so the object plane measures its own bytes rather than reading these counters.
 - `setVertexLayout(layout)` and `setStrictResources(strict)` are write-side policy; `NodeIO.setAllowNetwork(allow)` gates sidecar fetches and `NodeIO.init()` resolves its `node:fs` binding.

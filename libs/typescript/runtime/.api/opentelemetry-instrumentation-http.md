@@ -14,14 +14,14 @@
 
 [PUBLIC_TYPE_SCOPE]: the instrumentation row and its config hook family
 
-| [INDEX] | [SYMBOL]                                                                    | [TYPE_FAMILY] | [CAPABILITY]                                |
-| :-----: | :-------------------------------------------------------------------------- | :------------ | :------------------------------------------ |
-|  [01]   | `HttpInstrumentation`                                                       | class         | the `Instrumentation` row                   |
-|  [02]   | `HttpInstrumentationConfig`                                                 | interface     | the whole knob surface                      |
-|  [03]   | `IgnoreIncomingRequestFunction` / `IgnoreOutgoingRequestFunction`           | interface     | inbound and outbound skip predicates        |
-|  [04]   | `HttpRequestCustomAttributeFunction` / `…Response…`                         | interface     | per-direction span enrichment hooks         |
-|  [05]   | `StartIncomingSpanCustomAttributeFunction` / `…Outgoing…`                   | interface     | attributes computed at span start           |
-|  [06]   | `HttpCustomAttributeFunction`                                              | interface     | request-and-response pair hook              |
+| [INDEX] | [SYMBOL]                                                          | [TYPE_FAMILY] | [CAPABILITY]                         |
+| :-----: | :---------------------------------------------------------------- | :------------ | :----------------------------------- |
+|  [01]   | `HttpInstrumentation`                                             | class         | the `Instrumentation` row            |
+|  [02]   | `HttpInstrumentationConfig`                                       | interface     | the whole knob surface               |
+|  [03]   | `IgnoreIncomingRequestFunction` / `IgnoreOutgoingRequestFunction` | interface     | inbound and outbound skip predicates |
+|  [04]   | `HttpRequestCustomAttributeFunction` / `…Response…`               | interface     | per-direction span enrichment hooks  |
+|  [05]   | `StartIncomingSpanCustomAttributeFunction` / `…Outgoing…`         | interface     | attributes computed at span start    |
+|  [06]   | `HttpCustomAttributeFunction`                                     | interface     | request-and-response pair hook       |
 
 - `HttpInstrumentationConfig` extends `InstrumentationConfig` (`enabled?`) with `ignoreIncomingRequestHook?`, `ignoreOutgoingRequestHook?`, `disableIncomingRequestInstrumentation?`, `disableOutgoingRequestInstrumentation?`, `applyCustomAttributesOnSpan?`, `requestHook?`, `responseHook?`, `startIncomingSpanHook?`, `startOutgoingSpanHook?`, `serverName?`, `requireParentforIncomingSpans?`, `requireParentforOutgoingSpans?`, `headersToSpanAttributes?`, `enableSyntheticSourceDetection?`, `redactedQueryParams?`.
 - `headersToSpanAttributes` nests by direction: `{ client?: { requestHeaders?, responseHeaders? }, server?: { requestHeaders?, responseHeaders? } }`, each a header-name roster — never a blanket capture.
@@ -32,11 +32,11 @@
 
 [ENTRYPOINT_SCOPE]: construction — the row is data, activation belongs to `registerInstrumentations`
 
-| [INDEX] | [SURFACE]                                | [SHAPE]  | [CAPABILITY]                                |
-| :-----: | :--------------------------------------- | :------- | :------------------------------------------ |
-|  [01]   | `new HttpInstrumentation(config?)`       | ctor     | one row in the registered array             |
-|  [02]   | `.setConfig(config)` / `.getConfig()`    | instance | replace or read the row's config live       |
-|  [03]   | `.enable()` / `.disable()`               | instance | the `Instrumentation` contract's own toggle |
+| [INDEX] | [SURFACE]                             | [SHAPE]  | [CAPABILITY]                                |
+| :-----: | :------------------------------------ | :------- | :------------------------------------------ |
+|  [01]   | `new HttpInstrumentation(config?)`    | ctor     | one row in the registered array             |
+|  [02]   | `.setConfig(config)` / `.getConfig()` | instance | replace or read the row's config live       |
+|  [03]   | `.enable()` / `.disable()`            | instance | the `Instrumentation` contract's own toggle |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

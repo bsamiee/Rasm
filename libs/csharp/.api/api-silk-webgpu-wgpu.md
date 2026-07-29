@@ -46,7 +46,7 @@
 |  [01]   | `LogCallback`    | `unsafe delegate`               | managed log sink         |
 |  [02]   | `PfnLogCallback` | `readonly struct : IDisposable` | function-pointer wrapper |
 
-`PfnLogCallback` wraps `delegate* unmanaged[Cdecl]<LogLevel, byte*, void*, void>`, constructs via `PfnLogCallback.From(LogCallback)` or implicit `nint`, and is the type `SetLogCallback` binds.
+`PfnLogCallback` wraps `delegate* unmanaged[Cdecl]<LogLevel, byte*, void*, void>` and is the type `SetLogCallback` binds. THREE construction forms, decompile-verified: the function-pointer ctor `new PfnLogCallback(delegate* unmanaged[Cdecl]<LogLevel, byte*, void*, void>)` (thunk-free — the form an `[UnmanagedCallersOnly]` completion takes), `PfnLogCallback.From(LogCallback)` (routes `SilkMarshal.DelegateToPtr`, ONE PINNED THUNK PER CONSTRUCTION — legal for a once-per-process log route, a leak on any per-dispatch path), and the implicit `nint`.
 
 [PUBLIC_TYPE_SCOPE]: `next`-chain descriptor-extension structs threaded through the standard descriptor `NextInChain`
 
@@ -147,5 +147,5 @@ Every `*Extras` opens with a `Chain:ChainedStruct` header.
 [RAIL_LAW]:
 - Package: `Silk.NET.WebGPU.Extensions.WGPU`
 - Owns: the wgpu-native vendor surface over the standard binding — non-blocking `DevicePoll`, native log routing through `PfnLogCallback`, full-adapter enumeration, indirect/count-buffer multi-draw and push constants, bindless descriptor arrays via the `Extras` chain, pipeline-statistics profiling, the `GenerateReport` residency snapshot, and the submission-index handshake.
-- Accept: `TryGetDeviceExtension<Wgpu>`/`new Wgpu(webgpu.Context)` second function-table view; `DevicePoll` per-frame non-blocking advance; native log via `PfnLogCallback.From` into the receipt sink; `InstanceEnumerateAdapters` LUID-matched select; the `Extras` native `next`-chain on the standard descriptors; count-buffer GPU-driven draw counts.
+- Accept: `TryGetDeviceExtension<Wgpu>`/`new Wgpu(webgpu.Context)` second function-table view; `DevicePoll` per-frame non-blocking advance; native log via the function-pointer `new PfnLogCallback(&Body)` over an `[UnmanagedCallersOnly]` body into the receipt sink (`PfnLogCallback.From` admits only a once-per-process route — it pins one marshalling thunk per construction); `InstanceEnumerateAdapters` LUID-matched select; the `Extras` native `next`-chain on the standard descriptors; count-buffer GPU-driven draw counts.
 - Reject: a second wgpu binding beside the core; a `GetApi()` static on this table, which carries none — `GetApi` is the core's alone; `SetLogCallback` bound to a bare `LogCallback` in place of `PfnLogCallback`; a blocking fence busy-spin where `DevicePoll` advances; a power-preference single-adapter select ignoring the compositor LUID; N per-meshlet draws where one indirect multi-draw issues; a per-meshlet rebind where a bindless array binds once. `BufferDestroy`/`TextureDestroy` release lives on the core binding.

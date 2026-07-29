@@ -59,48 +59,48 @@
 [ENTRYPOINT_SCOPE]: workbook open, build, and save
 - `load_workbook` read policy: `read_only`, `data_only` (cached values vs formula text), `keep_vba` (`.xlsm` macros), `keep_links`, `rich_text` (inline `CellRichText`)
 
-| [INDEX] | [SURFACE]                                                          | [CAPABILITY]                                       |
-| :-----: | :----------------------------------------------------------------- | :------------------------------------------------- |
-|  [01]   | `Workbook(write_only=False, iso_dates=False)`                      | build a workbook; `write_only=True` streams        |
-|  [02]   | `load_workbook(filename, read_only, data_only, …) -> Workbook`     | open an existing workbook under the read policy    |
-|  [03]   | `Workbook.active -> Worksheet`                                     | the active sheet                                   |
-|  [04]   | `create_sheet(title=None, index=None) -> Worksheet`                | add a sheet at an optional index                   |
-|  [05]   | `copy_worksheet(from_worksheet) -> Worksheet`                      | duplicate a sheet (in-file only)                   |
-|  [06]   | `create_chartsheet(title=None, index=None) -> Chartsheet`          | add a full-sheet chart sheet                       |
-|  [07]   | `remove(worksheet)`                                                | delete a sheet                                     |
-|  [08]   | `move_sheet(sheet, offset=0)`                                      | reorder a sheet by signed offset                   |
-|  [09]   | `add_named_style(style)`                                           | register a reusable `NamedStyle`                   |
-|  [10]   | `create_named_range(name, worksheet=None, value=None, scope=None)` | register a `DefinedName` range                     |
-|  [11]   | `defined_names -> DefinedNameDict`                                 | workbook-scoped name to `DefinedName` resolution   |
-|  [12]   | `properties -> DocumentProperties`                                 | descriptive metadata; the `exchange/metadata` seam |
-|  [13]   | `security -> WorkbookProtection`                                   | workbook structure/window lock (`document/egress#FINISH`)  |
-|  [14]   | `sheetnames -> list[str]` / `Workbook[title] -> Worksheet`         | sheet lookup by title (no `get_sheet_by_name`)     |
-|  [15]   | `iso_dates` / `epoch` / `template`                                 | ISO date toggle; `1900`/`1904` epoch; `.xltx` flag |
-|  [16]   | `save(filename)`                                                   | serialize the workbook to a path or stream         |
-|  [17]   | `close()`                                                          | release `read_only`/`write_only` file handles      |
+| [INDEX] | [SURFACE]                                                          | [CAPABILITY]                                              |
+| :-----: | :----------------------------------------------------------------- | :-------------------------------------------------------- |
+|  [01]   | `Workbook(write_only=False, iso_dates=False)`                      | build a workbook; `write_only=True` streams               |
+|  [02]   | `load_workbook(filename, read_only, data_only, …) -> Workbook`     | open an existing workbook under the read policy           |
+|  [03]   | `Workbook.active -> Worksheet`                                     | the active sheet                                          |
+|  [04]   | `create_sheet(title=None, index=None) -> Worksheet`                | add a sheet at an optional index                          |
+|  [05]   | `copy_worksheet(from_worksheet) -> Worksheet`                      | duplicate a sheet (in-file only)                          |
+|  [06]   | `create_chartsheet(title=None, index=None) -> Chartsheet`          | add a full-sheet chart sheet                              |
+|  [07]   | `remove(worksheet)`                                                | delete a sheet                                            |
+|  [08]   | `move_sheet(sheet, offset=0)`                                      | reorder a sheet by signed offset                          |
+|  [09]   | `add_named_style(style)`                                           | register a reusable `NamedStyle`                          |
+|  [10]   | `create_named_range(name, worksheet=None, value=None, scope=None)` | register a `DefinedName` range                            |
+|  [11]   | `defined_names -> DefinedNameDict`                                 | workbook-scoped name to `DefinedName` resolution          |
+|  [12]   | `properties -> DocumentProperties`                                 | descriptive metadata; the `exchange/metadata` seam        |
+|  [13]   | `security -> WorkbookProtection`                                   | workbook structure/window lock (`document/egress#FINISH`) |
+|  [14]   | `sheetnames -> list[str]` / `Workbook[title] -> Worksheet`         | sheet lookup by title (no `get_sheet_by_name`)            |
+|  [15]   | `iso_dates` / `epoch` / `template`                                 | ISO date toggle; `1900`/`1904` epoch; `.xltx` flag        |
+|  [16]   | `save(filename)`                                                   | serialize the workbook to a path or stream                |
+|  [17]   | `close()`                                                          | release `read_only`/`write_only` file handles             |
 
 [ENTRYPOINT_SCOPE]: sheet cell, row, structure, and feature access
 - `values_only` on `iter_rows`/`iter_cols` selects raw-value vs `Cell`-object iteration; feature attach (`add_chart`/`add_image`/`add_table`/`add_data_validation`/`add_pivot`) takes a minted object
 
-| [INDEX] | [SURFACE]                                                                 | [CAPABILITY]                                        |
-| :-----: | :------------------------------------------------------------------------ | :-------------------------------------------------- |
-|  [01]   | `cell(row, column, value=None) -> Cell`                                   | addressed cell read/write                           |
-|  [02]   | `append(iterable)`                                                        | append a row (the write-only streaming op)          |
-|  [03]   | `iter_rows(min_row, max_row, min_col, max_col, values_only=False)`        | row iteration (cells or raw values)                 |
-|  [04]   | `iter_cols(min_col, max_col, min_row, max_row, values_only=False)`        | column iteration (cells or raw values)              |
-|  [05]   | `merge_cells(range_string \| start_row, …)` / `unmerge_cells(…)`          | merge / split a region                              |
-|  [06]   | `move_range(cell_range, rows=0, cols=0, translate=False)`                 | shift a range, `translate=True` re-anchors formulas |
-|  [07]   | `insert_rows` / `insert_cols` / `delete_rows` / `delete_cols`             | structural row/column edits (`idx, amount=1`)       |
-|  [08]   | `column_dimensions[letter].width` / `row_dimensions[idx].height`          | per-column width / per-row height + outline level   |
-|  [09]   | `add_chart(chart, anchor=None)`                                           | embed a chart at an anchor                          |
-|  [10]   | `add_image(img, anchor=None)`                                             | embed an image                                      |
-|  [11]   | `add_table(table)`                                                        | register a structured `Table` object                |
-|  [12]   | `add_data_validation(data_validation)`                                    | attach a `DataValidation` rule                      |
-|  [13]   | `add_pivot(pivot)`                                                        | attach a pivot-table definition                     |
-|  [14]   | `freeze_panes = "A2"`                                                     | freeze rows/columns above-left of a cell            |
-|  [15]   | `auto_filter -> AutoFilter` (`.add_filter_column`, `.add_sort_condition`) | filterable + sortable header range                  |
-|  [16]   | `conditional_formatting.add(range_string, cfRule)`                        | attach a conditional-format rule                    |
-|  [17]   | `protection -> SheetProtection` (`.sheet`, `.password`)                   | per-sheet lock complementing `document/egress#FINISH`       |
+| [INDEX] | [SURFACE]                                                                 | [CAPABILITY]                                          |
+| :-----: | :------------------------------------------------------------------------ | :---------------------------------------------------- |
+|  [01]   | `cell(row, column, value=None) -> Cell`                                   | addressed cell read/write                             |
+|  [02]   | `append(iterable)`                                                        | append a row (the write-only streaming op)            |
+|  [03]   | `iter_rows(min_row, max_row, min_col, max_col, values_only=False)`        | row iteration (cells or raw values)                   |
+|  [04]   | `iter_cols(min_col, max_col, min_row, max_row, values_only=False)`        | column iteration (cells or raw values)                |
+|  [05]   | `merge_cells(range_string \| start_row, …)` / `unmerge_cells(…)`          | merge / split a region                                |
+|  [06]   | `move_range(cell_range, rows=0, cols=0, translate=False)`                 | shift a range, `translate=True` re-anchors formulas   |
+|  [07]   | `insert_rows` / `insert_cols` / `delete_rows` / `delete_cols`             | structural row/column edits (`idx, amount=1`)         |
+|  [08]   | `column_dimensions[letter].width` / `row_dimensions[idx].height`          | per-column width / per-row height + outline level     |
+|  [09]   | `add_chart(chart, anchor=None)`                                           | embed a chart at an anchor                            |
+|  [10]   | `add_image(img, anchor=None)`                                             | embed an image                                        |
+|  [11]   | `add_table(table)`                                                        | register a structured `Table` object                  |
+|  [12]   | `add_data_validation(data_validation)`                                    | attach a `DataValidation` rule                        |
+|  [13]   | `add_pivot(pivot)`                                                        | attach a pivot-table definition                       |
+|  [14]   | `freeze_panes = "A2"`                                                     | freeze rows/columns above-left of a cell              |
+|  [15]   | `auto_filter -> AutoFilter` (`.add_filter_column`, `.add_sort_condition`) | filterable + sortable header range                    |
+|  [16]   | `conditional_formatting.add(range_string, cfRule)`                        | attach a conditional-format rule                      |
+|  [17]   | `protection -> SheetProtection` (`.sheet`, `.password`)                   | per-sheet lock complementing `document/egress#FINISH` |
 
 [ENTRYPOINT_SCOPE]: style, chart, formatting, formula, and coordinate authoring
 - `ColorScaleRule(start_type, start_value, start_color, end_type, end_value, end_color)` is the color-scale ctor; each `formatting.rule` kind lowers to one `DifferentialStyle`; `formula.Translator(formula, origin)` shifts refs via `.translate_formula(dest)` / `.translate_range(range_str, rdelta, cdelta)`

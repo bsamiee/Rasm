@@ -16,51 +16,51 @@
 
 [PUBLIC_TYPE_SCOPE]: the two clients, their config, credential, and addressing shapes, the decode discriminant, and the SQL + error shapes
 
-| [INDEX] |                        [SYMBOL]                       | [TYPE_FAMILY] |                           [CAPABILITY]                          |
+| [INDEX] | [SYMBOL]                                              | [TYPE_FAMILY] | [CAPABILITY]                                                    |
 | :-----: | :---------------------------------------------------- | :------------ | :-------------------------------------------------------------- |
-| [01]    | `FlightClient`                                        | class         | low-level RPC; `close()` returns `void`, never a promise        |
-| [02]    | `FlightSqlClient`                                     | class         | composes `FlightClient`, reached through its `flight` accessor  |
-| [03]    | `FlightClientOptions` / `ResolvedFlightClientOptions` | struct        | `url`/`headers?`/`timeoutMs?`/`auth?`/`tls?`/`nodeOptions?`     |
-| [04]    | `TlsOptions` / `BasicAuthCredentials`                 | struct        | mTLS `cert`/`key`/`ca` PEM-or-`Buffer`, `passphrase`; user+pass |
-| [05]    | `AuthOptions`                                         | union         | `bearer` / `basic` handshake / `none`; token a bare `string`    |
-| [06]    | `ExecuteQueryOptions` / `ExecuteUpdateOptions`        | struct        | `{ transactionId?: Uint8Array }` — the one call-scoped knob     |
-| [07]    | `DecodedFlightData`                                   | union         | `type: "schema"\|"batch"\|"empty"` — keep-alive-aware arm       |
-| [08]    | `PreparedStatement` / `Transaction` / `UpdateResult`  | struct        | prepared/txn handles, param schema, affected `recordCount`      |
-| [09]    | `FlightError` (+ family)                              | class         | `isError`-guarded tagged failures the lane boundary lifts       |
-| [10]    | `FlightDescriptorInput` / `FlightTicket`              | union/struct  | `{type:"path",path}\|{type:"cmd",cmd}` and `{ticket}` — plain   |
-| [11]    | `FlightCriteria` / `FlightAction`                     | struct        | `listFlights` filter; `doAction` `{type, body?}` request        |
-| [12]    | `FlightInfo` / `PollInfo` / `FlightEndpoint`          | message       | plan, progress, and the per-split endpoints `doGet` redeems     |
-| [13]    | `FlightData` / `FlightDescriptor` / `Ticket`          | message       | wire frames, type-only at the root; `Schema` values unreachable |
-| [14]    | `ActionType` / `Result` / `SchemaResult`              | message       | action vocabulary, action results, IPC schema bytes             |
+|  [01]   | `FlightClient`                                        | class         | low-level RPC; `close()` returns `void`, never a promise        |
+|  [02]   | `FlightSqlClient`                                     | class         | composes `FlightClient`, reached through its `flight` accessor  |
+|  [03]   | `FlightClientOptions` / `ResolvedFlightClientOptions` | struct        | `url`/`headers?`/`timeoutMs?`/`auth?`/`tls?`/`nodeOptions?`     |
+|  [04]   | `TlsOptions` / `BasicAuthCredentials`                 | struct        | mTLS `cert`/`key`/`ca` PEM-or-`Buffer`, `passphrase`; user+pass |
+|  [05]   | `AuthOptions`                                         | union         | `bearer` / `basic` handshake / `none`; token a bare `string`    |
+|  [06]   | `ExecuteQueryOptions` / `ExecuteUpdateOptions`        | struct        | `{ transactionId?: Uint8Array }` — the one call-scoped knob     |
+|  [07]   | `DecodedFlightData`                                   | union         | `type: "schema"\|"batch"\|"empty"` — keep-alive-aware arm       |
+|  [08]   | `PreparedStatement` / `Transaction` / `UpdateResult`  | struct        | prepared/txn handles, param schema, affected `recordCount`      |
+|  [09]   | `FlightError` (+ family)                              | class         | `isError`-guarded tagged failures the lane boundary lifts       |
+|  [10]   | `FlightDescriptorInput` / `FlightTicket`              | union/struct  | `{type:"path",path}\|{type:"cmd",cmd}` and `{ticket}` — plain   |
+|  [11]   | `FlightCriteria` / `FlightAction`                     | struct        | `listFlights` filter; `doAction` `{type, body?}` request        |
+|  [12]   | `FlightInfo` / `PollInfo` / `FlightEndpoint`          | message       | plan, progress, and the per-split endpoints `doGet` redeems     |
+|  [13]   | `FlightData` / `FlightDescriptor` / `Ticket`          | message       | wire frames, type-only at the root; `Schema` values unreachable |
+|  [14]   | `ActionType` / `Result` / `SchemaResult`              | message       | action vocabulary, action results, IPC schema bytes             |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: factory construction, SQL execution and transaction driver, the low-level RPC set, metadata discovery, the Arrow IPC codec pairs
 
-| [INDEX] |                              [SURFACE]                              | [SHAPE]  |                      [CAPABILITY]                     |
+| [INDEX] | [SURFACE]                                                           | [SHAPE]  | [CAPABILITY]                                          |
 | :-----: | :------------------------------------------------------------------ | :------- | :---------------------------------------------------- |
-| [01]    | `createFlightClient(options) -> FlightClient`                       | factory  | low-level construction, SYNCHRONOUS — never a promise |
-| [02]    | `createFlightSqlClient(options) -> FlightSqlClient`                 | factory  | SQL construction, SYNCHRONOUS — never a promise       |
-| [03]    | `new FlightSqlClient(FlightClientOptions \| FlightClient)`          | ctor     | wrap options or an existing `FlightClient`            |
-| [04]    | `query`/`queryBatches`/`queryStream`/`getQueryInfo`                 | instance | `Table`, `RecordBatch`, raw `FlightData`, or a plan   |
-| [05]    | `executeUpdate` / `prepare` / `closePreparedStatement`              | instance | DML/DDL and prepared-plan lifecycle, opaque handle    |
-| [06]    | `executePrepared` / `executePreparedStream`                         | instance | prepared re-execution — NEITHER takes parameters      |
-| [07]    | `executePreparedUpdate(statement, parameters?)`                     | instance | the ONE parameterized leg — `Iterable` or async       |
-| [08]    | `beginTransaction` / `commit` / `rollback`                          | instance | transaction lifecycle over `transactionId`            |
-| [09]    | `getCatalogs` / `getTableTypes`                                     | instance | zero-argument catalog discovery → `Table`             |
-| [10]    | `getDbSchemas({catalog?, dbSchemaFilterPattern?})`                  | instance | schema discovery → `Table`; both filters optional     |
-| [11]    | `getTables({tableNameFilterPattern?, tableTypes?, includeSchema?})` | instance | plus the row [10] filters; schema fetch is opt-in     |
-| [12]    | `getPrimaryKeys(table, {catalog?, dbSchema?})`                      | instance | key discovery → `Table`; table name positional        |
-| [13]    | `flight` / `url` / `closed`; `authenticated` on `FlightClient`      | getter   | the wrapped `FlightClient` and the client state       |
-| [14]    | `getFlightInfo` / `pollFlightInfo` / `getSchema`                    | instance | descriptor-addressed plan, progress, schema bytes     |
-| [15]    | `doGet(FlightTicket)` / `doPut(AsyncIterable<FlightData>)`          | instance | endpoint redemption; upload's FIRST frame holds it    |
-| [16]    | `listFlights` / `listActions` / `doAction`                          | instance | dataset discovery and the server's action set         |
-| [17]    | `authenticate()`; `handshake(payload?)` on `FlightClient` alone     | instance | explicit Flight Handshake on the low-level client     |
-| [18]    | `decodeFlightDataToTable` / `decodeFlightDataStream`                | static   | `FlightData` → `Table` / `RecordBatch` stream         |
-| [19]    | `encodeRecordBatchesToFlightData(batches, schema)`                  | static   | batch stream → frames; the schema is required         |
-| [20]    | `encodeTableToFlightData` / `createFlightDataFromIpc`               | static   | `Table` → frames; one raw IPC message → one frame     |
-| [21]    | `getSchemaFromFlightData` / `parseIpcMessage`                       | static   | schema off a frame stream, CONSUMING it; IPC split    |
-| [22]    | `DEFAULT_TIMEOUT_MS`                                                | static   | `30000`, applied by `resolveOptions`, read by nothing |
+|  [01]   | `createFlightClient(options) -> FlightClient`                       | factory  | low-level construction, SYNCHRONOUS — never a promise |
+|  [02]   | `createFlightSqlClient(options) -> FlightSqlClient`                 | factory  | SQL construction, SYNCHRONOUS — never a promise       |
+|  [03]   | `new FlightSqlClient(FlightClientOptions \| FlightClient)`          | ctor     | wrap options or an existing `FlightClient`            |
+|  [04]   | `query`/`queryBatches`/`queryStream`/`getQueryInfo`                 | instance | `Table`, `RecordBatch`, raw `FlightData`, or a plan   |
+|  [05]   | `executeUpdate` / `prepare` / `closePreparedStatement`              | instance | DML/DDL and prepared-plan lifecycle, opaque handle    |
+|  [06]   | `executePrepared` / `executePreparedStream`                         | instance | prepared re-execution — NEITHER takes parameters      |
+|  [07]   | `executePreparedUpdate(statement, parameters?)`                     | instance | the ONE parameterized leg — `Iterable` or async       |
+|  [08]   | `beginTransaction` / `commit` / `rollback`                          | instance | transaction lifecycle over `transactionId`            |
+|  [09]   | `getCatalogs` / `getTableTypes`                                     | instance | zero-argument catalog discovery → `Table`             |
+|  [10]   | `getDbSchemas({catalog?, dbSchemaFilterPattern?})`                  | instance | schema discovery → `Table`; both filters optional     |
+|  [11]   | `getTables({tableNameFilterPattern?, tableTypes?, includeSchema?})` | instance | plus the row [10] filters; schema fetch is opt-in     |
+|  [12]   | `getPrimaryKeys(table, {catalog?, dbSchema?})`                      | instance | key discovery → `Table`; table name positional        |
+|  [13]   | `flight` / `url` / `closed`; `authenticated` on `FlightClient`      | getter   | the wrapped `FlightClient` and the client state       |
+|  [14]   | `getFlightInfo` / `pollFlightInfo` / `getSchema`                    | instance | descriptor-addressed plan, progress, schema bytes     |
+|  [15]   | `doGet(FlightTicket)` / `doPut(AsyncIterable<FlightData>)`          | instance | endpoint redemption; upload's FIRST frame holds it    |
+|  [16]   | `listFlights` / `listActions` / `doAction`                          | instance | dataset discovery and the server's action set         |
+|  [17]   | `authenticate()`; `handshake(payload?)` on `FlightClient` alone     | instance | explicit Flight Handshake on the low-level client     |
+|  [18]   | `decodeFlightDataToTable` / `decodeFlightDataStream`                | static   | `FlightData` → `Table` / `RecordBatch` stream         |
+|  [19]   | `encodeRecordBatchesToFlightData(batches, schema)`                  | static   | batch stream → frames; the schema is required         |
+|  [20]   | `encodeTableToFlightData` / `createFlightDataFromIpc`               | static   | `Table` → frames; one raw IPC message → one frame     |
+|  [21]   | `getSchemaFromFlightData` / `parseIpcMessage`                       | static   | schema off a frame stream, CONSUMING it; IPC split    |
+|  [22]   | `DEFAULT_TIMEOUT_MS`                                                | static   | `30000`, applied by `resolveOptions`, read by nothing |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

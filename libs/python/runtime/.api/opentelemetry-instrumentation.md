@@ -19,87 +19,87 @@
 
 [PUBLIC_TYPE_SCOPE]: instrumentor lifecycle and its admission gate
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                                                    |
-| :-----: | :----------------------- | :------------ | :-------------------------------------------------------------- |
-|  [01]   | `BaseInstrumentor`       | abstract      | per-subclass singleton carrying the instrument/uninstrument fold |
-|  [02]   | `BaseDistro`             | abstract      | configures the SDK before any instrumentor loads                |
-|  [03]   | `DefaultDistro`          | concrete      | the shipped distro, wiring the OTLP defaults                    |
-|  [04]   | `DependencyConflict`     | value         | `required`/`found` beside `required_any`/`found_any`            |
-|  [05]   | `DependencyConflictError` | exception    | the raising arm of the same verdict                             |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                                     |
+| :-----: | :------------------------ | :------------ | :--------------------------------------------------------------- |
+|  [01]   | `BaseInstrumentor`        | abstract      | per-subclass singleton carrying the instrument/uninstrument fold |
+|  [02]   | `BaseDistro`              | abstract      | configures the SDK before any instrumentor loads                 |
+|  [03]   | `DefaultDistro`           | concrete      | the shipped distro, wiring the OTLP defaults                     |
+|  [04]   | `DependencyConflict`      | value         | `required`/`found` beside `required_any`/`found_any`             |
+|  [05]   | `DependencyConflictError` | exception     | the raising arm of the same verdict                              |
 
 [PUBLIC_TYPE_SCOPE]: response propagation and carrier setters
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                                          |
-| :-----: | :----------------------- | :------------ | :---------------------------------------------------- |
-|  [01]   | `ResponsePropagator`     | abstract      | inject contract for a server RESPONSE carrier         |
-|  [02]   | `TraceResponsePropagator` | concrete     | stamps `traceresponse` and exposes it through CORS    |
-|  [03]   | `Setter`                 | abstract      | response-carrier write contract                       |
-|  [04]   | `DictHeaderSetter`       | concrete      | mapping-carrier setter, the shipped default           |
-|  [05]   | `FuncSetter`             | concrete      | setter over a carrier's own header-write callable     |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                       |
+| :-----: | :------------------------ | :------------ | :------------------------------------------------- |
+|  [01]   | `ResponsePropagator`      | abstract      | inject contract for a server RESPONSE carrier      |
+|  [02]   | `TraceResponsePropagator` | concrete      | stamps `traceresponse` and exposes it through CORS |
+|  [03]   | `Setter`                  | abstract      | response-carrier write contract                    |
+|  [04]   | `DictHeaderSetter`        | concrete      | mapping-carrier setter, the shipped default        |
+|  [05]   | `FuncSetter`              | concrete      | setter over a carrier's own header-write callable  |
 
 [PUBLIC_TYPE_SCOPE]: metric enrichment and shared carriers
 
-| [INDEX] | [SYMBOL]                                   | [TYPE_FAMILY] | [CAPABILITY]                                                 |
-| :-----: | :----------------------------------------- | :------------ | :----------------------------------------------------------- |
-|  [01]   | `Labeler`                                  | experimental  | per-context custom metric attributes under caps              |
-|  [02]   | `CIDict`                                   | mapping       | case-insensitive `MutableMapping` retaining the original key |
-|  [03]   | `_StabilityMode`                           | enum          | `default`, `http`, `http/dup`, `database`, `database/dup`    |
-|  [04]   | `_OpenTelemetrySemanticConventionStability` | opt-in        | reads the stability env var once per process                 |
+| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY] | [CAPABILITY]                                                 |
+| :-----: | :------------------------------------------ | :------------ | :----------------------------------------------------------- |
+|  [01]   | `Labeler`                                   | class         | per-context custom metric attributes under caps              |
+|  [02]   | `CIDict`                                    | mapping       | case-insensitive `MutableMapping` retaining the original key |
+|  [03]   | `_StabilityMode`                            | enum          | `default`, `http`, `http/dup`, `database`, `database/dup`    |
+|  [04]   | `_OpenTelemetrySemanticConventionStability` | class         | reads the stability env var once per process                 |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the lifecycle a sibling instrumentor subclasses and a composition root calls
 
-| [INDEX] | [SURFACE]                                            | [SHAPE]   | [CAPABILITY]                                    |
-| :-----: | :--------------------------------------------------- | :-------- | :---------------------------------------------- |
-|  [01]   | `instrument(**kwargs)`                               | instance  | gate, opt-in init, then `_instrument`           |
-|  [02]   | `uninstrument(**kwargs)`                             | instance  | `_uninstrument` behind the installed latch      |
-|  [03]   | `is_instrumented_by_opentelemetry`                   | property  | the latch itself                                |
-|  [04]   | `instrumentation_dependencies() -> Collection[str]`  | abstract  | the requirement rows the gate resolves          |
-|  [05]   | `_instrument(**kwargs)`                              | override  | the patch; DEFAULTS to a no-op                  |
-|  [06]   | `_uninstrument(**kwargs)`                            | abstract  | the reversal; a subclass must supply it         |
-|  [07]   | `instrument(skip_dep_check=, raise_exception_on_conflict=)` | kwargs | bypass the gate, or make it raise         |
+| [INDEX] | [SURFACE]                                                   | [SHAPE]  | [CAPABILITY]                               |
+| :-----: | :---------------------------------------------------------- | :------- | :----------------------------------------- |
+|  [01]   | `instrument(**kwargs)`                                      | instance | gate, opt-in init, then `_instrument`      |
+|  [02]   | `uninstrument(**kwargs)`                                    | instance | `_uninstrument` behind the installed latch |
+|  [03]   | `is_instrumented_by_opentelemetry`                          | property | the latch itself                           |
+|  [04]   | `instrumentation_dependencies() -> Collection[str]`         | abstract | the requirement rows the gate resolves     |
+|  [05]   | `_instrument(**kwargs)`                                     | override | the patch; DEFAULTS to a no-op             |
+|  [06]   | `_uninstrument(**kwargs)`                                   | abstract | the reversal; a subclass must supply it    |
+|  [07]   | `instrument(skip_dep_check=, raise_exception_on_conflict=)` | kwargs   | bypass the gate, or make it raise          |
 
 [ENTRYPOINT_SCOPE]: dependency verdicts, patch reversal, and ambient suppression
 
-| [INDEX] | [SURFACE]                                                        | [SHAPE]      | [CAPABILITY]                                    |
-| :-----: | :--------------------------------------------------------------- | :----------- | :---------------------------------------------- |
-|  [01]   | `get_dependency_conflicts(deps, deps_any=None)`                  | verdict      | conflict or `None` over requirement rows        |
-|  [02]   | `get_dist_dependency_conflicts(dist)`                            | verdict      | the same verdict from a distribution's metadata |
-|  [03]   | `unwrap(obj, attr)`                                              | reversal     | restores one `wrapt`-patched attribute          |
-|  [04]   | `is_instrumentation_enabled()`                                   | gate         | reads the ambient suppression key               |
-|  [05]   | `is_http_instrumentation_enabled()`                              | gate         | the HTTP-scoped suppression key                 |
-|  [06]   | `suppress_instrumentation()`                                     | context mgr  | suppresses every instrumentor in scope          |
-|  [07]   | `suppress_http_instrumentation()`                                | context mgr  | suppresses the HTTP leg alone                   |
-|  [08]   | `http_status_to_status_code(status, allow_redirect=, server_span=)` | projection | HTTP status onto `StatusCode`                 |
-|  [09]   | `extract_attributes_from_object(obj, attributes, existing=None)` | projection   | named object fields onto a `str` mapping        |
-|  [10]   | `std_to_otel(levelno) -> SeverityNumber`                         | projection   | stdlib log level onto the OTLP severity band    |
+| [INDEX] | [SURFACE]                                                           | [SHAPE]     | [CAPABILITY]                                    |
+| :-----: | :------------------------------------------------------------------ | :---------- | :---------------------------------------------- |
+|  [01]   | `get_dependency_conflicts(deps, deps_any=None)`                     | verdict     | conflict or `None` over requirement rows        |
+|  [02]   | `get_dist_dependency_conflicts(dist)`                               | verdict     | the same verdict from a distribution's metadata |
+|  [03]   | `unwrap(obj, attr)`                                                 | reversal    | restores one `wrapt`-patched attribute          |
+|  [04]   | `is_instrumentation_enabled()`                                      | gate        | reads the ambient suppression key               |
+|  [05]   | `is_http_instrumentation_enabled()`                                 | gate        | the HTTP-scoped suppression key                 |
+|  [06]   | `suppress_instrumentation()`                                        | context mgr | suppresses every instrumentor in scope          |
+|  [07]   | `suppress_http_instrumentation()`                                   | context mgr | suppresses the HTTP leg alone                   |
+|  [08]   | `http_status_to_status_code(status, allow_redirect=, server_span=)` | projection  | HTTP status onto `StatusCode`                   |
+|  [09]   | `extract_attributes_from_object(obj, attributes, existing=None)`    | projection  | named object fields onto a `str` mapping        |
+|  [10]   | `std_to_otel(levelno) -> SeverityNumber`                            | projection  | stdlib log level onto the OTLP severity band    |
 
 [ENTRYPOINT_SCOPE]: response propagation, metric enrichment, and the process-launch commands
 
-| [INDEX] | [SURFACE]                                                     | [SHAPE]     | [CAPABILITY]                                      |
-| :-----: | :------------------------------------------------------------ | :---------- | :------------------------------------------------ |
-|  [01]   | `set_global_response_propagator(propagator)`                  | install     | seats the process response propagator             |
-|  [02]   | `get_global_response_propagator()`                            | resolve     | reads it back                                     |
-|  [03]   | `TraceResponsePropagator.inject(carrier, context=, setter=)`  | inject      | writes `traceresponse` onto a response carrier    |
-|  [04]   | `Labeler(max_custom_attrs=20, max_attr_value_length=100)`      | ctor        | the caps a labeler enforces                       |
-|  [05]   | `get_labeler()` / `set_labeler(labeler)` / `clear_labeler()`   | context     | the labeler bound to the active OTel context      |
-|  [06]   | `Labeler.add(key, value)` / `.add_attributes(mapping)`         | instance    | admits primitive attribute values                 |
-|  [07]   | `get_labeler_attributes()`                                    | read        | read-only mapping, empty where none is bound      |
-|  [08]   | `enrich_metric_attributes(base_attributes, enrich_enabled=True)` | fold      | base attributes plus admitted labeler attributes  |
-|  [09]   | `_add_sql_comment(sql, **meta)`                               | sqlcommenter | appends the trace-context SQL comment            |
-|  [10]   | `initialize(swallow_exceptions=True)`                         | launch      | loads distro, configurator, and every instrumentor |
-|  [11]   | `bootstrap.run(default_instrumentations=None, libraries=None)` | launch      | installs the instrumentors an env's libraries earn |
+| [INDEX] | [SURFACE]                                                        | [SHAPE]      | [CAPABILITY]                                       |
+| :-----: | :--------------------------------------------------------------- | :----------- | :------------------------------------------------- |
+|  [01]   | `set_global_response_propagator(propagator)`                     | install      | seats the process response propagator              |
+|  [02]   | `get_global_response_propagator()`                               | resolve      | reads it back                                      |
+|  [03]   | `TraceResponsePropagator.inject(carrier, context=, setter=)`     | inject       | writes `traceresponse` onto a response carrier     |
+|  [04]   | `Labeler(max_custom_attrs=20, max_attr_value_length=100)`        | ctor         | the caps a labeler enforces                        |
+|  [05]   | `get_labeler()` / `set_labeler(labeler)` / `clear_labeler()`     | context      | the labeler bound to the active OTel context       |
+|  [06]   | `Labeler.add(key, value)` / `.add_attributes(mapping)`           | instance     | admits primitive attribute values                  |
+|  [07]   | `get_labeler_attributes()`                                       | read         | read-only mapping, empty where none is bound       |
+|  [08]   | `enrich_metric_attributes(base_attributes, enrich_enabled=True)` | fold         | base attributes plus admitted labeler attributes   |
+|  [09]   | `_add_sql_comment(sql, **meta)`                                  | sqlcommenter | appends the trace-context SQL comment              |
+|  [10]   | `initialize(swallow_exceptions=True)`                            | launch       | loads distro, configurator, and every instrumentor |
+|  [11]   | `bootstrap.run(default_instrumentations=None, libraries=None)`   | launch       | installs the instrumentors an env's libraries earn |
 
 [ENTRYPOINT_SCOPE]: environment coordinates the launch path reads
 
-| [INDEX] | [SURFACE]                                                    | [SHAPE] | [CAPABILITY]                                      |
-| :-----: | :----------------------------------------------------------- | :------ | :------------------------------------------------ |
-|  [01]   | `OTEL_PYTHON_DISTRO`                                         | env     | selects the `BaseDistro` entry point              |
-|  [02]   | `OTEL_PYTHON_CONFIGURATOR`                                   | env     | selects the configurator entry point              |
-|  [03]   | `OTEL_PYTHON_DISABLED_INSTRUMENTATIONS`                      | env     | names train rows the auto path skips              |
-|  [04]   | `OTEL_SEMCONV_STABILITY_OPT_IN`                              | env     | picks the `_StabilityMode` per signal family      |
-|  [05]   | `OTEL_PYTHON_AUTO_INSTRUMENTATION_EXPERIMENTAL_GEVENT_PATCH` | env     | patches gevent ahead of the train                 |
+| [INDEX] | [SURFACE]                                                    | [SHAPE] | [CAPABILITY]                                 |
+| :-----: | :----------------------------------------------------------- | :------ | :------------------------------------------- |
+|  [01]   | `OTEL_PYTHON_DISTRO`                                         | env     | selects the `BaseDistro` entry point         |
+|  [02]   | `OTEL_PYTHON_CONFIGURATOR`                                   | env     | selects the configurator entry point         |
+|  [03]   | `OTEL_PYTHON_DISABLED_INSTRUMENTATIONS`                      | env     | names train rows the auto path skips         |
+|  [04]   | `OTEL_SEMCONV_STABILITY_OPT_IN`                              | env     | picks the `_StabilityMode` per signal family |
+|  [05]   | `OTEL_PYTHON_AUTO_INSTRUMENTATION_EXPERIMENTAL_GEVENT_PATCH` | env     | patches gevent ahead of the train            |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

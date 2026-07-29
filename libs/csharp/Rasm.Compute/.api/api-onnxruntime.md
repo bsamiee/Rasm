@@ -156,23 +156,23 @@ Base assets ship the `win-{x64,arm64}` payloads inline; every other RID resolves
 
 [ENTRYPOINT_SCOPE]: `SessionOptions.AppendExecutionProvider*` — instance EP append; append order is fallback priority
 
-| [INDEX] | [SURFACE]                                                     | [SHAPE]  | [CAPABILITY]                              |
-| :-----: | :------------------------------------------------------------ | :------- | :---------------------------------------- |
-|  [01]   | `_CPU(int useArena = 1)`                                      | instance | CPU EP; `useArena` 1 enables memory arena |
-|  [02]   | `_CUDA(int deviceId = 0)`                                     | instance | CUDA EP by device index                   |
-|  [03]   | `_CUDA(OrtCUDAProviderOptions)`                               | instance | CUDA EP with provider-options struct      |
-|  [04]   | `_DML(int deviceId = 0)`                                      | instance | DirectML EP by device index               |
-|  [05]   | `_Tensorrt(int deviceId = 0)`                                 | instance | TensorRT EP by device index               |
-|  [06]   | `_Tensorrt(OrtTensorRTProviderOptions)`                       | instance | TensorRT EP with provider-options struct  |
-|  [07]   | `_ROCm(int deviceId = 0)`                                     | instance | ROCm EP by device index                   |
-|  [08]   | `_ROCm(OrtROCMProviderOptions)`                               | instance | ROCm EP with provider-options struct      |
-|  [09]   | `_CoreML(CoreMLFlags = COREML_FLAG_USE_NONE)`                 | instance | CoreML EP with compute-unit flags         |
-|  [10]   | `_OpenVINO(string deviceId = "")`                             | instance | OpenVINO EP by device string              |
-|  [11]   | `_MIGraphX(int deviceId = 0)`                                 | instance | MIGraphX EP by device index               |
-|  [12]   | `_Nnapi(NnapiFlags)`                                          | instance | NNAPI EP with accelerator-mode flags      |
-|  [13]   | `_Dnnl(int useArena = 1)`                                     | instance | DNNL EP; `useArena` mirrors CPU EP        |
-|  [14]   | `(string, Dictionary<string,string> = null)`                  | instance | generic EP by name and key-value options  |
-|  [15]   | `(OrtEnv, OrtEpDevice[], IReadOnlyDictionary<string,string>)` | instance | EP from an autoEP device list             |
+| [INDEX] | [SURFACE]                                                                  | [SHAPE]  | [CAPABILITY]                              |
+| :-----: | :------------------------------------------------------------------------- | :------- | :---------------------------------------- |
+|  [01]   | `_CPU(int useArena = 1)`                                                   | instance | CPU EP; `useArena` 1 enables memory arena |
+|  [02]   | `_CUDA(int deviceId = 0)`                                                  | instance | CUDA EP by device index                   |
+|  [03]   | `_CUDA(OrtCUDAProviderOptions)`                                            | instance | CUDA EP with provider-options struct      |
+|  [04]   | `_DML(int deviceId = 0)`                                                   | instance | DirectML EP by device index               |
+|  [05]   | `_Tensorrt(int deviceId = 0)`                                              | instance | TensorRT EP by device index               |
+|  [06]   | `_Tensorrt(OrtTensorRTProviderOptions)`                                    | instance | TensorRT EP with provider-options struct  |
+|  [07]   | `_ROCm(int deviceId = 0)`                                                  | instance | ROCm EP by device index                   |
+|  [08]   | `_ROCm(OrtROCMProviderOptions)`                                            | instance | ROCm EP with provider-options struct      |
+|  [09]   | `_CoreML(CoreMLFlags = COREML_FLAG_USE_NONE)`                              | instance | CoreML EP with compute-unit flags         |
+|  [10]   | `_OpenVINO(string deviceId = "")`                                          | instance | OpenVINO EP by device string              |
+|  [11]   | `_MIGraphX(int deviceId = 0)`                                              | instance | MIGraphX EP by device index               |
+|  [12]   | `_Nnapi(NnapiFlags)`                                                       | instance | NNAPI EP with accelerator-mode flags      |
+|  [13]   | `_Dnnl(int useArena = 1)`                                                  | instance | DNNL EP; `useArena` mirrors CPU EP        |
+|  [14]   | `(string, Dictionary<string,string> = null)`                               | instance | generic EP by name and key-value options  |
+|  [15]   | `(OrtEnv, IReadOnlyList<OrtEpDevice>, IReadOnlyDictionary<string,string>)` | instance | EP from an autoEP device list             |
 
 [ENTRYPOINT_SCOPE]: value construction, custom-op registration, and run config
 
@@ -205,11 +205,11 @@ Base assets ship the `win-{x64,arm64}` payloads inline; every other RID resolves
 |  [07]   | `GetEpDevices() -> IReadOnlyList<OrtEpDevice>`                                   | instance | autoEP-available device enumeration      |
 |  [08]   | `{GetHardwareDevices, GetNumHardwareDevices}`                                    | instance | raw hardware layer beneath EP devices    |
 |  [09]   | `GetCompatibilityInfoFromModel(string, string) -> string`                        | instance | per-EP compat-info string                |
-|  [10]   | `GetModelCompatibilityForEpDevices(OrtEpDevice[], string)`                       | instance | warm-start enum verdict                  |
+|  [10]   | `GetModelCompatibilityForEpDevices(IReadOnlyList<OrtEpDevice>, string)`          | instance | warm-start enum verdict                  |
 |  [11]   | `GetHardwareDeviceEpIncompatibilityDetails(string, OrtHardwareDevice)`           | instance | rejection reason bitmask                 |
 |  [12]   | `CreateSharedAllocator(OrtEpDevice, OrtDeviceMemoryType, OrtAllocatorType, ...)` | instance | shared arena lease                       |
 |  [13]   | `GetSharedAllocator(OrtMemoryInfo) -> OrtAllocator`                              | instance | reads back a shared allocator            |
-|  [14]   | `ReleaseSharedAllocator`                                                         | instance | releases a shared allocator              |
+|  [14]   | `ReleaseSharedAllocator(OrtEpDevice, OrtDeviceMemoryType)`                       | instance | releases a shared allocator              |
 |  [15]   | `CreateAndRegisterAllocator(OrtMemoryInfo, OrtArenaCfg)`                         | instance | registers a BFC-arena allocator          |
 |  [16]   | `RegisterExecutionProviderLibrary(string, string)`                               | instance | out-of-tree EP registration              |
 |  [17]   | `CopyTensors(OrtValue[], OrtValue[], OrtSyncStream)`                             | instance | device-to-device tensor copy             |
@@ -312,15 +312,16 @@ Base assets ship the `win-{x64,arm64}` payloads inline; every other RID resolves
 |  [18]   | `OrtValue.GetTensorMutableRawData() -> Span<byte>`                                  | instance | reads raw tensor bytes              |
 |  [19]   | `OrtValue.GetTensorSizeInBytes()`                                                   | instance | tensor buffer byte count            |
 |  [20]   | `OrtValue.GetTensorTypeAndShape() -> OrtTensorTypeAndShapeInfo`                     | instance | element type and shape              |
-|  [21]   | `OrtValue.GetTensorMemoryInfo() -> OrtMemoryInfo`                                   | instance | where the buffer lives              |
-|  [22]   | `OrtMemoryInfo.DefaultInstance`                                                     | static   | shared CPU descriptor               |
-|  [23]   | `OrtMemoryInfo(string, OrtAllocatorType, int, OrtMemType)`                          | ctor     | device descriptor                   |
-|  [24]   | `OrtMemoryInfo(string, OrtMemoryInfoDeviceType, ...)`                               | ctor     | extended device descriptor          |
-|  [25]   | `OrtMemoryInfo.{Name, Id}`                                                          | instance | allocator/device name and id        |
-|  [26]   | `OrtMemoryInfo.GetAllocatorType() -> OrtAllocatorType`                              | instance | arena/device allocator classifier   |
-|  [27]   | `OrtMemoryInfo.GetMemoryType() -> OrtMemType`                                       | instance | legacy CPU/output mem-type axis     |
-|  [28]   | `OrtMemoryInfo.GetDeviceMemoryType() -> OrtDeviceMemoryType`                        | instance | V2 device-memory class              |
-|  [29]   | `OrtMemoryInfo.GetVendorId() -> uint`                                               | instance | device vendor id                    |
+|  [21]   | `OrtTensorTypeAndShapeInfo.{Shape, ElementCount, ElementDataType, DimensionsCount}` | instance | `long[]` axes, `long` element count |
+|  [22]   | `OrtValue.GetTensorMemoryInfo() -> OrtMemoryInfo`                                   | instance | where the buffer lives              |
+|  [23]   | `OrtMemoryInfo.DefaultInstance`                                                     | static   | shared CPU descriptor               |
+|  [24]   | `OrtMemoryInfo(string, OrtAllocatorType, int, OrtMemType)`                          | ctor     | device descriptor                   |
+|  [25]   | `OrtMemoryInfo(string, OrtMemoryInfoDeviceType, ...)`                               | ctor     | extended device descriptor          |
+|  [26]   | `OrtMemoryInfo.{Name, Id}`                                                          | instance | allocator/device name and id        |
+|  [27]   | `OrtMemoryInfo.GetAllocatorType() -> OrtAllocatorType`                              | instance | arena/device allocator classifier   |
+|  [28]   | `OrtMemoryInfo.GetMemoryType() -> OrtMemType`                                       | instance | legacy CPU/output mem-type axis     |
+|  [29]   | `OrtMemoryInfo.GetDeviceMemoryType() -> OrtDeviceMemoryType`                        | instance | V2 device-memory class              |
+|  [30]   | `OrtMemoryInfo.GetVendorId() -> uint`                                               | instance | device vendor id                    |
 
 - `CreateTensorValueWithData` takes a trailing `(nint dataPtr, long sizeBytes)`; the extended `OrtMemoryInfo` ctor takes `(string, OrtMemoryInfoDeviceType, uint vendorId, int deviceId, OrtDeviceMemoryType, ulong alignment, OrtAllocatorType)`.
 - `GetTensorMemoryInfo().Name` is the arena name the `ModelRun` receipt stamps as `ArenaAllocator`; binding amortizes I/O allocation across repeated runs and is the measured hot-loop path.

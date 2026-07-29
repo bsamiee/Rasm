@@ -59,37 +59,37 @@
 [ENTRYPOINT_SCOPE]: metadata-free `RecordBatch.Builder` assembly, typed-column bulk-append, and metadata-bearing `Schema`/`RecordBatch`/`Table` construction
 - note: `Append(ReadOnlySpan<T>)` copies a whole backing span in one call — the reduced-call path for the `DoeDataset` `ReadOnlyMemory<double>` columns via `.Span`, `Reserve(capacity)` pre-sizing the buffer first; `RecordBatch.Builder` carries no `Schema`/`Metadata` seat, so a receipt-bearing batch builds through the explicit `Schema` and the public `RecordBatch` constructor.
 
-| [INDEX] | [SURFACE]                                                | [SHAPE]  | [CAPABILITY]                                |
-| :-----: | :------------------------------------------------------- | :------- | :------------------------------------------ |
-|  [01]   | `new RecordBatch.Builder(allocator = null)`              | ctor     | opens a batch builder under an arena        |
-|  [02]   | `Append<TArray>(name, nullable, TArray array)`           | instance | adds one built typed column by name         |
-|  [03]   | `Append<TArray>(name, nullable, IArrowArrayBuilder<T>)`  | instance | adds a column from an unbuilt builder       |
-|  [04]   | `Append(RecordBatch batch)`                              | instance | merges schema and arrays from a batch       |
-|  [05]   | `Build()` / `Clear()`                                    | factory  | seals the immutable `RecordBatch` / resets  |
-|  [06]   | `ArrayBuilder.Double(Action<DoubleArray.Builder>)`       | factory  | builds a `DoubleArray` column inline        |
-|  [07]   | `Append(ReadOnlySpan<T> span)`                           | instance | copies one whole span, no scalar loop       |
-|  [08]   | `AppendRange(IEnumerable<T> values)`                     | instance | appends an enumerable column source         |
-|  [09]   | `Append(T value)` / `Append(T? value)`                   | instance | appends one value; nullable writes validity |
-|  [10]   | `AppendNull()`                                           | instance | appends a validity-bitmap null slot         |
-|  [11]   | `Reserve(int capacity)` / `Resize(int)`                  | instance | pre-allocates or resizes the backing buffer |
-|  [12]   | `Set(int index, T value)` / `Swap(i, j)`                 | instance | in-place value set / positional swap        |
-|  [13]   | `Build(MemoryAllocator allocator = null)`                | factory  | seals the immutable typed array             |
-|  [14]   | `new Schema.Builder()` / `.Build()`                      | ctor     | opens and seals an immutable `Schema`       |
-|  [15]   | `Schema.Builder.Field(Field)` / `.Field(Action<…>)`      | instance | adds a field by value or inline builder     |
-|  [16]   | `Schema.Builder.Metadata(key, value)`                    | instance | attaches schema-level receipt facts         |
-|  [17]   | `Field.Builder.Name(s).DataType(t).Nullable(b).Build()`  | factory  | assembles one field from parts              |
-|  [18]   | `new Field(name, IArrowType, nullable, metadata?)`       | ctor     | direct field construction                   |
-|  [19]   | `new RecordBatch(Schema, IEnumerable<IArrowArray>, int)` | ctor     | binds metadata schema, arrays, and length   |
-|  [20]   | `Table.TableFromRecordBatches(Schema, IList<batch>)`     | static   | collects batches into one `Table`           |
-|  [21]   | `MemoryAllocator.Default.Value` / `Allocate(int)`        | property | shared default arena; `Allocate` a buffer   |
-|  [22]   | `Schema.FieldsList -> IReadOnlyList<Field>`              | property | ordered field vocabulary; schema identity   |
-|  [23]   | `RecordBatch.Schema` / `.Length` / `.Arrays`             | property | sealed batch reads back schema and length   |
-|  [24]   | `Field.Name` / `Field.DataType -> IArrowType`            | property | the `(name, TypeId)` pair a digest folds    |
-|  [25]   | `new ArrowBuffer(ReadOnlyMemory<byte> data)`             | ctor     | borrows foreign memory; no copy, no arena   |
-|  [26]   | `ArrowBuffer.Empty`                                      | static   | absent validity bitmap on a dense array     |
-|  [27]   | `new FloatArray(ArrowBuffer, ArrowBuffer, int, int, int)`| ctor     | value buffer, bitmap, length, nulls, offset |
-|  [28]   | `new FixedSizeListType(IArrowType value, int listSize)`  | ctor     | fixed child count; names the child `item`   |
-|  [29]   | `new FixedSizeListArray(IArrowType, int, IArrowArray, ArrowBuffer, int, int)` | ctor | flat child at a fixed stride |
+| [INDEX] | [SURFACE]                                                                     | [SHAPE]  | [CAPABILITY]                                |
+| :-----: | :---------------------------------------------------------------------------- | :------- | :------------------------------------------ |
+|  [01]   | `new RecordBatch.Builder(allocator = null)`                                   | ctor     | opens a batch builder under an arena        |
+|  [02]   | `Append<TArray>(name, nullable, TArray array)`                                | instance | adds one built typed column by name         |
+|  [03]   | `Append<TArray>(name, nullable, IArrowArrayBuilder<T>)`                       | instance | adds a column from an unbuilt builder       |
+|  [04]   | `Append(RecordBatch batch)`                                                   | instance | merges schema and arrays from a batch       |
+|  [05]   | `Build()` / `Clear()`                                                         | factory  | seals the immutable `RecordBatch` / resets  |
+|  [06]   | `ArrayBuilder.Double(Action<DoubleArray.Builder>)`                            | factory  | builds a `DoubleArray` column inline        |
+|  [07]   | `Append(ReadOnlySpan<T> span)`                                                | instance | copies one whole span, no scalar loop       |
+|  [08]   | `AppendRange(IEnumerable<T> values)`                                          | instance | appends an enumerable column source         |
+|  [09]   | `Append(T value)` / `Append(T? value)`                                        | instance | appends one value; nullable writes validity |
+|  [10]   | `AppendNull()`                                                                | instance | appends a validity-bitmap null slot         |
+|  [11]   | `Reserve(int capacity)` / `Resize(int)`                                       | instance | pre-allocates or resizes the backing buffer |
+|  [12]   | `Set(int index, T value)` / `Swap(i, j)`                                      | instance | in-place value set / positional swap        |
+|  [13]   | `Build(MemoryAllocator allocator = null)`                                     | factory  | seals the immutable typed array             |
+|  [14]   | `new Schema.Builder()` / `.Build()`                                           | ctor     | opens and seals an immutable `Schema`       |
+|  [15]   | `Schema.Builder.Field(Field)` / `.Field(Action<…>)`                           | instance | adds a field by value or inline builder     |
+|  [16]   | `Schema.Builder.Metadata(key, value)`                                         | instance | attaches schema-level receipt facts         |
+|  [17]   | `Field.Builder.Name(s).DataType(t).Nullable(b).Build()`                       | factory  | assembles one field from parts              |
+|  [18]   | `new Field(name, IArrowType, nullable, metadata?)`                            | ctor     | direct field construction                   |
+|  [19]   | `new RecordBatch(Schema, IEnumerable<IArrowArray>, int)`                      | ctor     | binds metadata schema, arrays, and length   |
+|  [20]   | `Table.TableFromRecordBatches(Schema, IList<batch>)`                          | static   | collects batches into one `Table`           |
+|  [21]   | `MemoryAllocator.Default.Value` / `Allocate(int)`                             | property | shared default arena; `Allocate` a buffer   |
+|  [22]   | `Schema.FieldsList -> IReadOnlyList<Field>`                                   | property | ordered field vocabulary; schema identity   |
+|  [23]   | `RecordBatch.Schema` / `.Length` / `.Arrays`                                  | property | sealed batch reads back schema and length   |
+|  [24]   | `Field.Name` / `Field.DataType -> IArrowType`                                 | property | the `(name, TypeId)` pair a digest folds    |
+|  [25]   | `new ArrowBuffer(ReadOnlyMemory<byte> data)`                                  | ctor     | borrows foreign memory; no copy, no arena   |
+|  [26]   | `ArrowBuffer.Empty`                                                           | static   | absent validity bitmap on a dense array     |
+|  [27]   | `new FloatArray(ArrowBuffer, ArrowBuffer, int, int, int)`                     | ctor     | value buffer, bitmap, length, nulls, offset |
+|  [28]   | `new FixedSizeListType(IArrowType value, int listSize)`                       | ctor     | fixed child count; names the child `item`   |
+|  [29]   | `new FixedSizeListArray(IArrowType, int, IArrowArray, ArrowBuffer, int, int)` | ctor     | flat child at a fixed stride                |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
