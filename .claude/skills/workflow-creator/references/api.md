@@ -123,17 +123,17 @@ Inside a long `[COMPOSITION]`, mark each phase with a bare subsection divider wh
 
 ## [04]-[GLOBALS]
 
-| [INDEX] | [GLOBAL]                      | [SIGNATURE]                                      | [PURPOSE]                                      |
-| :-----: | :---------------------------- | :----------------------------------------------- | :--------------------------------------------- |
-|  [01]   | `agent`                       | `agent(prompt, opts?) → Promise<string\|object>` | Spawn one fresh-context subagent               |
-|  [02]   | `pipeline`                    | `pipeline(items, ...stages) → Promise<any[]>`    | Stream items through stages, no barrier        |
-|  [03]   | `parallel`                    | `parallel(thunks) → Promise<any[]>`              | Run thunks concurrently; a barrier             |
-|  [04]   | `phase`                       | `phase(title) → void`                            | Start a progress group; later agents join it   |
-|  [05]   | `log`                         | `log(message) → void`                            | Emit a narrator line above the progress tree   |
-|  [06]   | `console`                     | `console.log(…)`, `.error(…)`, …                 | Output routed into the workflow log            |
-|  [07]   | `budget`                      | `{ total, spent(), remaining() }`                | The turn's token target                        |
-|  [08]   | `args`                        | any                                              | `args` as structured data; `undefined` if none |
-|  [09]   | `workflow`                    | `workflow(nameOrRef, args?) → Promise<any>`      | Run another workflow inline                    |
+| [INDEX] | [GLOBAL]   | [SIGNATURE]                                      | [PURPOSE]                                      |
+| :-----: | :--------- | :----------------------------------------------- | :--------------------------------------------- |
+|  [01]   | `agent`    | `agent(prompt, opts?) → Promise<string\|object>` | Spawn one fresh-context subagent               |
+|  [02]   | `pipeline` | `pipeline(items, ...stages) → Promise<any[]>`    | Stream items through stages, no barrier        |
+|  [03]   | `parallel` | `parallel(thunks) → Promise<any[]>`              | Run thunks concurrently; a barrier             |
+|  [04]   | `phase`    | `phase(title) → void`                            | Start a progress group; later agents join it   |
+|  [05]   | `log`      | `log(message) → void`                            | Emit a narrator line above the progress tree   |
+|  [06]   | `console`  | `console.log(…)`, `.error(…)`, …                 | Output routed into the workflow log            |
+|  [07]   | `budget`   | `{ total, spent(), remaining() }`                | The turn's token target                        |
+|  [08]   | `args`     | any                                              | `args` as structured data; `undefined` if none |
+|  [09]   | `workflow` | `workflow(nameOrRef, args?) → Promise<any>`      | Run another workflow inline                    |
 
 ### [04.1]-[READING_ARGS]
 

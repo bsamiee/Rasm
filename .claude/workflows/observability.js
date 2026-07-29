@@ -15,7 +15,7 @@ export const meta = {
     ],
 };
 
-// --- [CONSTANTS] ------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CAMPAIGN = '.claude/scratch/observability/CAMPAIGN.md';
 // Durable across runs, in the campaign home rather than per-instance run scratch: a residual a phase
@@ -255,7 +255,7 @@ const PHASE_ROWS = {
     },
 };
 
-// --- [INPUTS] ---------------------------------------------------------------------------
+// --- [INPUTS] --------------------------------------------------------------------------
 
 const parsed = typeof args === 'string' && /^\s*[[{]/.test(args) ? JSON.parse(args) : args;
 const rawPhase = parsed && typeof parsed === 'object' ? parsed.phase : parsed;
@@ -269,7 +269,7 @@ const fnv1a = (s) => {
 };
 const SCRATCH = '.claude/scratch/observability-p' + (PHASE || '0') + '-' + fnv1a(JSON.stringify({ phase: PHASE }));
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 const ANCHOR = {
     type: 'object',
@@ -440,7 +440,7 @@ const VERDICT = {
     },
 };
 
-// --- [DOCTRINE] -------------------------------------------------------------------------
+// --- [DOCTRINE] ------------------------------------------------------------------------
 
 const LAW_GROUND =
     'GROUND: this repo is in a planning phase — the artifact is the design corpus, and to implement is to author or deepen a ' +
@@ -559,7 +559,7 @@ const DOCTRINE =
     '\n\n' +
     LAW_RIPPLE;
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const pagesOf = (t) => t.pages.join(', ');
 
@@ -817,7 +817,7 @@ const pack = (clusters, lanes) => {
     return bins.filter((b) => b.clusters.length);
 };
 
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 if (!ROW) {
     log('no phase — pass {phase: 1..5}; available: ' + Object.keys(PHASE_ROWS).join(', '));
