@@ -239,14 +239,14 @@ New capability enters at the narrowest rung that holds it, and each rung above i
 
 Surface appearance crosses the runtimes as TWO domain documents under ONE frozen vocabulary. `tests/contracts/appearance-vocabulary.schema.json` is the definition: the channel roster with its per-channel transfer, neutral, unit, and mip fold, the ingest alias table, the transfer and normal-convention and alpha-mode and container and pack and storage-format and payload vocabularies, the three key spellings, the level-ordered plane address, the egress grammar, and the harmonic band order with its golden vectors. Each branch TRANSCRIBES that definition in its own casing law and validates its own projection against it; the two corpus entries reference it and neither restates a row.
 
-| [INDEX] | [OWNER]                              | [MINTS]                                     | [BOUNDARY]                               |
-| :-----: | :----------------------------------- | :------------------------------------------ | :--------------------------------------- |
-|  [01]   | `csharp:Rasm.Materials/Raster`       | the baked set behind the appearance key     | carries no environment kind              |
-|  [02]   | `csharp:Rasm.Materials/Appearance`   | the environment light and stage vocabulary  | branch-interior; takes no corpus entry   |
-|  [03]   | `python:artifacts/graphic/texture`   | the ingest and environment set manifest     | presses no graph, holds no bake key      |
-|  [04]   | `typescript:core/interchange`        | nothing; it lands both documents            | derives no field a producer carries      |
-|  [05]   | `typescript:data` + `typescript:ui`  | the transform, serve, and bind pipeline     | reads addresses, constructs none         |
-|  [06]   | `csharp:Rasm`                        | the analytic and raster atoms both compose  | holds no channel vocabulary              |
+| [INDEX] | [OWNER]                             | [MINTS]                                    | [BOUNDARY]                             |
+| :-----: | :---------------------------------- | :----------------------------------------- | :------------------------------------- |
+|  [01]   | `csharp:Rasm.Materials/Raster`      | the baked set behind the appearance key    | carries no environment kind            |
+|  [02]   | `csharp:Rasm.Materials/Appearance`  | the environment light and stage vocabulary | branch-interior; takes no corpus entry |
+|  [03]   | `python:artifacts/graphic/texture`  | the ingest and environment set manifest    | presses no graph, holds no bake key    |
+|  [04]   | `typescript:core/interchange`       | nothing; it lands both documents           | derives no field a producer carries    |
+|  [05]   | `typescript:data` + `typescript:ui` | the transform, serve, and bind pipeline    | reads addresses, constructs none       |
+|  [06]   | `csharp:Rasm`                       | the analytic and raster atoms both compose | holds no channel vocabulary            |
 
 - Two documents, two producers, one vocabulary: each producer owns its own document and `domain` entry, and routes a kind it lacks to the peer entry.
 - Capability overlaps freely and DOCUMENTS do not — both producers derive geometric channels and both encode containers.

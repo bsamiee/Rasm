@@ -97,7 +97,8 @@ public sealed partial class ExecutionProvider {
     // fp32 graph at fp16 on the ANE without saying so, so the pin is what keeps precision a declared posture rather
     // than a silent host decision — and it is why AllowLowPrecisionAccumulationOnGPU tracks the precision row
     // instead of standing open. Every claim this row makes about numeric agreement is answerable to a floor-provider
-    // residual measured at the run.
+    // residual measured at the run. Measured floor at the pin: an fp32 MLProgram conv graph at MLComputeUnits ALL
+    // reproduces the Cpu row within 2e-7 max absolute — float-ulp class; per-model-family bands stay the run's to record.
     static readonly FrozenDictionary<string, string> CoreMlRows = new Dictionary<string, string>(StringComparer.Ordinal) {
         ["ModelFormat"] = "MLProgram",
         ["MLComputeUnits"] = "ALL",
@@ -337,17 +338,27 @@ public sealed partial class ExecutionProvider {
 }
 ```
 
-`OrtEpDevice` (enumerated through `OrtEnv.GetEpDevices()`) carries the columns the `Devices`/`AutoSelect` fold reads:
+`OrtEpDevice`, enumerated through `OrtEnv.GetEpDevices()` as an `IReadOnlyList<OrtEpDevice>`, carries the columns the `Devices`/`AutoSelect` fold reads:
 
-| [INDEX] | [MEMBER]                       | [CARRIES]                                                                                      |
-| :-----: | :----------------------------- | :--------------------------------------------------------------------------------------------- |
-|  [01]   | `OrtEpDevice.EpName`           | provider name keyed against the `ExecutionProvider` row                                        |
-|  [02]   | `OrtEpDevice.EpVendor`         | EP vendor string                                                                               |
-|  [03]   | `OrtEpDevice.HardwareDevice`   | `OrtHardwareDevice` — `Type` (`CPU`/`GPU`/`NPU`), `VendorId`, `DeviceId`, `Vendor`, `Metadata` |
-|  [04]   | `OrtEpDevice.EpMetadata`       | `OrtKeyValuePairs` EP self-description                                                         |
-|  [05]   | `OrtEpDevice.EpOptions`        | `OrtKeyValuePairs` default EP option set                                                       |
-|  [06]   | `OrtEpDevice.GetMemoryInfo(OrtDeviceMemoryType)` | `OrtMemoryInfo` for the device allocation at the named memory type                |
-|  [07]   | `OrtEpDevice.CreateSyncStream` | `OrtSyncStream` tying a device-stream lifetime to the device                                   |
+| [INDEX] | [MEMBER]                                                | [CARRIES]                                                          |
+| :-----: | :------------------------------------------------------ | :----------------------------------------------------------------- |
+|  [01]   | `EpName`                                                | provider name keyed against the `ExecutionProvider` row            |
+|  [02]   | `EpVendor`                                              | EP vendor string                                                   |
+|  [03]   | `HardwareDevice`                                        | `OrtHardwareDevice`                                                |
+|  [04]   | `EpMetadata`                                            | `OrtKeyValuePairs` EP self-description                             |
+|  [05]   | `EpOptions`                                             | `OrtKeyValuePairs` default EP option set                           |
+|  [06]   | `GetMemoryInfo(OrtDeviceMemoryType)`                    | `OrtMemoryInfo` for the device allocation at the named memory type |
+|  [07]   | `CreateSyncStream(IReadOnlyDictionary<string, string>)` | `OrtSyncStream` tying a device-stream lifetime to the device       |
+
+`OrtHardwareDevice`, reached through `HardwareDevice`, carries the device identity columns:
+
+| [INDEX] | [COLUMN]   | [CARRIES]                                        |
+| :-----: | :--------- | :----------------------------------------------- |
+|  [01]   | `Type`     | `OrtHardwareDeviceType` — `CPU`, `GPU`, or `NPU` |
+|  [02]   | `VendorId` | `uint` vendor id                                 |
+|  [03]   | `DeviceId` | `uint` device id                                 |
+|  [04]   | `Vendor`   | vendor string                                    |
+|  [05]   | `Metadata` | `OrtKeyValuePairs` device self-description       |
 
 `Veto` binds the `OrtDeviceEpIncompatibilityReason` `[Flags]` enum (`UInt32`) that `OrtDeviceEpIncompatibilityDetails.ReasonsBitmask` carries when an EP cannot claim a hardware device:
 
@@ -365,4 +376,4 @@ public sealed partial class ExecutionProvider {
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [COREML_PRECISION_RESIDUAL]-[OPEN]: what residual does the `CoreMl` row's MLProgram path reach against a `Cpu` run of the same graph at `ModelPrecision.Full`, per stage class; measure through the `Model/inference#STAGE_EXECUTION` canary comparison on the ORT host and record the observed band per model family rather than asserting a tolerance here.
+- [COREML_PRECISION_RESIDUAL]-[OPEN]: what residual band does each `ModelCard` family's MLProgram path reach against a `Cpu` run at `ModelPrecision.Full` — the trivial-graph floor is measured at 2e-7 max absolute (float-ulp class), so the open question is per-family drift above that floor; measure through the `Model/inference#STAGE_EXECUTION` canary the first time each registry model executes on the ORT host, recording the observed band per family rather than asserting a tolerance here.

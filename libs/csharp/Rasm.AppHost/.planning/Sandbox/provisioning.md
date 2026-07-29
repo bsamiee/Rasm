@@ -156,9 +156,9 @@ public sealed class UpdateRail {
 ```
 
 ```mermaid
-accTitle: Update phase state
-accDescr: Downloaded releases stage, roll over, or end in rollback.
 stateDiagram-v2
+    accTitle: Update phase state
+    accDescr: Downloaded releases stage, roll over, or end in rollback.
     [*] --> Detected
     Detected --> Downloading : Stage
     Detected --> RolledBack : DowngradeBlocked
@@ -348,9 +348,9 @@ public static class FleetRoll {
 ```
 
 ```mermaid
-accTitle: Drain-gated restart handoff
-accDescr: UpdateRail drains the node, records rollover, and hands restart to Velopack.
 sequenceDiagram
+    accTitle: Drain-gated restart handoff
+    accDescr: UpdateRail drains the node, records rollover, and hands restart to Velopack.
     participant Rail as UpdateRail
     participant Drain as DrainConductor
     participant Velopack as UpdateManager
