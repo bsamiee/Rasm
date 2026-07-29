@@ -50,6 +50,7 @@ All mistakes/problems/oversights that are structural are abstracted/defined and 
 |  [08]   | HTML (`.html`)             | Skill: `html-studio`           | `docs/atlas/`                  | `<kind>.<scope>[.<slug>].html` |
 
 [TOOL_ROUTING]:
+- [ALWAYS]: use `ast-grep` skill on every code surface — outline before reading source, structural search over grep, rewrites, and durable rules.
 - [ALWAYS]: use `exa` MCP to start open-web search with neural discovery, the right page, repo, paper, or entity; REPLACES `WebFetch` entirely.
 - [ALWAYS]: use `tavily-search` skill on known targets — extract or crawl a site, or run a cited multi-source report.
 - [ALWAYS]: use `context7-search` skill when working on code/fences with external libraries, never guess on SDK/framework/API capabilities or implementations.
