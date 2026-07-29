@@ -227,7 +227,7 @@ public static class Authority {
 |  [02]   | hash boundary   | `[SetEquality]` hashes to 0               | a `GrantSet` never keys a map; subject strings key the fold         |
 |  [03]   | precedence      | denies accumulate; `Without` once at root | inherited deny defeats every descendant direct/role allow           |
 |  [04]   | inheritance     | `AclScope.Parent` ladder invariant        | mis-stacked chain → `InvalidInheritance`, never a silent grant      |
-|  [05]   | branch gate     | same `GrantSet` under `AclScope.Branch`   | `Version/commits#COMMIT_DAG` composes `Admit`; no second enum          |
+|  [05]   | branch gate     | same `GrantSet` under `AclScope.Branch`   | `Version/commits#COMMIT_DAG` composes `Admit`; no second enum       |
 |  [06]   | audit diff      | `Shift` over `Inequalities` Added/Removed | typed `AclShift` rows into the attested ledger                      |
 |  [07]   | fault band      | NONE — total algebra                      | store-tier failures rail `IdentityFault` 8340                       |
 

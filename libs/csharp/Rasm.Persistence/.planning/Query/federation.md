@@ -546,7 +546,7 @@ public sealed class FederatedResult : IValidityEvidence {
 | :-----: | :---------------- | :------------------------------------------------- | :----------------------------------------------------------- |
 |  [01]   | one entry         | `Execute(FederationPlan, Option<TimeCut>, ports)`  | router/lowerer over standing lanes; never a second engine    |
 |  [02]   | lowering form     | `RelationVisitor<Fin<LoweringTarget>, Unit>`       | total-by-throw; unknown relation → `UnsupportedRelation`     |
-|  [03]   | key-selection arm | `SetExpr` via `lane#ELEMENT_SET_ALGEBRA`                    | local non-live sources; unsupported set ops stay tabular     |
+|  [03]   | key-selection arm | `SetExpr` via `lane#ELEMENT_SET_ALGEBRA`           | local non-live sources; unsupported set ops stay tabular     |
 |  [04]   | tabular arm       | `ColumnarProfile.Federation` + `AdbcQuery` doors   | `from_substrait(blob)` local; ext `SubstraitPlan`/`SqlQuery` |
 |  [05]   | write posture     | `WriteRelation` → `WriteRejected`                  | fail-closed; federation reads, the store rail writes         |
 |  [06]   | default cut       | `Option<TimeCut>` resolved INSIDE `Execute`        | `HeadSequence` head under the clock `Hlc`; never ambient now |
