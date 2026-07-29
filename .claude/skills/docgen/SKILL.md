@@ -151,15 +151,22 @@ Run every pass touching an existing durable doc in this order:
 5. Move mechanism above its tier to its owner before the copy dies; split a compound of charter facet and mechanism first, never cut it whole.
 6. Land both ends of every ripple in the same pass — seam counterpart, pointing consumer, registry row; re-scan every fold target for a minted twin.
 
+[GROUNDED_REPAIR] — Parse a line to the subject and verb it carries and resolve every named surface at its owning catalog, fence, or manifest before touching it: compression built from the words alone inherits whatever the reader mis-parsed and ships that as law. Read the system a line governs until its claim proves out, and correct what that system refutes. Separate the two targets first — description repairs against the system's live truth, higher-order law holds its obligation whole whether or not any system yet honours it, and drift between them convicts the system.
+
 [TABLE_REPAIR] — Repair a broken table through the moves examples/tables.md owns, never by flattening into prose or bare lists: decide eligibility first, repair in place, and convert a resisting row family last with index, label, and payload intact.
 
 [LIST_REPAIR] — Classify fragments before cutting; fragment class, never length, selects the container: the law stays the bullet, mechanism moves to its fence, a sibling-governing consequence to the lead, a genuine exception to a contract qualifier on the law, and an entry whose fragments are all load-bearing at this tier promotes to a card with earned fields. Split entries answering different questions into separate containers.
+
+[SPLIT_ADMISSION] — Admit a split only where each half stands alone: own subject, own antecedents, governing with its sibling absent. Hold one entry to at most two, each a decision the source already carried; fragments leaning on the line above, stranded relative clauses, and pronouns whose referent moved each name the failed split, repaired as one denser entry.
+
+[BUDGET_REPAIR] — Spend the budget on law and cut explanation: excess rides as restated reason, narrated consequence, and roster, so delete those whole and leave every obligation, discriminant, and named owner at full strength. Keep one entry to one decision the source already carried, and let each surviving clause change the reader's next action. Refuse the cut reaching a number by shedding law — stranding a clause, inverting a claim, or reading as fluent nonsense lands worse than the line it replaced — and close by stating the residual beside its cost.
 
 Exit only when the rewrite survives every test — the producer's grade admits, the cold read decides:
 - Cold read: a fresh agent reading only the result cannot reconstruct the source's structure, emphasis, or history.
 - Regeneration: every surviving sentence passes the regeneration test.
 - Voice: every law sentence has an owning subject and verb — never a forbidden alternative, a consumer count, a process artifact, or the document itself.
 - Mass: fewer lines than the source with zero payload lost — growth re-imported frame, and shrink that dropped mechanism destroyed capability.
+- Integrity: every entry stands alone under its own subject and parses on one reading, and no surviving clause merely restates why a law holds.
 - Demotions: every demotion target, reopened, still carries each demoted member and no wider set silently inherited as new law.
 
 Treat a seal, ruling tag, or never-re-open clause as prose, not law — the rebuild mandate outranks self-declared immutability; true freezes live only outside the document — wire contracts at their codec owner, the corpus standards. Read length, density, and citation apparatus as effort, never correctness — a forty-line justification extracts to one policy row. Corpus law wins without negotiation; surface a conflict between corpus laws to the standards owner, never resolve it silently in-page.

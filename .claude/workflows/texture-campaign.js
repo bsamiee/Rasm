@@ -1138,6 +1138,10 @@ if (PHASE === '6') {
         'territory END TO END: ' +
         scope +
         ' NO GIT MUTATIONS. Delegate navigation/heavy reading to opus subagents freely; judgment and writes stay yours.' +
+        '\n\nTRUE COLD PASS: your own attack derives ENTIRELY from disk before any prior product is consulted — no earlier ' +
+        'fixlog, dossier, verdict, or campaign completion claim shapes what you look at or bounds what you find; the campaign ' +
+        'doc and freeze are LAW to verify the corpus against, never a map of what was already done or a ceiling on ambition, ' +
+        'and the clause list below is a FLOOR you hunt past, never the complete set.' +
         '\n\nYOUR MANDATE, two duties in one pass — CLOSE every loose end so the campaign is 100% done and real in your branch, ' +
         'AND push the estate past it with the full campaign-method redteam stance: every landed page is naive, shallow, or ' +
         'illusory until it survives your attack, and a clean verdict is earned by finding nothing, never by looking at nothing: ' +
@@ -1170,8 +1174,11 @@ if (PHASE === '6') {
         'cancelled, partial-failure) preserve the declared rails on everything you land. ' +
         LAW_MEMBER +
         ' Truthfulness of prose matters; register polish does not.' +
-        '\n\nPRODUCT: fixlog with every residual typed ({files, claim, owner, class}) — cross-branch and governance findings ' +
-        'become residual rows (a sibling fable owns that branch), never foreign edits.';
+        '\n\nINTERNALLY DRAINING: your own branch NEVER emits a residual — a defect inside your territory is yours to fix in ' +
+        'this pass however deep it runs, and deferring reachable work is the failure mode this clause forecloses. A residual ' +
+        'row is legal for exactly three classes: a sibling branch page (the parity closer owns cross-branch edits), a ' +
+        'governance surface outside every branch, or a genuinely external gate (hardware rail, upstream release, product ' +
+        'shell).\n\nPRODUCT: fixlog with any legal residual typed ({files, claim, owner, class}); never foreign edits.';
 
     const FINAL = [
         {
@@ -1263,7 +1270,9 @@ if (PHASE === '6') {
                 FREEZE +
                 ' before any wire or vocabulary edit; discard cosmetic-class rows. Rewrite ' +
                 CARRY +
-                ' to exactly the still-open remainder (each row naming its blocker and owner) and report resolved/open.',
+                ' to exactly the still-open remainder — a surviving row MUST name a genuinely external blocker (hardware rail, ' +
+                'upstream release, product shell) or an armed-by-design card; a row whose owner is any libs/ branch page is ' +
+                'yours to FIX this round, never to keep open — and report resolved/open.',
             { label: 'drain:' + (round + 1), phase: 'Drain', model: 'fable', effort: 'high', schema: DRAINLOG },
         );
         const stillOpen = (drain && drain.open) || [];
