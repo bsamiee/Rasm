@@ -1,7 +1,7 @@
 export const meta = {
     name: 'texture-campaign',
     description:
-        'Execute one phase of the Materials texture-generation campaign against .claude/scratch/texture-campaign/CAMPAIGN.md. args = {phase: 0..6}, bare number accepted, empty = no-op. Phase 0 runs the Forge build probes, seven codex recon dossiers, and the wire-roster freeze; phase 1 the three single-writer package-admission gates; phases 2-4 the C#, python, and TS design waves as implement(opus) -> critique(codex) -> redteam(opus) territory chains; phase 5 the cross-tier single writer; phase 6 the close (docgen zero, codex cold-verify, residual drain, custodian dispatch).',
+        'Execute one phase of the Materials texture-generation campaign against .claude/scratch/texture-campaign/CAMPAIGN.md. args = {phase: 0..6}, bare number accepted, empty = no-op. Phase 0 runs the Forge build probes, seven codex recon dossiers, and the wire-roster freeze; phase 1 the three single-writer package-admission gates; phases 2-4 the C#, python, and TS design waves as implement(opus) -> critique(codex) -> redteam(opus) territory chains; phase 5 the cross-tier single writer; phase 6 the close (three fable branch-finalizers + a cross-branch parity/integration closer, fable residual-drain fixpoint, custodian dispatch).',
     whenToUse: 'Landing the Materials texture campaign phase by phase.',
     phases: [
         { title: 'Probe', detail: 'native build-probe lanes: sdist builds at the 3.15 floor, Forge rows + redeploy, provision evidence' },
@@ -1083,7 +1083,15 @@ if (PHASE === '5') {
             'campaign names; GLB_BY_KEY untouched. (2) topology rows [40]-[43] per the campaign roster (verify free indices ' +
             'first). (3) glossary domain.md [07]-[APPEARANCE] + estate.md asset address — topology row [17] coupling honored, no ' +
             '.greptile edit. (4) the [BLOCKED] Rhino-RenderMaterial-adapter IDEAS card at libs/csharp/.planning/IDEAS.md, armed ' +
-            'on a product shell landing. (5) DRAIN the carry file ' +
+            'on a product shell landing. (5) libs/.planning/ARCHITECTURE.md gains a compact cross-branch [APPEARANCE] system ' +
+            'section in the [OBSERVABILITY_CONFORMANCE] shape — ONLY estate law no narrower tier owns: the producer/document ' +
+            'split (C# Materials bakes the appearance-coupled TextureSetWire behind AppearanceKey; python artifacts assembles ' +
+            'the ingest/IBL AssetSetManifest; TS consumes both families and owns the asset transform/serve pipeline; the kernel ' +
+            'owns the shared analytic/raster atoms), the non-overlap boundary each producer holds, and the one-fragment ' +
+            'transcription law binding all three branches to the tests/contracts schema fragment — every row pointing at its ' +
+            'owning folder, no branch mechanism, no package name, landed AFTER the fragment exists so every pointer resolves. ' +
+            'The wire-freeze scratch doc retires into that fragment + this section: any freeze fact neither carries dies with ' +
+            'the campaign, so audit the freeze for orphaned estate law before closing. (6) DRAIN the carry file ' +
             CARRY +
             ': every open row whose owner is a phase-5 surface lands here; re-verify each against disk first.',
     };
@@ -1113,61 +1121,123 @@ if (PHASE === '6') {
         ? 'The campaign base commit is ' + BASE + ' — the touched set is git diff --name-only ' + BASE + '..HEAD plus uncommitted changes.'
         : 'Derive the touched set from git: every commit whose message names the texture campaign plus uncommitted changes.';
 
-    const docgen = await agent(
-        'ROLE: phase-6 docgen closer for the texture campaign, full writer authority. ' +
-            baseNote +
-            ' Load the docgen skill, run its gate over every touched markdown surface, and repair to ZERO — structural moves ' +
-            'allowed, capability deletion forbidden. Then verify MANIFEST anchors still resolve after your repairs. Report the ' +
-            'fixlog.',
-        { label: 'docgen', phase: 'Gate', model: 'opus', effort: 'high', schema: FIXLOG },
-    );
+    // Three fable branch-finalizers, full writer authority, one per language — the terminal deep pass
+    // proving the campaign 100% landed and real, at the estate bar. Prose-gate ceremony deliberately absent.
+    const finalCharter = (branch, scope) =>
+        'ROLE: terminal fable REDTEAM-HARDENER for the ' +
+        branch +
+        ' branch of the texture campaign — the last substantive pass, full writer authority over your branch. ' +
+        baseNote +
+        ' READ FIRST, IN FULL: ' +
+        CAMPAIGN +
+        ' (amendments + phase-0 verdicts supersede), ' +
+        FREEZE +
+        ', docs/stacks/' +
+        branch +
+        '/ at source, your branch .planning core (ARCHITECTURE/RULINGS), and then DEEP-READ every campaign-touched page in your ' +
+        'territory END TO END: ' +
+        scope +
+        ' NO GIT MUTATIONS. Delegate navigation/heavy reading to opus subagents freely; judgment and writes stay yours.' +
+        '\n\nYOUR MANDATE, two duties in one pass — CLOSE every loose end so the campaign is 100% done and real in your branch, ' +
+        'AND push the estate past it with the full campaign-method redteam stance: every landed page is naive, shallow, or ' +
+        'illusory until it survives your attack, and a clean verdict is earned by finding nothing, never by looking at nothing: ' +
+        '(1) COMPLETENESS: every capability the campaign doc rules for your branch is fully realized in fences — nothing ' +
+        'partial, nothing example-grade, nothing faked, no stub dressed as finished work; a blocker resolved earlier in the ' +
+        'campaign never survives as a hedge in a fence. (2) CODE QUALITY at the docs/stacks bar and past it: typed rails, ' +
+        'bounded vocabularies, expression-shaped logic; exception control flow, mutable accumulation, imperative branching a ' +
+        'table can own, and hardcoded literals rebuilt on sight. (3) STRATA LEVERAGE: every fence composes the owner above it ' +
+        '— a hand-roll of kernel/runtime/core capability is a defect you rebuild on the owner; no overlooked imports, no ' +
+        'duplication between pages a shared owner should carry. (4) ULTRA-STACK .api: read the owning catalogs (both tiers) IN ' +
+        'FULL and extend fences to the full capability the catalogs carry; a shallow use of a member family is underutilized ' +
+        'and repairs by composition; a fence-proven member the catalog lacks gains its row same-pass. (5) COLLAPSE: spam, ' +
+        'near-duplicate types/ops, and knob sprawl collapse into denser polymorphic owners; naivety on coverage or approach is ' +
+        'rebuilt ground-up. (6) PACKAGES: every campaign-admitted package aligned both ways — central manifest, project ' +
+        'manifest, README registry, owning catalog, lockfile — proven with real commands. (7) RESEARCH ROWS: close every ' +
+        'campaign-relevant research row you can with evidence on its own route (member verification, live probes); app-specific ' +
+        'rows (app-shell, product-gated) STAY; a row you close deletes silently. (8) SYSTEM INTEGRATION: your branch texture ' +
+        'estate integrates into the systems the corpus already carries wherever relevant — storage (the content-addressed ' +
+        'blob/object plane: C# Persistence ObjectStore/ArtifactKind/LandingArm rows, TS object store s3 conditional-put + asset ' +
+        'serving arms, python storage-boundary receipt facts), analytics landings, observability instruments, bench workloads — ' +
+        'and every parameterized backend family stays FULLY parameterized: a backend selection changes VALUES never SHAPE, ' +
+        'every rostered arm (s3/azure-blob/gcs/minio/presigned and their peers) answers the same column set, and a texture ' +
+        'surface reaching only one arm of a rostered family is the defect this clause exists to catch. (9) COUNTERFACTUAL + ' +
+        'EXTEND: attack the fundamental approach of every major owner — remove its central dispatch, enumeration, or ' +
+        'hand-rolled kernel in thought and land the stronger form the removal exposes (the asset category-algebra rebuild is ' +
+        'the archetype); then EXTEND functionality beyond the landed code wherever the domain and the catalogs admit it — new ' +
+        'operations, modalities, and cases land as rows/arms INSIDE existing owners at the same bar, growth the diff-of-the-' +
+        'next-feature proves, never surface sprawl; the [02]-[SHAPE] category-general ruling at libs/.planning/RULINGS.md is ' +
+        'law for every shape you touch, and long-tail states (empty, singular, plural, stream, malformed, concurrent, ' +
+        'cancelled, partial-failure) preserve the declared rails on everything you land. ' +
+        LAW_MEMBER +
+        ' Truthfulness of prose matters; register polish does not.' +
+        '\n\nPRODUCT: fixlog with every residual typed ({files, claim, owner, class}) — cross-branch and governance findings ' +
+        'become residual rows (a sibling fable owns that branch), never foreign edits.';
 
-    const VERIFY = [
+    const FINAL = [
         {
-            key: 'verify-cs',
-            task:
-                'Cold-verify the C# half of the landed texture campaign. Read ' +
-                CAMPAIGN +
-                ' IN FULL (C# DESIGN + amendments) and ' +
-                FREEZE +
-                ', then the landed pages: libs/csharp/Rasm.Materials/.planning/Raster/ (all), Appearance/{environment,neural,' +
-                'texture,graph,acquisition,interchange,observability,benchmarks,analytics}.md, the Compute Model pages, AppUi ' +
-                'Render pages, Element/Bim/Persistence ripple pages, Materials README/ARCHITECTURE/RULINGS. Verify each campaign ' +
-                'claim LANDED and each amendment held (1-4, 6-13, 17-23); verify AppearanceSummary.Of arity uniform corpus-wide; ' +
-                'hunt fabricated members, phantom rosters, wire-freeze divergence, missing index rows. Facts with anchors; a ' +
-                'failed claim is a fact row with role defect.',
+            key: 'final-cs',
+            branch: 'csharp',
+            scope:
+                'libs/csharp/Rasm.Materials/.planning/ (Raster/ + Appearance/ whole + registries + .api), the Compute Model ' +
+                'pages, AppUi Render pages, Element/Bim/Persistence ripple pages, the kernel pages the campaign extended ' +
+                '(Numerics calculus/matrix, atoms), Directory.Packages.props + csproj surfaces.',
         },
         {
-            key: 'verify-py-ts',
-            task:
-                'Cold-verify the python and TS halves of the landed texture campaign. Read ' +
-                CAMPAIGN +
-                ' IN FULL (PYTHON + TS DESIGN + amendments 5, 14-16, 24-28) and ' +
-                FREEZE +
-                ', then: libs/python/artifacts/.planning/graphic/texture/ (all five), graphic/raster/{io,process}.md, ' +
-                'core/receipt.md, scene/stage.md, libs/python/runtime/.planning/transport/shapes.md, bench.md, artifacts ' +
-                'README/ARCHITECTURE/RULINGS, pyproject.toml; libs/typescript core census pages, data/object/asset.md, ui ' +
-                'viewer/scene.md, iac program/source.md, data README/RULINGS, pnpm-workspace.yaml. Verify every claim landed, ' +
-                'rosters transcribe wire-freeze exactly, probe-gated rows cite real verdicts, census↔landing pairs agree. Facts ' +
-                'with anchors; failures are fact rows with role defect.',
+            key: 'final-py',
+            branch: 'python',
+            scope:
+                'libs/python/artifacts/.planning/ (graphic/texture/ whole, graphic/raster io/process, core receipt/bench, ' +
+                'scene/stage, registries + .api), libs/python/runtime/.planning/transport/shapes.md, pyproject.toml + uv.lock.',
         },
         {
-            key: 'verify-gov',
-            task:
-                'Cold-verify the governance half of the landed texture campaign. Read ' +
-                CAMPAIGN +
-                ' IN FULL (CROSS-CUTTING + Verification sections) and ' +
-                FREEZE +
-                ', then: tests/contracts/MANIFEST.md + the schema fragment + tests/contracts/README.md, ' +
-                'libs/.planning/{ARCHITECTURE,RULINGS}.md, docs/laws/topology.md rows [17] and [40]-[43], docs/glossary/' +
-                '{domain,estate}.md, both branch ARCHITECTURE/RULINGS files, Directory.Packages.props + pyproject.toml + ' +
-                'pnpm-workspace.yaml package rows, and the .api catalogs the campaign added or moved. Verify every ' +
-                'minter/consumer coordinate resolves, every touch-point set aligns both ways, no dual-homed catalogs, the ' +
-                'Tier-0 repair landed verbatim. Facts with anchors; failures are fact rows with role defect.',
+            key: 'final-ts',
+            branch: 'typescript',
+            scope:
+                'libs/typescript/core/.planning/ census + convention pages, data/.planning/object/ (asset.md + siblings) + ' +
+                'data registries + .api, ui viewer pages, iac program/source.md, pnpm-workspace.yaml + package.json.',
         },
     ];
-    const verifies = (await parallel(VERIFY.map((v) => () => codexRead(v.key, v.task, SCRATCH + '/' + v.key + '.json', 'Recon')))).filter(Boolean);
-    log(verifies.filter((v) => v.ok).length + '/' + verifies.length + ' cold-verify lanes landed');
+    const finals = (
+        await parallel(
+            FINAL.map(
+                (f) => () =>
+                    agent(finalCharter(f.branch, f.scope), { label: f.key, phase: 'Write', model: 'fable', effort: 'high', schema: FIXLOG }).then(
+                        (r) => ({ key: f.key, ...(r || {}) }),
+                    ),
+            ),
+        )
+    ).filter(Boolean);
+    log('finalizers landed: ' + finals.map((f) => f.key + '(' + ((f.files || []).length || 0) + ' files)').join(' · '));
+
+    // Cross-branch parity + integration closer: the one lens no single-branch lane holds. Runs AFTER the
+    // three so it judges their landed state; branch fixlogs cross as sorted primitives.
+    const parity = await agent(
+        'ROLE: terminal fable PARITY + INTEGRATION closer for the texture campaign — full writer authority across all three ' +
+            'language branches. ' +
+            baseNote +
+            ' READ FIRST, IN FULL: ' +
+            CAMPAIGN +
+            ', ' +
+            FREEZE +
+            ', then the three branch finalizer fixlogs as UNVERIFIED claims: ' +
+            finals.map((f) => f.key + ' files: ' + ((f.files || []).slice().sort().join(' ') || 'none')).join('  ///  ') +
+            '. NO GIT MUTATIONS. YOUR LENS, cross-branch only: (1) FULL PARITY — for every frozen wire field, channel row, ' +
+            'transfer tag, payload class, and vocabulary member, census which branches produce/consume/realize it and land the ' +
+            'missing end wherever absence is a real gap rather than role-aware design (the freeze + manifest entries are the ' +
+            'contract; a field one branch writes that no consumer reads, or a capability two branches carry that the third ' +
+            'hand-rolls or lacks without a ruled reason, repairs NOW in that branch idiom, never as a copied fence). (2) ' +
+            'INTEGRATION SEAMS both ends: the texture estate reaches the storage/blob plane, analytics landings, observability ' +
+            'instruments, and bench workloads through the seams the corpus rules — verify each seam is recorded at BOTH folder ' +
+            'ARCHITECTURE ends and the parameterized backend families (s3/azure-blob/gcs/minio/presigned and peers) answer one ' +
+            'column set with textures riding every arm, never one. (3) Every repair lands in the owning branch page at that ' +
+            'branch bar; genuinely blocked work becomes typed residuals. ' +
+            LAW_MEMBER,
+        { label: 'final-parity', phase: 'Write', model: 'fable', effort: 'high', schema: FIXLOG },
+    );
+    const finalResiduals = finals
+        .flatMap((f) => f.residual || [])
+        .concat((parity && parity.residual) || [])
+        .filter((r) => r && r.class !== 'cosmetic');
 
     let open = null;
     for (let round = 0; round < DRAIN_ROUNDS; round++) {
@@ -1179,13 +1249,12 @@ if (PHASE === '6') {
                 ', full writer authority. Inputs: the campaign carry file ' +
                 CARRY +
                 (round === 0
-                    ? ' AND the cold-verify reports at ' +
-                      verifies
-                          .filter((v) => v.ok)
-                          .map((v) => v.report)
-                          .sort()
-                          .join(', ') +
-                      ' (read each IN FULL; every defect-role fact is a residual row)'
+                    ? ' AND the pooled finalizer/parity residual rows, verbatim: ' +
+                      JSON.stringify(
+                          finalResiduals
+                              .map((r) => ({ files: (r.files || []).slice().sort(), claim: r.claim, owner: r.owner, class: r.class }))
+                              .sort((a, b) => (a.files.join(',') + a.claim).localeCompare(b.files.join(',') + b.claim)),
+                      )
                     : ' (the prior round left only these open rows: ' + JSON.stringify(open) + ')') +
                 '. For each row: re-verify against CURRENT disk (a row a later stage already resolved is culled with proof); fix ' +
                 'the rest at root per the campaign doctrine — read ' +
@@ -1195,7 +1264,7 @@ if (PHASE === '6') {
                 ' before any wire or vocabulary edit; discard cosmetic-class rows. Rewrite ' +
                 CARRY +
                 ' to exactly the still-open remainder (each row naming its blocker and owner) and report resolved/open.',
-            { label: 'drain:' + (round + 1), phase: 'Drain', model: 'opus', effort: 'high', schema: DRAINLOG },
+            { label: 'drain:' + (round + 1), phase: 'Drain', model: 'fable', effort: 'high', schema: DRAINLOG },
         );
         const stillOpen = (drain && drain.open) || [];
         log('drain round ' + (round + 1) + ': ' + (((drain && drain.resolved) || []).length || 0) + ' resolved, ' + stillOpen.length + ' open');
@@ -1219,8 +1288,8 @@ if (PHASE === '6') {
 
     return {
         phase: 6,
-        docgen: { files: ((docgen && docgen.files) || []).length, summary: (docgen && docgen.summary) || '' },
-        verifies: verifies.map((v) => ({ key: v.key, ok: v.ok, entries: v.entries })),
+        finalizers: finals.map((f) => ({ key: f.key, files: (f.files || []).length, summary: f.summary || '' })),
+        parity: { files: ((parity && parity.files) || []).length, summary: (parity && parity.summary) || '' },
         open: open || [],
         custody: { files: ((custody && custody.files) || []).length, summary: (custody && custody.summary) || '' },
     };

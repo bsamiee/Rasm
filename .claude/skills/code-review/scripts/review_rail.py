@@ -3371,7 +3371,7 @@ GT_SIGS: Final[tuple[FaultSig, ...]] = (
         signature="oversized",
         remedy=(
             "client-side caps — 500 changed files, 50 config files, 3000000 payload bytes (U3 patches + paths + commit messages + config +"
-            " instructions); slice commits and review each vs the prior boundary"
+            " instructions); re-aim -b at a nearer boundary over the same commits"
         ),
     ),
     FaultSig(
