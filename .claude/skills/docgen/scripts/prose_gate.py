@@ -304,11 +304,10 @@ VERSION_BAND = re.compile(r"\b[A-Z][A-Za-z]*\s+\d{1,3}\+(?![+\d])")
 CITATION_LEAD = re.compile(r"(?:Table|Clause|Section|Annex|Figure|Chapter|Note|Part|§)\s*$")
 # Spaced double or triple hyphens ride prose as an em dash; the spelled character is the only legal interrupter.
 EM_DASH_ASCII = re.compile(r"(?<=\s)-{2,3}(?=\s)")
-# Interior-anchored pointers couple prose to a sibling's internals. Two shapes qualify: a file pointer carrying the
-# `.md` extension, which pins a physical path a move invalidates, and a path pointer whose anchor is not an
-# UPPERCASE_SNAKE section token, which reaches for a code symbol or a slug the target renumbers out from under it.
-# An extensionless `<path>/<page>#SECTION_TOKEN` reference names a public section header \u2014 the integration-point
-# notation a design corpus fixes as its one cross-owner form \u2014 so it stays legal and a bare owner mention always does.
+# Interior-anchored pointers couple prose to a sibling's internals, and two shapes qualify: a file pointer whose
+# `.md` extension pins a physical path a move invalidates, and a path pointer whose anchor is not an
+# UPPERCASE_SNAKE section token, reaching for a code symbol or a slug the target renumbers away. Extensionless
+# `<path>/<page>#SECTION_TOKEN` names a public section header, the one cross-owner form, so it stays legal beside a bare owner mention.
 STRATA_ROW_KEY = re.compile(r"^- S\d+(?:\u2013S?\d+)?\s")
 POINTER = re.compile(r"[\w./-]*\w\.md#[\w.-]+|\b[\w./-]+/[\w.-]+#(?![A-Z][A-Z0-9_]*(?![\w-]))[\w.-]+\b")
 # Deictic freshness and permission verbs warn: both admit context-legal uses review adjudicates.
@@ -352,6 +351,16 @@ COPULA_AVOIDANCE = re.compile(r"\b(?:serves|stands|functions|operates)\s+as\b|\b
 FILLER_WORD = re.compile(r"(?<![\w-])plus(?![\w-])", re.IGNORECASE)
 # Label-led paragraphs — `[LABEL] — prose` or `[LABEL]: prose` — are measured prose mass, never structure.
 LABELED_PARAGRAPH = re.compile(r"^\[[A-Z][A-Z0-9_]*\](?:-\[[A-Z][A-Z0-9_]*\])*(?: [\u2013\u2014] |: )\S")
+# Wrap evidence for a labeled paragraph, the one line shape that reads both as a record carrying its own body and
+# as a wrapped clause. Bare prose needs none \u2014 a blank line separates paragraphs, so adjacency alone proves the
+# break. The tail closes over the function words and dangling punctuation no clause ends on; the head over a
+# lowercase opener, a paragraph of its own opening on a capital, a code span, or a label.
+CONTINUATION_TAIL = re.compile(
+    r"(?:[,;]|\s[-\u2013\u2014]|\b(?:an?|the|and|or|nor|but|so|yet|for|of|to|in|on|at|by|with|from|into|onto|over|under"
+    r"|through|per|than|then|that|which|while|where|when|as|is|are|was|were|be|been|its|their|our|your|every|each))\s*$",
+    re.IGNORECASE,
+)
+CONTINUATION_HEAD = re.compile(r"[a-z]")
 
 # --- [CARD_GRAMMAR]
 # IDEAS/TASKLOG card files, design-page [RESEARCH] sections, and RULINGS.md registries census against the
@@ -416,6 +425,14 @@ class Front(StrEnum):
     PENDING = "pending"
     OPEN = "open"
     CLOSED = "closed"
+
+
+class Flow(StrEnum):
+    # What the preceding line leaves behind: CLOSED ends its logical unit, OPEN carries one the next prose line
+    # continues, PROBE reads complete yet sits in the labeled shape a wrap also takes, so its successor decides.
+    CLOSED = "closed"
+    OPEN = "open"
+    PROBE = "probe"
 
 
 class Repair(StrEnum):
@@ -769,7 +786,7 @@ def lex(path: Path, text: str, cap: int) -> tuple[Document, tuple[Row, ...]]:
     fence: tuple[str, int, int, str, int] | None = None
     diagram = PLAIN_FENCE
     payload_scope = "templates" not in path.parts and not teaching(path)
-    plain_run = False
+    flow = Flow.CLOSED
     last_rubric = ""
     template = "templates" in path.parts
     pointered = path.name not in ROUTING_FILES and not template and not teaching(path)
@@ -779,12 +796,12 @@ def lex(path: Path, text: str, cap: int) -> tuple[Document, tuple[Row, ...]]:
         if line.endswith((" ", "\t")):
             rows.append(row(path, number, Check.TRAILING_WHITESPACE, "fail", "line ends with space or tab; strip the trailing run"))
         if number <= skip_until:
-            plain_run = False
+            flow = Flow.CLOSED
             n += 1
             continue
         matched = FENCE.match(line)
         if fence is None and matched:
-            plain_run = False
+            flow = Flow.CLOSED
             marker, info = matched.group("marker"), matched.group("info").strip()
             tokens = info.lower().split()
             if not info:
@@ -814,7 +831,7 @@ def lex(path: Path, text: str, cap: int) -> tuple[Document, tuple[Row, ...]]:
             n += 1
             continue
         if fence is not None:
-            plain_run = False
+            flow = Flow.CLOSED
             closed, diagram, fenced_rows = fenced(path, line, number, fence, diagram, payload_scope, cap)
             rows.extend(fenced_rows)
             if closed:
@@ -881,7 +898,7 @@ def lex(path: Path, text: str, cap: int) -> tuple[Document, tuple[Row, ...]]:
                 body.append(split_cells(raw[cursor]))
                 cursor += 1
             tables.append(Table(number, cursor, indent, headers, aligns, tuple(body)))
-            plain_run = False
+            flow = Flow.CLOSED
             n = cursor
             continue
         if line.lstrip().startswith("|"):
@@ -929,9 +946,10 @@ def lex(path: Path, text: str, cap: int) -> tuple[Document, tuple[Row, ...]]:
         plain = (
             bool(stripped) and not line.startswith((" ", "\t")) and not stripped.startswith(PLAIN_EXCLUDED) and NUMBERED_LEAD.match(stripped) is None
         )
-        if plain and plain_run:
+        labeled = LABELED_PARAGRAPH.match(stripped) is not None
+        if plain and (flow is Flow.OPEN or (flow is Flow.PROBE and CONTINUATION_HEAD.match(stripped) is not None)):
             rows.append(row(path, number, Check.PROSE_WRAP, "fail", "hard-wrapped paragraph; write the paragraph as one logical line"))
-        if not template and (plain or LABELED_PARAGRAPH.match(stripped)):
+        if not template and (plain or labeled):
             sentence_count = len(SENTENCE_END.findall(" ".join(span.text for span in prose_spans(stripped, number))))
             if len(stripped) > PROSE_CHAR_CAP or sentence_count > PROSE_SENTENCE_CAP:
                 rows.append(
@@ -944,7 +962,7 @@ def lex(path: Path, text: str, cap: int) -> tuple[Document, tuple[Row, ...]]:
                         " cut 20-30% — kill restatements, tighten phrasing, split only where two concerns separate",
                     )
                 )
-        plain_run = plain
+        flow = Flow.OPEN if plain or (labeled and CONTINUATION_TAIL.search(stripped) is not None) else Flow.PROBE if labeled else Flow.CLOSED
         n += 1
     if fence is not None:
         rows.append(row(path, fence[2], Check.FENCE_UNCLOSED, "fail", "opening fence never closes; close it with a matching marker run"))

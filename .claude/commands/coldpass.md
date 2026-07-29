@@ -23,7 +23,7 @@ Opus, parallel, read-only — 3-4 lanes per in-scope branch plus cross lanes; ea
 |  [01]   | verify     | Branch landing verify: missing/weakened content, met-condition deferrals re-probed, naivety, density, ideas     |
 |  [02]   | systems    | Branch system planes: telemetry grammar, backend/storage generality for any payload, twins, handrolls           |
 |  [03]   | kernel-map | Substrate capability map at operator depth: owners, verified members, growth legs, LEVERAGE + WIDENING rows     |
-|  [04]   | kernel-dup | Downstream corpora vs kernel: twins, shadowing, should-sink rows ranked by cut ratio, owner + exact widening    |
+|  [04]   | kernel-dup | Downstream corpora vs kernel: twins, shadowing, SINK rows ranked by cut ratio, owner + exact widening           |
 |  [05]   | governance | Cross-tier coherence: MANIFEST/topology/glossary/rulings vs bound pages, single-owner forks, branch alignment   |
 |  [06]   | cards      | Card + [RESEARCH] census, every blocker re-probed: NOW, FALSE-BLOCKED, TRUE-BLOCKED, STALE, MISHOMED, DUPLICATE |
 
@@ -46,7 +46,7 @@ One fable writer per synthesized scope (typically per branch + one cross-tier), 
 - A-TO-Z: each finding lands fix-at-owner plus every obligated integration (instruments, receipts, bench, analytics, wire, registries, cards) AND the capability ripple it unleashes, in the same pass.
 - COLD PASS ON TOP: the roster is the floor — the writer re-derives its territory hostile-fresh and lands what recon missed.
 - QUALITY BAR: `docs/stacks/<language>/` read in full by the writer before any edit; collapse over addition, full parameterization, both `.api` tiers stacked into the strongest owning fence, strata sinks landed at the lowest reachable stratum.
-- DELEGATION: opus recon legs freely (findings only, never code); up to 4 fable sub-writers on disjoint-file territories, each carrying the full doctrine stack and an exact row slice; the coordinator keeps single-writer surfaces and cross-territory seams and closes with a terminal integration pass — smoothing, aligning, collapsing until the whole reads as one hand.
+- DELEGATION: opus recon legs freely (findings only, never code); up to 8 opus sub-writers on disjoint-file territories — the coordinator adjudicates the partition — each carrying the full doctrine stack and an exact row slice; the fable coordinator keeps single-writer surfaces and cross-territory seams, reviews and repairs each returning territory to its own bar, and closes with a terminal integration pass — smoothing, aligning, collapsing until the whole reads as one hand.
 - RECEIPT: typed per-row disposition; the orchestrator reconciles against the roster, re-dispatches gaps in-session, and reports each dispatch's improvements to the user.
 
 ## [05]-[CLOSE]
