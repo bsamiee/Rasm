@@ -74,17 +74,21 @@ Classes are `aws.*` with the prefix elided; `awsx.*` is called out. This bounded
 |  [07]   | network fabric             | `ec2.Vpc` / `Subnet` / `SecurityGroup` (or `awsx.ec2.Vpc`) | owned metal/VPS cluster network      |
 |  [08]   | identity / access          | `iam.Role` / `Policy` / `RolePolicyAttachment`             | k8s ServiceAccount + RBAC            |
 |  [09]   | cache                      | `elasticache.*` / `efs.*`                                  | in-cluster cache/volume rows         |
-|  [10]   | served-header edge (CDN)   | `cloudfront.Distribution` + `ResponseHeadersPolicy` + `OriginAccessControl` + `CachePolicy` | the `kube/traffic` edge row |
+|  [10]   | served-header edge (CDN)   | `cloudfront.Distribution`                                  | the `kube/traffic` edge row          |
 
 [ENTRYPOINT_SCOPE]: the cloudfront edge (the `Source.edge` render surface)
 
-| [INDEX] | [SURFACE]                                                                                        | [SHAPE] | [CAPABILITY]                                          |
-| :-----: | :----------------------------------------------------------------------------------------------- | :------ | :---------------------------------------------------- |
-|  [01]   | `new cloudfront.OriginAccessControl(name, { originAccessControlOriginType: "s3", signingBehavior: "always", signingProtocol: "sigv4" })` | ctor | private S3 origin access; `origins[].originAccessControlId` binds it |
-|  [02]   | `new cloudfront.CachePolicy(name, { minTtl, defaultTtl, maxTtl, parametersInCacheKeyAndForwardedToOrigin: { cookiesConfig: { cookieBehavior }, headersConfig: { headerBehavior }, queryStringsConfig: { queryStringBehavior }, enableAcceptEncodingBrotli, enableAcceptEncodingGzip } })` | ctor | owned cache-key policy; `cachePolicyId` on every behavior |
-|  [03]   | `new cloudfront.ResponseHeadersPolicy(name, { customHeadersConfig: { items: [{ header, value, override }] } })` | ctor | static response headers; one policy per path posture  |
-|  [04]   | `new cloudfront.Distribution(name, { enabled, origins, defaultCacheBehavior, orderedCacheBehaviors, restrictions: { geoRestriction: { restrictionType } }, viewerCertificate: { cloudfrontDefaultCertificate } })` | ctor | the front; a behavior binds `pathPattern` + `targetOriginId` + `viewerProtocolPolicy` + `allowedMethods`/`cachedMethods` + `responseHeadersPolicyId` |
+| [INDEX] | [SURFACE]                                                               | [SHAPE] | [CAPABILITY]                           |
+| :-----: | :---------------------------------------------------------------------- | :------ | :------------------------------------- |
+|  [01]   | `new cloudfront.OriginAccessControl(name, OriginAccessControlArgs)`     | ctor    | private S3 origin access               |
+|  [02]   | `new cloudfront.CachePolicy(name, CachePolicyArgs)`                     | ctor    | owned cache-key policy                 |
+|  [03]   | `new cloudfront.ResponseHeadersPolicy(name, ResponseHeadersPolicyArgs)` | ctor    | one policy per path posture            |
+|  [04]   | `new cloudfront.Distribution(name, DistributionArgs)`                   | ctor    | the front binding origins to behaviors |
 
+- `cloudfront.OriginAccessControl`: `originAccessControlOriginType: "s3"` with `signingBehavior: "always"` and `signingProtocol: "sigv4"`; `origins[].originAccessControlId` binds it to the distribution.
+- `cloudfront.CachePolicy`: `minTtl`/`defaultTtl`/`maxTtl` over `parametersInCacheKeyAndForwardedToOrigin`, whose `cookiesConfig.cookieBehavior`, `headersConfig.headerBehavior`, `queryStringsConfig.queryStringBehavior`, `enableAcceptEncodingBrotli`, and `enableAcceptEncodingGzip` fix the cache key; `cachePolicyId` rides every behavior.
+- `cloudfront.ResponseHeadersPolicy`: `customHeadersConfig.items[]` carries `header`, `value`, and `override` per static header.
+- `cloudfront.Distribution`: `enabled`, `origins`, `defaultCacheBehavior`, `orderedCacheBehaviors`, `restrictions.geoRestriction.restrictionType`, and `viewerCertificate.cloudfrontDefaultCertificate`; an ordered behavior binds `pathPattern`, `targetOriginId`, `viewerProtocolPolicy`, `allowedMethods`/`cachedMethods`, and `responseHeadersPolicyId`.
 - CloudFront binds the FIRST behavior whose `pathPattern` matches, so per-path headers order narrow to wide and each behavior's response policy carries the full header union its path owes — a wide behavior first silently strips every narrower posture.
 
 [ENTRYPOINT_SCOPE]: data-source invokes

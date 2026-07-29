@@ -57,7 +57,7 @@ Integration shape of the prepared row: the `provider/surface` `gcp` column maps 
 |  [09]   | serverless compute (alt to k8s)    | `cloudrunv2.Service` / `cloudrunv2.Job`                                         |
 |  [10]   | cache / queue                      | `redis.Instance`; `pubsub.Topic` + `pubsub.Subscription`                        |
 |  [11]   | networking substrate               | `compute.Network` + `compute.Subnetwork` + `compute.Firewall`                   |
-|  [12]   | served-header edge (CDN front)     | `compute.BackendBucket` + `compute.URLMap` + `compute.TargetHttpProxy` + `compute.GlobalForwardingRule` |
+|  [12]   | served-header edge (CDN front)     | `compute.BackendBucket` + `compute.URLMap`                                      |
 
 - Edge-render members (the `Source.edge` surface): `compute.BackendBucket(name, { bucketName, enableCdn })` fronts a GCS bucket; `compute.URLMap` carries `defaultService` + `hostRules: [{ hosts, pathMatcher }]` + `pathMatchers: [{ name, defaultService, routeRules }]`, each route rule `{ priority, service, matchRules, headerAction }` with `headerAction.responseHeadersToAdds: [{ headerName, headerValue, replace }]`; `matchRules` spell `prefixMatch` (leading `/`) or `pathTemplateMatch` (`*` one segment, `**` zero-or-more and last, suffix form `/**.ext` legal) — `regexMatch` is INTERNAL_SELF_MANAGED-only and unspellable on the external managed scheme; `compute.TargetHttpProxy(name, { urlMap })` and `compute.GlobalForwardingRule(name, { target, portRange, loadBalancingScheme: "EXTERNAL_MANAGED" })` complete the chain, route rules evaluating ascending `priority` and binding the first match.
 

@@ -80,28 +80,31 @@ USD authoring faults raise `Tf.ErrorException`; a wrong-arity or wrong-type call
 
 Whole-stage authoring is lazy — prims compose into the layer stack and write on `Save`/`Export`, the format following the path suffix.
 
-| [INDEX] | [SURFACE]                                  | [CAPABILITY]                                                                         |
-| :-----: | :----------------------------------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | `Usd.Stage.CreateNew`                      | `CreateNew(identifier, load=LoadAll)` -> `Usd.Stage`; new on-disk root-layer stage   |
-|  [02]   | `Usd.Stage.CreateInMemory`                 | `CreateInMemory(identifier='')` -> `Usd.Stage`; anonymous in-memory stage            |
-|  [03]   | `Usd.Stage.Open`                           | `Open(filePath, load=LoadAll)` -> `Usd.Stage`; open a `.usd`/`.usdc`/`.usda`/`.usdz` |
-|  [04]   | `Usd.Stage.DefinePrim`                     | `DefinePrim(path, typeName='')` -> `Usd.Prim`; define/fetch a prim at a path         |
-|  [05]   | `UsdGeom.<Schema>.Define`                  | `Mesh.Define(stage, path)` -> `UsdGeom.Mesh` (per schema); typed geometry prim       |
-|  [06]   | `UsdGeom.Mesh.CreatePointsAttr`            | `CreatePointsAttr(default, writeSparsely=False)` -> `Usd.Attribute`                  |
-|  [07]   | `UsdGeom.Mesh.CreateSubdivisionSchemeAttr` | `CreateSubdivisionSchemeAttr(...)`; `none` render mesh / `catmullClark` subdiv       |
-|  [08]   | `UsdGeom.Mesh.CreateExtentAttr`            | `CreateExtentAttr(...)` -> `Usd.Attribute`; `[min,max]` bbox extent for AR framing   |
-|  [09]   | `UsdGeom.PrimvarsAPI.CreatePrimvar`        | `CreatePrimvar(name, typeName, interpolation)`; `displayColor`/`st` primvar          |
-|  [10]   | `UsdShade.MaterialBindingAPI.Apply`        | `MaterialBindingAPI.Apply(prim)` + `.Bind(material)`; bind to prim/`Subset`          |
-|  [11]   | `UsdShade.Material.CreateDisplacementOutput` | `CreateDisplacementOutput(renderContext=UsdShade.Tokens.universalRenderContext)` -> `UsdShade.Output`; the CANONICAL displacement terminal — `_GetOutputName` namespaces per render context (`ri:displacement`, `glslfx:displacement`), so a hand-rolled `NodeGraph.CreateOutput("displacement", Sdf.ValueTypeNames.Token)` hardcodes the universal case and silently misses every context-specific terminal; `GetDisplacementOutput(renderContext=…)`/`GetDisplacementOutputs()` read, `ComputeDisplacementSource(renderContext=…)` resolves `(shader, sourceName, sourceType)` against the namespaced name with a universal fallback |
-|  [12]   | `UsdShade.Output.ConnectToSource`          | five overloads — `(source, mod=Replace)`, `(source, sourceName, sourceType=AttributeType.Output, typeName=Sdf.ValueTypeName())`, `(sourcePath)`, `(sourceInput)`, `(sourceOutput)`; the terminal connect rides `(sourceOutput)` output-to-output forwarding — a terminal is never an input connection |
-|  [13]   | `UsdSemantics.LabelsAPI.Apply`             | `LabelsAPI.Apply(prim, taxonomy)` + `.CreateLabelsAttr`; taxonomy-keyed AEC labels   |
-|  [14]   | `UsdGeom.SetStageUpAxis`                   | `SetStageUpAxis(stage, upAxis)` -> `bool`; stage up-axis (`UsdGeom.Tokens.y`/`z`)    |
-|  [15]   | `UsdGeom.SetStageMetersPerUnit`            | `SetStageMetersPerUnit(stage, metersPerUnit)` -> `bool`; stage linear scale          |
-|  [16]   | `Usd.Stage.SetDefaultPrim`                 | `SetDefaultPrim(prim)` -> `None`; name the default root prim (USDZ ref)              |
-|  [17]   | `Usd.Stage.GetRootLayer` / `Save`          | `GetRootLayer()` -> `Sdf.Layer`; `Sdf.Layer.Save()` -> `bool`; persist edits         |
-|  [18]   | `Usd.Stage.Export`                         | `Export(filename, addSourceFileComment=True)` -> `bool`; flatten + export            |
-|  [19]   | `Sdf.Layer.Export`                         | `Export(filename)` -> `bool`; export one layer (format by suffix)                    |
-|  [20]   | `Vt.<Type>Array.FromNumpy`                 | `Vt.<Type>Array.FromNumpy(array)`; zero-copy typed array, no `TokenArray`            |
+| [INDEX] | [SURFACE]                                    | [CAPABILITY]                                                                         |
+| :-----: | :------------------------------------------- | :----------------------------------------------------------------------------------- |
+|  [01]   | `Usd.Stage.CreateNew`                        | `CreateNew(identifier, load=LoadAll)` -> `Usd.Stage`; new on-disk root-layer stage   |
+|  [02]   | `Usd.Stage.CreateInMemory`                   | `CreateInMemory(identifier='')` -> `Usd.Stage`; anonymous in-memory stage            |
+|  [03]   | `Usd.Stage.Open`                             | `Open(filePath, load=LoadAll)` -> `Usd.Stage`; open a `.usd`/`.usdc`/`.usda`/`.usdz` |
+|  [04]   | `Usd.Stage.DefinePrim`                       | `DefinePrim(path, typeName='')` -> `Usd.Prim`; define/fetch a prim at a path         |
+|  [05]   | `UsdGeom.<Schema>.Define`                    | `Mesh.Define(stage, path)` -> `UsdGeom.Mesh` (per schema); typed geometry prim       |
+|  [06]   | `UsdGeom.Mesh.CreatePointsAttr`              | `CreatePointsAttr(default, writeSparsely=False)` -> `Usd.Attribute`                  |
+|  [07]   | `UsdGeom.Mesh.CreateSubdivisionSchemeAttr`   | `CreateSubdivisionSchemeAttr(...)`; `none` render mesh / `catmullClark` subdiv       |
+|  [08]   | `UsdGeom.Mesh.CreateExtentAttr`              | `CreateExtentAttr(...)` -> `Usd.Attribute`; `[min,max]` bbox extent for AR framing   |
+|  [09]   | `UsdGeom.PrimvarsAPI.CreatePrimvar`          | `CreatePrimvar(name, typeName, interpolation)`; `displayColor`/`st` primvar          |
+|  [10]   | `UsdShade.MaterialBindingAPI.Apply`          | `MaterialBindingAPI.Apply(prim)` + `.Bind(material)`; bind to prim/`Subset`          |
+|  [11]   | `UsdShade.Material.CreateDisplacementOutput` | `CreateDisplacementOutput(renderContext)` -> `UsdShade.Output`; canonical terminal   |
+|  [12]   | `UsdShade.Output.ConnectToSource`            | `ConnectToSource(sourceOutput)` -> `bool`; output-to-output forwarding               |
+|  [13]   | `UsdSemantics.LabelsAPI.Apply`               | `LabelsAPI.Apply(prim, taxonomy)` + `.CreateLabelsAttr`; taxonomy-keyed AEC labels   |
+|  [14]   | `UsdGeom.SetStageUpAxis`                     | `SetStageUpAxis(stage, upAxis)` -> `bool`; stage up-axis (`UsdGeom.Tokens.y`/`z`)    |
+|  [15]   | `UsdGeom.SetStageMetersPerUnit`              | `SetStageMetersPerUnit(stage, metersPerUnit)` -> `bool`; stage linear scale          |
+|  [16]   | `Usd.Stage.SetDefaultPrim`                   | `SetDefaultPrim(prim)` -> `None`; name the default root prim (USDZ ref)              |
+|  [17]   | `Usd.Stage.GetRootLayer` / `Save`            | `GetRootLayer()` -> `Sdf.Layer`; `Sdf.Layer.Save()` -> `bool`; persist edits         |
+|  [18]   | `Usd.Stage.Export`                           | `Export(filename, addSourceFileComment=True)` -> `bool`; flatten + export            |
+|  [19]   | `Sdf.Layer.Export`                           | `Export(filename)` -> `bool`; export one layer (format by suffix)                    |
+|  [20]   | `Vt.<Type>Array.FromNumpy`                   | `Vt.<Type>Array.FromNumpy(array)`; zero-copy typed array, no `TokenArray`            |
+
+- `UsdShade.Material.CreateDisplacementOutput`: `renderContext` defaults to `UsdShade.Tokens.universalRenderContext`, the empty token minting `outputs:displacement`; a named context namespaces the terminal, so `ri` mints `outputs:ri:displacement` and `glslfx` mints `outputs:glslfx:displacement`. `GetDisplacementOutput(renderContext)` and `GetDisplacementOutputs()` read them, and `ComputeDisplacementSource(renderContext)` resolves `(shader, sourceName, sourceType)` against the namespaced name with a universal fallback; `CreateSurfaceOutput` and `CreateVolumeOutput` carry the same render-context family.
+- `UsdShade.Output.ConnectToSource`: five overloads take `(sourceOutput)`, `(sourceInput)`, `(sourcePath)`, `(source, sourceName, sourceType=AttributeType.Output, typeName=Sdf.ValueTypeName())`, or `(source, mod=ConnectionModification.Replace)`; a material terminal rides the `(sourceOutput)` form.
 
 [ENTRYPOINT_SCOPE]: USDZ packaging, asset dependencies, and stage stats
 - rail: scene — `pxr.UsdUtils`

@@ -26,22 +26,22 @@
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                                    | [KIND]   | [CAPABILITY]                                                   |
-| :-----: | :----------------------------------------------------------- | :------- | :------------------------------------------------------------- |
-|  [01]   | `new FakeLogger(FakeLogCollector, string?)`                  | ctor     | direct double for a SUT taking `ILogger`                       |
-|  [02]   | `FakeLogCollector.Create(FakeLogCollectorOptions)`           | factory  | one collector shared across loggers                            |
-|  [03]   | `collector.GetSnapshot(bool clearRecords)`                   | evidence | the immutable record list a spec folds over                    |
-|  [04]   | `new MetricCollector<T>(Instrument<T>, TimeProvider?)`       | ctor     | bind a held pushed instrument                                  |
-|  [05]   | `new MetricCollector<T>(ObservableInstrument<T>, ...)`       | ctor     | bind a held pulled instrument                                  |
-|  [06]   | `new MetricCollector<T>(Meter, string, TimeProvider?)`       | ctor     | resolve by name on a factory-minted meter                      |
-|  [07]   | `new MetricCollector<T>(object?, string, string, ...)`       | ctor     | resolve by meter scope + meter name + instrument name          |
-|  [08]   | `collector.GetMeasurementSnapshot(bool clear)`               | evidence | every `CollectedMeasurement<T>` so far                         |
-|  [09]   | `collector.LastMeasurement` / `collector.Instrument`         | evidence | latest measurement; the bound instrument once published        |
-|  [10]   | `collector.RecordObservableInstruments()`                    | control  | force an observable-instrument observation                     |
-|  [11]   | `collector.Clear()`                                          | control  | drop captured measurements without re-binding                  |
-|  [12]   | `collector.WaitForMeasurementsAsync(int, CancellationToken)` | gate     | bounded wait for asynchronous emission                         |
-|  [13]   | `collector.WaitForMeasurementsAsync(int, TimeSpan)`          | gate     | the same wait under a wall timeout                             |
-|  [14]   | `services.AddFakeLogging(...)` / `sp.GetFakeLogCollector()`  | wiring   | host-built SUTs capture without touching their composition     |
+| [INDEX] | [SURFACE]                                                    | [KIND]   | [CAPABILITY]                                               |
+| :-----: | :----------------------------------------------------------- | :------- | :--------------------------------------------------------- |
+|  [01]   | `new FakeLogger(FakeLogCollector, string?)`                  | ctor     | direct double for a SUT taking `ILogger`                   |
+|  [02]   | `FakeLogCollector.Create(FakeLogCollectorOptions)`           | factory  | one collector shared across loggers                        |
+|  [03]   | `collector.GetSnapshot(bool clearRecords)`                   | evidence | the immutable record list a spec folds over                |
+|  [04]   | `new MetricCollector<T>(Instrument<T>, TimeProvider?)`       | ctor     | bind a held pushed instrument                              |
+|  [05]   | `new MetricCollector<T>(ObservableInstrument<T>, ...)`       | ctor     | bind a held pulled instrument                              |
+|  [06]   | `new MetricCollector<T>(Meter, string, TimeProvider?)`       | ctor     | resolve by name on a factory-minted meter                  |
+|  [07]   | `new MetricCollector<T>(object?, string, string, ...)`       | ctor     | resolve by meter scope + meter name + instrument name      |
+|  [08]   | `collector.GetMeasurementSnapshot(bool clear)`               | evidence | every `CollectedMeasurement<T>` so far                     |
+|  [09]   | `collector.LastMeasurement` / `collector.Instrument`         | evidence | latest measurement; the bound instrument once published    |
+|  [10]   | `collector.RecordObservableInstruments()`                    | control  | force an observable-instrument observation                 |
+|  [11]   | `collector.Clear()`                                          | control  | drop captured measurements without re-binding              |
+|  [12]   | `collector.WaitForMeasurementsAsync(int, CancellationToken)` | gate     | bounded wait for asynchronous emission                     |
+|  [13]   | `collector.WaitForMeasurementsAsync(int, TimeSpan)`          | gate     | the same wait under a wall timeout                         |
+|  [14]   | `services.AddFakeLogging(...)` / `sp.GetFakeLogCollector()`  | wiring   | host-built SUTs capture without touching their composition |
 
 ```csharp signature
 public class FakeLogger : ILogger {
