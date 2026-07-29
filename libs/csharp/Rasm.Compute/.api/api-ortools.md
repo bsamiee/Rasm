@@ -169,6 +169,19 @@
 |  [12]   | `SetBestBoundCallback(DoubleToVoidDelegate) / ClearBestBoundCallback()` | instance | bound streaming                      |
 |  [13]   | `Dispose()`                                                             | instance | releases native solver handles       |
 
+[ENTRYPOINT_SCOPE]: per-solution observation — `SolutionCallback` subclass `: IDisposable`, handed to `Solve`
+
+| [INDEX] | [SURFACE]                                                  | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :--------------------------------------------------------- | :------- | :----------------------------------- |
+|  [01]   | `virtual OnSolutionCallback()`                             | override | fires once per improving solution    |
+|  [02]   | `ObjectiveValue() / BestObjectiveBound()`                  | instance | incumbent and bound at this solution |
+|  [03]   | `NumBranches() / NumConflicts() / WallTime() / UserTime()` | instance | search counters at this solution     |
+|  [04]   | `SolutionIntegerValue(int) / SolutionBooleanValue(int)`    | instance | assignment read by variable index    |
+|  [05]   | `StopSearch()`                                             | instance | end the search from inside the hook  |
+
+- `SolutionCallback` carries BOTH halves of the optimality gap at every improving solution, so one subclass streams a completion fraction; pairing `SetBestBoundCallback` with a separate incumbent source is the split form.
+- CP-SAT's own search worker runs the hook and the subclass is `IDisposable`, so its lifetime brackets the `Solve` call and any cell it writes takes a concurrent-safe commit.
+
 [ENTRYPOINT_SCOPE]: `LinearExpr` term algebra — static factories and operators build `LinearExpr` (arithmetic) or `BoundedLinearExpression` (relational) for intake by `CpModel.Add`
 
 | [INDEX] | [SURFACE]                                         | [SHAPE]  | [CAPABILITY]                     |
@@ -265,7 +278,7 @@
 - `api-recyclable-stream`(`api-recyclable-stream.md`): serialized solve bytes rent a pooled `RecyclableMemoryStream` at the wire edge, never an ad hoc array.
 - `Solver/optimizer#OPTIMIZER_LANE`: `OptimizerKind` rows carry `cp-sat`/`milp`, lowering the typed `DesignProblem` to `CpModel`/`Solver` through the typed builder (`NewIntVar`/`MakeIntVar`/`MakeNumVar` over `DesignVariable` cases, never a string-parsed model); one `Optimize` fold discriminates on the row, and backend policy — `Solver.OptimizationProblemType`, the `solver_id` string, `CpSolver.StringParameters` `SatParameters` text, `SetSolverSpecificParametersAsString` — rides the row as data.
 - `Runtime/scheduling`: each NodaTime `Duration` folds to `Solver.SetTimeLimit(long)` / the `max_time_in_seconds` `SatParameters` key, and the solve elapsed (`WallTime()`) stamps the typed receipt.
-- `Runtime/progress`: `CpSolver.SetLogCallback`/`SetBestBoundCallback` and a `SolutionCallback` subclass stream search progress to the `Stats` sink, and `StopSearch()`/`InterruptSolve()` honor the channel deadline.
+- `Runtime/progress#PROGRESS_CELL`: optimality gap IS the anytime completion fraction an exact solve publishes, so `Solver/optimizer#OPTIMIZER_LANE`'s `SolutionCallback` subclass carries both halves at every improving solution while `CpSolver.SetBestBoundCallback` fills the bound between solutions, each advancing `ProgressCell.Advance` on the `Running` phase; `ClearBestBoundCallback()` releases the hook inside the same `using` the `CpSolver` handle holds, and `CpSolver.StopSearch()`/`Solver.InterruptSolve()` honor the channel deadline. Atom-backed commit under a solver-worker callback is the whole concurrency contract, and `Runtime/progress` composes no OR-Tools type.
 - `Analysis/circulation`: `Google.OrTools.Graph.MaxFlow` composes exit capacity for the egress runner — occupant-load supplies map onto space nodes, door/corridor widths onto arc capacities of the `ElementGraph` space-adjacency subgraph, `Solve(source, sink)` returns the evacuation throughput, and saturated arcs (`Flow == Capacity`) name the min-cut; `MinCostFlow` distributes load at least travel cost. Path/topology algebra is `QuikGraph`'s and the planar side `NetTopologySuite`/`Clipper2`'s; the flow concern alone is this module's, zero new central pins.
 
 [LOCAL_ADMISSION]:

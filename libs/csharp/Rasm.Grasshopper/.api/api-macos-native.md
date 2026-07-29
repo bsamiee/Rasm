@@ -172,11 +172,10 @@ Installed `Microsoft.macOS.dll` bindings own the native surface beneath an Eto-h
 |  [02]   | `CGAffineTransform.MakeIdentity() -> CGAffineTransform`            | factory  | identity transform       |
 |  [03]   | `NSColor.FromDisplayP3(NFloat, NFloat, NFloat, NFloat) -> NSColor` | factory  | Display-P3 color         |
 |  [04]   | `Runtime.GetNSObject<T>(nint) -> T?`                               | static   | handle-to-object marshal |
-|  [05]   | `MacConversions.{ToNSUI, ToNS, ToCG, ToEto}`                       | static   | Eto/AppKit value bridge  |
-|  [06]   | `CGConversions.{ToCG, ToEto}`                                      | static   | Eto/CoreGraphics bridge  |
 
+- The `Eto.Mac` value bridge — `MacConversions`, `CGConversions`, `MacControlExtensions` — is tabled at member depth by `.api/api-eto-platform`, which owns the `Eto.macOS` partition; this catalog registers it and adds only the AppKit-side facts a conversion call site needs.
 - `MacConversions.ToEto(CGPoint, NSView)` treats the point as window coordinates through `ConvertPointFromView(point, null)` and flips Y when the view is not flipped.
-- `MacConversions.ToNS(CGColor)` and `CGConversions.ToCG(NSColor)` return runtime null for null inputs; `CGConversions.ToCG(IMatrix)` returns identity for a null matrix; `ToEto(CGColor)` throws for unsupported component layouts, and conversion ownership stays in `Eto.Mac`.
+- `MacConversions.ToNS(CGColor)` returns runtime null for a null input; `CGConversions.ToCG(NSColor)` returns the colour in ITS OWN space on its primary arm, so a `NSColor.FromDisplayP3` mint reaches `CALayer.BackgroundColor`/`BorderColor`/`FillColor`/`StrokeColor` wide-gamut intact, while its fallback arms re-space to sRGB or floor at opaque black without signalling — a wide-colour crossing asserts the returned `ColorSpace` instead of trusting the call.
 
 [ENTRYPOINT_SCOPE]: screen capture and raster egress
 

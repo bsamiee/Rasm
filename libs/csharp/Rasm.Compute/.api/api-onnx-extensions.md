@@ -11,6 +11,7 @@
 - asset: native custom-operator runtime assets (`libortextensions`/`ortextensions`) and per-TFM MSBuild build targets
 - build TFM: a `net10.0` non-mobile consumer binds the `netstandard2.0` `build`/`buildTransitive` targets; no `net8.0`/`net9.0` build folder ships, the remaining targets are mobile and legacy TFMs
 - rail: model
+- verification: no managed assembly ships, so the decompile rail is inapplicable by construction and every claim here verifies against the package's own MSBuild targets and the `Microsoft.ML.OnnxRuntime` entry that loads the asset
 
 ## [02]-[PACKAGE_ASSETS]
 

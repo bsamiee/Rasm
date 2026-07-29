@@ -1,6 +1,6 @@
 # [RASM_COMPUTE_API_GENETICSHARP]
 
-`GeneticSharp` owns the genetic-algorithm engine behind the `optimizer#OPTIMIZER_LANE` `Nsga2` and `RobustMinimax` rows the exact CP-SAT/MILP lane cannot reach: the full genetic-operator algebra and the parallel-evaluation executor behind one `GeneticAlgorithm`. Every operator is a single-method interface, so one `Optimizer.Steps` fold composes the operator set a row declares; `IFitness.Evaluate` is the sole coupling to the solve `evaluate` oracle, `ITaskExecutor` parallelizes fitness onto the bounded compute lanes, and the solve fault lifts to `ComputeFault`.
+`GeneticSharp` owns the genetic-algorithm engine behind the `optimizer#OPTIMIZER_LANE` `Nsga2` and `RobustMinimax` rows the exact CP-SAT/MILP lane cannot reach: the full genetic-operator algebra and the parallel-evaluation executor behind one `GeneticAlgorithm`. Every operator is a single-method interface, so one `Optimizer.Optimize` dispatch arm composes the operator set a row declares; `IFitness.Evaluate` is the sole coupling to the solve `evaluate` oracle, `ITaskExecutor` parallelizes fitness onto the bounded compute lanes, and the solve fault lifts to `ComputeFault`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -69,16 +69,16 @@
 
 [PUBLIC_TYPE_SCOPE]: parallel execution and operator strategy — the seam to the bounded compute lanes
 
-| [INDEX] | [SYMBOL]                                                              | [TYPE_FAMILY]     | [CAPABILITY]                                 |
-| :-----: | :-------------------------------------------------------------------- | :---------------- | :------------------------------------------- |
-|  [01]   | `ITaskExecutor` / `TaskExecutorBase`                                  | executor contract | `Add(Action)` / `Start` / `Stop` / `Timeout` |
-|  [02]   | `LinearTaskExecutor`                                                  | serial executor   | sequential fitness evaluation                |
-|  [03]   | `ParallelTaskExecutor`                                                | thread executor   | thread-bounded parallel fitness evaluation   |
-|  [04]   | `TplTaskExecutor`                                                     | TPL executor      | `Task`-parallel fitness evaluation           |
-|  [05]   | `IOperatorsStrategy` / `OperatorsStrategyBase`                        | operator strategy | how crossover/mutation apply across parents  |
-|  [06]   | `DefaultOperatorsStrategy` / `TplOperatorsStrategy` / `TplPopulation` | operator strategy | serial vs TPL-parallel operator application  |
-|  [07]   | `IRandomization` / `BasicRandomization`                               | RNG               | seedable randomization base                  |
-|  [08]   | `FastRandomRandomization` / `RandomizationProvider`                   | RNG               | fast RNG + global provider                   |
+| [INDEX] | [SYMBOL]                                            | [TYPE_FAMILY]     | [CAPABILITY]                                 |
+| :-----: | :-------------------------------------------------- | :---------------- | :------------------------------------------- |
+|  [01]   | `ITaskExecutor` / `TaskExecutorBase`                | executor contract | `Add(Action)` / `Start` / `Stop` / `Timeout` |
+|  [02]   | `LinearTaskExecutor`                                | serial executor   | sequential fitness evaluation                |
+|  [03]   | `ParallelTaskExecutor`                              | thread executor   | thread-bounded parallel fitness evaluation   |
+|  [04]   | `TplTaskExecutor`                                   | TPL executor      | `Task`-parallel fitness evaluation           |
+|  [05]   | `IOperatorsStrategy` / `OperatorsStrategyBase`      | operator strategy | how crossover/mutation apply across parents  |
+|  [06]   | `DefaultOperatorsStrategy` / `TplOperatorsStrategy` | operator strategy | serial vs TPL-parallel operator application  |
+|  [07]   | `IRandomization` / `BasicRandomization`             | RNG               | seedable randomization base                  |
+|  [08]   | `FastRandomRandomization` / `RandomizationProvider` | RNG               | fast RNG + global provider                   |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -135,6 +135,10 @@
 |  [03]   | `ITaskExecutor.Timeout { get; set }` / `IsRunning { get }`                  | property | per-generation deadline + running flag       |
 |  [04]   | `RandomizationProvider.Current { get; set }`                                | static   | global RNG source (seed for reproducibility) |
 |  [05]   | `ParallelTaskExecutor.MinThreads` / `MaxThreads { get; set }`               | property | min/max worker threads (default `200`)       |
+|  [06]   | `FastRandomRandomization.ResetSeed(int?)`                                   | static   | pins the seed and rebuilds the thread pool   |
+
+- `RandomizationProvider.Current` selects WHICH generator; `FastRandomRandomization.ResetSeed` is the only member that pins WHAT it draws — assigning the provider alone leaves a `DateTime.Now.Millisecond`-seeded global feeding every new thread's stream.
+- `ResetSeed` stores the seed and replaces the `ThreadLocal<FastRandom>`, so every worker thread seeds from that ONE value: a seeded parallel evaluation draws the same stream on each thread, which makes a run reproducible and makes per-thread stream independence unreachable on this row.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -143,18 +147,19 @@
 - every operator is a single-method interface, so a row selects an operator set; `AndTermination`/`OrTermination` take `params ITermination[]`, composing convergence rather than branching it.
 - `IFitness.Evaluate` is the sole objective coupling; `FuncFitness` adapts an inline `Func<IChromosome, double>` oracle.
 - parallelism has two seams: `ITaskExecutor` batches fitness evaluations, `IOperatorsStrategy` applies genetic operators across parents.
-- `RandomizationProvider.Current` is the global RNG (`BasicRandomization`/`FastRandomRandomization`); seeding it makes a run reproducible.
+- `RandomizationProvider.Current` is the global RNG (`BasicRandomization`/`FastRandomRandomization`); the provider assignment picks the generator and `FastRandomRandomization.ResetSeed` pins its draw, so reproducibility needs both statements and the assignment alone leaves the run entropy-seeded.
 
 [STACKING]:
-- optimizer rows: `GeneticAlgorithm` is the proposal kernel the `optimizer#OPTIMIZER_LANE` `Nsga2` and `RobustMinimax` rows bind on the `Optimizer.Steps` table; one `Optimize` entry discriminates on the row, so an `Nsga2Engine` sibling beside the table is the collapsed form.
+- optimizer rows: `GeneticAlgorithm` is the proposal kernel the `optimizer#OPTIMIZER_LANE` `Nsga2` and `RobustMinimax` rows both bind through the one `GeneticEngine.Evolve` capsule; the `Optimize` total `Switch` discriminates on `OptimizerKind`, so an `Nsga2Engine` sibling beside that dispatch is the DELETED form.
 - genome ↔ design variables: the `DesignVariable` cases map to encodings — `Continuous`/`Density` → `FloatingPointChromosome` (per-variable vector ctor over `minValue`/`maxValue`/`totalBits`/`fractionDigits`), `Integer` → `IntegerChromosome`, `Categorical` → a discrete-gene `ChromosomeBase`, `Linked` resolved by `DesignProblem.Resolve` before encoding.
 - fitness ↔ evaluate oracle: `IFitness.Evaluate` via `FuncFitness` calls the `Solver/contract#SOLVE_CONTRACT` `evaluate` oracle — a full `SolveLane.Solve` or a `Surrogate.Predict` — so the search is contract-uniform with the gradient/Bayesian rows; the `ComputeReceipt` and `ParetoFront` accumulation stay the optimizer page's.
 - NSGA-II: the `Nsga2` row supplies a custom multi-objective `IFitness` and a `(rank, crowding)` `TournamentSelection`, folding non-dominated sorting + crowding onto the optimizer `ParetoFront`; GeneticSharp gives the population/operator machinery, the dominance comparator is the optimizer page's.
 - parallel lanes: `ParallelTaskExecutor`/`TplTaskExecutor` evaluate the population under the `Runtime/scheduling#LANE_AXIS` bounded budget with `MaxThreads` capped to the CPU lane; `ITaskExecutor.Timeout` takes the scheduling deadline (`Duration` → `TimeSpan`) and `GeneticAlgorithm.Stop()` honors cooperative cancellation.
-- progress + reproducibility: the `GenerationRan`/`TerminationReached`/`Stopped` events stream to the `Runtime/progress#PROGRESS_CELL` sink and stamp `TimeEvolving`/`GenerationsNumber` on the receipt; `RandomizationProvider.Current` seeded from the `OptimizerPolicy` makes a run deterministic, the seed riding the receipt.
+- progress: the `GenerationRan`/`TerminationReached`/`Stopped` events stream to the `Runtime/progress#PROGRESS_CELL` sink and stamp `TimeEvolving`/`GenerationsNumber` on the receipt.
+- reproducibility: `RandomizationProvider.Current` and `FastRandomRandomization.ResetSeed(OptimizerPolicy.Seed)` together make a run deterministic, the seed riding the receipt; both bind inside the evolve capsule that owns the run, since the provider is process-global and a concurrent second search re-pins it mid-generation.
 
 [LOCAL_ADMISSION]:
-- `Nsga2` and the `RobustMinimax` outer search select the GA on the one `Optimizer.Steps` table; `CmaEs`/`Pso`/`SimulatedAnnealing` are genuine in-package covariance/swarm/annealing kernels no package owns, never this engine with swapped operators.
+- `Nsga2` and the `RobustMinimax` outer search select the GA on the one `Optimize` total `Switch`; `CmaEs`/`Pso`/`SimulatedAnnealing` are genuine in-package covariance/swarm/annealing kernels no package owns, never this engine with swapped operators.
 - genome encoding follows the `DesignVariable` case, the operator set is row data, and termination is a composite `ITermination` — none branched inside a helper.
 - exact integer/combinatorial solve stays the `api-ortools` CP-SAT/MILP lane; routing a genuinely exact problem through the GA is the rejected pick.
 

@@ -211,6 +211,31 @@ Every graph interface named in a signature is `<TVertex, TEdge>`-parameterized a
 - `ReversedEdgeAugmentorAlgorithm` mints one reverse per edge, so a graph whose domain already carries both directions constructs with `allowParallelEdges: true`; `false` silently drops half the residual capacity and the solve cuts the wrong edges.
 - `Edge<TVertex>` declares `Source`, `Target`, and `ToString` alone, so its identity is its INSTANCE — a capacity or weight map keyed by it under `ReferenceEqualityComparer` distinguishes an augmentor-minted reverse from the arc it duplicates. `SEdge<TVertex>` and `EquatableEdge<TVertex>` carry value identity, so the same map collapses those two onto one entry and hands the solver twice the residual capacity the arc carries.
 
+[ENTRYPOINT_SCOPE]: combinatorial objects — assignment, balanced partition, coloring, condensation, union-find; each `AlgorithmBase` object runs via `Compute()` and publishes its product as a property
+
+| [INDEX] | [SURFACE]                                                                    | [SHAPE]  | [CAPABILITY]                              |
+| :-----: | :--------------------------------------------------------------------------- | :------- | :---------------------------------------- |
+|  [01]   | `HungarianAlgorithm(int[,] costs)`                                           | ctor     | assignment over an agent-x-task matrix    |
+|  [02]   | `HungarianAlgorithm.Compute() -> int[]`                                      | instance | task index per agent row                  |
+|  [03]   | `HungarianAlgorithm.AgentsTasks -> int[]`                                    | instance | the computed assignment, re-readable      |
+|  [04]   | `HungarianAlgorithm.GetIterations() -> IEnumerable<HungarianIteration>`      | instance | per-step matrix/mask/row-col evidence     |
+|  [05]   | `KernighanLinAlgorithm(IUndirectedGraph<TVertex, TEdge>, int nbIterations)`  | ctor     | balanced bisection over tagged edges      |
+|  [06]   | `KernighanLinAlgorithm.Partition -> Partition<TVertex>`                      | instance | product after `Compute()`                 |
+|  [07]   | `Partition<TVertex>` — `VertexSetA`/`VertexSetB` sorted sets, `CutCost`      | struct   | the two halves and the crossing weight    |
+|  [08]   | `VertexColoringAlgorithm(IUndirectedGraph<TVertex, TEdge>)`                  | ctor     | greedy coloring, `IEdge` edges            |
+|  [09]   | `VertexColoringAlgorithm.Colors -> IDictionary<TVertex, int?>`               | instance | color index per vertex after `Compute`    |
+|  [10]   | `CondensationGraphAlgorithm(IVertexAndEdgeListGraph<TVertex, TEdge>)`        | ctor     | `TGraph : IMutableVertexAndEdgeSet`       |
+|  [11]   | `CondensationGraphAlgorithm.CondensedGraph`                                  | instance | condensed bidirectional component graph   |
+|  [12]   | `CondensationGraphAlgorithm.StronglyConnected -> bool`                       | instance | SCC (`true`, default) or weak contraction |
+|  [13]   | `ForestDisjointSet()` / `ForestDisjointSet(int capacity)`                    | ctor     | union-find forest                         |
+|  [14]   | `ForestDisjointSet.MakeSet(T)` / `.FindSet(T) -> T` / `.Union(T, T) -> bool` | instance | singleton mint, representative, merge     |
+|  [15]   | `ForestDisjointSet.AreInSameSet(T, T) -> bool` / `.Contains(T) -> bool`      | instance | membership predicates                     |
+|  [16]   | `ForestDisjointSet.SetCount` / `.ElementCount -> int`                        | instance | live partition census                     |
+
+- `KernighanLinAlgorithm<TVertex, TEdge>` lives at `QuikGraph.Algorithms.GraphPartition` and constrains `TEdge : IUndirectedEdge<TVertex>, ITagged<double>` — the cut weight IS the edge `Tag`, so a weightless bisection tags every edge `1.0`; `Partition<TVertex>` sorts both halves, so `TVertex` is `IComparable` in practice.
+- `VertexColoringAlgorithm<TVertex, TEdge>` lives at `QuikGraph.Algorithms.VertexColoring`; `Colors` values are dense from `0`, so `Colors.Values.Max() + 1` is the batch count and one color class is one non-conflicting concurrent batch.
+- `CondensationGraphAlgorithm<TVertex, TEdge, TGraph>` lives at `QuikGraph.Algorithms.Condensation`; `HungarianAlgorithm` at `QuikGraph.Algorithms.Assignment` binds no graph container — its whole input is the rectangular `int[,]` cost matrix; `ForestDisjointSet<T>` at `QuikGraph.Collections` — `Union` returns `true` only when it merged two distinct sets.
+
 [ENTRYPOINT_SCOPE]: `GraphExtensions` container projection — every conversion mints a new container over the source's vertices and edges
 
 | [INDEX] | [SURFACE]                                                                                      | [SHAPE] | [CAPABILITY]                |
@@ -265,7 +290,7 @@ Every graph interface named in a signature is `<TVertex, TEdge>`-parameterized a
 - `LanguageExt.Core`(`.api/api-languageext.md`): `Try.lift(...).Run()` traps `NonAcyclicGraphException`, `NegativeCycleGraphException`, `NoPathFoundException`, and `VertexNotFoundException` onto `Fin<A>`, and a `TryFunc` `bool`-plus-`out` result converts on the same seam.
 - `NetTopologySuite`(`.api/api-nettopologysuite.md`): `STRtree<T>.Query(Envelope)` mints the candidate pairs a domain fold turns into edges; NTS owns planar predicate topology and this package the incidence algebra over the resulting graph.
 - `Thinktecture.Runtime.Extensions`(`.api/api-thinktecture-runtime-extensions.md`): `[SmartEnum<TKey>]` vertex keys and `[ValueObject<T>]` weights cross in as `TVertex` and `Func<TEdge, double>`, and every ordering, component map, and path leaves onto a generated receipt.
-- Within-library: one domain fold mints `AdjacencyGraph` or `BidirectionalGraph` per owner, `ToArrayBidirectionalGraph` freezes the content-keyed snapshot the memo binds, `FilteredBidirectionalGraph` scopes a subproblem without a second materialization, `DelegateVertexAndEdgeListGraph` serves a lazily-adjacent domain index outright, and one attached observer set projects the traversal onto the typed receipt. `Rasm.Materials/Appearance/graph#MATERIAL_GRAPH` folds the appearance DAG onto `IsDirectedAcyclicGraph` and `SourceFirstTopologicalSort`, and `Rasm.Materials/Raster/tile#TILE_SYNTH` binds the flow objects directly — the seam cut needs `ResidualCapacities`, which the `AlgorithmExtensions.MaximumFlow` entry does not surface.
+- Within-library: one domain fold mints `AdjacencyGraph` or `BidirectionalGraph` per owner, `ToArrayBidirectionalGraph` freezes the content-keyed snapshot the memo binds, `FilteredBidirectionalGraph` scopes a subproblem without a second materialization, `DelegateVertexAndEdgeListGraph` serves a lazily-adjacent domain index outright, and one attached observer set projects the traversal onto the typed receipt. `Rasm.Materials/Appearance/graph#MATERIAL_GRAPH` folds the appearance DAG onto `IsDirectedAcyclicGraph` and `SourceFirstTopologicalSort`, and `Rasm.Materials/Raster/tile#TILE_SYNTH` binds the flow objects directly — the seam cut needs `ResidualCapacities`, which the `AlgorithmExtensions.MaximumFlow` entry does not surface. `Rasm.Compute/Runtime/scheduling#JOB_GRAPH` composes the ordering, condensation, and colouring objects over the job DAG, and `Rasm.Compute/Runtime/payload#RESIDENCY` binds `ForestDisjointSet` for the meshlet shell partition and `KernighanLinAlgorithm` for cluster bisection.
 
 [LOCAL_ADMISSION]:
 - `AlgorithmExtensions` is the entry rail over a domain-folded graph; an algorithm object binds only where traversal events, mutable component state, or augmentation lifecycle are part of the result contract.

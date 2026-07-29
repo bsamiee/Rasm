@@ -110,7 +110,9 @@
 [`IPreparedGeometry`]: `Geometry` `Intersects` `Disjoint` `Contains` `ContainsProperly` `Within` `Covers` `CoveredBy` `Crosses` `Overlaps` `Touches`
 [`AffineTransformation`]: `TranslationInstance` `RotationInstance` `ScaleInstance` `ShearInstance` `ReflectionInstance` `Translate` `Rotate` `Scale` `Shear` `Reflect` `Compose` `ComposeBefore` `GetInverse` `Determinant` `MatrixEntries` `IsIdentity`
 [`GeometryFixer`]: `KeepCollapsed` `KeepMulti` `GetResult`
-[`IsValidOp`]: `IsValid` `ValidationError` `IsSelfTouchingRingFormingHoleValid`
+[`IsValidOp`]: `IsValid` `ValidationError` `SelfTouchingRingFormingHoleValid` `IsSelfTouchingRingFormingHoleValid` — the ctor takes the geometry, `CheckValid(Geometry)` is the static bool, and `ValidationError` is the `TopologyValidationError` the bool discards
+[`TopologyValidationError`]: `Coordinate` `ErrorType` `Message` — `ctor(TopologyValidationErrors, Coordinate)` and `ctor(TopologyValidationErrors)`
+[`TopologyValidationErrors`]: `NoInvalidIntersection`(-1) `HoleOutsideShell`(2) `NestedHoles` `DisconnectedInteriors` `SelfIntersection` `RingSelfIntersection` `NestedShells` `DuplicateRings` `TooFewPoints` `InvalidCoordinate` `RingNotClosed`(11)
 [`BufferParameters`]: `QuadrantSegments` `EndCapStyle` `JoinStyle` `MitreLimit` `IsSingleSided` `SimplifyFactor` `Copy`
 [`EndCapStyle`]: `Round` `Flat` `Square`
 [`JoinStyle`]: `Round` `Mitre` `Bevel`
@@ -244,6 +246,7 @@
 [`DelaunayTriangulationBuilder`]: `SetSites` `Tolerance` `GetSubdivision` `ExtractUniqueCoordinates`
 [`VoronoiDiagramBuilder`]: `SetSites` `ClipEnvelope` `Tolerance` `GetSubdivision`
 [`LengthIndexedLine`]: `StartIndex` `EndIndex` `IndicesOf` `IndexOfAfter` `IsValidIndex` `ClampIndex`
+[`LinearLocation`]: `ComponentIndex` `SegmentIndex` `SegmentFraction` `IsVertex` `GetCoordinate` `GetSegment` `IsValid` `Clamp` `SnapToVertex` — `LocationIndexedLine.Project`/`IndexOf` return it
 
 - `LinearLocation` addresses a component index and a segment fraction, so `LocationIndexedLine` survives a vertex-count change that shifts every length index.
 

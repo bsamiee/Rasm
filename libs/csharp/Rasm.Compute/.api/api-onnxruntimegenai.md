@@ -12,6 +12,7 @@
 - depends: `Microsoft.ML.OnnxRuntime` — the genai native payload co-locates per-RID beside the base `libonnxruntime` payload; `api-onnxruntime` owns the base ABI matrix and EP roster
 - depends: `Microsoft.Extensions.AI.Abstractions` — the managed facade's `OnnxRuntimeGenAIChatClient` implements its `IChatClient`; `libs/csharp/.api/api-extensions-ai.md` owns that contract surface whole
 - rail: model
+- verification: the package resolves NO assay `--key` (probe: `api query Generator` returns `status:unsupported`), exactly as the base `api-onnxruntime` key does, so every member here verifies against this catalog or the published API reference, never the decompile rail
 
 ## [02]-[PUBLIC_TYPES]
 

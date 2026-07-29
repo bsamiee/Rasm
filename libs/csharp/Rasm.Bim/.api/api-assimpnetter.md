@@ -40,7 +40,7 @@
 |  [07]   | `BoundingBox`           | record struct         | per-mesh AABB from `GenerateBoundingBoxes`      |
 
 - [SCENE]: `Meshes` `Materials` `Lights` `Cameras` `Textures` `Animations` collections with `Has*`/`*Count`; `FindBone`, `GetEmbeddedTexture`, `Metadata`.
-- [MESH]: `Vertices` `Normals` `Tangents` `BiTangents` are `List<Vector3>`; `Bones`, `PrimitiveType`, `MaterialIndex`; `TextureCoordinateChannels[set]`/`VertexColorChannels[set]` are per-set arrays read behind `*ChannelCount`.
+- [MESH]: `Vertices` `Normals` `Tangents` `BiTangents` are `List<Vector3>`; `Bones`, `PrimitiveType`, `MaterialIndex`; `TextureCoordinateChannels[set]`/`VertexColorChannels[set]` are per-set arrays read behind `*ChannelCount`, with `HasVertexColors(int)`/`HasTextureCoords(int)` the per-set presence probes. This assembly compiles against `System.Numerics`, so a `VertexColorChannels` entry is `List<Vector4>` whose `X`/`Y`/`Z`/`W` components are already on the unit interval, and `UVComponentCount[set]` declares a coordinate set's real width against the `Vector3` every set is stored as.
 - `Node.Transform`: an `Assimp.Matrix4x4` column-vector struct distinct from `System.Numerics.Matrix4x4` — the numerics conversion transposes; `MeshIndices` index `Scene.Meshes` up the `Parent` chain.
 - `Metadata.Entry`: `readonly record struct (MetaDataType DataType, object Data)` with typed `DataAs<T>()`; carries authoring-tool unit and up-axis facts.
 

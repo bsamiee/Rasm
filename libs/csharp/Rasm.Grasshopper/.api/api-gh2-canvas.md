@@ -76,6 +76,8 @@
 |  [05]   | `Canvas.DocumentChanged` / `DocumentModified`            | event    | document-swap and dirty-state facts               |
 
 - `Canvas.ResolvePick`: five bools — `includeGrips`, `includeForeground`, `includeBackground`, `includeWires`, `recursive`; inherited from `FlexControl`, reads the `DrawPickMap` buffer
+- `DragPickingMode` (`Grasshopper2.UI.Canvas`, public enum) is GH2's own drag-grain vocabulary: `Default` defers to keyboard state, `SubObject` drags sub-objects where supported, `OneObject` drags whole objects, `AllObjects` drags every object in a parameter at once. It is the ONLY published pick vocabulary — a category roster naming surfaces, wires, or "everything" is a local invention with no host counterpart.
+- The host's own resolver is unreachable: `ResolvePickMode(bool shift, bool control)` is `public` on `Canvas.ViewportMouseDragger`, a PRIVATE nested class, so no consumer can call it. Its law is what composes instead — `Default` resolves to `AllObjects` under shift and `OneObject` otherwise, and `control` is accepted and unread — and a folder re-spelling that law states it as a row column against this line, never as a fresh policy.
 
 [ENTRYPOINT_SCOPE]: hosted editors, window-select gates, snap axes (`Grasshopper2.UI.Canvas`)
 

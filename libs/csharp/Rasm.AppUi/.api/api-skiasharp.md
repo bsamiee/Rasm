@@ -15,21 +15,22 @@
 
 [DRAWING_TYPES]: canvas, paint, path, and geometry value owners
 
-| [INDEX] | [SYMBOL]               | [CAPABILITY]                                         |
-| :-----: | :--------------------- | :--------------------------------------------------- |
-|  [01]   | `SKCanvas`             | draw target + clip + matrix stack                    |
-|  [02]   | `SKPaint`              | composition state: shader/filter/effect/blend/stroke |
-|  [03]   | `SKPath`               | vector path with boolean `Op`, SVG codec, transform  |
-|  [04]   | `SKPathMeasure`        | arc-length sampling: position/tangent/matrix/segment |
-|  [05]   | `SKRoundRect`          | per-corner rounded rect (clip + draw + difference)   |
-|  [06]   | `SKRect` / `SKRectI`   | float / integer bounds value                         |
-|  [07]   | `SKPoint` / `SKPointI` | point value                                          |
-|  [08]   | `SKSize` / `SKSizeI`   | size value                                           |
-|  [09]   | `SKMatrix`             | 3x3 affine transform value                           |
-|  [10]   | `SKMatrix44`           | 4x4 transform for `Concat`/`SetMatrix` perspective   |
-|  [11]   | `SKSamplingOptions`    | filter/mipmap/cubic/anisotropic resample value       |
-|  [12]   | `SKCanvasSaveLayerRec` | layer-save record: bounds, paint, backdrop, flags    |
-|  [13]   | `SKSurfaceProperties`  | pixel-geometry + flags for surface allocation        |
+| [INDEX] | [SYMBOL]                | [CAPABILITY]                                         |
+| :-----: | :---------------------- | :--------------------------------------------------- |
+|  [01]   | `SKCanvas`              | draw target + clip + matrix stack                    |
+|  [02]   | `SKPaint`               | composition state: shader/filter/effect/blend/stroke |
+|  [03]   | `SKPath`                | vector path with boolean `Op`, SVG codec, transform  |
+|  [04]   | `SKPathMeasure`         | arc-length sampling: position/tangent/matrix/segment |
+|  [05]   | `SKRoundRect`           | per-corner rounded rect (clip + draw + difference)   |
+|  [06]   | `SKRect` / `SKRectI`    | float / integer bounds value                         |
+|  [07]   | `SKPoint` / `SKPointI`  | point value                                          |
+|  [08]   | `SKSize` / `SKSizeI`    | size value                                           |
+|  [09]   | `SKMatrix`              | 3x3 affine transform value                           |
+|  [10]   | `SKMatrix44`            | 4x4 transform for `Concat`/`SetMatrix` perspective   |
+|  [11]   | `SKRotationScaleMatrix` | similarity transform value: `SCos`/`SSin`/`TX`/`TY`  |
+|  [12]   | `SKSamplingOptions`     | filter/mipmap/cubic/anisotropic resample value       |
+|  [13]   | `SKCanvasSaveLayerRec`  | layer-save record: bounds, paint, backdrop, flags    |
+|  [14]   | `SKSurfaceProperties`   | pixel-geometry + flags for surface allocation        |
 
 [SURFACE_AND_IMAGE_TYPES]: pixel ownership, recording, and document output
 
@@ -165,32 +166,57 @@
 |  [13]   | `Offset`                            | `(SKPoint)` or `(dx, dy)` translation                                       |
 |  [14]   | `Reset` / `Rewind`                  | clears contours / clears while retaining allocation                         |
 
-[SURFACE_IMAGE_ENTRYPOINTS]: surface allocation, snapshot, codec, and pixel transfer
+[SURFACE_IMAGE_ENTRYPOINTS]: surface allocation, picture record/replay, snapshot, codec, and pixel transfer
 
 | [INDEX] | [SURFACE]                          | [ROOT]               | [CALL]                                                                 |
 | :-----: | :--------------------------------- | :------------------- | :--------------------------------------------------------------------- |
 |  [01]   | `Create`                           | `SKSurface`          | `(SKImageInfo)` raster                                                 |
 |  [02]   | `Create`                           | `SKSurface`          | `(GRRecordingContext, budgeted, info, samples, origin, props)` GPU     |
 |  [03]   | `Snapshot`                         | `SKSurface`          | `()` -> immutable `SKImage`; zero-copy where possible                  |
-|  [04]   | `BeginRecording`                   | `SKPictureRecorder`  | `(SKRect cull)` -> `SKCanvas`                                          |
-|  [05]   | `EndRecording`                     | `SKPictureRecorder`  | commits an `SKPicture`                                                 |
-|  [06]   | `FromEncodedData`                  | `SKImage`            | `(ReadOnlySpan<byte>)` / `(SKData)` / `(Stream)` decode                |
-|  [07]   | `FromBitmap`                       | `SKImage`            | `(SKBitmap)` snapshot                                                  |
-|  [08]   | `FromPixelCopy`                    | `SKImage`            | `(SKImageInfo, ReadOnlySpan<byte>)` copy                               |
-|  [09]   | `FromPixels`                       | `SKImage`            | `(SKPixmap, releaseProc)` adopt                                        |
-|  [10]   | `ToTextureImage` / `ToRasterImage` | `SKImage`            | `(GRContext, mipmapped, budgeted)` upload/download                     |
-|  [11]   | `ApplyImageFilter`                 | `SKImage`            | `(GRContext?, SKImageFilter, subset, clip, out outSubset, out offset)` |
-|  [12]   | `Encode`                           | `SKImage`            | `()` PNG or `(SKEncodedImageFormat, quality)` -> `SKData`              |
-|  [13]   | `ReadPixels` / `ScalePixels`       | `SKImage`/`SKPixmap` | `(SKPixmap, SKSamplingOptions)` GPU/CPU readback                       |
-|  [14]   | `Decode`                           | `SKBitmap`           | `(SKCodec)` / `(SKData)` / `(byte[], SKImageInfo)`                     |
-|  [15]   | `Resize`                           | `SKBitmap`           | `(SKImageInfo, SKSamplingOptions)`                                     |
-|  [16]   | `InstallPixels` / `PeekPixels`     | `SKBitmap`           | adopts pixels / exposes a view                                         |
-|  [17]   | `Create`                           | `SKCodec`            | `(SKStream)` / `(Stream, out SKCodecResult)`                           |
-|  [18]   | `FrameCount` / `RepetitionCount`   | `SKCodec`            | animated-image frame metadata                                          |
-|  [19]   | `GetFrameInfo`                     | `SKCodec`            | returns `SKCodecFrameInfo`                                             |
-|  [20]   | `StartIncrementalDecode`           | `SKCodec`            | starts progressive decode                                              |
-|  [21]   | `IncrementalDecode`                | `SKCodec`            | continues decode with `out int rowsDecoded`                            |
-|  [22]   | `CreateCopy`                       | `SKVertices`         | `(SKVertexMode, SKPoint[], SKPoint[] texs, SKColor[])`                 |
+|  [04]   | `BeginRecording`                   | `SKPictureRecorder`  | `(SKRect cull)` / `(SKRect cull, bool useRTree)` -> `SKCanvas`         |
+|  [05]   | `RecordingCanvas`                  | `SKPictureRecorder`  | the in-flight `SKCanvas` between begin and end                         |
+|  [06]   | `EndRecording`                     | `SKPictureRecorder`  | `()` -> `SKPicture`; seals the op list                                 |
+|  [07]   | `EndRecordingAsDrawable`           | `SKPictureRecorder`  | `()` -> `SKDrawable`; re-renders lazily per replay                     |
+|  [08]   | `Playback`                         | `SKPicture`          | `(SKCanvas)` replays the ops into a canvas                             |
+|  [09]   | `CullRect`                         | `SKPicture`          | `SKRect` the record was bounded to                                     |
+|  [10]   | `ApproximateBytesUsed`             | `SKPicture`          | `int` retained-op byte cost — the cache-ceiling measure                |
+|  [11]   | `ApproximateOperationCount`        | `SKPicture`          | `int`; `GetApproximateOperationCount(bool includeNested)` widens it    |
+|  [12]   | `Serialize`                        | `SKPicture`          | `()` -> `SKData` / `(Stream)` / `(SKWStream)` op-list bytes            |
+|  [13]   | `Deserialize`                      | `SKPicture`          | `(SKData)` / `(ReadOnlySpan<byte>)` / `(Stream)` / `(SKStream)`        |
+|  [14]   | `ToShader`                         | `SKPicture`          | `(SKShaderTileMode tmx, tmy[, SKFilterMode][, SKMatrix][, SKRect])`    |
+|  [15]   | `FromPicture`                      | `SKImage`            | `(SKPicture, SKSizeI[, SKMatrix][, SKPaint])` rasterizes a record      |
+|  [16]   | `FromEncodedData`                  | `SKImage`            | `(ReadOnlySpan<byte>)` / `(SKData)` / `(Stream)` decode                |
+|  [17]   | `FromBitmap`                       | `SKImage`            | `(SKBitmap)` snapshot                                                  |
+|  [18]   | `FromPixelCopy`                    | `SKImage`            | `(SKImageInfo, ReadOnlySpan<byte>)` copy                               |
+|  [19]   | `FromPixels`                       | `SKImage`            | `(SKPixmap, releaseProc)` adopt                                        |
+|  [20]   | `ToTextureImage` / `ToRasterImage` | `SKImage`            | `(GRContext, mipmapped, budgeted)` upload/download                     |
+|  [21]   | `ApplyImageFilter`                 | `SKImage`            | `(GRContext?, SKImageFilter, subset, clip, out outSubset, out offset)` |
+|  [22]   | `Encode`                           | `SKImage`            | `()` PNG or `(SKEncodedImageFormat, quality)` -> `SKData`              |
+|  [23]   | `ReadPixels` / `ScalePixels`       | `SKImage`/`SKPixmap` | `(SKPixmap, SKSamplingOptions)` GPU/CPU readback                       |
+|  [24]   | `Decode`                           | `SKBitmap`           | `(SKCodec)` / `(SKData)` / `(byte[], SKImageInfo)`                     |
+|  [25]   | `Resize`                           | `SKBitmap`           | `(SKImageInfo, SKSamplingOptions)`                                     |
+|  [26]   | `InstallPixels` / `PeekPixels`     | `SKBitmap`           | adopts pixels / exposes a view                                         |
+|  [27]   | `Create`                           | `SKCodec`            | `(SKStream)` / `(Stream, out SKCodecResult)`                           |
+|  [28]   | `FrameCount` / `RepetitionCount`   | `SKCodec`            | animated-image frame metadata                                          |
+|  [29]   | `GetFrameInfo`                     | `SKCodec`            | returns `SKCodecFrameInfo`                                             |
+|  [30]   | `StartIncrementalDecode`           | `SKCodec`            | starts progressive decode                                              |
+|  [31]   | `IncrementalDecode`                | `SKCodec`            | continues decode with `out int rowsDecoded`                            |
+|  [32]   | `CreateCopy`                       | `SKVertices`         | `(SKVertexMode, SKPoint[], SKPoint[] texs, SKColor[])`                 |
+|  [33]   | `Span` / `Size` / `ToArray`        | `SKData`             | `Span<byte>` zero-copy view / `long` length / `byte[]` copy            |
+
+[TRANSFORM_VALUE_ENTRYPOINTS]: affine and similarity transform construction
+
+| [INDEX] | [SURFACE]                                  | [ROOT]                  | [CALL]                                                     |
+| :-----: | :----------------------------------------- | :---------------------- | :--------------------------------------------------------- |
+|  [01]   | `CreateIdentity` / `CreateTranslation`     | `SKMatrix`              | `()` / `(float x, float y)`                                |
+|  [02]   | `CreateScale`                              | `SKMatrix`              | `(x, y)` / `(x, y, pivotX, pivotY)`                        |
+|  [03]   | `CreateRotation` / `CreateRotationDegrees` | `SKMatrix`              | `(angle)` / `(angle, pivotX, pivotY)`                      |
+|  [04]   | `CreateSkew` / `CreateScaleTranslation`    | `SKMatrix`              | `(x, y)` / `(sx, sy, tx, ty)`                              |
+|  [05]   | `Concat`                                   | `SKMatrix`              | `(SKMatrix first, SKMatrix second)` static compose         |
+|  [06]   | `Create` / `CreateDegrees`                 | `SKRotationScaleMatrix` | `(scale, radians\|degrees, tx, ty, anchorX, anchorY)`      |
+|  [07]   | `CreateRotation` / `CreateRotationDegrees` | `SKRotationScaleMatrix` | `(angle, anchorX, anchorY)`                                |
+|  [08]   | `CreateScale` / `CreateTranslation`        | `SKRotationScaleMatrix` | `(float s)` / `(float x, float y)`                         |
+|  [09]   | `ToMatrix`                                 | `SKRotationScaleMatrix` | `()` -> `SKMatrix` widening for a non-`DrawAtlas` consumer |
 
 [DOCUMENT_AND_COLOR_ENTRYPOINTS]: paged export and color-managed reproject
 
@@ -254,14 +280,15 @@
 |  [20]   | `CreateLighting` / `CreateHighContrast`          | `SKColorFilter`   | color transforms                                                 |
 |  [21]   | `CreateLumaColor` / `CreateTable` / `CreateLerp` | `SKColorFilter`   | color transforms                                                 |
 |  [22]   | `CreateOverdraw`                                 | `SKColorFilter`   | `(ReadOnlySpan<SKColor>)` overdraw-count heatmap                 |
-|  [23]   | `CreateCompose` / `CreateMatrix`                 | `SKImageFilter`   | image-filter DAG nodes                                           |
-|  [24]   | `CreateImage` / `CreatePicture` / `CreateTile`   | `SKImageFilter`   | image-filter DAG nodes                                           |
-|  [25]   | `CreateCrop` / `CreateEmpty`                     | `SKImageFilter`   | `(SKRect, SKShaderTileMode, SKImageFilter?)` / `()` crop / empty |
-|  [26]   | `CreateShader` / `CreateColorFilter`             | `SKRuntimeEffect` | `(string sksl, out string errors)` compile                       |
-|  [27]   | `CreateBlender`                                  | `SKRuntimeEffect` | `(string sksl, out string errors)` compile                       |
-|  [28]   | `BuildShader` / `BuildColorFilter`               | `SKRuntimeEffect` | returns builders for uniform/child binding                       |
-|  [29]   | `BuildBlender`                                   | `SKRuntimeEffect` | returns a builder for uniform/child binding                      |
-|  [30]   | `Uniforms` / `Children`                          | `SKRuntimeEffect` | declared names for binding                                       |
+|  [23]   | `CreateBlur`                                     | `SKImageFilter`   | `(sigmaX, sigmaY[, SKShaderTileMode][, input][, SKRect crop])`   |
+|  [24]   | `CreateCompose` / `CreateMatrix`                 | `SKImageFilter`   | image-filter DAG nodes                                           |
+|  [25]   | `CreateImage` / `CreatePicture` / `CreateTile`   | `SKImageFilter`   | image-filter DAG nodes                                           |
+|  [26]   | `CreateCrop` / `CreateEmpty`                     | `SKImageFilter`   | `(SKRect, SKShaderTileMode, SKImageFilter?)` / `()` crop / empty |
+|  [27]   | `CreateShader` / `CreateColorFilter`             | `SKRuntimeEffect` | `(string sksl, out string errors)` compile                       |
+|  [28]   | `CreateBlender`                                  | `SKRuntimeEffect` | `(string sksl, out string errors)` compile                       |
+|  [29]   | `BuildShader` / `BuildColorFilter`               | `SKRuntimeEffect` | returns builders for uniform/child binding                       |
+|  [30]   | `BuildBlender`                                   | `SKRuntimeEffect` | returns a builder for uniform/child binding                      |
+|  [31]   | `Uniforms` / `Children`                          | `SKRuntimeEffect` | declared names for binding                                       |
 
 [GPU_ENTRYPOINTS]: backend context creation and frame submission
 
@@ -291,7 +318,8 @@
 - `api-drafting-export.md`: `DWG`/`DXF` codecs consume the resolved `SKPath` outline from `SKPath.Op(SKPathOp)` and `ToSvgPathData`/`ParseSvgPathData`, never a private geometry kernel.
 - Capture rail: `SKSurface.Create(SKImageInfo)` (or a GPU surface from `GRRecordingContext`) draws, `Snapshot()` an `SKImage`, and `Encode(SKEncodedImageFormat.Png, ...)` to an `SKData` byte buffer as the diffable receipt; `SKColorSpace.CreateSrgb`/`CreateIcc` + `SKImageInfo.WithColorSpace` make it color-managed, and animated evidence decodes through `SKCodec.FrameCount`/`GetFrameInfo` per frame.
 - Paged export: `SKDocument.CreatePdf(stream, SKDocumentPdfMetadata)` -> per-sheet `BeginPage`/draw/`EndPage` -> `Close`, sharing the live rail's paint/path stack so on-screen and exported geometry are byte-identical.
-- Runtime effects: `SKRuntimeEffect.CreateShader(sksl, out errors)` compiles once, `BuildShader()` yields an `SKRuntimeShaderBuilder`, and animation re-binds named `Uniforms`/`Children` per frame; `SKPictureRecorder`/`SKPicture` memoize a static draw-op list `SKCanvas.DrawPicture` replays N times, and `SKDrawable` defers a lazily re-rendering control.
+- Runtime effects: `SKRuntimeEffect.CreateShader(sksl, out errors)` compiles once, `BuildShader()` yields an `SKRuntimeShaderBuilder`, and animation re-binds named `Uniforms`/`Children` per frame.
+- Picture recording: `BeginRecording(cull)` -> draw -> `EndRecording()` seals one device-independent op list that `SKCanvas.DrawPicture`/`SKPicture.Playback` replay N times and `SKImage.FromPicture` rasterizes without a second surface or a second layout run; `ApproximateBytesUsed` is the retained-cost measure a picture cache admits against, and `Serialize()` yields resolution- and device-independent bytes that hash as draw-op evidence beside a pixel hash. `EndRecordingAsDrawable()` swaps the sealed list for a `SKDrawable` that re-renders lazily per replay.
 
 [LOCAL_ADMISSION]:
 - A custom visual draws through the leased `SKCanvas`, composes every effect onto one `SKPaint`, and emits deterministic `SKImage`/`SKData` bytes as its visual evidence; color-managed capture retags through `SKImageInfo.WithColorSpace` so evidence reproduces across host color defaults.

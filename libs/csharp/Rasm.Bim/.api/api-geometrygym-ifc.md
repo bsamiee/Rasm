@@ -463,7 +463,9 @@
 |  [16]   | `IfcColourRgb`                        | normalized RGB colour value                                                     |
 |  [17]   | `IfcColourRgbList`                    | packed list of RGB colour triples for indexed colour sets                       |
 
-[COLOUR_RGB_MEMBERS]: `IfcColourRgb` carries normalized double `Red`, `Green`, and `Blue`, and constructs from `(DatabaseIfc, double red, double green, double blue)` or `(DatabaseIfc, System.Drawing.Color)`.
+[COLOUR_RGB_MEMBERS]: `IfcColourRgb` carries normalized double `Red`, `Green`, and `Blue`, and constructs from `(DatabaseIfc, double red, double green, double blue)` or `(DatabaseIfc, System.Drawing.Color)`. `IfcColourRgbList` constructs from `(DatabaseIfc, IEnumerable<System.Drawing.Color>)` and exposes NO public read of its triples — `mColourList` and `ColorList()` are both `internal` — so an ingested packed colour list authors but never decodes.
+
+[INDEXED_COLOUR_MEMBERS]: `IfcIndexedColourMap` (an `IfcPresentationItem`) carries `IfcTessellatedFaceSet MappedTo`, `double Opacity`, and `IfcColourRgbList Colours`, constructing from `(IfcTessellatedFaceSet, IfcColourRgbList, IEnumerable<int> colourindex)`; the per-vertex colour INDEX run has no public accessor, so the WRITE path is total while the READ path resolves the map and stops at its payload — the mirror of the `IfcIndexedTriangleTextureMap` asymmetry, which reads freely and cannot be authored.
 
 [SURFACE_RENDERING_MEMBERS]: `IfcSurfaceStyleRendering` extends shading with PBR `DiffuseColour`, `SpecularColour`, and `ReflectanceMethod` as `IfcReflectanceMethodEnum`.
 

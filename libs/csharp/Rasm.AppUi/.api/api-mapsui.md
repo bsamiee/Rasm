@@ -65,8 +65,9 @@
 |  [05]   | `GeoJsonProvider`              | provider         | GeoJSON provider    |
 |  [06]   | `GeometrySimplifyProvider`     | provider         | viewport simplify   |
 |  [07]   | `GeometryIntersectionProvider` | provider         | viewport clip       |
-|  [08]   | `EditManager`                  | service          | geometry editing    |
-|  [09]   | `EditingWidget`                | widget           | editing interaction |
+|  [08]   | `IndexedMemoryProvider`        | provider         | envelope-indexed    |
+|  [09]   | `EditManager`                  | service          | geometry editing    |
+|  [10]   | `EditingWidget`                | widget           | editing interaction |
 
 - `IFeature` : `ICloneable`; `BaseFeature` owns geometry, `Styles`, and per-feature fields; `PointFeature` locates markers or labels at an `MPoint`.
 - `GeometryFeature` (`Mapsui.Nts`) wraps a NetTopologySuite `Geometry?` as a drawable feature — the NTS bridge for GDAL/OGR and Bim overlays.
@@ -155,13 +156,19 @@
 
 [BASEMAP_AND_OVERLAY]: the tile + NTS-feature layer construction
 
-| [INDEX] | [SURFACE]                                             | [SHAPE] | [CAPABILITY]                              |
-| :-----: | :---------------------------------------------------- | :------ | :---------------------------------------- |
-|  [01]   | `OpenStreetMap.CreateTileLayer(string?) -> TileLayer` | static  | OSM XYZ basemap (`Mapsui.Tiling`)         |
-|  [02]   | `new MemoryLayer { Features, Style }`                 | ctor    | in-memory feature overlay                 |
-|  [03]   | `new GeometryFeature(Geometry?)`                      | ctor    | NTS geometry as a drawable feature        |
-|  [04]   | `SphericalMercator.FromLonLat(double, double)`        | static  | WGS-84 to EPSG:3857 (`.ToLonLat` inverse) |
-|  [05]   | `new Layer { DataSource, Style }`                     | ctor    | async provider-fed vector overlay         |
+| [INDEX] | [SURFACE]                                                                | [SHAPE] | [CAPABILITY]                              |
+| :-----: | :----------------------------------------------------------------------- | :------ | :---------------------------------------- |
+|  [01]   | `OpenStreetMap.CreateTileLayer(string?) -> TileLayer`                    | static  | OSM XYZ basemap (`Mapsui.Tiling`)         |
+|  [02]   | `new MemoryLayer { Features, Style }`                                    | ctor    | in-memory feature overlay                 |
+|  [03]   | `new GeometryFeature(Geometry?)`                                         | ctor    | NTS geometry as a drawable feature        |
+|  [04]   | `SphericalMercator.FromLonLat(double, double)`                           | static  | WGS-84 to EPSG:3857 (`.ToLonLat` inverse) |
+|  [05]   | `new Layer { DataSource, Style }`                                        | ctor    | async provider-fed vector overlay         |
+|  [06]   | `new IndexedMemoryProvider(IEnumerable<IFeature>)`                       | ctor    | envelope-indexed feature source           |
+|  [07]   | `new GeometryIntersectionProvider(IProvider)`                            | ctor    | clips each fetch to the viewport `MRect`  |
+|  [08]   | `new GeometrySimplifyProvider(IProvider, simplify?, distanceTolerance?)` | ctor    | resolution-driven decimation              |
+|  [09]   | `new ThemeStyle(Func<IFeature, Viewport, IStyle?>)`                      | ctor    | per-feature style from attribute + zoom   |
+
+[PROVIDER_DECORATION]: the three provider rows compose as a chain on one `Layer.DataSource` — `IndexedMemoryProvider` is the envelope-indexed source replacing a linear `MemoryLayer.Features` array, `GeometryIntersectionProvider` clips each fetch to the viewport rectangle, and `GeometrySimplifyProvider` decimates the clipped result; its `simplify` argument defaults to `TopologyPreservingSimplifier.Simplify` and a null `distanceTolerance` drives the tolerance from `fetchInfo.Resolution`, so decimation tracks the live zoom without a caller-side band. `ThemeStyle` also ships the `Func<IFeature, IStyle?>` arity where viewport-relative styling is not needed.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -191,14 +191,17 @@
 |  [05]   | `ImageProcessing.Resize(ReadOnlySpan<float>, int, int, Span<float>, int, int, int, …)`    | static   | separable resample    |
 |  [06]   | `ImageProcessing.ToneMap(ReadOnlySpan<float>, Span<float>, int, ToneMapOperator, …)`      | static   | operator tone map     |
 |  [07]   | `ImageProcessing.ApplyColorMatrix(ReadOnlySpan<float>, Span<float>, int, ColorMatrix3x3)` | static   | primaries transform   |
-|  [08]   | `ImageProcessing.EncodeTransfer(ReadOnlySpan<float>, Span<float>, TransferFunction)`      | static   | linear to encoded     |
-|  [09]   | `ImageProcessing.DecodeTransfer(ReadOnlySpan<float>, Span<float>, TransferFunction)`      | static   | encoded to linear     |
-|  [10]   | `StreamingImageResizer.PushRow(int, ReadOnlySpan<float>)` / `PullRow(…) -> ExrResult`     | instance | streamed resample     |
-|  [11]   | `Lut3D.TryParseCube(string?, out Lut3D?) -> ExrResult`                                    | static   | parse a `.cube` LUT   |
-|  [12]   | `Lut3D.Apply(ReadOnlySpan<float>, Span<float>, int, LutInterpolation)`                    | instance | apply the LUT         |
-|  [13]   | `PartConversion.ToInterleavedFloat(Part) -> InterleavedFloatImage`                        | static   | planar to interleaved |
-|  [14]   | `PartConversion.FromInterleavedFloat(ReadOnlySpan<float>, int, int, int, …) -> Part`      | static   | interleaved to a part |
-|  [15]   | `PartConversion.LuminanceChromaToRgbaFloat(Part) -> InterleavedFloatImage`                | static   | chroma expansion      |
+|  [08]   | `ImageProcessing.GetColorMatrix(ColorSpace, ColorSpace) -> ColorMatrix3x3`                | static   | primaries reconcile   |
+|  [09]   | `ImageProcessing.GetLuminanceWeights(Chromaticities?) -> Vector3`                         | static   | luminance derivation  |
+|  [10]   | `ImageProcessing.EncodeTransfer(ReadOnlySpan<float>, Span<float>, TransferFunction)`      | static   | linear to encoded     |
+|  [11]   | `ImageProcessing.DecodeTransfer(ReadOnlySpan<float>, Span<float>, TransferFunction)`      | static   | encoded to linear     |
+|  [12]   | `StreamingImageResizer.PushRow(int, ReadOnlySpan<float>)` / `PullRow(…) -> ExrResult`     | instance | streamed resample     |
+|  [13]   | `Lut3D.TryParseCube(string?, out Lut3D?) -> ExrResult`                                    | static   | parse a `.cube` LUT   |
+|  [14]   | `Lut3D.Apply(ReadOnlySpan<float>, Span<float>, int, LutInterpolation)`                    | instance | apply the LUT         |
+|  [15]   | `PartConversion.ToInterleavedFloat(Part) -> InterleavedFloatImage`                        | static   | planar to interleaved |
+|  [16]   | `PartConversion.FromInterleavedFloat(ReadOnlySpan<float>, int, int, int, …) -> Part`      | static   | interleaved to a part |
+|  [17]   | `PartConversion.LuminanceChromaToRgbaFloat(Part) -> InterleavedFloatImage`                | static   | chroma expansion      |
+|  [18]   | `PartConversion.IsLuminanceChroma(Part) -> bool`                                          | static   | chroma-basis probe    |
 
 [ENTRYPOINT_SCOPE]: spectral channels — `TinyEXR.V3.Spectral`
 

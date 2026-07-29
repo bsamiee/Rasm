@@ -57,16 +57,28 @@
 
 `BacnetClient` confirmed read/write requests share the `(BacnetAddress, BacnetObjectId, BacnetPropertyIds, …)` head and return `bool`, false on a BACnet Error/Reject/Abort.
 
-| [INDEX] | [SURFACE]                                                                         | [SHAPE]  | [CAPABILITY]                 |
-| :-----: | :-------------------------------------------------------------------------------- | :------- | :--------------------------- |
-|  [01]   | `ReadPropertyRequest(…, out IList<BacnetValue>)`                                  | instance | confirmed synchronous poll   |
-|  [02]   | `BeginReadPropertyRequest(…, bool) -> IAsyncResult`                               | instance | async property read          |
-|  [03]   | `WritePropertyRequest(…, IEnumerable<BacnetValue>)`                               | instance | confirmed property write     |
-|  [04]   | `SubscribeCOVRequest(BacnetAddress, BacnetObjectId, uint, bool, bool, uint)`      | instance | change-of-value subscription |
-|  [05]   | `ReadRangeRequest(BacnetAddress, BacnetObjectId, DateTime, ref uint, out byte[])` | instance | trend/log range read         |
-|  [06]   | `ReadPropertyMultipleRequest(...)`                                                | instance | batched multi-property read  |
+| [INDEX] | [SURFACE]                                                                          | [SHAPE]  | [CAPABILITY]                  |
+| :-----: | :--------------------------------------------------------------------------------- | :------- | :---------------------------- |
+|  [01]   | `ReadPropertyRequest(…, out IList<BacnetValue>)`                                   | instance | confirmed synchronous poll    |
+|  [02]   | `BeginReadPropertyRequest(…, bool) -> IAsyncResult`                                | instance | async property read           |
+|  [03]   | `WritePropertyRequest(…, IEnumerable<BacnetValue>, byte, byte?)`                   | instance | confirmed write at a priority |
+|  [04]   | `SubscribeCOVRequest(BacnetAddress, BacnetObjectId, uint, bool, bool, uint, byte)` | instance | subscribe or cancel COV       |
+|  [05]   | `ReadRangeRequest(BacnetAddress, BacnetObjectId, DateTime, ref uint, out byte[])`  | instance | trend range read by time      |
+|  [06]   | `ReadRangeRequest(BacnetAddress, BacnetObjectId, uint, ref uint, out byte[])`      | instance | trend range read by position  |
+|  [07]   | `ReadPropertyMultipleRequest(...)`                                                 | instance | batched multi-property read   |
 
 - `ReadPropertyMultipleRequest(IList<BacnetReadAccessSpecification>, out IList<BacnetReadAccessResult>) -> bool`: one confirmed round trip over an access-spec list.
+- `WritePropertyRequest`'s trailing `byte? priority = null` selects the BACnet command priority-array slot and throws `ArgumentOutOfRangeException` outside 1-16; a null value at a held slot is the RELEASE, so take-and-release is one member, and a priority-less write lands at the device default no later write can distinguish.
+- `SubscribeCOVRequest`'s `cancel` parameter carries the unsubscribe, so subscribe and detach are one member, and `issueConfirmedNotifications` selects the confirmed versus unconfirmed notification service.
+
+[ENTRYPOINT_SCOPE]: trend-log decode
+
+| [INDEX] | [SURFACE]                                                                          | [SHAPE] | [CAPABILITY]                     |
+| :-----: | :--------------------------------------------------------------------------------- | :------ | :------------------------------- |
+|  [01]   | `Serialize.Services.DecodeLogRecord(byte[], int, int, int, out BacnetLogRecord[])` | static  | lift a trend buffer into records |
+|  [02]   | `BacnetLogRecord(BacnetTrendLogValueType, object, DateTime, uint)`                 | ctor    | one decoded log sample           |
+
+- `BacnetLogRecord` is a struct carrying `DateTime timestamp`, `BacnetTrendLogValueType type`, the `object Value` its type column decodes (`TL_TYPE_ANY`/`BITS`/`BOOL`/`DELTA`/`ENUM`/`ERROR`/`REAL`/`SIGN`/`STATUS`/`UNSIGN`), and `BacnetBitString statusFlags`; `DecodeLogRecord` returns the consumed byte count and fills `nCurves` records, so the `out byte[] range` a `ReadRangeRequest` produces decodes with no second parser.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

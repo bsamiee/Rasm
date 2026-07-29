@@ -88,6 +88,6 @@
 - Accept: Materials' `InteractionDiagram` welding `(N, My, Mz)` capacity points into the closed-onion capacity hull through `ConvexHull.Create<ConvexHullVertex, ConvexHullFace>`.
 - Reject: `Create` for 2D data; `Create2D` owns the planar path after `DimensionTwoWrongMethod`.
 - Reject: reading `Result` before `Outcome`, or `ConvexHullGenerationException` in place of the typed-result fold.
-- Reject: a second hull owner, constrained 2D meshes (`Meshing/delaunay`), and 2D border-clipped point-site Voronoi (`SharpVoronoiLib`, Fabrication).
+- Reject: a second hull owner, constrained 2D meshes (`Meshing/delaunay`), and 2D border-clipped point-site Voronoi (the `Meshing/delaunay` `Tessellation.VoronoiDual` bounded-cell overload).
 - Reject: consumer use of `FaceConnector`, `ObjectManager`, `IndexBuffer`, or `ConvexFaceInternal`.
 - Reject: robust or exact arithmetic; near-degenerate input returns `DegenerateData` and escalates to the kernel exact-predicate ladder.

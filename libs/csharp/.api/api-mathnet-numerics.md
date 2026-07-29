@@ -143,19 +143,19 @@
 
 [ENTRYPOINT_SCOPE]: quadrature via `Integrate`
 
-| [INDEX] | [SURFACE]                                                                     | [SHAPE] | [CAPABILITY]                                   |
-| :-----: | :---------------------------------------------------------------------------- | :------ | :--------------------------------------------- |
-|  [01]   | `Integrate.OnClosedInterval(F1, double, double)`                              | static  | double-exponential at a `1e-8` absolute target |
-|  [02]   | `Integrate.OnClosedInterval(F1, double, double, double)`                      | static  | the same rule at a caller error target         |
-|  [03]   | `Integrate.DoubleExponential(F1, double, double, double)`                     | static  | the transformation named directly              |
-|  [04]   | `Integrate.GaussLegendre(F1, double, double, int)`                            | static  | fixed-order Legendre rule                      |
-|  [05]   | `Integrate.GaussKronrod(F1, double, double, double, int, int)`                | static  | adaptive rule at a relative-error target       |
-|  [06]   | `Integrate.GaussKronrod(F1, double, double, out double, out double)`          | static  | adds an error and L1-norm estimate             |
-|  [07]   | `Integrate.OnRectangle(F2, double, double, double, double)`                   | static  | 2-D Legendre product rule                      |
-|  [08]   | `Integrate.OnRectangle(F2, double, double, double, double, int)`              | static  | the same rule at a caller node order           |
-|  [09]   | `Integrate.OnCuboid(F3, double, double, double, double, double, double, int)` | static  | 3-D Legendre product rule                      |
+| [INDEX] | [SURFACE]                                                                     | [SHAPE] | [CAPABILITY]                               |
+| :-----: | :---------------------------------------------------------------------------- | :------ | :----------------------------------------- |
+|  [01]   | `Integrate.OnClosedInterval(F1, double, double)`                              | static  | double-exponential, `1e-8` absolute target |
+|  [02]   | `Integrate.OnClosedInterval(F1, double, double, double)`                      | static  | the same rule at a caller error target     |
+|  [03]   | `Integrate.DoubleExponential(F1, double, double, double)`                     | static  | the transformation named directly          |
+|  [04]   | `Integrate.GaussLegendre(F1, double, double, int)`                            | static  | fixed-order Legendre rule                  |
+|  [05]   | `Integrate.GaussKronrod(F1, double, double, double, int, int)`                | static  | adaptive rule at a relative-error target   |
+|  [06]   | `Integrate.OnRectangle(F2, double, double, double, double)`                   | static  | 2-D Legendre product rule                  |
+|  [07]   | `Integrate.OnRectangle(F2, double, double, double, double, int)`              | static  | the same rule at a caller node order       |
+|  [08]   | `Integrate.OnCuboid(F3, double, double, double, double, double, double, int)` | static  | 3-D Legendre product rule                  |
 
 - `F1`, `F2`, and `F3` abbreviate `Func<double,double>`, `Func<double,double,double>`, and `Func<double,double,double,double>`; every surface returns `double`.
+- `Integrate.GaussKronrod`: a second overload seats `out double` error and L1-norm estimates ahead of the optional tail.
 
 [ENTRYPOINT_SCOPE]: root finding via `MathNet.Numerics.RootFinding`
 
@@ -365,6 +365,23 @@
 
 [STATISTICS]: `Mean` `Variance` `StandardDeviation` `PopulationVariance` `Covariance` `Skewness` `Kurtosis` `Median` `Quantile` `QuantileCustom` `Percentile` `InterquartileRange` `FiveNumberSummary` `Ranks` `QuantileRank` `EmpiricalCDF` `EmpiricalInvCDF` `RootMeanSquare` `GeometricMean` `HarmonicMean` `Entropy` `MovingAverage` `OrderStatistic`
 [STATISTICS_OWNER]: `Statistics` `ArrayStatistics` `SortedArrayStatistics` `StreamingStatistics` `DescriptiveStatistics` `WeightedDescriptiveStatistics` `RunningStatistics` `RunningWeightedStatistics` `MovingStatistics` `Correlation` `Histogram` `KernelDensity` `GoodnessOfFit`
+
+[SORTED_ARRAY_STATISTICS]: `MathNet.Numerics.Statistics.SortedArrayStatistics` — every member takes ASCENDING-sorted data, O(1) after the sort, `double[]` and `float[]` overload pairs
+
+| [INDEX] | [SURFACE]                                                         | [SHAPE] | [CAPABILITY]                                    |
+| :-----: | :---------------------------------------------------------------- | :------ | :---------------------------------------------- |
+|  [01]   | `Median(double[] data)`                                           | static  | R8-definition median over sorted data           |
+|  [02]   | `OrderStatistic(double[] data, int order)`                        | static  | exact k-th smallest, 1-based order              |
+|  [03]   | `Percentile(double[], int p)` / `LowerQuartile` / `UpperQuartile` | static  | percentile and quartile reads                   |
+|  [04]   | `InterquartileRange(double[] data)`                               | static  | `UpperQuartile - LowerQuartile`                 |
+|  [05]   | `FiveNumberSummary(double[] data) -> double[]`                    | static  | min, Q1, median, Q3, max                        |
+|  [06]   | `Quantile(double[] data, double tau)`                             | static  | R8 default quantile                             |
+|  [07]   | `QuantileCustom(double[], double tau, QuantileDefinition d)`      | static  | definition-selected; `R1` is exact nearest-rank |
+|  [08]   | `QuantileCustom(double[], double tau, double a, b, c, d)`         | static  | four-parameter quantile family                  |
+|  [09]   | `QuantileRank(double[], double x, RankDefinition r)` / `Ranks`    | static  | inverse-quantile rank reads                     |
+|  [10]   | `EmpiricalCDF(double[] data, double x)`                           | static  | empirical distribution read                     |
+
+- `QuantileDefinition` (`MathNet.Numerics.Statistics`) carries the R1-R9 aliases: `R1 = EmpiricalInvCDF = SAS3` is the exact ceiling nearest-rank definition, `R3 = Nearest = SAS2` rounds HALF-TO-EVEN at the rank boundary (decompile-verified — not an exact order pick on ties), `R8 = Median = Default`, `R7 = Excel`; a nearest-rank p95 spells `QuantileCustom(sorted, 0.95, QuantileDefinition.R1)` and stays an exact order statistic, never an interpolation; `Median(double[])` is the classic central-or-two-central-mean fold despite its R8 doc comment, and every member returns `double.NaN` on an empty array rather than throwing.
 [CORRELATION]: `Pearson` `WeightedPearson` `Spearman` `PearsonMatrix` `SpearmanMatrix` `Auto`
 [DIFFERENTIATE]: `FirstDerivative` `SecondDerivative` `Derivative` `PartialDerivative` `FirstPartialDerivative` `PartialDerivative2` `Points` `Order`
 [PRECISION]: `AlmostEqual` `AlmostEqualRelative` `AlmostEqualNumbersBetween` `CoerceZero` `EpsilonOf` `Increment` `Decrement` `Round` `RoundToMultiple` `RoundToPower` `Magnitude` `NumbersBetween`
@@ -405,7 +422,7 @@
 - `System.Numerics.Tensors`(`.api/api-tensors.md`): `TensorPrimitives` folds the split `double[] real, double[] imaginary` spectral spans and the `Generate`/`Window` axes in place, so magnitude, phase, and taper application vectorize with no `Complex` marshalling.
 - `UnitsNet`(`.api/api-unitsnet.md`): a quantity-typed integrand or sample set enters through `IQuantity.As(Enum)` as a base-unit `double` and the returned scalar re-enters its quantity type, so dimensional identity rides the caller and never the kernel.
 - Numeric-rail fold: one `Generate.LinearSpaced` axis threads `Interpolate` fitting the sampled response, `IInterpolation.Differentiate` and `Differentiate` supplying the Jacobian column, `Integrate` reducing over the domain, and `Fourier` under a `Window` taper reading the spectrum.
-- `Rasm.Materials`: `acquisition#ACQUISITION` `SolveGgx` runs the thin-QR Gauss-Newton step `Δp = Matrix.Build.Dense(m, n, Jacobian).QR(QRMethod.Thin).Solve(−r)` (`n ∈ {2, 3}` — the conductor arm fits alphas alone, the dielectric adds η) over the log-residual, switches to `Svd(true).Solve` on a non-finite step, and witnesses `‖r‖/‖logMeasured‖` via `Vector.L2Norm` — the `bsdf#MICROFACET_KERNEL` GGX/Smith/Fresnel form stays the forward model, MathNet owning only the dense solve; the fitted `FitResidual` and the `Wacton.Unicolour` spectral-grounded scene-linear base colour pair on one `Provenance` receipt, never a fused colour-plus-numeric kernel, and MathNet is a direct Materials pin — the acyclic strata forbids a `Rasm.Compute` project reference to obtain it transitively.
+- `Rasm.Materials`: `acquisition#ACQUISITION` `SolveGgx` runs the thin-QR Gauss-Newton step `Δp = Matrix.Build.Dense(m, n, Jacobian).QR(QRMethod.Thin).Solve(−r)` (`n ∈ {3, 4}` — the conductor arm fits the alpha pair plus the grain azimuth, the dielectric adds η) over the log-residual, switches to `Svd(true).Solve` on a non-finite step, and witnesses `‖r‖/‖logMeasured‖` via `Vector.L2Norm` — the `bsdf#MICROFACET_KERNEL` GGX/Smith/Fresnel form stays the forward model, MathNet owning only the dense solve; the fitted `FitResidual` and the `Wacton.Unicolour` spectral-grounded scene-linear base colour pair on one `Provenance` receipt, never a fused colour-plus-numeric kernel, and MathNet is a direct Materials pin — the acyclic strata forbids a `Rasm.Compute` project reference to obtain it transitively.
 
 [LOCAL_ADMISSION]:
 - Every analytic kernel on the numeric rail enters through a `MathNet.Numerics` static owner; a parallel sampler owns one distribution instance and one `RandomSource` per worker.

@@ -26,13 +26,13 @@
 |  [05]   | `InstanceDefinitionUpdateType`        | enum            | static, linked-and-embedded, or linked source mode                           |
 |  [06]   | `InstanceDefinitionArchiveFileStatus` | enum            | linked-source archive availability state                                     |
 |  [07]   | `InstanceDefinitionLayerStyle`        | enum            | linked-definition layer policy                                               |
-|  [08]   | `LinkedInstanceDefinitionUpdateStyle` | enum            | prompt, always-update, or never-update policy                                |
+|  [08]   | `LinkedInstanceDefinitionUpdateStyle` | enum            | per-document refresh policy; namespace `Rhino`, not `Rhino.DocObjects`       |
 
 [ENUM_CASES]:
 - `InstanceDefinitionUpdateType`: `Static` `LinkedAndEmbedded` `Linked`
 - `InstanceDefinitionArchiveFileStatus`: `NotALinkedInstanceDefinition` `LinkedFileNotReadable` `LinkedFileNotFound` `LinkedFileIsUpToDate` `LinkedFileIsNewer` `LinkedFileIsOlder` `LinkedFileIsDifferent`
 - `InstanceDefinitionLayerStyle`: `None` `Active` `Reference`
-- `LinkedInstanceDefinitionUpdateStyle`: `Prompt` `AlwaysUpdate` `NeverUpdate`
+- `LinkedInstanceDefinitionUpdateStyle`: `Prompt = 1` `AlwaysUpdate` `NeverUpdate` — a `Rhino`-namespace enum read off `RhinoDoc.LinkedInstanceDefinitionUpdate`, so it is the DOCUMENT's refresh policy against the DEFINITION's `InstanceDefinitionUpdateType` source mode and its `InstanceDefinitionArchiveFileStatus` availability; the three axes are independent and a refresh decision reads all three.
 
 [PUBLIC_TYPE_SCOPE]: attribute fields and archive reads
 - rail: block-boundary
@@ -82,7 +82,8 @@
 - `InstanceDefinition.UpdateType -> InstanceDefinitionUpdateType` / `ArchiveFileStatus -> InstanceDefinitionArchiveFileStatus` — linked mode and source availability.
 - `InstanceDefinition.LayerStyle { get; set; } -> InstanceDefinitionLayerStyle` — layer policy; a write no-ops unless the definition is linked.
 - `InstanceDefinition.IsTenuous -> bool` — linked source missing or unloadable.
-- `InstanceDefinition.SkipNestedLinkedDefinitions -> bool` — read-only; nested linked definitions excluded from load.
+- `InstanceDefinition.SkipNestedLinkedDefinitions { get; set; } -> bool` — settable on the live definition; nested linked definitions excluded from load.
+- `RhinoDoc.LinkedInstanceDefinitionUpdate -> LinkedInstanceDefinitionUpdateStyle` — the document-scoped refresh policy every linked definition resolves against.
 - `InstanceDefinition.Object(int) -> RhinoObject` / `GetObjects() -> RhinoObject[]` — a member object, or the roster.
 - `InstanceDefinition.GetReferences(int) -> InstanceObject[]` — placed references; `0` top-level, `1` top and nested, `2` from other definitions; thread-affine.
 - `InstanceDefinition.GetContainers() -> InstanceDefinition[]` — definitions nesting this one.

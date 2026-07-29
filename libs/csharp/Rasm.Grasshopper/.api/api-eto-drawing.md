@@ -57,8 +57,11 @@
 |  [03]   | `ColorHSB`     | struct        | hue-saturation-brightness projection           |
 |  [04]   | `ColorCMYK`    | struct        | cyan-magenta-yellow-key projection             |
 |  [05]   | `Colors`       | static        | named-color anchors                            |
-|  [06]   | `ColorStyles`  | static        | semantic style-color anchors                   |
+|  [06]   | `ColorStyles`  | flags enum    | hex-render policy, not a palette               |
 |  [07]   | `SystemColors` | static        | host-resolved chrome colors                    |
+
+- `ColorStyles` is `[Flags]` over `None=0`, `ExcludeAlpha=1`, `AlphaLast=4`, `ShortHex=8`, `All=0xD` — it shapes `Color`-to-hex-string rendering and supplies no colour value, so it is a text-egress policy row and never a chrome-palette source.
+- `SystemColors` is the OS-resolved chrome palette: `Control`, `ControlBackground`, `ControlText`, `DisabledText`, `Highlight`, `HighlightText`, `Selection`, `SelectionText`, `WindowBackground`, `LinkText` — each a handler read that re-resolves on an appearance flip, so a captured value staled at the flip and a literal swatch beside a native panel diverges from the host on every accent or contrast change.
 
 [PUBLIC_TYPE_SCOPE]: font, formatted text, and raster
 

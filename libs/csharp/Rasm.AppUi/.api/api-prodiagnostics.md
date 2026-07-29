@@ -7,7 +7,7 @@
 [PACKAGE_SURFACE]: `ProDiagnostics`
 - package: `ProDiagnostics` (MIT)
 - assembly: `Avalonia.Diagnostics` (`lib/net10.0/Avalonia.Diagnostics.dll` binds the `net10.0` consumer directly; `net8.0` fallback asset)
-- namespace: `Avalonia` (the `DevToolsExtensions` attach surface), `Avalonia.Diagnostics` (`DevToolsOptions`/`DevToolsViewKind`/`HotKeyConfiguration`/`Conventions`/`DevToolsSession`/`VisualExtensions`/`VisualTreeDebug`), `Avalonia.Diagnostics.Services` (`PropertyValueEditorService`)
+- namespace: `Avalonia` (the `DevToolsExtensions` attach surface), `Avalonia.Diagnostics` (`DevToolsOptions`/`DevToolsViewKind`/`HotKeyConfiguration`/`IScreenshotHandler`/`IDevToolsPropertyEditHandler`/`DevToolsPropertyEdit`/`DevToolsResourceReferenceKind`/`DevToolsSession`/`VisualExtensions`/`VisualTreeDebug`), `Avalonia.Diagnostics.Services` (`PropertyValueEditorService`)
 - depends: `Avalonia` (12.x), `Avalonia.Controls.ColorPicker` (the inspector's color-value editor) — both already admitted; the `ProDataGrid`/`ProCharts` sibling packages are NOT admitted
 - binding: `Debug`-only, `PrivateAssets="all"` — never flows to a downstream consumer, absent from the Release surface
 - rail: dev-loop-inspection
@@ -17,35 +17,35 @@
 [INSPECTOR_OPTIONS]: `Avalonia.Diagnostics` attach configuration
 - rail: dev-loop-inspection
 
-| [INDEX] | [SYMBOL]                       | [KIND]                      |
-| :-----: | :----------------------------- | :-------------------------- |
-|  [01]   | `DevToolsOptions`              | attach configuration        |
-|  [02]   | `DevToolsViewKind`             | launch-view enum            |
-|  [03]   | `HotKeyConfiguration`          | hotkey configuration        |
-|  [04]   | `IScreenshotHandler`           | pluggable capture sink      |
-|  [05]   | `IDevToolsPropertyEditHandler` | property-commit interceptor |
-|  [06]   | `Conventions`                  | static defaults holder      |
+| [INDEX] | [SYMBOL]                        | [KIND]                      |
+| :-----: | :------------------------------ | :-------------------------- |
+|  [01]   | `DevToolsOptions`               | attach configuration        |
+|  [02]   | `DevToolsViewKind`              | launch-view enum            |
+|  [03]   | `HotKeyConfiguration`           | hotkey configuration        |
+|  [04]   | `IScreenshotHandler`            | pluggable capture sink      |
+|  [05]   | `IDevToolsPropertyEditHandler`  | property-commit interceptor |
+|  [06]   | `DevToolsPropertyEdit`          | property-commit record      |
+|  [07]   | `DevToolsResourceReferenceKind` | resource-reference enum     |
 
 [DEVTOOLS_OPTIONS_LAUNCH]: `Gesture` defaults to `F12`; init-only `LaunchView : DevToolsViewKind` defaults to `CombinedTree`.
 
-[DEVTOOLS_OPTIONS_WINDOW]: `Size` defaults to 1280×720; `ShowAsChildWindow`, `StartupScreenIndex : int?`, `ShowImplementedInterfaces`,
-`ThemeVariant : ThemeVariant?`, and `FocusHighlighterBrush : IBrush?` govern window presentation.
+[DEVTOOLS_OPTIONS_WINDOW]: `Size` defaults to 1280×720; `ShowAsChildWindow`, `StartupScreenIndex : int?`, `ShowImplementedInterfaces`, `ThemeVariant : ThemeVariant?`, and `FocusHighlighterBrush : IBrush?` govern window presentation.
 
 [DEVTOOLS_OPTIONS_TABS]: `ShowMenu`, `ShowResourcesTab`, `ShowAssetsTab`, `ShowEventsTab`, and `ScopeEventsToRoot` govern tab and event scope.
 
-[DEVTOOLS_OPTIONS_EXTENSIONS]: `ScreenshotHandler : IScreenshotHandler` and `PropertyEditHandler : IDevToolsPropertyEditHandler?` bind extension seams;
-init-only `HotKeys : HotKeyConfiguration` binds the gesture rig.
+[DEVTOOLS_OPTIONS_EXTENSIONS]: `ScreenshotHandler : IScreenshotHandler` and `PropertyEditHandler : IDevToolsPropertyEditHandler?` bind extension seams; init-only `HotKeys : HotKeyConfiguration` binds the gesture rig.
 
 [DEVTOOLS_VIEW_KIND]: `LogicalTree`, `VisualTree`, `Events`, `CombinedTree`, `Resources`, and `Assets` select the launch view.
 
-[HOTKEY_CONFIGURATION]: `ValueFramesFreeze`, `ValueFramesUnfreeze`, `InspectHoveredControl`, `TogglePopupFreeze`, and
-`ScreenshotSelectedControl` each carry a `KeyGesture`.
+[HOTKEY_CONFIGURATION]: `ValueFramesFreeze`, `ValueFramesUnfreeze`, `InspectHoveredControl`, `TogglePopupFreeze`, and `ScreenshotSelectedControl` each carry a `KeyGesture`.
 
-[SCREENSHOT_HANDLER]: `Conventions.DefaultScreenshotHandler` is the built-in file-picker handler.
+[SCREENSHOT_HANDLER]: `Task Take(Control control)` is the whole interface, so the consumer's implementation owns the snapshot and the awaited `Task` is where a typed rail collapses. `DevToolsOptions.ScreenshotHandler` binds the package's own file-picker default through `internal static Conventions.DefaultScreenshotHandler`, which a consuming assembly cannot name — replacement is the only reachable choice.
 
-[PROPERTY_EDIT_HANDLER]: `IDevToolsPropertyEditHandler` gates and records live property edits.
+[PROPERTY_EDIT_HANDLER]: `void OnPropertyEdited(DevToolsPropertyEdit edit)` is the whole interface, and its `void` return parks a typed refusal on the consumer's own evidence surface before the handler returns.
 
-[CONVENTIONS]: `DefaultScreenshotHandler` carries the static screenshot default.
+[DEVTOOLS_PROPERTY_EDIT]: this sealed commit record carries `InspectedObject : AvaloniaObject`, `Target : object`, `PropertyName` and `XamlPropertyName : string`, `PropertyType : Type`, `DeclaringType : Type?`, `OldValue`/`NewValue : object?`, `OldValueText`/`NewValueText : string?`, `IsAttached` and `IsAvaloniaProperty : bool`, `ResourceReferenceKind : DevToolsResourceReferenceKind`, `ResourceKey : object?`, and `ResourceKeyText : string?`; its public constructor takes every member positionally with the trailing resource triple defaulted.
+
+[DEVTOOLS_RESOURCE_REFERENCE_KIND]: `None`, `Static`, and `Dynamic` classify the edited value's resource binding.
 
 [INSPECTOR_RUNTIME]: session + render internals
 - rail: dev-loop-inspection
@@ -57,11 +57,9 @@ init-only `HotKeys : HotKeyConfiguration` binds the gesture rig.
 |  [03]   | `VisualTreeDebug`                               | diagnostics overlay    |
 |  [04]   | `VisualExtensions`                              | snapshot extensions    |
 
-[DEVTOOLS_RUNTIME]: `DevTools`, `DevToolsSession`, and `DevToolsView` own the overlay window, per-`TopLevel` session, and root view; the
-attach surface mounts them, and consumers do not construct them.
+[DEVTOOLS_RUNTIME]: `DevTools`, `DevToolsSession`, and `DevToolsView` own the overlay window, per-`TopLevel` session, and root view; the attach surface mounts them, and consumers do not construct them.
 
-[PROPERTY_VALUE_EDITOR_SERVICE]: Typed converters and commit state drive live property and style editing
-behind the property pane.
+[PROPERTY_VALUE_EDITOR_SERVICE]: Typed converters and commit state drive live property and style editing behind the property pane.
 
 [VISUAL_TREE_DEBUG]: `VisualTreeDebug` projects the layout and renderer diagnostics overlay.
 
@@ -81,14 +79,22 @@ behind the property pane.
 |  [05]   | `AttachDevTools(this Application application, DevToolsOptions options)` | `DevToolsExtensions` | full-config app attach               |
 |  [06]   | `RenderTo(this Control source, Stream destination, double dpi = 96.0)`  | `VisualExtensions`   | control-snapshot capture             |
 
+[EXTENSION_SEAMS]: two handler contracts admit a consumer implementation, each carrying exactly one member, so the seam IS the implementation and the package supplies no partial base
+- rail: dev-loop-inspection
+
+| [INDEX] | [SURFACE]                                     | [SURFACE_ROOT]                 | [RAIL]                             |
+| :-----: | :-------------------------------------------- | :----------------------------- | :--------------------------------- |
+|  [01]   | `Task Take(Control control)`                  | `IScreenshotHandler`           | consumer-owned snapshot sink       |
+|  [02]   | `void OnPropertyEdited(DevToolsPropertyEdit)` | `IDevToolsPropertyEditHandler` | consumer-owned commit interception |
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [DEVLOOP_LAW]:
 - Package: `ProDiagnostics`
 - Owns: the Avalonia-12 runtime inspector overlay — the visual/logical/combined tree navigator, the live property + style pane with in-place editing (`PropertyValueEditorService`), routed-event tracking (`ShowEventsTab`/`ScopeEventsToRoot`), and the layout/renderer diagnostics overlays (`VisualTreeDebug`); the `DevToolsViewKind` launch view, `HotKeyConfiguration` gestures, and `IScreenshotHandler`/`IDevToolsPropertyEditHandler` extension seams.
-- Accept: `Diagnostics/devloop.md` mounts the inspector through `AttachDevTools(this Application, DevToolsOptions)` at composition time under the `Debug` gate; the `DevToolsOptions` launch view / tab visibility / hotkey rig are dev-loop policy rows; a custom `IScreenshotHandler` routes captures into the proof/capture lane where devloop needs deterministic snapshots.
-- Reject: a Release-surface reference (the `PrivateAssets="all"` `Debug` gate is law — no devtools identity in the shipped product); a second Avalonia devtools binding (`Avalonia.Diagnostics` 11.3.x is feed-dead, Accelerate DevTools is license-gate REJECTED); re-implementing the tree/property inspector where this overlay owns it; a hand-rolled control-snapshot where `VisualExtensions.RenderTo` exists.
+- Accept: `Diagnostics/devloop.md` mounts the inspector through `AttachDevTools(this Application, DevToolsOptions)` at composition time under the `Debug` gate; the `DevToolsOptions` launch view / tab visibility / hotkey rig are dev-loop policy rows; a custom `IScreenshotHandler` routes captures into the proof/capture lane where devloop needs deterministic snapshots; a custom `IDevToolsPropertyEditHandler` seals each commit onto the consumer's evidence stream from the whole `DevToolsPropertyEdit` record.
+- Reject: a Release-surface reference (the `PrivateAssets="all"` `Debug` gate is law — no devtools identity in the shipped product); a second Avalonia devtools binding (`Avalonia.Diagnostics` 11.3.x is feed-dead, Accelerate DevTools is license-gate REJECTED); re-implementing the tree/property inspector where this overlay owns it; a hand-rolled control-snapshot where `VisualExtensions.RenderTo` exists; a consumer-side reference to `Conventions.DefaultScreenshotHandler`, which is `internal` and binds as the option default alone; a handler body re-deriving the commit from `InspectedObject` where the edit record already carries the target, both value renderings, and the resource-reference triple.
 
 [STACKING]:
-- `Diagnostics/devloop.md` is the sole consumer anchor — the HUD/hot-reload/replay-verify dev loop mounts this inspector beside `HotAvalonia`'s XAML hot-reload; the two share the `Debug` `PrivateAssets` gate and never co-mount in Release.
-- Catalog depth is stub-plus-verified: every member above is decompile-verified against the restored `Avalonia.Diagnostics.dll`. `DevToolsSession` and `PropertyValueEditorService` deepen when `devloop.md` composes their option, screenshot, and property-edit seams into one policy fold.
+- `Diagnostics/devloop.md` is the sole consumer anchor — the HUD/hot-reload/replay-verify dev loop mounts this inspector beside `HotAvalonia`'s XAML hot-reload; the two share the `Debug` `PrivateAssets` gate and never co-mount in Release; its `InspectorCapture` and `InspectorEdits` bodies are the two extension seams above, so the snapshot lands on the capture encode fold and the commit lands on the receipt sink.
+- Catalog depth is stub-plus-verified: every member above is decompile-verified against the restored `Avalonia.Diagnostics.dll`. `DevToolsSession` deepens when a consumer reaches its per-`TopLevel` session surface, and `PropertyValueEditorService` when a consumer drives its converter and commit state directly rather than through the property pane.

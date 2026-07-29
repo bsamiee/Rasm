@@ -137,10 +137,10 @@
 
 [LOCAL_ADMISSION]:
 - `Rasm.Materials` reaches `Triangle` only transitively through `VividOrange.InteractionDiagram`, minting no direct call and carrying no central admission row.
-- A constrained-mesh dual routes to `Triangle`; unconstrained point-set hull-Delaunay and ND Voronoi route to `MIConvexHull`, and a standalone clipped point-site diagram routes to `SharpVoronoiLib`.
+- A constrained-mesh dual routes to `Triangle`; unconstrained point-set hull-Delaunay and ND Voronoi route to `MIConvexHull`, and a standalone clipped point-site diagram routes to the kernel `Tessellation.VoronoiDual` bounded-cell overload.
 
 [RAIL_LAW]:
 - Package: `Triangle` (assembly `Triangle`, namespace root `TriangleNet`)
 - Owns: constrained and conforming 2D Delaunay with Ruppert/Chew quality refinement over a PSLG in the `double` domain — pluggable initial triangulation, adaptive-precision predicates, Laplacian smoothing, the Voronoi dual, quality metrics, Cuthill-McKee renumbering, and native `.poly`/`.node`/`.ele` I/O.
 - Accept: the transitive `VividOrange.InteractionDiagram` section fibre-grid mesh.
-- Reject: a direct `Triangle` call minted in `Rasm.Materials`; exact-rational robustness on degenerate input or 3D tetrahedralization, which route to the kernel `Adaptive.Resolve` Bowyer-Watson; unconstrained point-set Delaunay or ND Voronoi, which `MIConvexHull` owns; a standalone clipped point-site Voronoi, which `SharpVoronoiLib` owns.
+- Reject: a direct `Triangle` call minted in `Rasm.Materials`; exact-rational robustness on degenerate input or 3D tetrahedralization, which route to the kernel `Adaptive.Resolve` Bowyer-Watson; unconstrained point-set Delaunay or ND Voronoi, which `MIConvexHull` owns; a standalone clipped point-site Voronoi, which the kernel `Tessellation.VoronoiDual` bounded-cell overload owns.

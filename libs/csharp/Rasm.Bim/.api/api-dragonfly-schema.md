@@ -36,7 +36,8 @@
 - `Building`: `UniqueStories`, `Room3ds` (`List<HoneybeeSchema.Room>`), `Roof`, `Properties` (`BuildingPropertiesAbridged`).
 - `Story`: `Room2ds`, `FloorToFloorHeight`/`FloorHeight` (`AnyOf<Autocalculate,double>`), `Multiplier`, `Roof`, `StoryType`.
 - `Room2D`: `FloorBoundary` (`List<List<double>>`), `FloorHoles`, `FloorHeight`/`FloorToCeilingHeight`, the `BoundaryConditions`/`WindowParameters`/`ShadingParameters`/`SkylightParameters` `AnyOf<…>` slots, `IsGroundContact`/`IsTopExposed`/`HasFloor`/`HasCeiling`, `Zone`, `AirBoundaries`.
-- `ContextShade`: `Face3D`/`Mesh3D` faces outside the conditioned model.
+- `ContextShade(string identifier, List<AnyOf<Face3D, Mesh3D>> geometry, ContextShadePropertiesAbridged properties, string displayName = null, object userData = null, bool isDetached = true)`: unconditioned faces outside the model, the dominant shading term in any urban site; `ContextShadePropertiesAbridged` takes all-optional energy and radiance carriers.
+- `DragonflySchema` code files carry `using HoneybeeSchema;`, so `AnyOf`, `Autocalculate`, the geometry primitives, and the boundary-condition cases resolve UNQUALIFIED inside dragonfly signatures while the window, shading, and skylight cases stay dragonfly's own.
 
 [PUBLIC_TYPE_SCOPE]: aperture, shading, skylight, roof parameter unions — the `Room2D`/`RoofSpecification` `AnyOf<…>` discriminant roots
 
@@ -47,7 +48,8 @@
 |  [03]   | `ISkylightParameter` | interface     | roof glazing on a `Room2D`                      |
 |  [04]   | `IRoof`              | interface     | per-story roof geometry plus clerestory glazing |
 
-- [WINDOW]: `SingleWindow` `SimpleWindowArea` `SimpleWindowRatio` `RepeatingWindowRatio` `RepeatingWindowWidthHeight` `RectangularWindows` `DetailedWindows`.
+- [BOUNDARY]: `HoneybeeSchema.Ground` `Outdoors` `Surface` `Adiabatic` `OtherSideTemperature` — the `Room2D.BoundaryConditions` closure orders them `(Ground, Outdoors, Surface, Adiabatic, OtherSideTemperature)`, which is NOT the `HoneybeeSchema.Face.BoundaryCondition` order `(Ground, Outdoors, Adiabatic, Surface, OtherSideTemperature)`, so the two `AnyOf` closures are distinct constructed types and one concrete case re-converts between them.
+- [WINDOW]: `SingleWindow` `SimpleWindowArea` `SimpleWindowRatio` `RepeatingWindowRatio` `RepeatingWindowWidthHeight` `RectangularWindows` `DetailedWindows`; `SimpleWindowRatio(double windowRatio, object userData = null, bool rectSplit = true)` — a ratio of `0` is a real zero-area window, so absence spells the NULL slot.
 - [SHADING]: `Overhang` `ExtrudedBorder` `LouversByCount` `LouversByDistance`.
 - [SKYLIGHT]: `GriddedSkylightArea` `GriddedSkylightRatio` `DetailedSkylights`.
 - [ROOF]: `RoofSpecification` `DetailedClearstory`.

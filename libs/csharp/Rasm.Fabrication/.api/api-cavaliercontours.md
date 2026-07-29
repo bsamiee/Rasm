@@ -187,7 +187,6 @@
 [STACKING]:
 - `Clipper2` (`api-clipper2`, substrate): its `PathD` Boolean and `ClipperOffset` line offset own pure-polygon clip and Minkowski-NFP; the arc/line bridge in either direction is `ArcsToApproxLines(errorDistance)` to a `PathD`, and a `PathD` result refits to arcs only when the source was line-only. An arc-walled profile stays here and skips the refit.
 - `geometry3Sharp` (`api-geometry3sharp`): `g3.BiArcFit2` refits a genuinely line-sourced path to biarcs; a bulge-carried offset skips it, so `g3.BiArcFit2` owns only that residual case.
-- `SharpVoronoiLib` (`api-sharpvoronoilib`): owns the point-Voronoi spine; this surface consumes the `Toolpath/skeleton` spine to drive the morphed-spiral offset and computes no medial axis.
 - `Posting/program`: `PlineVertex<T>.Bulge` maps to a `G2`/`G3` arc move — center and radius derive from the vertex pair, and `Move.ArcCenter` reads straight from the segment with no refit.
 - `Nesting/nfp`: `PlineBoolean` `Not` mints the kerf-inflated `Remnant` in arc-space; the remnant's bulge threads into the next pass's `StaticAABB2DIndex` placement scan.
 - kernel: `Core.Vector2<double>` and `AABB<double>` boundary-map to `Rasm` `Point3d`/`Vector3d` (z-dropped) and the `Geometry2D` box at the `Polyline<double>` ⇄ `Loop` seam, bulge preserved into the `Loop` arc-segment.

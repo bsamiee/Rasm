@@ -108,7 +108,7 @@
 [TOPOLOGY]:
 - `IRedactorProvider` resolves one `Redactor` per set from a frozen map built at registration, so an egress read costs a hash lookup.
 - Lookup keys on whole-set equality: a set composed through `Union` resolves against a row registered for that same composite, never against its member classifications.
-- `DataClassification.None` binds `NullRedactor` unless a row claims it, and `ErasingRedactor` is the shipped fallback for every other unclaimed set.
+- The `NullRedactor` default binds the framework's own `DataClassification.None` key ALONE; a consumer taxonomy row spelling `none` is an ordinary key and falls to the fallback unless a row claims it, so a pass-through classification registers `SetRedactor<NullRedactor>` explicitly. `ErasingRedactor` is the shipped fallback for every other unclaimed set.
 - Sizing precedes writing on every span path: `GetRedactedLength` bounds the destination, then `Redact` writes and returns the count.
 - Provider construction throws when the fallback type resolves to no registered instance, so a fallback row and its redactor registration land together.
 

@@ -79,6 +79,14 @@ Each async op mirrors its sync member with a trailing `CancellationToken = defau
 |  [02]   | `ReadInputRegistersAsync<T>(int, int, int, CancellationToken) -> Task<Memory<T>>`   | instance | await-safe input-register read   |
 |  [03]   | `WriteMultipleRegistersAsync<T>(int, int, T[], CancellationToken) -> Task`          | instance | await-safe register block write  |
 |  [04]   | `ReadWriteMultipleRegistersAsync<TRead, TWrite>(...) -> Task<Memory<TRead>>`        | instance | await-safe write-then-read       |
+|  [05]   | `WriteSingleRegisterAsync(int, int, short, CancellationToken) -> Task`              | instance | await-safe one-register write    |
+|  [06]   | `ReadCoilsAsync(int, int, int, CancellationToken) -> Task<Memory<byte>>`            | instance | await-safe coil read, bit-packed |
+|  [07]   | `ReadDiscreteInputsAsync(int, int, int, CancellationToken) -> Task<Memory<byte>>`   | instance | await-safe discrete-input read   |
+|  [08]   | `WriteSingleCoilAsync(int, int, bool, CancellationToken) -> Task`                   | instance | await-safe one-coil write        |
+|  [09]   | `WriteMultipleCoilsAsync(int, int, bool[], CancellationToken) -> Task`              | instance | await-safe coil block write      |
+
+- `WriteSingleRegisterAsync` also carries `ushort` and `byte[]` overloads mirroring its synchronous family; the `short` form is function 06, distinct from a one-element function-16 block.
+- `ReadCoilsAsync`/`ReadDiscreteInputsAsync` return one bit per point packed into bytes low-bit-first, so a single-point window reads the low bit of the first byte; input registers and discrete inputs are read-only by protocol and expose no write member.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -75,6 +75,14 @@ Every `Use*`/`ConfigureOptions`/`AsBuilder` returns its builder for chaining; a 
 |  [21]   | `EmbeddingGeneratorBuilder<TIn,TE>.UseOpenTelemetry(...)`                                | instance | add embedding telemetry            |
 |  [22]   | `EmbeddingGeneratorBuilder<TIn,TE>.UseLogging(...)`                                      | instance | add embedding logs                 |
 |  [23]   | `EmbeddingGeneratorBuilder<TIn,TE>.ConfigureOptions(Action<EmbeddingGenerationOptions>)` | instance | mutate per-request options         |
+|  [24]   | `ChatClientBuilder.UseImageGeneration(IImageGenerator?, Action<...>?)`                   | instance | add the image-generation arm       |
+|  [25]   | `EmbeddingGeneratorBuilder<TIn,TE>.Build(IServiceProvider?)`                             | instance | materialize the embedding pipeline |
+
+- `UseImageGeneration`: `[Experimental("MEAI001")]`; a null generator resolves `IImageGenerator` as REQUIRED from the service provider, so the arm is woven only where one is bound.
+- `ConfigureOptions`: `ConfigureOptionsChatClient` CLONES the caller's `ChatOptions` before invoking the delegate, so a per-call rewrite never mutates the caller's value and the rewritten options are what every inner decorator observes.
+- `SummarizingChatReducer(IChatClient chatClient, int targetCount, int? threshold)`: `targetCount` is the number of MESSAGES retained and `threshold` the messages allowed beyond it before summarization runs; `SummarizationPrompt` is the settable instruction. Neither knob is token-shaped, so a token budget converts to a retention count before construction.
+- `ImageGeneratingChatClient(IChatClient, IImageGenerator, DataContentHandling = AllImages)`: substitutes each `HostedImageGenerationTool` in `ChatOptions.Tools` with function tools the inner loop invokes.
+- `DataContentHandling`: `None` | `AllImages` | `GeneratedImages`, selecting which images become identifiers on the way to the inner client.
 
 - `ChatClientBuilder.Use(sharedFunc)`: `Func<IEnumerable<ChatMessage>,ChatOptions?,Func<…,Task>,CancellationToken,Task>` wrapped in the `internal sealed AnonymousDelegatingChatClient`; pre/post only, no `ChatResponse` handle.
 - `GetResponseAsync<T>`: accepts `IEnumerable<ChatMessage>`/`string`/`ChatMessage` with optional `JsonSerializerOptions`; `useJsonSchemaResponseFormat: true` forces `ChatResponseFormat.ForJsonSchema`, and it is the sole typed surface with no streaming twin.
@@ -116,7 +124,7 @@ Every `Use*`/`ConfigureOptions`/`AsBuilder` returns its builder for chaining; a 
 - `OpenTelemetry`(`libs/csharp/.api/api-opentelemetry.md`): `UseOpenTelemetry(source)` emits the `gen_ai.*` GenAI span and metric conventions on the `ActivitySource`/`Meter` the OTel composition root admits through `AddSource`/`AddMeter`.
 - `api-hybrid-cache.md`(`libs/csharp/.api/api-hybrid-cache.md`): `UseDistributedCache` binds the resources-lane `HybridCache` surfaced as `IDistributedCache`, so the model response cache and the suite content cache share one store.
 - `api-mcp.md`(`.api/api-mcp.md`): `McpClientTool : AIFunction` registers in `ChatOptions.Tools`, and `FunctionInvokingChatClient` runs the tool-call loop over each, routing through the brokered `CommandAIFunction` the governance fold supplies.
-- within-fold: the governance fold composes the stack once at the capability-agent edge — `AddChatClient(sp => provider, lifetime).UseOpenTelemetry(...).UseDistributedCache(...).UseChatReducer(...).UseFunctionInvocation(...)` — reading every bound off the agent options row.
+- within-fold: the governance fold composes the stack once at the capability-agent edge, and decorator ORDER is the policy — `UseOpenTelemetry` outermost, `ConfigureOptions` seating the routed `ModelId` ABOVE `UseDistributedCache` so the cache key carries it, the redaction decorator BELOW the cache so a replay is not re-redacted, `UseImageGeneration` above `UseFunctionInvocation` so the substituted function tools reach the loop, and `UseChatReducer` innermost so every loop iteration re-bounds the conversation — reading every bound off the agent options row.
 
 [LOCAL_ADMISSION]:
 - `MaximumIterationsPerRequest`, `MaximumConsecutiveErrorsPerRequest`, the `IChatReducer` target count, and `EnableSensitiveData` are agent-options policy values, never literals; sensitive-data capture is opt-in per agent, never global.

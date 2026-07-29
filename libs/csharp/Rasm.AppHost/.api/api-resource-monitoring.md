@@ -22,8 +22,7 @@
 |  [03]   | `ResourceQuotaProvider`                         | class         | abstract container CPU and memory ceiling read |
 |  [04]   | `ResourceQuota`                                 | class         | baseline and maximum CPU and memory ceilings   |
 
-[UTILIZATION_ROSTER]: dimensionless instruments the snapshot providers mint — `gauge` is `ObservableGauge`, `updown` is
-`ObservableUpDownCounter`, `counter` is `ObservableCounter`, and the token after `·` is the UCUM unit the mint passes
+[UTILIZATION_ROSTER]: dimensionless instruments the snapshot providers mint — `gauge` is `ObservableGauge`, `updown` is `ObservableUpDownCounter`, `counter` is `ObservableCounter`, and the token after `·` is the UCUM unit the mint passes
 
 | [INDEX] | [INSTRUMENT]                                | [LINUX]              | [WINDOWS_HOST] | [WINDOWS_CONTAINER] |
 | :-----: | :------------------------------------------ | :------------------- | :------------- | :------------------ |

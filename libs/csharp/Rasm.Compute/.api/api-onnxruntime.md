@@ -10,6 +10,7 @@
 - namespace: `Microsoft.ML.OnnxRuntime`, `Microsoft.ML.OnnxRuntime.CompileApi`, `Microsoft.ML.OnnxRuntime.Tensors`
 - asset: managed runtime library and per-RID native runtime DLLs; accelerated providers ride sibling `.Gpu`/`.DirectML` packages
 - rail: model
+- verification: the package resolves NO assay `--key` (probe: `api query OrtValue` returns `status:unsupported`), so every member here verifies against this catalog or the published API reference, never the decompile rail
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -247,7 +248,7 @@ Base assets ship the `win-{x64,arm64}` payloads inline; every other RID resolves
 |  [21]   | `EpSelectionDelegate`                                                         | delegate | custom device-rank callback type        |
 |  [22]   | `SessionOptionsContainer.{Register, Create, ApplyConfiguration, Reset}`       | static   | reusable named session-config profiles  |
 
-- `OptimizedModelFilePath` is a managed warm-start path beside the `ep.context_*` EP-context blob.
+- `OptimizedModelFilePath` is a managed warm-start path beside the `ep.context_*` EP-context blob, and it is a WRITE alone: the setter serializes the post-optimization graph at session construction and no session reads it back, so the reuse leg is a later construction taking that file as its model source under a lowered `GraphOptimizationLevel` — a consumer that sets the path and keeps loading the source graph re-optimizes on every open and warms nothing. Compatibility metadata never enters the written graph — `GetCompatibilityInfoFromModel` is EP-context-only — so its own filename carries the runtime version and every option that shaped it.
 - `SetLoadCancellationFlag` is the load-time counterpart to `RunOptions.Terminate`, so a deadline-bound `Open` cancels a slow compile/load rather than blocking. `SetEpSelectionPolicyDelegate` binds an `EpSelectionDelegate` of shape `(IReadOnlyList<OrtEpDevice>, OrtKeyValuePairs, OrtKeyValuePairs, uint) -> List<OrtEpDevice>`.
 - `SessionOptionsContainer` collapses repeated session-config construction into one named row: `Register(name, Action<SessionOptions>)` stores a profile, `Create(name)`/`ApplyConfiguration(name)` applies it.
 
@@ -419,13 +420,16 @@ Base assets ship the `win-{x64,arm64}` payloads inline; every other RID resolves
 [STACKING]:
 - `api-onnxruntimegenai`(`.api/api-onnxruntimegenai.md`): the genai `Config.AppendProvider`/`SetProviderOption`/`SetDecoderProviderOptionsHardware*` surface selects from this EP roster and binds to devices this page's `OrtEpDevice`/`OrtHardwareDevice` discovery enumerates; genai native co-locates per RID beside this runtime.
 - boot rail: `OrtThreadingOptions` reads the AppHost `CpuBudget`, folds into `EnvironmentCreationOptions`, and `OrtEnv.CreateInstanceWithOptions(ref)` boots once behind `OrtEnv.IsCreated`; `DisableTelemetryEvents` runs at boot because the telemetry spine owns signals.
-- session rail: `SessionOptions` config keys, EP register, and `OrtModelCompilationOptions` compile fold into one `Open` keyed on `ResidentKey(ModelIdentity.Checksum, ModelFingerprint.Of(SessionPolicy.SessionRows(ep)))`; the compiled context blob content-addresses through a device-aware `ContextKey` over `OrtEpDevice` `EpName`/`VendorId`/`DeviceId`/`HardwareDevice.Type`, crossing to the Persistence blob lane as one `ArtifactIndexRow`.
+- session rail: `SessionOptions` config keys, EP register, and `OrtModelCompilationOptions` compile fold into one `Open` keyed on `ResidentKey(ModelIdentity.Checksum, ModelFingerprint.Of(SessionPolicy.SessionRows(ep)))`.
+- warm rail: both warm artifacts — the compiled EP-context blob and the managed `OptimizedModelFilePath` graph — content-address through one device-aware `ContextKey` over `OrtEpDevice` `EpName`/`VendorId`/`DeviceId`/`HardwareDevice.Type`, carrying the form's suffix with `GetVersionString()` on the compat-info-free managed form, and cross to the Persistence blob lane as one `ArtifactIndexRow`.
+- load rail: `SetLoadCancellationFlag(true)` registered off the caller's cancellation token is the ONLY bound on session construction — the load-time counterpart of `RunOptions.Terminate` — so the registration is owned beside the `SessionOptions` it arms and released before them.
 - provider rail: the `ExecutionProvider` `[SmartEnum<string>]` (Thinktecture) carries each EP's option-table/`ExecutionProviderDevicePolicy`/`OrtHardwareDeviceType`-affinity columns as one polymorphic `Register`, and the two-step compatibility enum verdict is read once and consumed into the warm-start branch.
 - run rail: `OrtValue` carriers admit through a `[Union]` `RunInput`, `OrtIoBinding` amortizes the loop over a `CreateSharedAllocator` arena, `RunOptions.Terminate` latches off the AppHost `CancelScope`, `System.Numerics.Tensors.TensorPrimitives` owns reductions, projections land in a LanguageExt `Fin<T>` inside a native-disposal bracket, and the deterministic result keys through `Microsoft.Extensions.Caching.Hybrid` stamped with `GetVersionString()`.
 - time rail: every receipt carries `NodaTime` `Instant`/`Duration`; profiling chrome-trace (`EndProfiling` + `ProfilingStartTimeNs`) lands as an `ArtifactIndexRow`.
 
 [LOCAL_ADMISSION]:
 - Compute model execution enters through ONNX Runtime sessions and typed value binding.
+- `OrtValue` memory flow is one-directional — `CreateTensorValueWithData` IMPORTS a caller pointer under an `OrtMemoryInfo` naming the foreign device, and NO member exports a device pointer; egress is the managed `GetTensorDataAsSpan<T>`/`GetTensorMutableDataAsSpan<T>`/`GetTensorMutableRawData` views sized by `GetTensorSizeInBytes`, so a device-to-device handoff to a non-ORT allocator is unrepresentable and crosses as a host copy.
 - Model load, input binding, run policy, output projection, and disposal each emit receipts.
 - Provider selection is policy data and never hides inside model-call helpers.
 - Custom operators enter through declared session options and asset evidence.

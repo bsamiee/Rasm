@@ -26,7 +26,7 @@
 |  [05]   | `ViewInfo`                  | named-view state   | focal-depth carriers           |
 |  [06]   | `DisplayModeDescription`    | mode descriptor    | named pipeline settings roster |
 |  [07]   | `DefinedViewportProjection` | projection enum    | standard projection presets    |
-|  [08]   | `IsometricCamera`           | axonometric camera | `SetProjection` subject        |
+|  [08]   | `IsometricCamera`           | enum               | axonometric quadrant roster    |
 |  [09]   | `DetailViewObject`          | page detail object | document detail owner          |
 |  [10]   | `DetailView`                | page detail        | model-in-page viewport         |
 |  [11]   | `ClippingPlaneObject`       | clip object        | clipping participation         |
@@ -135,7 +135,7 @@
 |  [29]   | `DrawHatch(Hatch, Color, Color)`                                               | vector draw   | hatch outlines               |
 |  [30]   | `DrawText(TextEntity, Color)`                                                  | text draw     | world text                   |
 |  [31]   | `Draw2dText(string, Color, Point2d, bool, int, string)`                        | text draw     | screen text                  |
-|  [32]   | `DrawAnnotation(AnnotationBase, RhinoObject, Color)`                           | text draw     | dimension-annotation draw    |
+|  [32]   | `DrawAnnotation(AnnotationBase[, RhinoObject], Color)`                         | text draw     | dimension-annotation draw    |
 |  [33]   | `DrawSprite(DisplayBitmap, Point2d, float, Color)`                             | sprite draw   | sized screen sprite          |
 |  [34]   | `DrawSprite(DisplayBitmap, Point2d, float, float)`                             | sprite draw   | dimensioned screen sprite    |
 |  [35]   | `DrawSprite(DisplayBitmap, Point3d, float, Color, bool)`                       | sprite draw   | world sprite                 |
@@ -152,6 +152,10 @@
 |  [46]   | `FrameBuffer`                                                                  | pass state    | active framebuffer           |
 |  [47]   | `DrawCurve(Curve, DisplayPen)`                                                 | vector draw   | pen-stroked curve            |
 |  [48]   | `DisplayBitmapDrawList.SetPoints(IEnumerable<Point3d>[, IEnumerable<Color>])`  | sprite draw   | cloud points, per-point tint |
+|  [49]   | `DrawAnnotationArrowhead(Arrowhead, Transform, Color)`                         | text draw     | placed arrowhead primitive   |
+
+- `IsometricCamera`: `None` `Northeast` `Northwest` `Southeast` `Southwest` — a quadrant roster, never a camera object, so `SetProjection` takes the quadrant and the resulting camera reads back off `RhinoViewport`.
+- `Arrowhead`: `Arrowhead()` and `Arrowhead(DimensionStyle.ArrowType, Guid blockId)` ctors over the read-only `ArrowType`/`BlockId` pair — the arrow is a style row plus an optional user-block id, and `DrawAnnotationArrowhead` places it by `Transform`, so head shape, scale, and orientation ride one matrix and no consumer re-derives a triangle path.
 
 [ENTRYPOINT_SCOPE]: view, viewport, and page-view
 

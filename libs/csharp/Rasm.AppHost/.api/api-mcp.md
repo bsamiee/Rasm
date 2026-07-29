@@ -107,8 +107,10 @@ Every `*ClientTransport` implements `IClientTransport`; `StreamClientTransport` 
 |  [05]   | `McpMessageFilterBuilderExtensions` | static class  | message-filter registration       |
 |  [06]   | `McpRequestFilterBuilderExtensions` | static class  | per-operation filter registration |
 
-[SERVER_BUILDER_EXTENSIONS]: `WithTools` `WithPrompts` `WithResources`.
+[SERVER_BUILDER_EXTENSIONS]: `WithTools` `WithPrompts` `WithResources` `WithMessageFilters` `WithRequestFilters`.
 [MESSAGE_FILTER_BUILDER_EXTENSIONS]: `AddIncomingFilter` `AddOutgoingFilter`.
+
+- `McpMessageFilter` is handler-wrapping, not call-shaped: `delegate McpMessageHandler McpMessageFilter(McpMessageHandler next)` over `delegate Task McpMessageHandler(MessageContext context, CancellationToken cancellationToken)`, so a filter returns a handler closing over `next` and registration order is outermost-first.
 
 [PUBLIC_TYPE_SCOPE]: ASP.NET Core host — `ModelContextProtocol.AspNetCore`
 
@@ -138,22 +140,31 @@ Every `*ClientTransport` implements `IClientTransport`; `StreamClientTransport` 
 
 [ENTRYPOINT_SCOPE]: server registration extensions on `IMcpServerBuilder`; `AddMcpServer` seeds the builder, `WithStdioServerTransport` ships in the host `ModelContextProtocol` package beside `WithTools`/`WithPrompts`/`WithResources`.
 
-| [INDEX] | [SURFACE]                                                       | [SHAPE] | [CAPABILITY]                           |
-| :-----: | :-------------------------------------------------------------- | :------ | :------------------------------------- |
-|  [01]   | `AddMcpServer(IServiceCollection)`                              | static  | seeds `IMcpServerBuilder`              |
-|  [02]   | `WithTools<TToolType>`                                          | static  | attributed `[McpServerTool]` discovery |
-|  [03]   | `WithTools(IEnumerable<McpServerTool>)`                         | static  | programmatic tool registration         |
-|  [04]   | `WithPrompts<TPromptType>`                                      | static  | attributed prompt discovery            |
-|  [05]   | `WithResources<TResourceType>`                                  | static  | attributed resource discovery          |
-|  [06]   | `WithToolsFromAssembly(Assembly?)`                              | static  | assembly tool discovery                |
-|  [07]   | `WithListToolsHandler(McpRequestHandler<..>)`                   | static  | list-tools handler                     |
-|  [08]   | `WithCallToolHandler(McpRequestHandler<..>)`                    | static  | call-tool handler                      |
-|  [09]   | `WithHttpTransport(Action<HttpServerTransportOptions>?)`        | static  | HTTP and SSE transport                 |
-|  [10]   | `MapMcp(string pattern)`                                        | static  | endpoint registration; default `""`    |
-|  [11]   | `AddMcp(AuthenticationBuilder)`                                 | static  | authentication scheme                  |
-|  [12]   | `McpServerTool.Create(AIFunction, McpServerToolCreateOptions?)` | factory | function-backed tool                   |
-|  [13]   | `McpServerTool.Create(Delegate, McpServerToolCreateOptions?)`   | factory | delegate-backed tool                   |
-|  [14]   | `WithStdioServerTransport`                                      | static  | stdio transport                        |
+| [INDEX] | [SURFACE]                                                               | [SHAPE] | [CAPABILITY]                           |
+| :-----: | :---------------------------------------------------------------------- | :------ | :------------------------------------- |
+|  [01]   | `AddMcpServer(IServiceCollection)`                                      | static  | seeds `IMcpServerBuilder`              |
+|  [02]   | `WithTools<TToolType>`                                                  | static  | attributed `[McpServerTool]` discovery |
+|  [03]   | `WithTools(IEnumerable<McpServerTool>)`                                 | static  | programmatic tool registration         |
+|  [04]   | `WithPrompts<TPromptType>`                                              | static  | attributed prompt discovery            |
+|  [05]   | `WithResources<TResourceType>`                                          | static  | attributed resource discovery          |
+|  [06]   | `WithToolsFromAssembly(Assembly?)`                                      | static  | assembly tool discovery                |
+|  [07]   | `WithListToolsHandler(McpRequestHandler<..>)`                           | static  | list-tools handler                     |
+|  [08]   | `WithCallToolHandler(McpRequestHandler<..>)`                            | static  | call-tool handler                      |
+|  [09]   | `WithHttpTransport(Action<HttpServerTransportOptions>?)`                | static  | HTTP and SSE transport                 |
+|  [10]   | `MapMcp(string pattern)`                                                | static  | endpoint registration; default `""`    |
+|  [11]   | `AddMcp(AuthenticationBuilder)`                                         | static  | authentication scheme                  |
+|  [12]   | `McpServerTool.Create(AIFunction, McpServerToolCreateOptions?)`         | factory | function-backed tool                   |
+|  [13]   | `McpServerTool.Create(Delegate, McpServerToolCreateOptions?)`           | factory | delegate-backed tool                   |
+|  [14]   | `WithStdioServerTransport`                                              | static  | stdio transport                        |
+|  [15]   | `WithPrompts(IEnumerable<McpServerPrompt>)`                             | static  | programmatic prompt registration       |
+|  [16]   | `WithResources(IEnumerable<McpServerResource>)`                         | static  | programmatic resource registration     |
+|  [17]   | `McpServerPrompt.Create(AIFunction, McpServerPromptCreateOptions?)`     | factory | function-backed prompt                 |
+|  [18]   | `McpServerResource.Create(AIFunction, McpServerResourceCreateOptions?)` | factory | function-backed resource               |
+|  [19]   | `WithMessageFilters(Action<IMcpMessageFilterBuilder>)`                  | static  | opens the message-filter builder       |
+|  [20]   | `WithRequestFilters(Action<IMcpRequestFilterBuilder>)`                  | static  | opens the request-filter builder       |
+
+- All three primitive families expose the same four `Create` overloads — `(AIFunction, …Options?)`, `(Delegate, …Options?)`, `(MethodInfo, object?, …Options?)`, and `(MethodInfo, Func<RequestContext<T>, object>, …Options?)`; the `AIFunction` form is the programmatic mint and the `MethodInfo` forms serve attributed discovery.
+- `McpServerPromptCreateOptions` and `McpServerResourceCreateOptions` share `Services`/`Name`/`Title`/`Description`/`SerializerOptions`/`SchemaCreateOptions`/`Metadata`/`Icons`/`Meta`; the resource options add `UriTemplate` and `MimeType`.
 
 [ENTRYPOINT_SCOPE]: client construction and calls; `McpClient.CreateAsync` is the sole construction point, and every session call trails `RequestOptions?` and `CancellationToken`.
 

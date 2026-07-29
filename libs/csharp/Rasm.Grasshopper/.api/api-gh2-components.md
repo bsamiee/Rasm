@@ -72,8 +72,35 @@
 |  [13]   | `DoCreateParameter(Side, int, ActionList)`                  | mutate    | create a pin with undo             |
 |  [14]   | `DoRemoveParameter(Side, int, ActionList)`                  | mutate    | remove a pin with undo             |
 |  [15]   | `VariableParameterMaintenance`                              | mutate    | reconcile the changed pin surface  |
-|  [16]   | `BakeCapable` / `BakeShapes(BakeContext, BakeUpdateMode)`   | bake      | gate and emit baked shapes         |
-|  [17]   | `CreateAttributes`                                          | view      | construct object attributes        |
+|  [16]   | `BakeCapable`                                               | bake      | virtual bakeability gate           |
+|  [17]   | `BakeShapes(BakeContext, BakeUpdateMode) -> string[]`       | bake      | non-virtual emit, returns bake ids |
+|  [18]   | `CreateAttributes`                                          | view      | construct object attributes        |
+
+[ENTRYPOINT_SCOPE]: document emission (`Grasshopper2.Bake`)
+
+`Component : IBakeAware` supplies both halves: `BakeCapable` is `virtual` and overridable, `BakeShapes` is NOT — it is a call site whose body folds every output `IBakeAware` parameter, so a declaration-driven gate overrides the first and composes the second, never the reverse.
+
+| [INDEX] | [SURFACE]                                                                    | [SHAPE]  | [CAPABILITY]                       |
+| :-----: | :--------------------------------------------------------------------------- | :------- | :--------------------------------- |
+|  [01]   | `IBakeAware.BakeCapable -> bool` / `BakeShapes(BakeContext, BakeUpdateMode)` | contract | the two-member bake floor          |
+|  [02]   | `BakeContext(string, Guid, RhinoDoc, ObjectAttributes?, UserPattern, …)`     | ctor     | bake into a live document          |
+|  [03]   | `BakeContext(string, Guid, File3dm, ObjectAttributes?, UserPattern, …)`      | ctor     | bake into a `.3dm` file            |
+|  [04]   | `BakeContext.WithProcess(string, Guid) -> BakeContext`                       | instance | re-key the process identity        |
+|  [05]   | `BakeContext.BakeObject(IPear) -> string[]`                                  | instance | bake one value, returns ids        |
+|  [06]   | `BakeContext.BakeTree(ITree, BakeUpdateMode) -> string[]`                    | instance | bake a whole tree, returns ids     |
+|  [07]   | `BakeContext.BakeIdentifiers -> string[]`                                    | property | the accumulated identity roster    |
+|  [08]   | `BakeContext.SpecificAttributes(IPear) -> ObjectAttributes`                  | instance | per-value attribute resolution     |
+|  [09]   | `BakeContext.EnsureLayers(ITree, RhinoDoc \| File3dm, …)`                    | static   | pre-create the layers a tree names |
+|  [10]   | `BakeContext.FindBakedObjects(RhinoDoc \| File3dm, BakeDataState)`           | static   | re-find prior bakes by key         |
+|  [11]   | `BakeKey(string, Guid, int twig, int item, int part)`                        | ctor     | the per-value bake coordinate      |
+|  [12]   | `BakeKey.With{Guid,Indices,Twig,Item,Part}`                                  | instance | non-destructive coordinate edits   |
+|  [13]   | `BakeKey.AssignToObject(RhinoObject \| File3dmObject, bool, bool)`           | instance | stamp the key onto a baked object  |
+|  [14]   | `UserPattern` / `MetaPattern`                                                | struct   | attribute defaults and overrides   |
+
+- `BakeContext` targets exactly one sink — `TargetDocument` or `TargetFile3dm`, the other null — so live-document and file bakes are one context shape discriminated by which target the ctor filled, never two emitters; `ProcessName`/`ProcessGuid` name the run and `WithProcess` re-keys it.
+- `BakeKey` is the `(process, twig, item, part)` coordinate that makes a bake re-findable: its `G2ObjGuid`/`G2ObjHash`/`G2ProcName`/`G2ProcGuid`/`G2Twig`/`G2Item`/`G2Part` user-string names are the stamped fields, and `BakeUpdateMode.Update` matches on them where `Add` never does.
+- `BakeDataState` is `[Flags]` — `None=0`, `Invalid=1`, `Valid=2`, `Expired=4`, `Divorced=8` — so `FindBakedObjects` filters prior bakes by trust: `Divorced` marks data copied onto a different object and `Expired` marks a still-stamped object whose source run is gone.
+- `UserPattern` carries the caller's defaults (`Mode`, `Group`, `Name`, `Layer`, `Colour`, `LineType`, `PlotColour`, `PlotWeight`, `SectionHatch`, `SectionAngle`, `SectionScale`) and `MetaPattern` the per-axis opt-in deciding which of those a value's own metadata may override (`Embed`, `UseMode`, `UseName`, `ProcessName`, `UseLayer`, `UseColour`, `UseWireDensity`, `UseLineType`, `UsePlotColour`, `UseSectionHatch`, with `AllSet`/`SomeSet` census) — two structs, one attribute resolution, and both `IStorable` so a bake profile persists with the document.
 
 [ENTRYPOINT_SCOPE]: data access get, set, and diagnostics
 

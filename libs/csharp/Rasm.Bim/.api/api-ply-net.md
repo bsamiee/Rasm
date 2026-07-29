@@ -65,6 +65,7 @@
 - `Header` roots the file descriptor and `Dataset` roots the decoded payload; every column lands once as a typed `System.Array` at `PropertyData.Data`, reachable by name.
 - `Dataset.Data` streams lazily over the parse stream, so a decode materializes it once before any `Header.Vertex`/`Face` lookup; a second enumeration re-reads the advanced stream and strands every column.
 - Each column types to its matching `System.Array` — `float[]` for `Float32`, `double[]` for `Float64`, integer-width arrays for the integer types — and a `Face` `vertex_indices` list column decodes to a jagged `int[][]`.
+- `PropertyData.Property.DataType` is the ONLY sound normalizer for a domain-bounded column: PLY writes `red`/`green`/`blue` as `UInt8` far more often than as unit-valued `Float32`, and a dark scan whose channels all sit under `1.0` is indistinguishable from float output by inspection, so a unit-interval read divides by the DECLARED width's full scale and never by one inferred from the values.
 
 [STACKING]:
 - `Exchange/import#IMPORT_RAIL` `BimIo.Ply`: `PlyParser.Parse(stream, maxChunkSize)` decodes into `Dataset`, `Header.Vertex` x/y/z and `Header.Face` `vertex_indices` typed columns fan-triangulate onto the canonical triangle-soup `ImportedGeometry`; `ParseHeader` alone feeds `Detect` classification by element roster without a body decode.

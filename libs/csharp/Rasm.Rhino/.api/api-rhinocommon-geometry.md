@@ -57,13 +57,14 @@ Substrate `api-rhinocommon` owns the `Transform` factory/decomposition/inverse a
 
 `ArchivableDictionary` registers from the persistence catalog `api-rhinocommon-persistence`.
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [CAPABILITY]                                                    |
-| :-----: | :-------------------- | :------------ | :-------------------------------------------------------------- |
-|  [01]   | `RhinoList<T>`        | class         | `IList<T>`-shaped mutable buffer base the typed lists extend    |
-|  [02]   | `Point3dList`         | class         | per-axis accessors, bounds, closest-index, in-place transform   |
-|  [03]   | `CurveList`           | class         | curve buffer with primitive-to-curve add and insert convenience |
-|  [04]   | `TransformObjectList` | class         | object and grip staging list with display-feedback transform    |
-|  [05]   | `RhinoList`           | class         | point-cloud and point k-nearest-neighbour statics               |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [CAPABILITY]                                                      |
+| :-----: | :-------------------- | :------------ | :---------------------------------------------------------------- |
+|  [01]   | `RhinoList<T>`        | class         | `IList<T>`-shaped mutable buffer base the typed lists extend      |
+|  [02]   | `Point3dList`         | class         | per-axis accessors, bounds, closest-index, in-place transform     |
+|  [03]   | `CurveList`           | class         | curve buffer with primitive-to-curve add and insert convenience   |
+|  [04]   | `TransformObjectList` | class         | `IDisposable` object/grip staging with display-feedback transform |
+|  [05]   | `RhinoList`           | class         | point-cloud and point k-nearest-neighbour statics                 |
+|  [06]   | `RTree`               | class         | the indexed KNN twin of the `RhinoList` linear statics            |
 
 [PUBLIC_TYPE_SCOPE]: light geometry (`Rhino.Geometry`)
 
@@ -259,25 +260,37 @@ Members dot off `Silhouette` and return `Silhouette[]`.
 - `[CurveIntersections]`: `Count` `this[int]` `CopyTo(IntersectionEvent[], int)` `Dispose()` — indexed disposable event list.
 - `[IntersectionEvent]`: `IsPoint` `IsOverlap` `PointA` `PointA2` `PointB` `PointB2` `ParameterA` `ParameterB` `OverlapA` `OverlapB`; `SurfacePointParameter(out double, out double)` and `SurfaceOverlapParameter(out Interval, out Interval)` read surface parameters.
 - `[MeshCurveIntersection]`: `Incidence` `FaceIndex` `CurveParameter` `PointA` `PointB` `BarycentricA` `BarycentricB` `IsPoint` `IsOverlap`.
-- `[MeshClash]`: `MeshA` `MeshB` `ClashPoint` `ClashRadius`; static `Search(IEnumerable<Mesh>, IEnumerable<Mesh>, double, int) -> MeshClash[]` and `FindDetail(RhinoObject, RhinoObject, double) -> Mesh[]`.
+- `[MeshClash]`: `MeshA` `MeshB` `ClashPoint` `ClashRadius`. `Search` is arity-polymorphic over the geometry pair — `(Mesh, Mesh, double, int)`, `(Mesh, IEnumerable<Mesh>, double, int)`, `(IEnumerable<Mesh>, IEnumerable<Mesh>, double, int)` all return `MeshClash[]`, while the document-object pair `(IEnumerable<RhinoObject>, IEnumerable<RhinoObject>, double)` and its `(…, MeshType, MeshingParameters)` sibling return `MeshInterference[]` keyed by set index — so mesh-grain and object-grain clash are one member family with two result carriers, and the meshing policy enters as a value on the object-grain overload rather than a pre-meshing pass. `FindDetail(RhinoObject, RhinoObject, double) -> Mesh[]` and its `(…, MeshType, MeshingParameters)` sibling resolve one interfering pair to its overlap meshes.
 - `[RayShootEvent]`: `GeometryIndex` `BrepFaceIndex` `Point`. `[MeshInterference]`: `IndexA` `IndexB` `HitPoints`.
 
 [ENTRYPOINT_SCOPE]: collection buffers
 
-| [INDEX] | [SURFACE]                                                                                  | [SHAPE]  | [CAPABILITY]                    |
-| :-----: | :----------------------------------------------------------------------------------------- | :------- | :------------------------------ |
-|  [01]   | `Point3dList(int)`                                                                         | ctor     | capacity-seeded point buffer    |
-|  [02]   | `Point3dList.ClosestIndex(Point3d) -> int`                                                 | instance | nearest-point index query       |
-|  [03]   | `Point3dList.Add(double, double, double)`                                                  | instance | coordinate add                  |
-|  [04]   | `Point3dList.Transform(Transform)`                                                         | instance | in-place buffer transform       |
-|  [05]   | `CurveList.Add(Line)`                                                                      | instance | primitive-to-curve add          |
-|  [06]   | `TransformObjectList.AddObjects(GetObject, bool) -> int`                                   | instance | stage command objects and grips |
-|  [07]   | `RhinoList.Point3dKNeighbors(PointCloud, IEnumerable<Point3d>, int) -> IEnumerable<int[]>` | static   | point k-nearest-neighbours      |
+| [INDEX] | [SURFACE]                                                | [SHAPE]  | [CAPABILITY]                    |
+| :-----: | :------------------------------------------------------- | :------- | :------------------------------ |
+|  [01]   | `Point3dList(int)`                                       | ctor     | capacity-seeded point buffer    |
+|  [02]   | `Point3dList.ClosestIndex(Point3d) -> int`               | instance | nearest-point index query       |
+|  [03]   | `Point3dList.Add(double, double, double)`                | instance | coordinate add                  |
+|  [04]   | `Point3dList.Transform(Transform)`                       | instance | in-place buffer transform       |
+|  [05]   | `CurveList.Add(Line)`                                    | instance | primitive-to-curve add          |
+|  [06]   | `TransformObjectList.AddObjects(GetObject, bool) -> int` | instance | stage command objects and grips |
+
+[ENTRYPOINT_SCOPE]: neighbourhood queries — every row is `static` and returns `IEnumerable<int[]>`, one index array per needle
+
+| [INDEX] | [SURFACE]                                                                        | [BOUND] | [INDEX_STRATEGY] |
+| :-----: | :------------------------------------------------------------------------------- | :------ | :--------------- |
+|  [01]   | `RhinoList.PointCloudKNeighbors(PointCloud, IEnumerable<Point3d>, int)`          | count   | linear scan      |
+|  [02]   | `RhinoList.Point3dKNeighbors(IEnumerable<Point3d>, IEnumerable<Point3d>, int)`   | count   | linear scan      |
+|  [03]   | `RTree.PointCloudKNeighbors(PointCloud, IEnumerable<Point3d>, int)`              | count   | R-tree           |
+|  [04]   | `RTree.Point3dKNeighbors(IEnumerable<Point3d>, IEnumerable<Point3d>, int)`       | count   | R-tree           |
+|  [05]   | `RTree.PointCloudClosestPoints(PointCloud, IEnumerable<Point3d>, double)`        | radius  | R-tree           |
+|  [06]   | `RTree.Point3dClosestPoints(IEnumerable<Point3d>, IEnumerable<Point3d>, double)` | radius  | R-tree           |
+
 
 - `Point3dList`: `Point3dList(IEnumerable<Point3d>)` and `Point3dList(params Point3d[])` ctors; `BoundingBox`, per-axis `X`/`Y`/`Z` accessors, `SetAllX`/`SetAllY`/`SetAllZ`, and static `ClosestIndexInList`/`ClosestPointInList`.
 - `CurveList.Add`: `Circle`/`Arc`/`Ellipse`/`IEnumerable<Point3d>` overloads; `Insert(int, …)` mirrors each and `Transform(Transform) -> bool` transforms every curve.
-- `TransformObjectList`: `Add(RhinoObject)`/`Add(ObjRef)`, `ObjectArray() -> RhinoObject[]`, `GripArray() -> GripObject[]`, `UpdateDisplayFeedbackTransform(Transform) -> bool`.
-- `RhinoList`: `PointCloudKNeighbors`/`Point3fKNeighbors`/`Point2dKNeighbors`/`Point2fKNeighbors` share the KNN shape; the generic `RhinoList<T>` is the `IList<T>` base the typed lists extend.
+- `TransformObjectList`: `IDisposable`; `Add(RhinoObject)`/`Add(ObjRef)`, `ObjectArray() -> RhinoObject[]`, `GripArray() -> GripObject[]`, `GripOwnerArray() -> RhinoObject[]`, `Count`/`GripCount`/`GripOwnerCount`, `DisplayFeedbackEnabled`, `GetBoundingBox(bool, bool) -> BoundingBox`, `UpdateDisplayFeedbackTransform(Transform) -> bool`, `Clear()`.
+- `RhinoList` and `RTree` split the KNN family by index strategy, never by call site, so the table's bound and strategy columns carry the whole discriminant; `RhinoList` also runs `Point3fKNeighbors`/`Point2dKNeighbors`/`Point2fKNeighbors` at the same shape and precision as their needles, and only the `*PointCloud*` rows take a `PointCloud` haystack.
+- `RhinoList<T>` generic is the `IList<T>` base the typed lists extend; the host publishes no linear radius search, so `(radius x linear)` stays the one empty cell of the product.
 
 [ENTRYPOINT_SCOPE]: light geometry
 

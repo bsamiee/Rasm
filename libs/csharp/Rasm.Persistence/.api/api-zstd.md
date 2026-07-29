@@ -89,7 +89,8 @@ Both `LoadDictionary` legs take a `byte[]` or a span; every `DictBuilder` traine
 |  [10]   | `Methods.ZSTD_cParam_getBounds(ZSTD_cParameter) -> ZSTD_bounds`                   | static   | admissible range for a compress knob    |
 |  [11]   | `Methods.ZSTD_dParam_getBounds(ZSTD_dParameter) -> ZSTD_bounds`                   | static   | admissible range for the decode knob    |
 |  [12]   | `Methods.ZSTD_getDictID_fromFrame(void*, nuint) -> uint`                          | static   | dictionary id a frame was built against |
-|  [13]   | `Methods.ZSTD_findDecompressedSize(void*, nuint) -> ulong`                        | static   | decoded size across every frame         |
+|  [13]   | `Methods.ZSTD_getDictID_fromDict(void*, nuint) -> uint`                           | static   | id embedded in a trained dictionary     |
+|  [14]   | `Methods.ZSTD_findDecompressedSize(void*, nuint) -> ulong`                        | static   | decoded size across every frame         |
 
 [ENTRYPOINT_SCOPE]: incremental pump
 
