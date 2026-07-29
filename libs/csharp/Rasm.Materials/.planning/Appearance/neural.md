@@ -18,7 +18,7 @@ Materials OWNS the photo-to-PBR stage vocabulary and SPECIFIES inference; `Rasm.
 - Law: `PhysicalChannelForbidden` is the generative-super-resolution law as data — a card carrying it may only emit `Channel(base_color)`, so a `superResolve` result naming any other product refuses at decode. Generative up-sampling invents plausible high-frequency detail; on an albedo that is acceptable authoring, on a normal, roughness, metalness, or height plane it is fabricated physics the shading model then integrates as if measured.
 - Law: `WeightPolicy` states whether the estate MAY carry an artefact and carries no address — the app-root import boundary resolves `ModelCardId` to bytes for both rows alike, so the registry stays a vocabulary and never a distribution channel, and an address column every row fills with absence is the second truth this omission forecloses.
 - Packages: Rasm (project — `Dimension`/`Op`), Rasm.Element (project — `ContentAddress`), Rasm.Materials.Appearance.Bsdf (`MaterialFault` band 2450), Rasm.Materials.Raster (`TextureChannel`/`PlaneFormat`/`PlaneTransfer` — the frozen channel and plane vocabularies this page projects, never re-declares), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum]`/`[ValueObject<string>]` with the folder's `ComparerAccessors.StringOrdinal` key policy, and the `TryGet` lift onto `Option` the catalog's own guidance pins), LanguageExt.Core (`Fin`/`Seq`/`Option`), BCL inbox (`FrozenDictionary`). NO inference package is composed here — `Microsoft.ML.OnnxRuntime` is `Rasm.Compute`'s and this owner's strata rank forbids the reference.
-- Growth: a new model is one `ModelCard` row; a new licence posture one `LicenseClass` row with its `Grants` column; a new execution provider one `InferenceProvider` row with its refusal semantics; a new intermediate one `PriorField` row carrying its plane shape; a new stage one `PbrStage` row declaring its consumed and emitted products. One stage carries as many cards as the estate admits — a quality card beside a fast card, a permissive card beside a research card — so the registry proves itself data rather than a one-model-per-stage table wearing a registry's name.
+- Growth: a new model is one `ModelCard` row; a new licence posture one `LicenseClass` row with its `Grants` column; a new execution provider one `InferenceProvider` row with its refusal semantics; a new intermediate one `PriorField` row carrying its plane shape; a new stage one `PbrStage` row declaring its consumed and emitted products. A stage carries as many cards as the estate admits: today `Svbrdf` and `SuperResolve` carry two rows each and the rest one, with `Blocked` rows recording artefacts that exist without a grant — the multi-card stages are what the selection fold discriminates and a richer census is row growth, never a fold edit.
 - Boundary: Materials owns the VOCABULARY and `Rasm.Compute` owns EXECUTION. `Rasm.Compute` ranks above `Rasm.Materials` in the branch strata with no reference in either direction, so nothing here reaches an ONNX session, an `OrtValue`, or a provider handle; the request crosses as a content-keyed `[WIRE]` recorded at both folder `ARCHITECTURE.md` `[03]-[SEAMS]` maps, Compute transcribes the stage, product, and licence keys into its own mirror, and the app root orchestrates the hop. That wire mints NO `tests/contracts/MANIFEST.md` entry — it never leaves the C# runtime, and a cross-language corpus entry for a branch-interior hop is the fabricated contract the cross-`libs/` ruling forecloses.
 - Boundary: text-to-material generation is an EXTERNAL-SERVICE SEAM, not a registry row. `Raster/tile#TILE_SYNTH` coherence gates every set the estate holds, and the one locally-runnable candidate loses its tileability at export, so a generated set fails that gate; a service-produced set therefore enters through `Raster/set#SET_INGEST` classification like any other third-party asset, carrying its provenance and its licence class as ingest evidence, and no stage, card, or provider row represents it.
 
@@ -90,8 +90,8 @@ public abstract partial record StageProduct {
 }
 
 // Whether a stage answers a channel DEMAND or refines an already-produced product. A Refine row never satisfies a
-// cover demand and resolves its input against the plan's Cover rows alone, so a stage that emits what it consumes
-// cannot close a cycle on itself.
+// cover demand, and every input binds against the plan PREFIX — the stages already executed — so a stage that emits
+// what it consumes chains onto its predecessor and can never close a cycle on itself.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -250,12 +250,14 @@ public sealed record TensorContract(
 
 // One registry row. Every axis a caller could otherwise hardcode is a column: which stage, what grant, whose
 // weights, which tensors, which providers in which order, what precision, how many graph partitions the session may
-// fragment into before the receipt rails, what residual against the CPU reference the row tolerates, and whether the
-// model's products are admissible as physical channels.
+// fragment into before the receipt rails, what residual against the CPU reference the row tolerates, whether the
+// model's products are admissible as physical channels, and whether the graph is STOCHASTIC — the column the plan's
+// seed threading reads, so a diffusion-derived card replays under the policy seed and a deterministic card marks a
+// caller-supplied seed inert at the source rather than at the executor's refusal.
 public sealed record ModelCard(
     ModelCardId Id, PbrStage Stage, LicenseClass License, string LicenseId, WeightPolicy Weights,
     TensorContract Contract, Seq<InferenceProvider> Providers, TensorPrecision Precision, int PartitionBound,
-    double ResidualCeiling, bool PhysicalChannelForbidden) {
+    double ResidualCeiling, bool PhysicalChannelForbidden, bool Stochastic) {
 
     // Admits passes a card whose class grants at all and sits at or below the caller's ceiling.
     public bool Admits(LicenseClass ceiling) => License.Grants && License.Rank <= ceiling.Rank;
@@ -283,36 +285,36 @@ public static class ModelRegistry {
     public static readonly FrozenDictionary<ModelCardId, ModelCard> Rows = Seq(
         Card("stable-delight-yoso-v0-4-base", PbrStage.Delight, LicenseClass.Blocked, "absent", WeightPolicy.CallerSupplied,
             Contract(["input:"], ["latent@delit"], buckets: [(512, 512)], overlap: 16),
-            [InferenceProvider.Cpu], TensorPrecision.Fp32, partitions: 1, forbidden: false, ceiling: 2e-3),
+            [InferenceProvider.Cpu], TensorPrecision.Fp32, partitions: 1, forbidden: false, ceiling: 2e-3, stochastic: true),
         Card("supermat-albedo", PbrStage.Albedo, LicenseClass.Blocked, "absent", WeightPolicy.CallerSupplied,
             Contract(["input:delit"], ["albedo@base_color"], buckets: [(512, 512)], overlap: 16),
-            [InferenceProvider.Cpu], TensorPrecision.Fp32, partitions: 1, forbidden: false, ceiling: 2e-3),
+            [InferenceProvider.Cpu], TensorPrecision.Fp32, partitions: 1, forbidden: false, ceiling: 2e-3, stochastic: false),
         Card("lotus-d-normal-v1-1", PbrStage.Normals, LicenseClass.Permissive, "apache-2.0", WeightPolicy.CallerSupplied,
             Contract(["input:"], ["normal@geometry_normal"], buckets: [(512, 512)], overlap: 32),
-            [InferenceProvider.CoreMl, InferenceProvider.Cpu], TensorPrecision.Fp32, partitions: 1, forbidden: false, ceiling: 1e-3),
+            [InferenceProvider.CoreMl, InferenceProvider.Cpu], TensorPrecision.Fp32, partitions: 1, forbidden: false, ceiling: 1e-3, stochastic: false),
         Card("depth-anything-v2-small", PbrStage.Depth, LicenseClass.Permissive, "apache-2.0", WeightPolicy.CallerSupplied,
             Contract(["image:"], ["depth@depth"], buckets: [(518, 518)], overlap: 32),
-            [InferenceProvider.CoreMl, InferenceProvider.Cpu], TensorPrecision.Fp32, partitions: 1, forbidden: false, ceiling: 5e-3),
+            [InferenceProvider.CoreMl, InferenceProvider.Cpu], TensorPrecision.Fp32, partitions: 1, forbidden: false, ceiling: 5e-3, stochastic: false),
         Card("inria-unet-hf-svbrdf", PbrStage.Svbrdf, LicenseClass.Permissive, "mit", WeightPolicy.CallerSupplied,
             Contract(["input:delit"],
                 ["albedo@base_color", "roughness@specular_roughness", "metallic@base_metalness", "normal@geometry_normal"],
                 buckets: [(256, 256), (512, 512)], overlap: 32),
-            [InferenceProvider.CoreMl, InferenceProvider.Cpu], TensorPrecision.Fp32, partitions: 1, forbidden: false, ceiling: 1e-3),
+            [InferenceProvider.CoreMl, InferenceProvider.Cpu], TensorPrecision.Fp32, partitions: 1, forbidden: false, ceiling: 1e-3, stochastic: false),
         Card("marigold-iid-appearance-v1-1", PbrStage.IntrinsicAppearance, LicenseClass.OpenRail, "openrail++-m", WeightPolicy.CallerSupplied,
             Contract(["input:"], ["albedo@base_color", "roughness@specular_roughness", "metallic@base_metalness"],
                 buckets: [(512, 512)], overlap: 32),
-            [InferenceProvider.Cpu], TensorPrecision.Fp32, partitions: 1, forbidden: false, ceiling: 2e-3),
+            [InferenceProvider.Cpu], TensorPrecision.Fp32, partitions: 1, forbidden: false, ceiling: 2e-3, stochastic: true),
         Card("realesr-general-x4v3", PbrStage.SuperResolve, LicenseClass.Permissive, "bsd-3-clause", WeightPolicy.CallerSupplied,
             Contract(["input:base_color"], ["output@base_color"], buckets: [(256, 256), (512, 512)], overlap: 16),
-            [InferenceProvider.CoreMl, InferenceProvider.Cpu], TensorPrecision.Fp32, partitions: 2, forbidden: true, ceiling: 5e-3),
+            [InferenceProvider.CoreMl, InferenceProvider.Cpu], TensorPrecision.Fp32, partitions: 2, forbidden: true, ceiling: 5e-3, stochastic: false),
         Card("span-x4", PbrStage.SuperResolve, LicenseClass.Permissive, "cc0-1.0", WeightPolicy.Redistributable,
             Contract(["input:base_color"], ["output@base_color"], buckets: [(256, 256)], overlap: 16),
-            [InferenceProvider.CoreMl, InferenceProvider.Cpu], TensorPrecision.Fp16, partitions: 1, forbidden: true, ceiling: 8e-3),
+            [InferenceProvider.CoreMl, InferenceProvider.Cpu], TensorPrecision.Fp16, partitions: 1, forbidden: true, ceiling: 8e-3, stochastic: false),
         Card("mate-unified", PbrStage.Svbrdf, LicenseClass.Blocked, "absent", WeightPolicy.CallerSupplied,
             Contract(["input:delit"],
                 ["albedo@base_color", "roughness@specular_roughness", "metallic@base_metalness", "normal@geometry_normal"],
                 buckets: [(512, 512)], overlap: 32),
-            [InferenceProvider.Cpu], TensorPrecision.Fp32, partitions: 1, forbidden: false, ceiling: 1e-3))
+            [InferenceProvider.Cpu], TensorPrecision.Fp32, partitions: 1, forbidden: false, ceiling: 1e-3, stochastic: false))
         .ToFrozenDictionary(static card => card.Id);
 
     // Type-initialization invariants the plan's one-pass closure and one-pass ordering both stand on: every stage
@@ -351,13 +353,24 @@ public static class ModelRegistry {
                 .HeadOrNone()
                 .ToFin(MaterialFault.Parameter(key, $"<model-stage-unserved:{stage.Key}@{policy.Ceiling.Key}>")));
 
-    // EmitterOf resolves a product's producer WITHIN a selected plan: the earliest-declared cover stage of the plan
-    // emitting it. Resolution runs against the PLAN and never the roster, so a refine stage binds to the cover stage
-    // that actually ran rather than to whichever roster row happens to name the same product.
-    public static Option<PbrStage> EmitterOf(Seq<PbrStage> plan, StageProduct product) =>
-        plan.Filter(stage => stage.Selection == StageSelection.Cover && stage.EmitsProduct(product))
-            .OrderBy(static stage => stage.Ordinal)
-            .HeadOrNone();
+    // EmitterOf resolves a product's producer within the EXECUTED PREFIX: the latest prior stage emitting it.
+    // Resolution runs against the prefix and never the roster, so a refine stage binds the refinement it follows —
+    // a chained up-sampler consumes its predecessor's output, never the cover stage's original — and a stage can
+    // never bind itself because its prefix never contains it.
+    public static Option<PbrStage> EmitterOf(Seq<PbrStage> prefix, StageProduct product) =>
+        prefix.Filter(stage => stage.EmitsProduct(product)).LastOrNone();
+
+    // Granted answers whether a stage carries ANY card admissible at the caller's ceiling; Serviceable closes it over
+    // the consume relation, so the cover fold never selects a route whose upstream link has no grant — the licence
+    // gate shapes the PLAN rather than surfacing as a refusal three stages deep.
+    public static bool Granted(PbrStage stage, StagePolicy policy) =>
+        Rows.Values.Any(card => card.Stage == stage && card.Admits(policy.Ceiling));
+
+    public static bool Serviceable(PbrStage stage, StagePolicy policy) =>
+        Granted(stage, policy)
+        && stage.Consumes().ForAll(product => PbrStage.Items.Any(emitter =>
+               emitter.Ordinal < stage.Ordinal && emitter.Selection == StageSelection.Cover
+               && emitter.EmitsProduct(product) && Serviceable(emitter, policy)));
 
     static Fin<ModelCard> Admissible(ModelCard card, StagePolicy policy, Op key) =>
         card.Admits(policy.Ceiling)
@@ -366,14 +379,17 @@ public static class ModelRegistry {
 
     static ModelCard Card(
         string id, PbrStage stage, LicenseClass license, string licenseId, WeightPolicy weights, TensorContract contract,
-        InferenceProvider[] providers, TensorPrecision precision, int partitions, bool forbidden, double ceiling) =>
-        new(ModelCardId.Create(id), stage, license, licenseId, weights, contract, toSeq(providers), precision, partitions, ceiling, forbidden);
+        InferenceProvider[] providers, TensorPrecision precision, int partitions, bool forbidden, double ceiling, bool stochastic) =>
+        new(ModelCardId.Create(id), stage, license, licenseId, weights, contract, toSeq(providers), precision, partitions, ceiling, forbidden, stochastic);
 
     // Row spelling: an input is `tensor:product` with an EMPTY product naming the source photo, an output is
     // `tensor@product`. Two spellings for two directions keeps a transposed row unparseable rather than silently
-    // valid, and the product key resolves against the FROZEN channel roster before the prior roster.
+    // valid, and the product key resolves against the FROZEN channel roster before the prior roster. The overlap
+    // gate holds the frozen 8-32 feather band at declaration, so an out-of-band card fails the load, never a plan.
     static TensorContract Contract(string[] inputs, string[] outputs, (int W, int H)[] buckets, int overlap) =>
-        new(toSeq(inputs).Map(static spec => spec.Split(':') switch {
+        overlap is < 8 or > 32
+            ? throw new InvalidOperationException($"<model-overlap-band:{overlap}>")
+            : new(toSeq(inputs).Map(static spec => spec.Split(':') switch {
                 [string tensor, ""] => new InputBinding(tensor, None),
                 [string tensor, string product] => new InputBinding(tensor, Some(Resolve(product, spec))),
                 var malformed => throw new InvalidOperationException($"<model-input-spec:{string.Join(':', malformed)}>"),
@@ -401,13 +417,13 @@ public static class ModelRegistry {
 ## [03]-[STAGE_PLAN]
 
 - Owner: `StagePlan` the planning fold; `StageIntent`/`StagePolicy` the request shapes; `StageInput` the producer binding; `TilePlan` the fixed-bucket tiling; `StageRequest`/`StageResult`/`StageOutput` the seam records.
-- Entry: `public static Fin<Seq<StageRequest>> Plan(StageIntent intent, Op key)` resolves the requested `TextureChannel` set into the dependency-ordered request sequence — one entry for the whole plan, because a per-stage entrypoint pushes the ordering, the input binding, and the extent threading onto every caller; `StageResult.Admit(StageResult, ModelCard, Op)` is the ONE ingestion gate every returned result crosses, and `TilePlan.Of(width, height, contract, key)` derives the tiling from the card's own bucket roster.
-- Law: resolution is COVER, then CLOSURE, then REFINE, and each pass reads row data alone. `Cover` runs a greedy set cover over the `StageSelection.Cover` rows — the stage covering the most still-uncovered requested channels wins, declaration order breaking every tie — so requesting four channels selects the one estimator answering all four rather than every stage answering any one, which is the difference between a pipeline and a broadcast. `Closure` walks `PbrStage.Items` in REVERSE declaration order once, pulling each selected stage's consumed products back to their emitters; a single reverse pass is exact because the registry asserts at type initialization that a consumed product is emitted by an earlier row, so no visited set, no sort, and no fixpoint iteration is minted for a graph the vocabulary already orders. `Refine` appends the `StageSelection.Refine` rows whose `Scale` chain reaches the intent's target extent, binding each to the cover stage that produced the refined product.
+- Entry: `public static Fin<Seq<StageRequest>> Plan(StageIntent intent, Op key)` resolves the requested `TextureChannel` set into the dependency-ordered request sequence — one entry for the whole plan, because a per-stage entrypoint pushes the ordering, the input binding, and the extent threading onto every caller; `StageResult.Admit(StageResult, ModelCard, StageRequest, Op)` is the ONE ingestion gate every returned result crosses — card echo, `Op` echo, product permission, output completeness, extent congruence, partition bound, and residual ceiling in one rail — and `TilePlan.Of(width, height, contract, key)` derives the tiling from the card's own bucket roster.
+- Law: resolution is COVER, then CLOSURE, then REFINE, and each pass reads row data AND the licence posture. `Cover` runs a greedy set cover over the SERVICEABLE `StageSelection.Cover` rows — serviceable means the stage's whole consume-closure holds a granting card at the caller's ceiling, so the grant gate shapes the route instead of surfacing as a refusal three stages deep — the stage covering the most still-uncovered requested channels wins, declaration order breaking every tie. `Closure` walks `PbrStage.Items` in REVERSE declaration order once, pulling each selected stage's consumed products back to their serviceable emitters; a single reverse pass is exact because the registry asserts at type initialization that a consumed product is emitted by an earlier row. `Refine` ACCUMULATES the refinement chain against the target-over-source factor — each granted refine row whose `Scale` divides the remainder appends in declaration order, an anisotropic or unreachable target REFUSES, and a chained refinement binds its predecessor through the prefix rather than the cover stage's original.
 - Law: each stage's INPUT is its PRODUCER's output, never the source photo. `StageInput.Source` carries the intent's plane for a stage consuming nothing, and `StageInput.Produced` names the emitting stage and the product for a stage consuming one, which the executor resolves against the results it already holds. Handing every stage the same source blob runs a chain whose links never touch, its albedo estimator reading the raw photograph the delighting stage exists to replace.
 - Law: extent threads THROUGH the plan. `TilePlan` derives from the extent a stage's input carries, and the stage's own `Scale` column produces the extent its consumers see, so a four-times up-sampler's downstream tiling is correct without a caller recomputing anything and a mismatched tile grid is unrepresentable.
 - Law: `LicenseClass.Blocked` REFUSES at request construction, not at execution — an explicit pin reads a blocked card's metadata alone, `StageRequest.Of` refuses every request naming it, so the grant gate sits at the earliest point holding it rather than deep inside a runtime trusting a caller's word.
 - Law: tiling is FIXED-SHAPE and reflect-padded. Dynamic input shapes fragment an ORT graph into many partitions and defeat memory-pattern reuse, so `TilePlan` selects the card's own bucket, pads by reflection, and feathers the declared overlap; the tile grid, the overlap, the pad mode, and the warm-up bucket key all ride the request, so the executor warms one session per bucket and never re-derives geometry the plan already fixed. `TilePlan.Of` counts the FIRST tile whole and steps the remainder by the stride, so an extent equal to its bucket is one tile rather than two.
-- Law: `StageResult` carries typed evidence, never a bare success — `ProviderUsed` records the execution provider AFTER any policy refusal so a silent degradation reads off the receipt, `PartitionCount` rails when the session fragmented past the card's declared bound, `GoldenDelta` carries the residual against the model's own CPU-provider reference output so a fast-but-wrong provider is caught by measurement rather than by trust, and `Key` echoes the request's `Op` so a failure correlates to the plan that issued it.
+- Law: `StageResult` carries typed evidence, never a bare success — `ProviderUsed` records the execution provider AFTER any policy refusal so a silent degradation reads off the receipt, `PartitionCount` rails when the session fragmented past the card's declared bound, `GoldenDelta` carries the residual against the model's own CPU-provider reference output so a fast-but-wrong provider is caught by measurement rather than by trust, and `Op` echoes the request's own with `Admit` comparing the pair, so a failure correlates to the plan that issued it and a transposed result refuses.
 - Boundary: the `[WIRE]` seam is `Rasm.Materials/Appearance/neural` ↔ `Rasm.Compute/Model/inference`, recorded at BOTH folder `ARCHITECTURE.md` `[03]-[SEAMS]` maps. It is C#-interior and mints no corpus contract entry. `StageRequest` carries CONTENT ADDRESSES and vocabulary KEYS, never plane bytes — the source plane and every produced plane live in the write-once blob store the app root binds — so the wire stays small and the executor never marshals a raster through a message. `StageResult` ingestion produces the `TextureSet` the `acquisition#ACQUISITION` `CaptureSource.NeuralPlanes` arm consumes: `Prior` outputs are dropped at that boundary because a prior feeds another stage or a `Raster/filter#PLANE_OP` and belongs in no set, `Channel` outputs become the set's planes, and the arm returns the SET beside the averaged `MaterialParameters` row, so a photo becomes a shadeable material through `Raster/set#SET_BIND` rather than only an encodable wire.
 
 ```csharp signature
@@ -472,31 +488,39 @@ public readonly record struct TilePlan(Dimension TileWidth, Dimension TileHeight
         extent <= bucket ? 1 : 1 + (int)Math.Ceiling((double)(extent - bucket) / Math.Max(1, bucket - overlap));
 }
 
-// One inference request crossing the [WIRE] seam. It carries content addresses and vocabulary KEYS, never plane
-// bytes and never a live handle, so the executor decodes the keys into its own mirror and the two owners share a
-// vocabulary rather than a type graph.
+// One inference request crossing the [WIRE] seam, spelling the frozen [07.1] roster COLUMN FOR COLUMN: the five
+// tile fields ride FLAT (the executor re-derives its grid from extent, tile, and overlap deterministically; the
+// producer-interior TilePlan keeps the grid for its own arithmetic and never crosses), and the member names are the
+// mechanical casing of the frozen keys — ModelCardId, LicenseClass, Op — never a local synonym. The record carries
+// content addresses and vocabulary KEYS, never plane bytes and never a live handle, so the executor decodes the keys
+// into its own mirror and the two owners share a vocabulary rather than a type graph.
 public sealed record StageRequest(
-    PbrStage Stage, ModelCardId ModelCard, LicenseClass License, Seq<StageInput> Inputs,
+    PbrStage Stage, ModelCardId ModelCardId, LicenseClass LicenseClass, Seq<StageInput> Inputs,
     Dimension InputWidth, Dimension InputHeight, Dimension OutputWidth, Dimension OutputHeight,
-    TilePlan Tiles, InferenceProvider Provider, TensorPrecision Precision, ulong Seed, Op Key) {
+    int TileWidth, int TileHeight, int Overlap, string PadMode, string Bucket,
+    InferenceProvider Provider, TensorPrecision Precision, ulong Seed, Op Op) {
 
     // Construction IS the grant gate: a blocked card can be read from the registry but no request naming it exists.
-    // Bind resolves the input bindings AGAINST THE PLAN, so a chained stage cannot fall back to the source plane.
+    // Bind resolves the input bindings AGAINST THE EXECUTED PREFIX, so a chained stage cannot fall back to the
+    // source plane and a chained refinement binds its predecessor. The seed columns cross only where the card
+    // declares a stochastic graph — a deterministic card zeroes the seed at the source, so the executor's
+    // seed-unbindable refusal marks a real defect rather than a defaulted knob.
     public static Fin<StageRequest> Of(
-        ModelCard card, StageIntent intent, Seq<PbrStage> plan, Dimension width, Dimension height, TilePlan tiles, Op key) =>
+        ModelCard card, StageIntent intent, Seq<PbrStage> prefix, Dimension width, Dimension height, TilePlan tiles, Op key) =>
         from _ in guard(card.License.Grants, MaterialFault.Parameter(key, $"<stage-license-blocked:{card.Id.Value}>"))
-        from inputs in Bind(card.Stage, intent, plan, key)
+        from inputs in Bind(card.Stage, intent, prefix, key)
         select new StageRequest(card.Stage, card.Id, card.License, inputs, width, height,
             Dimension.Create(width.Value * card.Stage.Scale), Dimension.Create(height.Value * card.Stage.Scale),
-            tiles, Preferred(card, intent.Policy), intent.Policy.Precision, intent.Policy.Seed, key);
+            tiles.TileWidth.Value, tiles.TileHeight.Value, tiles.Overlap, tiles.PadMode, tiles.Bucket,
+            Preferred(card, intent.Policy), intent.Policy.Precision, card.Stochastic ? intent.Policy.Seed : 0UL, key);
 
-    // Every consumed product resolves to the plan's own emitter; a stage consuming nothing binds the source plane.
+    // Every consumed product resolves to the prefix's own emitter; a stage consuming nothing binds the source plane.
     // Bind rails an unresolvable product HERE as a plan defect rather than issuing a request the executor cannot satisfy.
-    static Fin<Seq<StageInput>> Bind(PbrStage stage, StageIntent intent, Seq<PbrStage> plan, Op key) =>
+    static Fin<Seq<StageInput>> Bind(PbrStage stage, StageIntent intent, Seq<PbrStage> prefix, Op key) =>
         stage.Consumes().IsEmpty
             ? Fin.Succ(Seq<StageInput>(new StageInput.Source(intent.SourceKey)))
             : stage.Consumes().Traverse(product =>
-                  ModelRegistry.EmitterOf(plan, product)
+                  ModelRegistry.EmitterOf(prefix, product)
                       .Map(emitter => (StageInput)new StageInput.Produced(emitter, product))
                       .ToFin(MaterialFault.Parameter(key, $"<stage-input-unemitted:{stage.Key}:{product.Key}>"))).As()
               .Map(static bound => bound.Strict());
@@ -509,112 +533,142 @@ public sealed record StageRequest(
             : card.Providers.OrderBy(static p => p.Order).HeadOrNone().IfNone(InferenceProvider.Cpu);
 }
 
-// One produced plane: the product it lands on, its blob, its extent, and the transfer and format its bytes carry.
-public readonly record struct StageOutput(StageProduct Product, ContentAddress BlobKey, Dimension Width, Dimension Height, PlaneTransfer Transfer, PlaneFormat Format);
+// One produced plane spelling the frozen [07.3] roster: Role is the product the plane lands on (the wire lowers it
+// to the canonical channel or prior key), then its blob, extent, and the transfer and format its bytes carry.
+public readonly record struct StageOutput(StageProduct Role, ContentAddress BlobKey, Dimension Width, Dimension Height, PlaneTransfer Transfer, PlaneFormat Format);
 
-// StageResult carries the executed result with its typed evidence. ProviderUsed is the provider AFTER any refusal,
-// PartitionCount the graph fragmentation the session actually reached, GoldenDelta the residual against the model's CPU
-// reference — so a fast-but-wrong provider is caught by measurement rather than trusted.
+// StageResult carries the executed result with its typed evidence under the frozen [07.2] names. ProviderUsed is the
+// provider AFTER any refusal, PartitionCount the graph fragmentation the session actually reached, GoldenDelta the
+// residual against the model's CPU reference — so a fast-but-wrong provider is caught by measurement rather than trusted.
 public sealed record StageResult(
-    PbrStage Stage, ModelCardId ModelCard, Seq<StageOutput> Outputs, InferenceProvider ProviderUsed,
-    int PartitionCount, double ElapsedMs, double GoldenDelta, int TilesEmitted, Op Key) {
+    PbrStage Stage, ModelCardId ModelCardId, Seq<StageOutput> Outputs, InferenceProvider ProviderUsed,
+    int PartitionCount, double ElapsedMs, double GoldenDelta, int TilesEmitted, Op Op) {
 
     // Admit is the ONE ingestion gate. A physical-channel-forbidden card's result naming any product but base_color
     // refuses HERE, so the prohibition holds at the boundary the planes cross rather than as advice on the card; a
-    // partition count past the card's declared bound and a non-finite or over-ceiling residual refuse the same way, and
-    // a result short of the card's declared outputs refuses rather than yielding a partial set a consumer completes
-    // with neutrals it would then read as measured.
-    public static Fin<StageResult> Admit(StageResult result, ModelCard card, Op key) =>
-        from _ in guard(result.ModelCard == card.Id,
-                MaterialFault.Parameter(key, $"<stage-card-mismatch:{result.ModelCard.Value}!={card.Id.Value}>"))
-        from __ in guard(result.Outputs.ForAll(output => card.Permits(output.Product)),
+    // partition count past the card's declared bound and a non-finite or over-ceiling residual refuse the same way; a
+    // result short of the card's declared outputs refuses rather than yielding a partial set a consumer completes
+    // with neutrals it would then read as measured; and every channel output's extent proves against the REQUEST's
+    // declared output extent — the freeze's threads-through-the-plan law read back at the boundary the planes cross.
+    public static Fin<StageResult> Admit(StageResult result, ModelCard card, StageRequest request, Op key) =>
+        from _ in guard(result.ModelCardId == card.Id,
+                MaterialFault.Parameter(key, $"<stage-card-mismatch:{result.ModelCardId.Value}!={card.Id.Value}>"))
+        from _op in guard(result.Op == request.Op,
+                MaterialFault.Parameter(key, $"<stage-op-mismatch:{card.Id.Value}>"))
+        from __ in guard(result.Outputs.ForAll(output => card.Permits(output.Role)),
                 MaterialFault.Parameter(key, $"<stage-product-forbidden:{card.Id.Value}>"))
-        from ___ in guard(card.Contract.Outputs.ForAll(binding => result.Outputs.Exists(o => o.Product.Key == binding.Product.Key)),
+        from ___ in guard(card.Contract.Outputs.ForAll(binding => result.Outputs.Exists(o => o.Role.Key == binding.Product.Key)),
                 MaterialFault.Parameter(key, $"<stage-outputs-short:{card.Id.Value}:{result.Outputs.Count}>"))
+        from _extent in guard(result.Outputs.Filter(static o => o.Role is StageProduct.Channel)
+                    .ForAll(o => o.Width == request.OutputWidth && o.Height == request.OutputHeight),
+                MaterialFault.Parameter(key, $"<stage-extent-mismatch:{card.Id.Value}:{request.OutputWidth.Value}x{request.OutputHeight.Value}>"))
         from ____ in guard(result.PartitionCount <= card.PartitionBound,
-                MaterialFault.Parameter(key, $"<stage-partition-bound:{result.PartitionCount}>{card.PartitionBound}>"))
+                MaterialFault.Parameter(key, $"<stage-partition-bound:{result.PartitionCount}/{card.PartitionBound}>"))
         from _____ in guard(double.IsFinite(result.GoldenDelta) && result.GoldenDelta <= card.ResidualCeiling,
-                MaterialFault.Parameter(key, $"<stage-golden-delta:{result.GoldenDelta:R}>{card.ResidualCeiling:R}>"))
+                MaterialFault.Parameter(key, $"<stage-golden-delta:{result.GoldenDelta:R}/{card.ResidualCeiling:R}>"))
         select result;
 
-    // Planes projects the set-bound half of a result: priors feed the next stage and belong in no TextureSet, so the
-    // acquisition arm reads THIS projection and never filters the union itself.
-    public Seq<StageOutput> Planes => Outputs.Filter(static output => output.Product is StageProduct.Channel);
+    // Planes projects the set-bound half of a result: priors feed the next stage and belong in no TextureSet. The
+    // acquisition#ACQUISITION CaptureSource.NeuralPlanes arm reads THIS projection — the frozen prior-drop site —
+    // and never filters the union itself.
+    public Seq<StageOutput> Planes => Outputs.Filter(static output => output.Role is StageProduct.Channel);
 }
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static class StagePlan {
-    // ONE planning fold: cover the demand, close the dependencies, append the refinements, then thread the extent
-    // through the ordered sequence binding each stage to its producer.
+    // ONE planning fold: cover the demand, close the dependencies, append the refinement chain, then thread the
+    // extent through the ordered sequence binding each stage to its executed prefix.
     public static Fin<Seq<StageRequest>> Plan(StageIntent intent, Op key) =>
-        from covered in Cover(intent.Requested, key)
-        let ordered = Refine(Closure(covered), intent)
+        from covered in Cover(intent.Requested, intent.Policy, key)
+        from ordered in Refine(Closure(covered, intent.Policy), intent, key)
         from requests in Thread(ordered, intent, key)
         select requests;
 
-    // GREEDY SET COVER over the cover rows. Each round takes the stage answering the most still-uncovered channels,
-    // declaration order breaking ties, so one estimator answering four channels beats four estimators answering one
-    // each. A channel no cover row emits is a DECLARED gap named in the fault, never a silent short output set.
-    static Fin<Seq<PbrStage>> Cover(Seq<TextureChannel> requested, Op key) =>
-        requested.Filter(channel => !PbrStage.Items.Any(stage =>
-            stage.Selection == StageSelection.Cover && stage.EmitsProduct(new StageProduct.Channel(channel)))) is var orphans && orphans.IsEmpty
-            ? Fin.Succ(Greedy(requested, Seq<PbrStage>()))
-            : MaterialFault.Parameter(key, $"<stage-channel-unproduced:{string.Join(',', orphans.Map(static c => c.Key))}>");
+    // GREEDY SET COVER over the SERVICEABLE cover rows — a stage counts only when its whole consume-closure holds a
+    // granting card at the caller's ceiling, so the licence gate shapes the route: with the delighting artefacts
+    // blocked, a base_color demand reaches the intrinsic-appearance estimator rather than refusing three stages deep
+    // on a chain the fold could see was ungranted. Each round takes the stage answering the most still-uncovered
+    // channels, declaration order breaking ties. A channel no serviceable row emits is a DECLARED gap named with the
+    // ceiling that closed it, never a silent short output set.
+    static Fin<Seq<PbrStage>> Cover(Seq<TextureChannel> requested, StagePolicy policy, Op key) {
+        Seq<TextureChannel> orphans = requested.Filter(channel => !PbrStage.Items.Any(stage =>
+            stage.Selection == StageSelection.Cover && ModelRegistry.Serviceable(stage, policy)
+            && stage.EmitsProduct(new StageProduct.Channel(channel))));
+        return orphans.IsEmpty
+            ? Fin.Succ(Greedy(requested, policy, Seq<PbrStage>()))
+            : MaterialFault.Parameter(key,
+                  $"<stage-channel-unproduced:{string.Join(',', orphans.Map(static c => c.Key))}@{policy.Ceiling.Key}>");
+    }
 
-    static Seq<PbrStage> Greedy(Seq<TextureChannel> uncovered, Seq<PbrStage> chosen) =>
+    static Seq<PbrStage> Greedy(Seq<TextureChannel> uncovered, StagePolicy policy, Seq<PbrStage> chosen) =>
         uncovered.IsEmpty
             ? chosen
             : toSeq(PbrStage.Items)
-                .Filter(stage => stage.Selection == StageSelection.Cover && !chosen.Exists(c => c == stage))
+                .Filter(stage => stage.Selection == StageSelection.Cover && !chosen.Exists(c => c == stage)
+                              && ModelRegistry.Serviceable(stage, policy))
                 .Map(stage => (Stage: stage, Gain: uncovered.Count(channel => stage.EmitsProduct(new StageProduct.Channel(channel)))))
                 .Filter(static candidate => candidate.Gain > 0)
                 .OrderByDescending(static candidate => candidate.Gain)
                 .ThenBy(static candidate => candidate.Stage.Ordinal)
                 .HeadOrNone()
                 .Match(
-                    Some: best => Greedy(uncovered.Filter(channel => !best.Stage.EmitsProduct(new StageProduct.Channel(channel))), chosen.Add(best.Stage)),
+                    Some: best => Greedy(uncovered.Filter(channel => !best.Stage.EmitsProduct(new StageProduct.Channel(channel))), policy, chosen.Add(best.Stage)),
                     None: () => chosen);
 
     // ONE REVERSE PASS over the declaration order. A consumed product is emitted by an earlier row — the registry asserts
     // it at type initialization — so walking backwards and pulling each selected stage's consumed products to their
-    // emitters reaches the transitive closure in a single sweep, and the forward filter that follows yields the
-    // topological order directly. No visited set, no sort, no fixpoint loop for a graph the vocabulary orders.
-    static Seq<PbrStage> Closure(Seq<PbrStage> seeds) =>
-        toSeq(PbrStage.Items).Rev()
-            .Fold(seeds, static (reached, stage) =>
+    // SERVICEABLE emitters reaches the transitive closure in a single sweep, and the forward filter that follows
+    // yields the topological order directly. No visited set, no sort, no fixpoint loop for a graph the vocabulary orders.
+    static Seq<PbrStage> Closure(Seq<PbrStage> seeds, StagePolicy policy) {
+        Seq<PbrStage> reachable = toSeq(PbrStage.Items).Rev()
+            .Fold(seeds, (reached, stage) =>
                 reached.Exists(s => s == stage)
-                    ? stage.Consumes().Fold(reached, static (inner, product) =>
+                    ? stage.Consumes().Fold(reached, (inner, product) =>
                           toSeq(PbrStage.Items)
-                              .Filter(candidate => candidate.Selection == StageSelection.Cover && candidate.EmitsProduct(product))
+                              .Filter(candidate => candidate.Selection == StageSelection.Cover
+                                                && candidate.EmitsProduct(product) && ModelRegistry.Serviceable(candidate, policy))
                               .OrderBy(static candidate => candidate.Ordinal)
                               .HeadOrNone()
                               .Match(Some: emitter => inner.Exists(s => s == emitter) ? inner : inner.Add(emitter), None: () => inner))
-                    : reached)
-        is var reachable
-            ? toSeq(PbrStage.Items).Filter(stage => reachable.Exists(s => s == stage)).Strict()
-            : seeds;
+                    : reached);
+        return toSeq(PbrStage.Items).Filter(stage => reachable.Exists(s => s == stage)).Strict();
+    }
 
-    // Refine reads the TARGET extent, never a flag: a refine row appends while the plan's accumulated scale has not
-    // reached the target and the row's own product is already covered, so a request at source extent appends nothing and
-    // a four-times request appends the one row whose Scale closes the gap.
-    static Seq<PbrStage> Refine(Seq<PbrStage> ordered, StageIntent intent) =>
-        toSeq(PbrStage.Items)
-            .Filter(stage => stage.Selection == StageSelection.Refine)
+    // Refine reads the TARGET extent, never a flag, and ACCUMULATES: the required factor is the target over the
+    // source, each granted refine row whose Scale divides the remainder appends in declaration order, and a
+    // remainder the roster cannot close REFUSES — a plan silently returning a fraction of the requested extent is
+    // the defect this gate forecloses. Source-extent targets append nothing.
+    static Fin<Seq<PbrStage>> Refine(Seq<PbrStage> ordered, StageIntent intent, Op key) {
+        (int needW, int needH) = (intent.TargetWidth.Value / intent.Width.Value, intent.TargetHeight.Value / intent.Height.Value);
+        if (needW != needH || intent.TargetWidth.Value != intent.Width.Value * needW || intent.TargetHeight.Value != intent.Height.Value * needH) {
+            return MaterialFault.Parameter(key, $"<stage-target-anisotropic:{intent.TargetWidth.Value}x{intent.TargetHeight.Value}>");
+        }
+        (Seq<PbrStage> plan, int remaining) = toSeq(PbrStage.Items)
+            .Filter(stage => stage.Selection == StageSelection.Refine && ModelRegistry.Granted(stage, intent.Policy))
             .Filter(stage => stage.Consumes().ForAll(product => ModelRegistry.EmitterOf(ordered, product).IsSome))
-            .Filter(stage => intent.TargetWidth.Value >= intent.Width.Value * stage.Scale)
             .OrderBy(static stage => stage.Ordinal)
-            .Fold(ordered, static (plan, stage) => plan.Add(stage));
+            .Fold((Plan: ordered, Remaining: Math.Max(1, needW)), static (state, stage) =>
+                state.Remaining > 1 && state.Remaining % stage.Scale == 0
+                    ? (state.Plan.Add(stage), state.Remaining / stage.Scale)
+                    : state);
+        return remaining == 1
+            ? Fin.Succ(plan)
+            : MaterialFault.Parameter(key, $"<stage-target-unreachable:{intent.TargetWidth.Value}x{intent.TargetHeight.Value}:x{remaining}>");
+    }
 
     // Extent threads through the ordered sequence: each stage tiles against the extent its input carries and
     // multiplies by its own Scale for its consumers, so a downstream tiling is correct with no caller arithmetic.
+    // The fold hands each request the PREFIX of stages already threaded, so input binding and execution order are
+    // one fact rather than a roster guess.
     static Fin<Seq<StageRequest>> Thread(Seq<PbrStage> ordered, StageIntent intent, Op key) =>
         ordered.Fold(
-            Fin.Succ((Requests: Seq<StageRequest>(), Width: intent.Width, Height: intent.Height)),
+            Fin.Succ((Requests: Seq<StageRequest>(), Prefix: Seq<PbrStage>(), Width: intent.Width, Height: intent.Height)),
             (state, stage) => state.Bind(carried =>
                 from card in ModelRegistry.Select(stage, intent.Policy, key)
                 from tiles in TilePlan.Of(carried.Width, carried.Height, card.Contract, key)
-                from request in StageRequest.Of(card, intent, ordered, carried.Width, carried.Height, tiles, key)
-                select (Requests: carried.Requests.Add(request), Width: request.OutputWidth, Height: request.OutputHeight)))
+                from request in StageRequest.Of(card, intent, carried.Prefix, carried.Width, carried.Height, tiles, key)
+                select (Requests: carried.Requests.Add(request), Prefix: carried.Prefix.Add(stage),
+                        Width: request.OutputWidth, Height: request.OutputHeight)))
         .Map(static carried => carried.Requests.Strict());
 }
 ```
@@ -624,6 +678,5 @@ public static class StagePlan {
 - [MODEL_TENSOR_NAMES]-[OPEN]: what input and output tensor names, layout tokens, and fixed shape buckets does each registered ONNX artefact publish, and does any card need a second input beyond its declared one?; verify by reading each artefact's own graph metadata at the app-root import boundary and bake the answers into the `tensor:product` and `tensor@product` row specs.
 - [DELIT_PLANE_SHAPE]-[OPEN]: does the delighting artefact emit a display-referred sRGB image or a scene-linear plane, and is sixteen-bit integer the depth its output warrants against a float carrier?; verify against the artefact's own output tensor dtype and range on a fixed input, and correct the `PriorField.Delit` format and transfer columns.
 - [SUPER_RESOLVE_LICENSE]-[OPEN]: which licence do the `realesr-general-x4v3` and `span-x4` weight cards declare, as distinct from their source repositories?; verify against the published weight cards and correct the `LicenseId` and `LicenseClass` columns, moving either to `Blocked` if its card is silent.
-- [WEBGPU_PROVIDER_PRESENCE]-[OPEN]: does the ONNX Runtime package `Rasm.Compute` composes ship a WebGPU execution provider on this platform at all?; verify by enumerating the runtime's available providers on the installed native package before any card lists the row as reachable.
 - [GOLDEN_RESIDUAL_CEILING]-[OPEN]: do the per-card `ResidualCeiling` values hold against measured CPU-versus-accelerator divergence, given that a delighting model, a depth model, and an up-sampler produce outputs on different scales?; verify by measuring each card's residual on a fixed input and replace each row's value.
 - [DEPTH_PRIOR_COUPLING]-[OPEN]: which constraint form does the `Raster/filter#PLANE_OP` `HeightFromNormal` case take for a `PriorField.Depth` plane — a low-frequency additive anchor, a boundary condition on the Poisson solve, or a post-integration affine fit?; verify against the landed filter page and bind the prior at that page's own signature in the same pass.

@@ -19,7 +19,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-(none)
+[APP_SHELL_TEXTURE_CONCERT]-[BLOCKED]: the app-shell tier composes the Materials texture estate into the host and exchange shells, closing the round trips the strata forbid any single package from owning.
+- Capability: one composition root joins texture-set products to host materials, exchange styling, and inference leasing — the S2-peer and S2/S3 joins (Bim↔Materials, Materials↔Compute session custody, Rhino adapter) that no package may reference directly.
+- Shape: an app-root composition page at the product shell — a shell-join owner whose JOINS are rows, the texture estate entering as the first four rows and never the page's identity — the Rhino `RenderMaterial` adapter over the existing `Registry.Run(ContentTransaction)` texture-admission + material-mutation flow; the `Rasm.Bim` `StyledAppearance` texture roster handed to `Rasm.Materials` `SetIngest.Classify`; the accounting edge for `ChannelImage.Of` refusals (glTF-inexpressible channels, `TextureMode.NotDefined` unresolved IFC tokens); the `StagePorts.Lease` seed-tensor discovery (`InferenceSession.InputMetadata` seeding `StageSession.SeedInput`).
+- Unlocks: photo→PBR and baked sets reach a Rhino document and a glTF export with every refusal accounted, and stochastic inference stages replay under a leased seed.
+- Anchors: `libs/csharp/Rasm.Materials/.planning/Raster/set.md` `SetIngest`/`SetBind`; `libs/csharp/Rasm.Bim/.planning/Semantics/appearance.md` + `Exchange/export.md`; `libs/csharp/Rasm.Compute/.planning/Model/inference.md`; the `Rasm.Rhino` `ContentAdmission.Texture`/`ContentMutation` transaction flow; `libs/csharp/.planning/ARCHITECTURE.md` `[02]-[STRATA]`.
+- Arms: a product shell (app-root composition root) landing in the corpus.
 
 ## [02]-[CLOSED]
 

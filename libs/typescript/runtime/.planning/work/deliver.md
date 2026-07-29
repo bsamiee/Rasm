@@ -6,13 +6,11 @@ Claim admission, lease, urgency order, park ceiling, tenant egress quota, and re
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                             | [PUBLIC]  |
-| :-----: | :--------------- | :--------------------------------------------------------------------------------- | :-------- |
-|  [01]   | `CHANNEL_FAMILY` | the channel dispatch table, the shared receipt, the one delivery fault family      | `Deliver` |
-|  [02]   | `MAIL_ROW`       | the scoped transporter, the one message shape, auth/DKIM/DSN policy, send evidence | `Mailer`  |
-|  [03]   | `HOOK_ROW`       | byte-identity signed webhook egress and its settlement fold                        | `Hook`    |
-|  [04]   | `SUPPRESSION`    | the shared suppress-by-evidence fold and the pre-send check                        | `Deliver` |
-|  [05]   | `RELAY`          | the singleton outbox drain — claim, quota, dispatch, verdict, wake, pacing         | `Relay`   |
+- [02]-[CHANNEL_FAMILY]: the channel dispatch table, the shared receipt, the one delivery fault family; `Deliver`.
+- [03]-[MAIL_ROW]: the scoped transporter, the one message shape, auth/DKIM/DSN policy, send evidence; `Mailer`.
+- [04]-[HOOK_ROW]: byte-identity signed webhook egress and its settlement fold; `Hook`.
+- [05]-[SUPPRESSION]: the shared suppress-by-evidence fold and the pre-send check; `Deliver`.
+- [06]-[RELAY]: the singleton outbox drain — claim, quota, dispatch, verdict, wake, pacing; `Relay`.
 
 ## [02]-[CHANNEL_FAMILY]
 

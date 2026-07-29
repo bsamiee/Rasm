@@ -163,9 +163,9 @@
         <!-- ImageSharp held below 4.0: that major adds a build-time license task with no open-source opt-out, so every build fails without a vendor-issued key or `sixlabors.lic`. Its EXR leg is unneeded — TinyEXR.NET owns OpenEXR whole. -->
         <PackageVersion Include="SixLabors.ImageSharp"                                    Version="3.1.12" />
         <!-- TextureCompressor holds at the catalogued surface: a pre-1.0 single-maintainer API behind the Materials KtxGate seam, with the provisioned ktx CLI as the encode floor; a bump re-verifies the seam before it lands. -->
-        <PackageVersion Include="TextureCompressor"                                       Version="0.1.0" />
-        <PackageVersion Include="TextureCompressor.FileFormats.Hdr"                       Version="0.1.0" />
-        <PackageVersion Include="TextureCompressor.FileFormats.Ktx"                       Version="0.1.0" />
+        <PackageVersion Include="TextureCompressor"                                       Version="[0.1.0]" />
+        <PackageVersion Include="TextureCompressor.FileFormats.Hdr"                       Version="[0.1.0]" />
+        <PackageVersion Include="TextureCompressor.FileFormats.Ktx"                       Version="[0.1.0]" />
         <PackageVersion Include="TinyEXR.NET"                                             Version="1.1.0" />
         <PackageVersion Include="VividOrange.InteractionDiagram"                          Version="0.2.1" />
         <PackageVersion Include="VividOrange.Materials"                                   Version="0.1.0" />

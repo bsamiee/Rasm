@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_USD_CORE]
 
-`usd-core` supplies Pixar OpenUSD stage authoring and USDZ packaging for the `scene/stage` rail: a `pxr.Usd.Stage` root defines typed `UsdGeom` prims, binds `UsdShade` materials, carries `UsdSemantics` AEC labels, and fills `Gf`/`Vt` value arrays zero-copy from numpy through `Vt.<Type>Array.FromNumpy`, then `UsdUtils` packages the authored `.usdc`/`.usda` layer with its dependency closure into a `.usdz`. Authoring from a numpy point/index buffer is the wheel-available path; the `vtkUSDExporter` render-to-layer front half needs a source-built VTK. It never re-implements the C++ runtime's layer formats, composition-arc stack, Hydra render graph, or USDZ zip record, and authoring stays on the sub-3.15 offload worker.
+`usd-core` supplies Pixar OpenUSD stage authoring and USDZ packaging for the `scene/stage` rail: a `pxr.Usd.Stage` root defines typed `UsdGeom` prims, binds `UsdShade` materials, carries `UsdSemantics` AEC labels, and fills `Gf`/`Vt` value arrays zero-copy from numpy through `Vt.<Type>Array.FromNumpy`, then `UsdUtils` packages the authored `.usdc`/`.usda` layer with its dependency closure into a `.usdz`. Numpy point/index buffer authoring is the standing path; the `vtkUSDExporter` render-to-layer front half needs a VTK build enabling `vtkIOUSD`. It never re-implements the C++ runtime's layer formats, composition-arc stack, Hydra render graph, or USDZ zip record, and authoring stays on the `HOSTILE`-trait offload worker.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,7 +8,7 @@
 - package: `usd-core` (LicenseRef-TOST-1.0)
 - module: `pxr`
 - namespaces: `Usd`, `UsdGeom`, `UsdShade`, `UsdSemantics`, `UsdLux`, `Sdf`, `Gf`, `Vt`, `Tf`, `Kind`, `UsdUtils`
-- abi: C++/Boost.Python native extension (`_<module>.so` per submodule), no cp315 wheel; `pxr` imports only inside the sub-3.15 offload worker
+- abi: C++/Boost.Python native extension (`_<module>.so` per submodule); the Forge python-overlay `.pth` supplies `pxr` at the interpreter floor, and the import stays worker-side under the `HOSTILE` process lane
 - rail: scene — `scene/stage`
 
 ## [02]-[PUBLIC_TYPES]
@@ -92,16 +92,16 @@ Whole-stage authoring is lazy — prims compose into the layer stack and write o
 |  [08]   | `UsdGeom.Mesh.CreateExtentAttr`            | `CreateExtentAttr(...)` -> `Usd.Attribute`; `[min,max]` bbox extent for AR framing   |
 |  [09]   | `UsdGeom.PrimvarsAPI.CreatePrimvar`        | `CreatePrimvar(name, typeName, interpolation)`; `displayColor`/`st` primvar          |
 |  [10]   | `UsdShade.MaterialBindingAPI.Apply`        | `MaterialBindingAPI.Apply(prim)` + `.Bind(material)`; bind to prim/`Subset`          |
-|  [17]   | `UsdShade.Material.CreateDisplacementOutput` | `CreateDisplacementOutput(renderContext=UsdShade.Tokens.universalRenderContext)` -> `UsdShade.Output`; the CANONICAL displacement terminal — `_GetOutputName` namespaces per render context (`ri:displacement`, `glslfx:displacement`), so a hand-rolled `NodeGraph.CreateOutput("displacement", Sdf.ValueTypeNames.Token)` hardcodes the universal case and silently misses every context-specific terminal; `GetDisplacementOutput(renderContext=…)`/`GetDisplacementOutputs()` read, `ComputeDisplacementSource(renderContext=…)` resolves `(shader, sourceName, sourceType)` against the namespaced name with a universal fallback |
-|  [18]   | `UsdShade.Output.ConnectToSource`          | five overloads — `(source, mod=Replace)`, `(source, sourceName, sourceType=AttributeType.Output, typeName=Sdf.ValueTypeName())`, `(sourcePath)`, `(sourceInput)`, `(sourceOutput)`; the terminal connect rides `(sourceOutput)` output-to-output forwarding — a terminal is never an input connection |
-|  [11]   | `UsdSemantics.LabelsAPI.Apply`             | `LabelsAPI.Apply(prim, taxonomy)` + `.CreateLabelsAttr`; taxonomy-keyed AEC labels   |
-|  [12]   | `UsdGeom.SetStageUpAxis`                   | `SetStageUpAxis(stage, upAxis)` -> `bool`; stage up-axis (`UsdGeom.Tokens.y`/`z`)    |
-|  [13]   | `UsdGeom.SetStageMetersPerUnit`            | `SetStageMetersPerUnit(stage, metersPerUnit)` -> `bool`; stage linear scale          |
-|  [14]   | `Usd.Stage.SetDefaultPrim`                 | `SetDefaultPrim(prim)` -> `None`; name the default root prim (USDZ ref)              |
-|  [15]   | `Usd.Stage.GetRootLayer` / `Save`          | `GetRootLayer()` -> `Sdf.Layer`; `Sdf.Layer.Save()` -> `bool`; persist edits         |
-|  [16]   | `Usd.Stage.Export`                         | `Export(filename, addSourceFileComment=True)` -> `bool`; flatten + export            |
-|  [17]   | `Sdf.Layer.Export`                         | `Export(filename)` -> `bool`; export one layer (format by suffix)                    |
-|  [18]   | `Vt.<Type>Array.FromNumpy`                 | `Vt.<Type>Array.FromNumpy(array)`; zero-copy typed array, no `TokenArray`            |
+|  [11]   | `UsdShade.Material.CreateDisplacementOutput` | `CreateDisplacementOutput(renderContext=UsdShade.Tokens.universalRenderContext)` -> `UsdShade.Output`; the CANONICAL displacement terminal — `_GetOutputName` namespaces per render context (`ri:displacement`, `glslfx:displacement`), so a hand-rolled `NodeGraph.CreateOutput("displacement", Sdf.ValueTypeNames.Token)` hardcodes the universal case and silently misses every context-specific terminal; `GetDisplacementOutput(renderContext=…)`/`GetDisplacementOutputs()` read, `ComputeDisplacementSource(renderContext=…)` resolves `(shader, sourceName, sourceType)` against the namespaced name with a universal fallback |
+|  [12]   | `UsdShade.Output.ConnectToSource`          | five overloads — `(source, mod=Replace)`, `(source, sourceName, sourceType=AttributeType.Output, typeName=Sdf.ValueTypeName())`, `(sourcePath)`, `(sourceInput)`, `(sourceOutput)`; the terminal connect rides `(sourceOutput)` output-to-output forwarding — a terminal is never an input connection |
+|  [13]   | `UsdSemantics.LabelsAPI.Apply`             | `LabelsAPI.Apply(prim, taxonomy)` + `.CreateLabelsAttr`; taxonomy-keyed AEC labels   |
+|  [14]   | `UsdGeom.SetStageUpAxis`                   | `SetStageUpAxis(stage, upAxis)` -> `bool`; stage up-axis (`UsdGeom.Tokens.y`/`z`)    |
+|  [15]   | `UsdGeom.SetStageMetersPerUnit`            | `SetStageMetersPerUnit(stage, metersPerUnit)` -> `bool`; stage linear scale          |
+|  [16]   | `Usd.Stage.SetDefaultPrim`                 | `SetDefaultPrim(prim)` -> `None`; name the default root prim (USDZ ref)              |
+|  [17]   | `Usd.Stage.GetRootLayer` / `Save`          | `GetRootLayer()` -> `Sdf.Layer`; `Sdf.Layer.Save()` -> `bool`; persist edits         |
+|  [18]   | `Usd.Stage.Export`                         | `Export(filename, addSourceFileComment=True)` -> `bool`; flatten + export            |
+|  [19]   | `Sdf.Layer.Export`                         | `Export(filename)` -> `bool`; export one layer (format by suffix)                    |
+|  [20]   | `Vt.<Type>Array.FromNumpy`                 | `Vt.<Type>Array.FromNumpy(array)`; zero-copy typed array, no `TokenArray`            |
 
 [ENTRYPOINT_SCOPE]: USDZ packaging, asset dependencies, and stage stats
 - rail: scene — `pxr.UsdUtils`
@@ -130,9 +130,9 @@ Whole-stage authoring is lazy — prims compose into the layer stack and write o
 - packaging: `CreateNewUsdzPackage` and `CreateNewARKitUsdzPackage` both embed the dependency closure and return `bool`, the ARKit arm adding QuickLook constraints.
 
 [STACKING]:
-- worker-seam: `pxr` imports after `lane.offload(Kernel.of((WORKER_MODULE, "<kernel>"), KernelTrait.HOSTILE), ...)` reaches the sub-3.15 native-VTK worker; `scene/export`'s `render_export`/`render_ingest` compose `scene/stage`'s `StageOp`/`PackageOp`, and `LanePolicy.capacity` bounds native fan-out.
+- worker-seam: `pxr` imports after `lane.offload(Kernel.of((WORKER_MODULE, "<kernel>"), KernelTrait.HOSTILE), ...)` reaches the native-VTK worker; `scene/export`'s `render_export`/`render_ingest` compose `scene/stage`'s `StageOp`/`PackageOp`, and `LanePolicy.capacity` bounds native fan-out.
 - numpy (`libs/python/.api/numpy.md`): `StageOp.MeshAuthor` authors a layer from `scene/render`'s `surface_arrays` `.points`/`.regular_faces`/`.point_normals` `NDArray` buffers through `Vt.Vec3fArray.FromNumpy(points)` / `Vt.IntArray.FromNumpy(faces.reshape(-1))` / `Vt.FloatArray.FromNumpy(widths)` — zero-copy, no render pass, no Python list round-trip.
-- vtk (`.api/vtk.md`, source-build-gated): `StageOp.RenderExport`'s front half is `vtkmodules.vtkIOUSD.vtkUSDExporter` (`SetRenderWindow(Plotter.render_window)`/`SetFileName`/`Write`) writing a `.usdc` that `UsdUtils.CreateNewUsdzPackage(Sdf.AssetPath(usdc), usdz)` packages; the official `vtk` wheel ships no `vtkIOUSD`, so the arm activates only on a source-built VTK and `MeshAuthor` is the wheel default — `vtk` owns render-to-layer, `usd-core` layer-to-package.
+- vtk (`.api/vtk.md`, `vtkIOUSD`-gated): `StageOp.RenderExport`'s front half is `vtkmodules.vtkIOUSD.vtkUSDExporter` (`SetRenderWindow(Plotter.render_window)`/`SetFileName`/`Write`) writing a `.usdc` that `UsdUtils.CreateNewUsdzPackage(Sdf.AssetPath(usdc), usdz)` packages; the resident VTK enables no `vtkIOUSD` module, so the arm activates only against a VTK carrying it and `MeshAuthor` is the standing path — `vtk` owns render-to-layer, `usd-core` layer-to-package.
 - content-key + receipt (`core/plan` / `core/receipt`): `Scene3d._key` mints from admitted input before work, `facts.address` derives from produced bytes, and `ComputeUsdStageStats` contributes stage evidence to the single `ArtifactReceipt.Scene` case.
 - structlog (`libs/python/.api/structlog.md`): `async_boundary("scene.<op>", ...)` owns terminal fault observation and maps `Tf.ErrorException`/`Boost.Python.ArgumentError` onto `RuntimeRail`, so `pxr` bodies carry no logging path; `PackageFault` carries false packaging outcomes to `scene/export`'s `ExportError("<usd-failed>")`.
 - arkit: `scene/stage`'s `UsdzProfile.ARKIT` selects `CreateNewARKitUsdzPackage` and `UsdzProfile.STANDARD` selects `CreateNewUsdzPackage` on the same `PackageOp` owner.
@@ -141,10 +141,10 @@ Whole-stage authoring is lazy — prims compose into the layer stack and write o
 - Author with `CreateInMemory()` or `CreateNew(path)`, define typed prims by `<Schema>.Define`, and write on `Save`/`Export`; never a parallel per-geometry-kind writer.
 - Carry every geometry buffer as one `Vt.<Type>Array.FromNumpy` set; never a `.tolist()` copy or a per-vertex append.
 - Package through `CreateNewUsdzPackage`/`CreateNewARKitUsdzPackage`; never hand-roll USDZ zip alignment.
-- Import `pxr` only inside the sub-3.15 offload worker.
+- Import `pxr` only inside the offload worker.
 
 [RAIL_LAW]:
 - Package: `usd-core`
 - Owns: USD stage authoring (`Usd.Stage`), typed geometry prims (`UsdGeom` family + `SetStageUpAxis`/`SetStageMetersPerUnit`), per-attribute authoring over the `Gf`/`Vt` vocabulary with the zero-copy `FromNumpy` bridge, primvars (`UsdGeom.PrimvarsAPI`), material/shader graphs bound through `UsdShade.MaterialBindingAPI`, semantic labels (`UsdSemantics.LabelsAPI`/`LabelsQuery`), layer serialization to `.usdc`/`.usda` (`Sdf.Layer`), and USDZ packaging/extraction with asset-dependency discovery/rewrite (`UsdUtils`)
-- Accept: `StageOp.MeshAuthor` over `surface_arrays`; source-built `StageOp.RenderExport`; qualified-name process offload through `LanePolicy`; explicit `Sdf.AssetPath`; `UsdzProfile.ARKIT`; dependency closure and relocation; `ComputeUsdStageStats`; `Result[PackageFacts, PackageFault]`
+- Accept: `StageOp.MeshAuthor` over `surface_arrays`; `vtkIOUSD`-backed `StageOp.RenderExport`; qualified-name process offload through `LanePolicy`; explicit `Sdf.AssetPath`; `UsdzProfile.ARKIT`; dependency closure and relocation; `ComputeUsdStageStats`; `Result[PackageFacts, PackageFault]`
 - Reject: a per-vertex or `.tolist()` buffer copy where `FromNumpy` is zero-copy; a parallel per-geometry-kind writer class; hand-rolled USDZ zip alignment; a re-implemented crate/composition/Hydra runtime; an out-of-band semantic sidecar

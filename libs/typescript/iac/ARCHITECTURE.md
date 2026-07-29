@@ -128,5 +128,5 @@ Growth is one row on the owning surface — a cloud, capability, credential, ten
 - Convergence treats recovery as clean-target materialization and returns it through the normal publication path.
 - Every workload role mounts the proved contract and active-generation pointer before scheduling.
 - Object-engine admission requires conditional-create semantics; `minio | ceph` are the conforming rows.
-- Static distribution publishes caller-owned artifact rows at `assets/<digest>/<file>` on the `served` plane and carries no UI codec semantics.
+- Static distribution publishes caller-owned artifact rows — every leaf of a row under one lowercase `assets/<digest>/` directory beside the one served-header roster every arm reads — on the `served` plane and carries no UI codec semantics; a served address IS the object key, so every declared leaf proves present under the built directory before the dialect converges.
 - Queue durability is the SKIP-LOCKED outbox with the runtime relay owned by the data and runtime planes.

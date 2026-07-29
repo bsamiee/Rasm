@@ -4,12 +4,10 @@ The agent altitude, ruled and sealed: an agent session's interaction state is a 
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]  | [OWNS]                                                                | [PUBLIC]  |
-| :-----: | :--------- | :-------------------------------------------------------------------- | :-------- |
-|  [01]   | `SESSION`  | persisted chat memory, the session row, the two compaction lanes      | `Session` |
-|  [02]   | `TURN`     | the phase anchor, the turn fold, the `Act`/`Turn`/`AgentFault` triple | `Agent`   |
-|  [03]   | `ACTOR`    | the phase machine, the in-process boot, the entity escalation row     | `Agent`   |
-|  [04]   | `APPROVAL` | the held-call evidence fold and the two release paths                 | `Agent`   |
+- [02]-[SESSION]: persisted chat memory, the session row, the two compaction lanes; `Session`.
+- [03]-[TURN]: the phase anchor, the turn fold, the `Act`/`Turn`/`AgentFault` triple; `Agent`.
+- [04]-[ACTOR]: the phase machine, the in-process boot, the entity escalation row; `Agent`.
+- [05]-[APPROVAL]: the held-call evidence fold and the two release paths; `Agent`.
 
 ## [02]-[SESSION]
 

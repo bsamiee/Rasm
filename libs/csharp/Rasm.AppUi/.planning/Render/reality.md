@@ -18,7 +18,7 @@ The reality-capture rail projects scanned existing-conditions geometry into the 
 - Auto: each ellipsoid carries its mean position, the three scale magnitudes, the rotation quaternion, the spherical-harmonic color coefficients, and the opacity, so a `SplatSource` is the decoded SOG (self-organizing-gaussian) or PLY ellipsoid set the Compute payload streams; `SplatSort` radix-sorts the ellipsoids back-to-front per view by their projected depth so the alpha-composited rasterization composites in order — the 3DGS draw demands depth-sorted ellipsoids and the radix sort is the per-view fold the pass re-runs on a camera change; the ellipsoid bytes stream from the Persistence blob lane through the residency budget exactly as the meshlet tiles do, so a massive splat scene stays VRAM-bounded; the splat tile keys by the PAYLOAD'S OWN `ContentKey` per the single-mint law — a local re-hash over raw component floats is the DELETED form (doubly foreclosed by the kernel one-hasher law: no AppUi-side content-key fold exists beside `ContentHash.Of`), so residency keys the splat tile identically to the meshlet tile.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Compute (project)
 - Growth: a new splat attribute is one `SplatEllipsoid` field; a new sort policy is one `SplatSort` value; a new fault is one `CaptureFault` case; zero new surface.
-- Boundary: the splat source consumes the one Compute `ResidencyPayload` boundary record that `Render/pipeline.md` already projects. `CaptureDecode` is the composition-bound interpreter for the payload's compressed `Blob` and typed `Layout`; the AppUi owner never invents flat payload members or assumes native struct packing. The radix sort runs an LSD radix over 32-bit quantized view-aligned depth keys, discriminated by `SplatSort.RadixDepth` versus `RadixTile`. Residency keying rides `ResidencyBudget`, and `CapturePass` draws only through the active target supplied by `RenderGraph`.
+- Boundary: the splat source consumes the one Compute `ResidencyPayload` boundary record that `Render/pipeline.md` already projects. `CaptureDecode` is the composition-bound interpreter for the payload's compressed `Blob` and typed `Layout`; the AppUi owner never invents flat payload members or assumes native struct packing. The radix sort runs an LSD radix over 32-bit quantized view-aligned depth keys, discriminated by `SplatSort.RadixDepth` versus `RadixTile`, its view basis the `Render/pathtrace#BSDF_SHADING` `OracleFrame.OfCamera` triad — the compilation unit's one camera-basis and unit/cross owner, a page-local copy the deleted form. Residency keying rides `ResidencyBudget`, and `CapturePass` draws only through the active target supplied by `RenderGraph`.
 
 ```csharp signature
 [Union]
@@ -95,9 +95,9 @@ public sealed record SplatSource(
         int count = Ellipsoids.Count;
         if (count <= 1) { return Ellipsoids; }
         CameraFrame frame = camera.Frame;
-        (double fx, double fy, double fz) = Normalize(frame.Target.X - frame.Eye.X, frame.Target.Y - frame.Eye.Y, frame.Target.Z - frame.Eye.Z);
-        (double rx, double ry, double rz) = Normalize(Cross(fx, fy, fz, frame.Up.X, frame.Up.Y, frame.Up.Z));
-        (double ux, double uy, double uz) = Cross(rx, ry, rz, fx, fy, fz);
+        // ONE camera triad — the pathtrace OracleFrame.OfCamera owner shared with the HZB projection and the
+        // primary-ray fold, so the sort's view basis cannot drift from the basis the render reads.
+        ((double fx, double fy, double fz), (double rx, double ry, double rz), (double ux, double uy, double uz)) = OracleFrame.OfCamera(frame);
         (uint[] keys, int[] order, double[] depths) = (new uint[count], new int[count], new double[count]);
         double maxDepth = 1e-9;
         for (int at = 0; at < count; at++) {
@@ -135,16 +135,6 @@ public sealed record SplatSource(
 
     private static BoundingSphere BoundsOf(ResidencyPayload payload) =>
         new(payload.Center.X, payload.Center.Y, payload.Center.Z, payload.Radius);
-
-    private static (double X, double Y, double Z) Normalize(double x, double y, double z) {
-        double length = Math.Max(Math.Sqrt((x * x) + (y * y) + (z * z)), 1e-12);
-        return (x / length, y / length, z / length);
-    }
-
-    private static (double X, double Y, double Z) Normalize((double X, double Y, double Z) v) => Normalize(v.X, v.Y, v.Z);
-
-    private static (double X, double Y, double Z) Cross(double ax, double ay, double az, double bx, double by, double bz) =>
-        ((ay * bz) - (az * by), (az * bx) - (ax * bz), (ax * by) - (ay * bx));
 }
 ```
 

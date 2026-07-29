@@ -4,13 +4,11 @@ Document egress as one folded `Report.Spec` family: the format discriminant sele
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]   | [OWNS]                                                                         | [PUBLIC] |
-| :-----: | :---------- | :----------------------------------------------------------------------------- | :------- |
-|  [01]   | `SPEC_FOLD` | the report spec, the format policy row, the one render dispatch, byte identity | `Report` |
-|  [02]   | `XLSX_ARM`  | the streaming workbook writer and the full style/rule/validation vocabularies  | `Report` |
-|  [03]   | `PDF_ARM`   | measured paging, native tables, metadata/encryption, furniture registration    | `Report` |
-|  [04]   | `CSV_ARM`   | serializer with formula defense, the node streaming duplex, decoded ingress    | `Report` |
-|  [05]   | `BUNDLE`    | the archive container — streaming egress, progress receipt, guarded ingress    | `Report` |
+- [02]-[SPEC_FOLD]: the report spec, the format policy row, the one render dispatch, byte identity; `Report`.
+- [03]-[XLSX_ARM]: the streaming workbook writer and the full style/rule/validation vocabularies; `Report`.
+- [04]-[PDF_ARM]: measured paging, native tables, metadata/encryption, furniture registration; `Report`.
+- [05]-[CSV_ARM]: serializer with formula defense, the node streaming duplex, decoded ingress; `Report`.
+- [06]-[BUNDLE]: the archive container — streaming egress, progress receipt, guarded ingress; `Report`.
 
 ## [02]-[SPEC_FOLD]
 

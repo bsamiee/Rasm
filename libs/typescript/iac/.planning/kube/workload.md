@@ -4,12 +4,10 @@
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                                  | [PUBLIC]   |
-| :-----: | :-------------- | :---------------------------------------------------------------------- | :--------- |
-|  [01]   | `SIZING_ROWS`   | the scale vocabulary: replicas, requests, limits per profile row        | `Workload` |
-|  [02]   | `LIFE_MIRROR`   | the drain-budget and probe-route anchor mirrored from the runtime plane | `Workload` |
-|  [03]   | `ENV_ASSEMBLY`  | the key map, the token secret, the env rows, the entrypoint wrap        | `Workload` |
-|  [04]   | `WORKLOAD_TIER` | service/worker lowering, identity, deployment, optional service, cron   | `Workload` |
+- [02]-[SIZING_ROWS]: the scale vocabulary: replicas, requests, limits per profile row; `Workload`.
+- [03]-[LIFE_MIRROR]: the drain-budget and probe-route anchor mirrored from the runtime plane; `Workload`.
+- [04]-[ENV_ASSEMBLY]: the key map, the token secret, the env rows, the entrypoint wrap; `Workload`.
+- [05]-[WORKLOAD_TIER]: service/worker lowering, identity, deployment, optional service, cron; `Workload`.
 
 ## [02]-[SIZING_ROWS]
 

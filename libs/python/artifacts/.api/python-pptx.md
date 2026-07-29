@@ -166,7 +166,7 @@ A shape's `TextFrame` owns paragraphs/runs and fit; `Font` carries the full char
 [STACKING]:
 - `msgspec`(`.api/msgspec.md`): each presentation op captures slide/shape/image/chart counts, per-embed `Picture.image.sha1`/`size`/`content_type`, and output byte length as a `msgspec.Struct` office receipt — the `core/receipt#RECEIPT` `ArtifactReceipt.Office` case.
 - `structlog`(`.api/structlog.md`) + `opentelemetry-api`(`.api/opentelemetry-api.md`): the build emits one `structlog` event inside one OpenTelemetry span stamping the receipt counts, never re-derived off the bytes by a second reader.
-- `anyio`(`.api/anyio.md`): the build authors on the `anyio.to_process` sub-3.15 worker band; only the saved `.pptx` bytes (or a stream) with the typed receipt cross the seam, never a live `Presentation`.
+- `anyio`(`.api/anyio.md`): the build authors on the `anyio.to_process` worker band; only the saved `.pptx` bytes (or a stream) with the typed receipt cross the seam, never a live `Presentation`.
 - `XlsxWriter`(`.api/xlsxwriter.md`): the chart-data workbook embeds through the in-package `XlsxWriter` writer.
 - `Pillow`(`.api/pillow.md`): sizes embedded images and exposes `Picture.image` evidence.
 - `puremagic`/`python-magic`(`.api/puremagic.md`): `exchange/detect#DETECT` routes `MediaClass.PRESENTATION` here at the ingest gate.

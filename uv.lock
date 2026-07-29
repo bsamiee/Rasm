@@ -249,15 +249,6 @@ wheels = [
 ]
 
 [[package]]
-name = "appdirs"
-version = "1.4.4"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/d7/d8/05696357e0311f5b5c316d7b95f46c669dd9c15aaeecbb48c7d0aeb88c40/appdirs-1.4.4.tar.gz", hash = "sha256:7d5d0167b2b1ba821647616af46a749d1c653740dd0d2415100fe26e27afdf41", size = 13470, upload-time = "2020-05-11T07:59:51.037Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3b/00/2344469e2084fb287c2e0b57b72910309874c3245463acd6cf5e3db69324/appdirs-1.4.4-py2.py3-none-any.whl", hash = "sha256:a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128", size = 9566, upload-time = "2020-05-11T07:59:49.499Z" },
-]
-
-[[package]]
 name = "apscheduler"
 version = "3.11.3"
 source = { registry = "https://pypi.org/simple" }
@@ -2906,19 +2897,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/f8/de/130820754c21c00dfdc6852661de2bb30161b5a439a8643a446dae97a02f/imagecodecs-2026.6.26-cp315-cp315t-win32.whl", hash = "sha256:a10c347225f5fb1b9d1a36cfadccad9b173609c30e0dd3f68706675d6f4f9b58", size = 17330338, upload-time = "2026-06-28T18:26:52.04Z" },
     { url = "https://files.pythonhosted.org/packages/a7/df/b4f6f2a9e9102ca674673cb1b432bbebfe2d99acb6364390768024d56ae6/imagecodecs-2026.6.26-cp315-cp315t-win_amd64.whl", hash = "sha256:85ab027a8bc900f13b1cdaac05bb602ea58749731ae18743a7956642a7da7a2c", size = 22116857, upload-time = "2026-06-28T18:26:55.65Z" },
     { url = "https://files.pythonhosted.org/packages/2e/c4/d87b33e8df5c6ec19f5cd1d5ab39195b2077ac21536ff5146c20d3fb8694/imagecodecs-2026.6.26-cp315-cp315t-win_arm64.whl", hash = "sha256:41e18fcd2124c083b00f988eeb9c5cf89274e5c2f473ee03d54761b71048085c", size = 17651071, upload-time = "2026-06-28T18:26:59.305Z" },
-]
-
-[[package]]
-name = "imageio"
-version = "2.37.4"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-    { name = "pillow" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/48/62/aa770a9307508d2a2a2c62d536a49347bffe9e55322db27838d3c93d0b07/imageio-2.37.4.tar.gz", hash = "sha256:e45cbc5e83502047fb138f7f585f7f105a136a57eea5f4b3cfc6ce1b52720bd3", size = 390173, upload-time = "2026-07-20T05:26:11.369Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3e/2d/ca050652104bab2cf55e569db2a178b1b61cb041fef28307f2db383f6d9f/imageio-2.37.4-py3-none-any.whl", hash = "sha256:1ab2e22c8debf700f24c3ac43e8f95f3b3a8110c83b93411e97b4b0b2cd1c7e6", size = 318000, upload-time = "2026-07-20T05:26:09.874Z" },
 ]
 
 [[package]]
@@ -6502,48 +6480,6 @@ dependencies = [
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/2d/6a/282936de9faac6addf6bc8792c18e006489d0023ffd8856b8643f54d0558/pyvips-3.1.1.tar.gz", hash = "sha256:84fe744d023b1084ac2516bb17064cacd41c7f8aabf8e524dd383534941b9301", size = 56951, upload-time = "2025-12-09T18:38:06.355Z" }
 
-[package.optional-dependencies]
-binary = [
-    { name = "pyvips-binary" },
-]
-
-[[package]]
-name = "pyvips-binary"
-version = "8.18.4"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "cffi" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/0b/a2/78646a4c58dde4e51c883c1b2fb3c157b385782092173baf3f91b48666a8/pyvips_binary-8.18.4.tar.gz", hash = "sha256:fc4c10970da40b8c16e556f2022a9e4600f74d7ac6ea578a2c16efe03aa3fba1", size = 3792, upload-time = "2026-07-06T10:36:22.797Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c7/2a/137d2bde18772a35f01989f47502b3b514c3d86fcc1f6053107e9644af86/pyvips_binary-8.18.4-cp37-abi3-macosx_10_15_x86_64.whl", hash = "sha256:0a353d804db997ab6e2f709af5885e5b5fbd36bfae3b83bce6419fdc0ec67a0b", size = 8804591, upload-time = "2026-07-06T10:35:59.489Z" },
-    { url = "https://files.pythonhosted.org/packages/ad/53/c1d9e0e0aca60c1de920d07af8266b8b87224eb9f19a89629b9920485ce9/pyvips_binary-8.18.4-cp37-abi3-macosx_11_0_arm64.whl", hash = "sha256:06c1bca5c4e1d41f4305cfd02d53574bde102585b8135f90da8ea6fb54d8ef54", size = 7932856, upload-time = "2026-07-06T10:36:02.151Z" },
-    { url = "https://files.pythonhosted.org/packages/2c/47/d5af1d78a0f995755d2d1ebb3a9e1f3d5252a1e1cec4518d6c76b07d510a/pyvips_binary-8.18.4-cp37-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:81ed9b4d281a7132c498f62564429a39b1953398597867cd576263aef9bef272", size = 8120180, upload-time = "2026-07-06T10:36:04.382Z" },
-    { url = "https://files.pythonhosted.org/packages/aa/70/d0fdcc6b4be49f96f5a378510a3e251a591b84fc99d00779b74f3d1d4062/pyvips_binary-8.18.4-cp37-abi3-manylinux_2_28_armv7l.manylinux_2_31_armv7l.whl", hash = "sha256:b5fe5014555e38ff796eac3513a49b3d832999ba65c25999038c1fa861f7b88c", size = 7821453, upload-time = "2026-07-06T10:36:06.823Z" },
-    { url = "https://files.pythonhosted.org/packages/9d/ff/08ad76bd3974791b6116026bc9e9347795d2d23f283c6fa53c208dbd04d6/pyvips_binary-8.18.4-cp37-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:68a24313cd76c9213e1208887aa1dabaa502e2be3f180222628191478977e2d0", size = 8004640, upload-time = "2026-07-06T10:36:09.489Z" },
-    { url = "https://files.pythonhosted.org/packages/57/f7/6189051dd688a45d922fd54cb380a3b4e18e1ae3cad1103966b38c74a5c5/pyvips_binary-8.18.4-cp37-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:d2808f3395e52b5a289111d57f1dba0fcd2c81573eda4cef768e7633ce446037", size = 8134850, upload-time = "2026-07-06T10:36:12.101Z" },
-    { url = "https://files.pythonhosted.org/packages/06/ba/1e565f43d0d734901ec3fdb6c2df5985be820e2702942c37fdfb94e17db4/pyvips_binary-8.18.4-cp37-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:b30028e10d3feaf14067c8658b827d0471464ba838c0795d3bf201f151800a1a", size = 8039192, upload-time = "2026-07-06T10:36:14.292Z" },
-    { url = "https://files.pythonhosted.org/packages/bd/5e/01fe55141a2e77639429f004e678c19e468bd2cfdd7c66f62e487d0dee5b/pyvips_binary-8.18.4-cp37-abi3-win32.whl", hash = "sha256:5e49ab5164efca9cc6230f12237130f902bc2639b765342ee3c16eb1ed15b265", size = 7968523, upload-time = "2026-07-06T10:36:17.152Z" },
-    { url = "https://files.pythonhosted.org/packages/c2/6e/5248336741c0a416d16e0f56efecaa9c1514005e58665148cd6d841ea7ef/pyvips_binary-8.18.4-cp37-abi3-win_amd64.whl", hash = "sha256:8f89588e55c2824fb8cbdda94baffb81da6b87fce08b517ccfdd233aae0ee418", size = 7930802, upload-time = "2026-07-06T10:36:19.346Z" },
-    { url = "https://files.pythonhosted.org/packages/16/80/c3f35ef439fcdbc7fba055fd31f71ef4f6f516e3a75c4d39fc80803329be/pyvips_binary-8.18.4-cp37-abi3-win_arm64.whl", hash = "sha256:c98a26842cd08c238405d3f83b04d3de11c35ca24d0e1a9d0f04f3f1fdf20d8c", size = 7215735, upload-time = "2026-07-06T10:36:21.396Z" },
-]
-
-[[package]]
-name = "pyvista"
-version = "0.36.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "appdirs" },
-    { name = "imageio" },
-    { name = "numpy" },
-    { name = "pillow" },
-    { name = "scooby" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/45/b7/47fffbb930c9863fafe627c3a99d63a32330be10b37c58bfc9042550a374/pyvista-0.36.0.tar.gz", hash = "sha256:91553804aa162e055e486092bbd4fa60f7e6871096ad4dc47bcc329ad70ce8d6", size = 1425629, upload-time = "2022-07-31T03:28:54.188Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/35/61/be354dda968290574da958791b305c2c5f40ed401a561c7c73393e5c4fc0/pyvista-0.36.0-py3-none-any.whl", hash = "sha256:5eddabc8ad22627c667ae9da92c38ade5ef29304f85c5a9445d1f14b5dd4e35c", size = 1453226, upload-time = "2022-07-31T03:28:52.234Z" },
-]
-
 [[package]]
 name = "pywavelets"
 version = "1.9.0"
@@ -7048,15 +6984,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a0/c6/c4c80bd13c0eec99121922c50cd1c72600672307b28e4ba67f636d6b298d/scipy_stubs-1.18.0.1.tar.gz", hash = "sha256:761cb35106200c90a37034d3c8120d3899d673de1e5879d3a2ac1d6816c62327", size = 410862, upload-time = "2026-07-12T21:09:29.993Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b1/0c/78404528783677077f072288724ff8ef8381bbc219b110e3147e60361b6d/scipy_stubs-1.18.0.1-py3-none-any.whl", hash = "sha256:704408c5f03a33924c9fed6dc9e25926dc331ed508d52f1beece0188525cebad", size = 616217, upload-time = "2026-07-12T21:09:28.45Z" },
-]
-
-[[package]]
-name = "scooby"
-version = "0.11.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/5b/06/9a8600207fd72a29ee965e9a4c61b750cc3fa106768f14a7b3ee3e36cb61/scooby-0.11.2.tar.gz", hash = "sha256:0575c73636ec4c2587bea1f8a038798ddcb249e02067fae897dac3bf4f4e444d", size = 242928, upload-time = "2026-04-22T23:13:12.307Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/99/bc/1173f502f1870e3bae81c148326c5cbcc19ec77df79a9aaf17a59911355c/scooby-0.11.2-py3-none-any.whl", hash = "sha256:f34c36bbee749b2c55816a080521f216d88304e635017e911c12249607d38c49", size = 20142, upload-time = "2026-04-22T23:13:10.705Z" },
 ]
 
 [[package]]
@@ -8546,8 +8473,7 @@ dependencies = [
     { name = "python-flint" },
     { name = "python-magic" },
     { name = "python-pptx" },
-    { name = "pyvips", extra = ["binary"] },
-    { name = "pyvista" },
+    { name = "pyvips" },
     { name = "pywavelets" },
     { name = "queenbee" },
     { name = "rasterio" },
@@ -8892,8 +8818,8 @@ requires-dist = [
     { name = "python-flint" },
     { name = "python-magic" },
     { name = "python-pptx" },
-    { name = "pyvips", extras = ["binary"] },
-    { name = "pyvista" },
+    { name = "pyvips" },
+    { name = "pyvista", marker = "python_full_version < '3.15'" },
     { name = "pywavelets" },
     { name = "quadax", marker = "python_full_version < '3.15'" },
     { name = "queenbee" },

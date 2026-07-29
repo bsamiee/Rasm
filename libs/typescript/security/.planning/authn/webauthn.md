@@ -4,11 +4,9 @@ Both halves of the passkey ceremony as two per-runtime subpath modules: the RP-s
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]           | [PUBLIC]                                                     | [RUNTIME]       |
-| :-----: | :------------------ | :----------------------------------------------------------- | :-------------- |
-|  [01]   | `ATTESTATION_TRUST` | `Passkey`, `WebAuthnFault`, `CeremonyPhase`, `WebAuthnTrust` | `./server` node |
-|  [02]   | `RP_VERIFICATION`   | `WebAuthn`, `WebAuthnStore`, `ChallengeStore`                | `./server` node |
-|  [03]   | `BROWSER_CEREMONY`  | `Passkeys`, `PasskeyFault`                                   | `./browser`     |
+- [02]-[ATTESTATION_TRUST]: `Passkey`, `WebAuthnFault`, `CeremonyPhase`, `WebAuthnTrust`; `./server` node.
+- [03]-[RP_VERIFICATION]: `WebAuthn`, `WebAuthnStore`, `ChallengeStore`; `./server` node.
+- [04]-[BROWSER_CEREMONY]: `Passkeys`, `PasskeyFault`; `./browser`.
 
 ## [02]-[ATTESTATION_TRUST]
 

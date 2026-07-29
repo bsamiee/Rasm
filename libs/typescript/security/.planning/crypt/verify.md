@@ -4,12 +4,10 @@ External-signature ingress: one closed dialect table carries every inbound authe
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                                                           | [PUBLIC]           |
-| :-----: | :-------------- | :----------------------------------------------------------------------------------------------- | :----------------- |
-|  [01]   | `VERIFY_FAULT`  | the folder fault shape and the `crypt/sign` re-spell                                             | `VerifyFault`      |
-|  [02]   | `DIALECT_TABLE` | the signing-convention rows and their header parse folds                                         | `Verify`           |
-|  [03]   | `VERIFY_FOLD`   | the throttled constant-time verify pipeline, `Verified` receipt, key registry, intake middleware | `Verify`, `Intake` |
-|  [04]   | `REJECT_STREAM` | the folder-wide reject fact family: one counter, kind discriminant, bounded facets               | `Reject`           |
+- [02]-[VERIFY_FAULT]: the folder fault shape and the `crypt/sign` re-spell; `VerifyFault`.
+- [03]-[DIALECT_TABLE]: the signing-convention rows and their header parse folds; `Verify`.
+- [04]-[VERIFY_FOLD]: the throttled constant-time verify pipeline, `Verified` receipt, key registry, intake middleware; `Verify`, `Intake`.
+- [05]-[REJECT_STREAM]: the folder-wide reject fact family: one counter, kind discriminant, bounded facets; `Reject`.
 
 ## [02]-[VERIFY_FAULT]
 

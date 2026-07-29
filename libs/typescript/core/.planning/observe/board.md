@@ -6,13 +6,11 @@ Dashboards are identity-derived data, and the pack library is the same owner's d
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                                                          |
-| :-----: | :-------- | :---------------------------------------------------------------------------------------------- |
-|  [01]   | `QUERY`   | the typed expression family, its dual-spelling operator rows, the target axis, and both folds   |
-|  [02]   | `PANEL`   | the closed panel row family and the shelf-layout grid fold                                      |
-|  [03]   | `MODEL`   | the `DashboardModel` owner: identity-derived uid, variables, annotations, the backend-free read |
-|  [04]   | `BENCH`   | the structural claim shape and the baseline-versus-candidate regression fold                    |
-|  [05]   | `PACKS`   | the pane builders, the payload map, the pack record, dispatch, and suite                        |
+- [02]-[QUERY]: the typed expression family, its dual-spelling operator rows, the target axis, and both folds.
+- [03]-[PANEL]: the closed panel row family and the shelf-layout grid fold.
+- [04]-[MODEL]: the `DashboardModel` owner: identity-derived uid, variables, annotations, the backend-free read.
+- [05]-[BENCH]: the structural claim shape and the baseline-versus-candidate regression fold.
+- [06]-[PACKS]: the pane builders, the payload map, the pack record, dispatch, and suite.
 
 ## [02]-[QUERY]
 
@@ -32,7 +30,7 @@ Dashboards are identity-derived data, and the pack library is the same owner's d
 - Law: windows are positive `Duration` values rendered without rounding or one closed provider interval token (`$__rate_interval`) — integral seconds use `s`, subsecond values use exact `ms`, and an arbitrary dialect window string is unspellable; the token has no SQL spelling, so a `Sql` target names the bucket it resolves to as data rather than leaving the width implicit.
 - Law: `Windowed` renders by operand shape under both targets — a selector operand takes the range form (`fn(selector[w])`, one grouped SELECT over the source rows) and any composed operand takes the subquery form (`fn((expr)[w:])`, a re-aggregate over the inner relation) — so time-share expressions compose from the same rows and no builder hand-writes subquery or join syntax.
 - Law: the histogram representation is a target row, never a name fact — a classic store exposes `le`-bearing `_bucket` series so the quantile arm aggregates `by (le)` and the fraction arm divides two bucket rates, while a native store carries one series so the same two cases render `histogram_quantile` and `histogram_fraction` over it.
-- Law: every SQL relation answers the same three columns — the bucket instant, the series identity, and the value — so a combinator wraps its operand as a subquery, the join keys are fixed by construction, and grouping keys thread DOWN from the enclosing `Aggregate` into the leaf that reads them; a constant SUBTREE broadcasts inline rather than joining — recognition is recursive because the scalar relation carries the empty series identity a join key would have to match, so a composed threshold folds exactly as a bare literal does and neither target renders a shape the other cannot.
+- Law: every SQL relation answers the same three columns — the bucket instant, the series identity, and the value — so a combinator wraps its operand as a subquery, the join keys are fixed by construction, and grouping keys thread DOWN from the enclosing `Aggregate` into the leaf that reads them; a constant SUBTREE broadcasts inline rather than joining — recognition is recursive because the scalar relation carries the empty series identity a join key must match, so a composed threshold folds exactly as a bare literal does and neither target renders a shape the other cannot.
 - Law: the leaf reads its relation AND its value column off the metric's own kind, so a residence relating histograms in a bucket table names the scalar that table genuinely carries and no fold reads a column its relation never declared.
 - Law: the render fold IS the dialect's codegen output — PromQL is a single-line dialect whose rendered string is byte-load-bearing (quoted UTF-8 selector identity), so a document-assembly layer (`@effect/printer` `Doc`/`encloseSep`) is rejected: layout grouping and reflow forge selector spelling, and the closed family already owns every arm.
 - Law: the fn/op/agg vocabularies stay interior — `_FNS`/`_OPS` are `as const satisfies` row tables no export reaches, their unions derive as the interior `_Fn`/`_Op`/`_Agg` aliases the case fields consume, and consumers speak literals the fields already type; the `type`-plus-`const` pair is the family's whole public spelling.
@@ -315,7 +313,7 @@ const _leaf = (
 const _applied = (op: _Op, left: string, right: string, engine: _Engine): string =>
   _OPS[op].truth ? engine.truth(_OPS[op].sql(left, right)) : _OPS[op].sql(left, right)
 
-// A constant subtree carries no series identity, so recognition is RECURSIVE: a composed threshold
+// Constant subtrees carry no series identity, so recognition is RECURSIVE: a composed threshold
 // (`Binary(Const, mul, Const)`) is exactly as scalar as a bare literal and the PromQL fold already renders it that
 // way, while a shallow immediate-operand test hands the join arm a relation whose `_COLUMN.by` is the empty
 // identity `_constant` writes — the join matches nothing and the frame empties silently, so the two targets fork
@@ -831,7 +829,7 @@ const Bench: Data.TaggedEnum.Constructor<Bench.Verdict> & {
 - Law: the replay pane filters the reject counter on its own `kind` rather than minting a second counter — the reject stream already keys the replay half, and a twin doubles the mounted series while stranding its denominator on any emission edit.
 - Law: security panes carry no tenant label — the security instrument rows declare no tenant dimension, so the pack reads process-level series while `DashboardModel.of` supplies the tenant variable every dashboard already carries.
 - Law: the crash pack groups the capture counter's ONE declared fan — a class table over `error.type` beside the capture-rate stat — while fingerprint and hop evidence reads off the exception log stream, so no panel groups on an axis the census proves no producer stamps.
-- Law: the object pack is the content-addressed plane's health board — write outcomes grouped by `rasm.object.outcome`, the landed-bytes and resumable-upload flow pair, and the sweep-reclaim rate — every series the data object owners tap from receipts, tenant-free because the object instruments are process-level, while every dispute settles against the receipt.
+- Law: the object pack is the content-addressed plane's health board — write outcomes grouped by `rasm.object.outcome`, the landed-bytes and resumable-upload flow pair, the sweep-reclaim rate, the served-asset transform rate grouped by `rasm.asset.engine` beside `rasm.asset.outcome`, and the asset-transcode duration quantiles — every series the data object owners tap from receipts, tenant-free because the object instruments are process-level, while every dispute settles against the receipt.
 - Law: the lake pack is the storage-harvest board — admission-wait and deferred-wait quantiles, harvested engine-profile quantiles, the retried rate by `rasm.olap.engine`, the cache hit-share expression grouped by `rasm.cache.name`, and the pool-lease instant by `rasm.pool.scheme` — so the lake-engine profile parity and cache/pool census the data lanes mint read on one standing board, and its residence tile carries the same retry series over the evidence horizon the store's own retention cannot reach.
 - Law: the bench pack trends the claim bridge — the `rasm.bench.band` timing ladder per payload suite, one generated enrichment panel per GC/heap/hardware-counter unit family, and the verdict rate grouped by `rasm.bench.verdict` — the meter-bridged projection of `[05]`'s fold, so a regression is a threshold-visible line the same fold gates on and incompatible units never share one axis.
 - Law: `DashboardModel.suite(board, payload)` folds the mapped `_SUITE` record, whose key contract is exactly `DashboardModel.Pack`; a new pack cannot compile until its suite projection lands, and the standing fleet never requires a hand-maintained array roster.
@@ -930,6 +928,7 @@ const _display = (metric: Convention.MetricName, fold: Convention.Display): Opti
 // Trend panes differ by five literals alone, so the rows carry them and one builder renders the family: a sixth trend is
 // one row, the rate-versus-increase choice is the row's own `fn`, and the legend derives from the grouping axes.
 const _TRENDS = {
+  assetTransforms: { axes: [Convention.rasm.assetEngine, Convention.rasm.assetOutcome], fn: "rate", labels: {}, metric: Convention.metric.assetTransformed, span: { h: 8, w: 12 }, title: "asset transforms by engine and outcome" },
   auditActions: { axes: [Convention.rasm.auditAction], fn: "rate", labels: _tenant, metric: Convention.metric.factDrained, span: { h: 8, w: 16 }, title: "audit actions" },
   chartFrames: { axes: [], fn: "rate", labels: {}, metric: Convention.metric.chartFrames, span: { h: 6, w: 8 }, title: "pivot delta frames" },
   formSubmits: { axes: [Convention.rasm.formOutcome], fn: "rate", labels: {}, metric: Convention.metric.formSubmit, span: { h: 8, w: 12 }, title: "submit trips by outcome" },
@@ -1100,6 +1099,7 @@ const _latency = _quantile({ labels: _tenant, metric: Convention.metric.httpServ
 const _invokeLatency = _quantile({ labels: {}, metric: Convention.metric.invokeDuration, title: "invoke" }) // the capability instruments are process-level: no tenant tag exists on their series
 const _gatewayLatency = _quantile({ labels: {}, metric: Convention.metric.gatewayDuration, title: "gateway" })
 const _batchLatency = _quantile({ labels: {}, metric: Convention.metric.batchDuration, title: "batch window" })
+const _transcodeLatency = _quantile({ labels: {}, metric: Convention.metric.assetTranscodeDuration, title: "asset transcode" })
 const _lakeWait = _quantile({ labels: {}, metric: Convention.metric.olapWait, title: "lake wait" })
 const _lakeDeferred = _quantile({ labels: {}, metric: Convention.metric.olapDeferred, title: "deferred wait" })
 const _lakeProfile = _quantile({ labels: {}, metric: Convention.metric.profileDuration, title: "engine profile" })
@@ -1341,7 +1341,7 @@ declare namespace DashboardModel {
     readonly invoke: { readonly quantiles: ReadonlyArray<Query.QuantileValue> }
     readonly lake: { readonly quantiles: ReadonlyArray<Query.QuantileValue> }
     readonly meter: { readonly resources: ReadonlyArray<string> }
-    readonly object: Record.ReadonlyRecord<never, never>
+    readonly object: { readonly quantiles: ReadonlyArray<Query.QuantileValue> }
     readonly overview: { readonly quantiles: ReadonlyArray<Query.QuantileValue> }
     readonly security: { readonly quantiles: ReadonlyArray<Query.QuantileValue> }
     readonly slo: { readonly objectives: ReadonlyArray<Slo.Objective> }
@@ -1434,10 +1434,15 @@ const _PACKS: { readonly [K in DashboardModel.Pack]: (board: DashboardModel.Boar
       title: "usage",
       variables: [],
     }),
-  object: (board) =>
+  object: (board, payload) =>
     DashboardModel.of(board, {
       annotations: [],
-      panels: [_trend(board, _TRENDS.objectWrites), _flow(board, _FLOWS.objectFlow)],
+      panels: [
+        _trend(board, _TRENDS.objectWrites),
+        _flow(board, _FLOWS.objectFlow),
+        _trend(board, _TRENDS.assetTransforms),
+        ...Array.map(payload.quantiles, _transcodeLatency(board)),
+      ],
       slug: "object",
       tags: ["object", "storage"],
       title: "object plane",
@@ -1531,7 +1536,7 @@ const _SUITE: { readonly [K in DashboardModel.Pack]: (board: DashboardModel.Boar
   invoke: (board, payload) => _PACKS.invoke(board, { quantiles: payload.quantiles }),
   lake: (board, payload) => _PACKS.lake(board, { quantiles: payload.quantiles }),
   meter: (board, payload) => _PACKS.meter(board, { resources: payload.resources }),
-  object: (board) => _PACKS.object(board, {}),
+  object: (board, payload) => _PACKS.object(board, { quantiles: payload.quantiles }),
   overview: (board, payload) => _PACKS.overview(board, { quantiles: payload.quantiles }),
   security: (board, payload) => _PACKS.security(board, { quantiles: payload.quantiles }),
   slo: (board, payload) => _PACKS.slo(board, { objectives: payload.objectives }),

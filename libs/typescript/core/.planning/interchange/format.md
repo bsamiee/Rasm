@@ -1,16 +1,14 @@
 # [CORE_FORMAT]
 
-The four format engines of the interchange plane — one arm per contract byte dialect, each a configured-once pure engine behind one `Schema.transformOrFail` fold so every malformed payload is a `ParseError` on the one admission rail and no second codec fault vocabulary exists. `Proto` is the protobuf-es engine: read/write posture, the census-guarded `GenMessage` suite table, the singular type registry, the size-delimited frame stream both directions, and the custom-option read. `Cbor` is the canonical RFC 8949 decoder with the interop posture no cross-language byte can bypass, the `setSizeLimits` DoS gate, and the chunked `decodeIter` lane for multi-segment payloads. `Pack` is the MessagePack engine carrying the sixteen-byte `Hlc` extension row, the interner context thread, i64 fidelity, and the `ExtData` foreign-ext seam. `Patch` is the RFC 6902 engine: the six-op `Operation` union over the branch pointer brand, the `Pointer` traversal codec, the clone-fenced value-rail apply, the content-key-reconciled minimal diff, and the OCC test-guard egress. Engines are format mechanics only — which family decodes through which arm, what a decoded value lands as, and every verification are the codec registry's concern. The module is `core/src/interchange/format.ts`; a new proto family is one suite row, a new engine posture axis is one policy field, and a fifth dialect is a new engine owner beside these four, never a widening of one.
+Format engines carry the interchange plane — one arm per contract byte dialect, each a configured-once pure engine behind one `Schema.transformOrFail` fold so every malformed payload is a `ParseError` on the one admission rail and no second codec fault vocabulary exists. `Proto` is the protobuf-es engine: read/write posture, the census-guarded `GenMessage` suite table, the singular type registry, the size-delimited frame stream both directions, and the custom-option read. `Cbor` is the canonical RFC 8949 decoder with the interop posture no cross-language byte can bypass, the `setSizeLimits` DoS gate, and the chunked `decodeIter` lane for multi-segment payloads. `Pack` is the MessagePack engine carrying the sixteen-byte `Hlc` extension row, the interner context thread, i64 fidelity, and the `ExtData` foreign-ext seam. `Patch` is the RFC 6902 engine: the six-op `Operation` union over the branch pointer brand, the `Pointer` traversal codec, the clone-fenced value-rail apply, the content-key-reconciled minimal diff, and the OCC test-guard egress. Engines are format mechanics only — which family decodes through which arm, what a decoded value lands as, and every verification are the codec registry's concern. Module `core/src/interchange/format.ts` owns them; a new proto family is one suite row, a new engine posture axis is one policy field, and a further dialect is a new engine owner beside them, never a widening of one.
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                      | [PUBLIC] |
-| :-----: | :----------------- | :-------------------------------------------------------------------------- | :------- |
-|  [01]   | `ENGINE_FOLD`      | the shared defect-to-`ParseError` fold every arm's transform composes       | interior |
-|  [02]   | `PROTO_ENGINE`     | read/write posture, frame/family/stream, the suite table, the one registry  | `Proto`  |
-|  [03]   | `CBOR_ENGINE`      | the configured canonical decoder, the DoS gate, the quirk augmentation      | `Cbor`   |
-|  [04]   | `MSGPACK_ENGINE`   | the `Hlc`-ext codec pair, the interner context, stream and zero-copy egress | `Pack`   |
-|  [05]   | `JSONPATCH_ENGINE` | the op union, apply, diff, OCC guards, and the patch content key            | `Patch`  |
+- [02]-[ENGINE_FOLD]: the shared defect-to-`ParseError` fold every arm's transform composes; interior.
+- [03]-[PROTO_ENGINE]: read/write posture, frame/family/stream, the suite table, the one registry; `Proto`.
+- [04]-[CBOR_ENGINE]: the configured canonical decoder, the DoS gate, the quirk augmentation; `Cbor`.
+- [05]-[MSGPACK_ENGINE]: the `Hlc`-ext codec pair, the interner context, stream and zero-copy egress; `Pack`.
+- [06]-[JSONPATCH_ENGINE]: the op union, apply, diff, OCC guards, and the patch content key; `Patch`.
 
 ## [02]-[ENGINE_FOLD]
 
@@ -50,6 +48,7 @@ const _lifted = (
 - Law: `_Message` admits the foreign message by identity through `Schema.declare` over `isMessage` — a decoded message is `$typeName`-branded plain data, never `instanceof`-discriminated, and it leaves this module only through `family`'s composed owned vocabulary.
 - Law: 64-bit fields are `bigint` end to end — `protoInt64` bridges construction sites, and a `Number`-coerced i64 loses precision past 2^53 and is the named defect.
 - Law: the suite is the only site touching the generated `interchange_pb.ts` — sibling pages import `Proto`, never the emit; the generated module is `@bufbuild/protoc-gen-es` output pinned lockstep with the runtime by the workspace catalog, regenerated atomically with a census edit, and never hand-edited.
+- Law: generation input spans EVERY producing estate's corpus schema, not one branch's — the census seats a python-minted family beside the C#-minted rows, so `AssetSetManifest` reaches `_suite` exactly as a `Rasm.*` message does and the row carries no second engine, no second registry, and no second decode path. Generation input scoped to one producer strands a rostered census family with no suite row and breaks the tuple guard at the declaration, which is the intended failure — the fix is the input, never a hand-written schema beside the emit.
 - Law: the registry is program-wide singular — a second `createRegistry` call forks `Any` and detail resolution and is the drift defect; `peek` reads a size-delimited header without consuming — `sizeDelimitedPeek` answers `{ size, offset, eof }`, an incomplete varint folds to `Option.none`, and the settled pair carries `size` with `offset` so the holder of a tail proves `offset + size` against the held extent — the triage the quarantine rail classifies `truncated` against.
 - Law: `delimit` is the framed egress twin — `sizeDelimitedEncode` under the `_WRITE` posture, composed only where an emission joins a size-delimited transport; quarantine replay octets stay whole-message form, the codec registry's own decode coordinate, so ingress framing and replay framing never entangle.
 - Law: `option` is the annotation read — `hasExtension` guards, `getExtension` reads, and the pair rides `Option` over the carrier's `proto.options` message, so a descriptor annotation (the SI-scalar `QuantityFamily` row on `QuantityWire`, a field-behavior mark) resolves typed through the generated extension descriptor and no consumer touches the raw options message; an absent options carrier or unset extension is `Option.none`, never a sentinel.
@@ -94,7 +93,7 @@ const _names = [
   "BindingStatusWire", "CoercedValueWire", "WriteReceiptWire", "FlagVerdictWire",
   "ControlIntentWire", "LayoutConstraintWire", "CommandGateWire", "BcfTopicWire", "BcfViewpointWire",
   "GeoFeatureWire", "BimWire", "DiffWire", "IdsAuditWire",
-  "MaterialWire", "OpenPbrGroupsWire", "AppearanceSummaryWire",
+  "MaterialWire", "OpenPbrGroupsWire", "AppearanceSummaryWire", "TextureSetWire", "AssetSetManifest",
   "ArtifactFrameWire", "GeometryPayloadWire", "GeometryResidencyWire",
   "CommandPayloadWire", "SupportCaptureWire", "CapabilityDescriptorWire",
 ] as const
@@ -130,6 +129,8 @@ const _suite = {
   MaterialWire: pb.MaterialWireSchema,
   OpenPbrGroupsWire: pb.OpenPbrGroupsWireSchema,
   AppearanceSummaryWire: pb.AppearanceSummaryWireSchema,
+  TextureSetWire: pb.TextureSetWireSchema,
+  AssetSetManifest: pb.AssetSetManifestSchema,
   ArtifactFrameWire: pb.ArtifactFrameWireSchema,
   GeometryPayloadWire: pb.GeometryPayloadWireSchema,
   GeometryResidencyWire: pb.GeometryResidencyWireSchema,
@@ -228,7 +229,7 @@ const Cbor: {
 - Owner: `Pack`, the MessagePack engine — one `ExtensionCodec` carrying the contract sixteen-byte `Hlc` cell as extension row `_EXT.hlc`, decoding through `Hlc.FromBytes` so the two-half little-endian layout has exactly one spelling; one configured `Decoder`/`Encoder` pair under `useBigInt64: true` and the `max*Length` ceilings; `schema(owned)` the composed byte-to-owned schema, `stream` the backpressured multi-frame walk, `encode`/`transfer` the canonical and zero-copy egress, and the `Alien`/`alien` foreign-ext seam.
 - Law: the ext registry and the union tag are two tables, never a branch ladder — the `Hlc` ext row decodes the fixed cell into the kernel stamp inside the codec, and the op union's own discriminant dispatches at the landing schema; an unregistered ext surfaces as `ExtData`, never dropped, and `Pack.Alien` — the `Schema.declare` identity over the engine class — is the one seam a consuming row's dispatch arm composes, with `Pack.alien(ext, cell)` the encode-side mint so the class construction never leaks past this module.
 - Law: the interner context threads the mint — `context.intern` is `Schema.decodeSync(Hlc.FromBytes)` handed into every ext decode, so the stamp mints once at the seam and no module-level mint singleton exists; a TS re-mint of the sixteen-byte layout is the named cross-language drift defect.
-- Law: `useBigInt64: true` is i64 fidelity — HLC counters, sequence ordinals, and version counts decode as `bigint`; a decoder without it silently truncates past 2^53 and is the precision defect. The default cached key decoder already owns hot repeated map keys; no `keyDecoder` override exists to tune.
+- Law: `useBigInt64: true` is i64 fidelity — HLC counters, sequence ordinals, and version counts decode as `bigint`; a decoder without it silently truncates past 2^53 and is the precision defect. Default cached key decoding already owns hot repeated map keys; no `keyDecoder` override exists to tune.
 - Law: `sortKeys: true` on the encoder is canonical egress — re-encoded quarantine octets and transfer payloads are byte-stable; `transfer` returns the encoder's shared-buffer view for a zero-copy worker crossing, dead to this side the moment the buffer transfers.
 - Growth: a domain ext row is one `register` call beside the `Hlc` row in the contract-allocated positive type range; a ceiling axis is one `_CEILINGS` field.
 - Boundary: the `CrdtOp` union, the oplog stream row with its gap Mealy, and the version-plane landings are the codec registry's; the built-in `EXT_TIMESTAMP` row stays registered on the default codec path for `Date` fields.

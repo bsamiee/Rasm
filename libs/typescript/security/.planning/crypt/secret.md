@@ -4,11 +4,9 @@ Leased-secret custody: one `DopplerSDK` client built behind a `Layer.scoped` adm
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                | [PUBLIC]              |
-| :-----: | :--------------- | :-------------------------------------------------------------------- | :-------------------- |
-|  [01]   | `SECRET_FAULT`   | the `statusCode`-folded reason family over the problem-detail carrier | `SecretFault`         |
-|  [02]   | `LEASED_CUSTODY` | the encoded spec, scoped client, rotation feed, and lease lifecycle   | `LeaseSpec`, `Secret` |
-|  [03]   | `KEY_HANDOFF`    | the fetched-material fold into the core `Credential` landing          | `Secret`              |
+- [02]-[SECRET_FAULT]: the `statusCode`-folded reason family over the problem-detail carrier; `SecretFault`.
+- [03]-[LEASED_CUSTODY]: the encoded spec, scoped client, rotation feed, and lease lifecycle; `LeaseSpec`, `Secret`.
+- [04]-[KEY_HANDOFF]: the fetched-material fold into the core `Credential` landing; `Secret`.
 
 ## [02]-[SECRET_FAULT]
 

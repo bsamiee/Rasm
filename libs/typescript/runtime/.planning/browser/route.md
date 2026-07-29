@@ -4,12 +4,10 @@ The Navigation-API typed router under the zero-routing-package law, the browser 
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                      | [PUBLIC]                              |
-| :-----: | :---------------- | :-------------------------------------------------------------------------- | :------------------------------------ |
-|  [01]   | `TABLE_ALGEBRA`   | the row shape, segment-type derivation, match/href, the query codec         | `Router`                              |
-|  [02]   | `TRAVERSAL_OWNER` | the minted Tag, the intercept ingress, cells, restore, commit law           | `Router`, `RouteFault`                |
-|  [03]   | `SESSION_PLANE`   | the status family, the residency cell, refresh, cross-tab, CSRF, continuity | `SessionStatus`, `Vault`, `FlowFault` |
-|  [04]   | `ADMISSION_FOLD`  | the policy value, the resolve chain, the dirty registry, the confirm        | `Guard`, `Confirm`                    |
+- [02]-[TABLE_ALGEBRA]: the row shape, segment-type derivation, match/href, the query codec; `Router`.
+- [03]-[TRAVERSAL_OWNER]: the minted Tag, the intercept ingress, cells, restore, commit law; `Router`, `RouteFault`.
+- [04]-[SESSION_PLANE]: the status family, the residency cell, refresh, cross-tab, CSRF, continuity; `SessionStatus`, `Vault`, `FlowFault`.
+- [05]-[ADMISSION_FOLD]: the policy value, the resolve chain, the dirty registry, the confirm; `Guard`, `Confirm`.
 
 ## [02]-[TABLE_ALGEBRA]
 

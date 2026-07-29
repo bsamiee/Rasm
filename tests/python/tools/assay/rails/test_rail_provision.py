@@ -112,6 +112,8 @@ def _stdout(command: tuple[str, ...]) -> bytes:
             return b"cpython-315 0\n"
         case ("forge-scientific-env", "pkg-config", "--modversion", "openblas"):
             return b"0.3.30\n"
+        case ("forge-scientific-env", "sh", "-lc", script) if "ktx --help" in script:
+            return b"present:create,deflate,extract,encode,transcode,info,validate,compare\n"
         case ("forge-scientific-env", "sh", "-lc", *_):
             return b"present:libonnxruntime.dylib\n"
         case _:
@@ -665,8 +667,9 @@ def test_provision_check_folds_stack_and_local_probes(assay_root: AssayHarness) 
     assert any(command[:3] == ("forge-scientific-env", "pkg-config", "--modversion") for command in commands)
     assert any(command[:3] == ("forge-scientific-env", "sh", "-lc") for command in commands)
     detail = _detail(report)
-    assert detail.local_probes == (("forge-python-abi", "ok"), ("forge-openblas", "ok"), ("forge-onnxruntime-lib", "ok"))
-    assert detail.local_probe_values[-1] == ("forge-onnxruntime-lib", "ok", "present:libonnxruntime.dylib")
+    assert detail.local_probes == (("forge-python-abi", "ok"), ("forge-openblas", "ok"), ("forge-onnxruntime-lib", "ok"), ("forge-ktx-tools", "ok"))
+    assert ("forge-onnxruntime-lib", "ok", "present:libonnxruntime.dylib") in detail.local_probe_values
+    assert detail.local_probe_values[-1] == ("forge-ktx-tools", "ok", "present:create,deflate,extract,encode,transcode,info,validate,compare")
 
 
 def test_provision_check_keeps_tools_success_when_stack_check_fails(assay_root: AssayHarness) -> None:

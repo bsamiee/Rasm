@@ -30,7 +30,7 @@ Rasm.Element/             # refs ../Rasm ONLY; no GeometryGym; no host geometry 
 │   ├── Coverage.cs       # By-ref raster coverage grid over a band schema and affine placement
 │   └── Reference.cs      # GeoReference record over the three-state projected-CRS identity
 └── Projection/           # Cross-stratum contracts, the content codec, the fault band, and the observability tap
-    ├── Projection.cs     # IElementProjection and IGraphConstraint floors plus the assemble composition
+    ├── Projection.cs     # IElementProjection and IGraphConstraint floors, the assemble composition, and the ImportedGeometry interchange carrier
     ├── Address.cs        # Order-independent ContentAddress codec over the kernel seed-zero hash
     ├── Fault.cs          # Cross-federation FaultBand registry and the ElementFault union
     └── Observe.cs        # ElementHookRail typed fact tap, its band-bracketed decorations, and the GraphInstrument projection
@@ -158,6 +158,7 @@ flowchart LR
     Properties <-->|"[SHAPE]: DetailSchema"| Bim
     Properties <-->|"[SHAPE]: DetailSchema"| Materials
     Bim -->|"[PROJECTION]: GeoReference"| Geospatial
+    Projection -->|"[SHAPE]: ImportedGeometry"| Bim
 ```
 
 ```mermaid
@@ -199,6 +200,7 @@ flowchart LR
     Properties <-->|"[SHAPE]: DimensionMonomial"| Compute
     Assessment -->|"[SHAPE]: AssessmentPayload"| Compute
     Graph -->|"[SHAPE]: ElementGraph"| Compute
+    Projection -->|"[SHAPE]: ImportedGeometry"| Compute
     Graph <-->|"[WIRE]: GlbContentHash"| Geometry
     Projection <-->|"[CONTENT_KEY]: ContentAddress"| Runtime
     Graph <-->|"[WIRE]: rasm.element.v1"| Core

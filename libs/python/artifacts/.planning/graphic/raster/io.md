@@ -1171,6 +1171,9 @@ _CODEC: Final[frozendict[ConvertFormat, CodecRow]] = frozendict({
             # array writer rather than refusing a container the estate's own codec substrate writes
             RasterEngine.LIBVIPS: _array_writer(lambda: imagecodecs.BMP.available, lambda frame, quality, effort: imagecodecs.bmp_encode(frame)),
         }),
+        # the WEAKEST writer's reach, stated per writer: `imagecodecs.bmp_encode` carries RGBA on the array leg
+        # while the pillow saver is RGB-only, and one band column serves both — so the row flattens for BOTH and
+        # an alpha-bearing egress routes through PNG or QOI rather than shipping a container one leg would refuse
         bands=BandLaw.OPAQUE,
         frames=FrameLaw.SINGLE,
     ),

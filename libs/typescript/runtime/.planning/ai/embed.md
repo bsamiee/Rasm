@@ -4,11 +4,9 @@ The embedding corpus pipeline and the retrieval port's satisfying side: determin
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                                          | [PUBLIC]    |
-| :-----: | :-------- | :------------------------------------------------------------------------------ | :---------- |
-|  [01]   | `CUT`     | the normalization anchor, the cut-lane policy rows, the `Piece` receipt         | `Cut`       |
-|  [02]   | `ROWS`    | embedding capability rows — batched, windowed, google, custom — and the cache   | `Embedding` |
-|  [03]   | `PORT`    | the `Embedder`/`Reranker` satisfying Layers — fingerprint, fault fold, batching | `Embedding` |
+- [02]-[CUT]: the normalization anchor, the cut-lane policy rows, the `Piece` receipt; `Cut`.
+- [03]-[ROWS]: embedding capability rows — batched, windowed, google, custom — and the cache; `Embedding`.
+- [04]-[PORT]: the `Embedder`/`Reranker` satisfying Layers — fingerprint, fault fold, batching; `Embedding`.
 
 ## [02]-[CUT]
 

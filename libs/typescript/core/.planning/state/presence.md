@@ -4,11 +4,9 @@ The actor-presence CRDT: the wire-carried op family — `Join` carrying the type
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                           | [PUBLIC]                                         |
-| :-----: | :-------------- | :--------------------------------------------------------------- | :----------------------------------------------- |
-|  [01]   | `OP_FAMILY`     | the brands, the axis vocabularies, and the wire-carried op union | `Presence.Op`                                    |
-|  [02]   | `STATE_PRODUCT` | the per-actor axis product instance and the op lift              | `Presence.state`, `Presence.plan`                |
-|  [03]   | `ROSTER_READS`  | lease policy, status verdicts, roster and surface projections    | `Presence.status/roster/crowd`, `Presence.Lease` |
+- [02]-[OP_FAMILY]: the brands, the axis vocabularies, and the wire-carried op union; `Presence.Op`.
+- [03]-[STATE_PRODUCT]: the per-actor axis product instance and the op lift; `Presence.state`, `Presence.plan`.
+- [04]-[ROSTER_READS]: lease policy, status verdicts, roster and surface projections; `Presence.status/roster/crowd`, `Presence.Lease`.
 
 ## [02]-[OP_FAMILY]
 

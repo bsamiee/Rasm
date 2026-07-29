@@ -4,12 +4,10 @@ The causality owner: `Vector` — the per-replica version vector whose compariso
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                         | [PUBLIC]                                        |
-| :-----: | :----------------- | :------------------------------------------------------------- | :---------------------------------------------- |
-|  [01]   | `VECTOR_LATTICE`   | version-vector class, four-way comparison, join/meet instances | `Vector`                                        |
-|  [02]   | `HAPPENED_BEFORE`  | the stamped-event comparison under honest uncertainty          | `Causal.compare`, `Causal.Stamped`              |
-|  [03]   | `DELIVERY_BUFFER`  | the causal hold-and-drain Mealy step and its drained receipt   | `Causal.admit/.Buffer/.Envelope/.Drained`       |
-|  [04]   | `FRONTIER_TRACKER` | frontier fold, finalize partition, retention mint, STM tracker | `Causal.frontier/.finalize/.retention/.tracker` |
+- [02]-[VECTOR_LATTICE]: version-vector class, four-way comparison, join/meet instances; `Vector`.
+- [03]-[HAPPENED_BEFORE]: the stamped-event comparison under honest uncertainty; `Causal.compare`, `Causal.Stamped`.
+- [04]-[DELIVERY_BUFFER]: the causal hold-and-drain Mealy step and its drained receipt; `Causal.admit/.Buffer/.Envelope/.Drained`.
+- [05]-[FRONTIER_TRACKER]: frontier fold, finalize partition, retention mint, STM tracker; `Causal.frontier/.finalize/.retention/.tracker`.
 
 ## [02]-[VECTOR_LATTICE]
 

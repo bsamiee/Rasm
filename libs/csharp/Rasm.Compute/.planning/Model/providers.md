@@ -11,15 +11,15 @@
 ## [02]-[EP_AXIS]
 
 - Owner: `ExecutionProvider` `[SmartEnum<string>]` rows (provider name, wire spelling, host gate, precision-keyed EP options, location options, session keys, device policy, hardware affinity, register delegate); `ModelPrecision` `[SmartEnum<string>]` rows (wire spelling, low-precision accumulation, BF16 fast math, `session.qdq_matmulnbits_accuracy_level`, negative TTL); the `Devices`/`AutoSelect`/`Veto`/`OptionsFor`/`Register`/`Compatible`/`WarmStartAdmissible`/`Resolve`/`FromWire`/`ResultKey` fold over `OrtEpDevice`.
-- Cases: `ExecutionProvider` rows `Cpu`, `Cuda`, `DirectMl`, `TensorRt`, `Rocm`, `CoreMl`, `OpenVino`, `MiGraphX`, `Nnapi`, `Dnnl`; `ModelPrecision` rows `Full`, `Fp16`, `Bf16`, `Int8`, `Int4`.
+- Cases: `ExecutionProvider` rows `Cpu`, `Cuda`, `DirectMl`, `TensorRt`, `Rocm`, `CoreMl`, `WebGpu`, `OpenVino`, `MiGraphX`, `Nnapi`, `Dnnl`; `ModelPrecision` rows `Full`, `Fp16`, `Bf16`, `Int8`, `Int4`.
 - Law: `Cpu` is the GUARANTEED FLOOR and every other row a POLICY THAT MAY REFUSE. `CPUExecutionProvider` ships with every runtime under a host gate that never closes, so `Resolve` degrades a key naming no row — or a row whose native provider the host never loaded — onto the floor rather than faulting a caller holding no alternative. `IsFloor` derives that identity instead of a column, so exactly one row answers it and no construction forks the answer.
 - Law: each row carries its OWN wire spelling. `WireKey` is a row column and `FromWire` the one projection, so a cross-boundary record naming a provider or a precision holds no translation table of its own and an accelerator landing later crosses every wire by declaring one string. Rows spelling `None` never cross, which keeps a posture demanding settled pre-quantized bytes unreachable from a wire carrying only an execution preference.
 - Law: an unresolvable PROVIDER degrades and an unresolvable PRECISION refuses. `ExecutionProvider.FromWire` answers `Floor` for a spelling this roster cannot honour because the consuming record reports what ran and a caller reads the substitution off that column; `ModelPrecision.FromWire` answers `None` because precision carries no such report, so the consumer refuses — an fp16 request silently executing fp32 is the exact substitution the `CoreMl` row's `ModelFormat` pin exists to foreclose, and a default there reopens it one layer up.
 - Law: accelerated rows answer to the floor by MEASUREMENT. Every non-floor row produces a result whose residual against a floor-provider run over the same input is measured at the run and reported outward, because a provider drawing its speed from lower internal precision degrades silently and by construction raises nothing; this axis declares the obligation and `Model/inference#STAGE_EXECUTION` performs the comparison, so tolerance lives with the consumer owning admission rather than here.
-- Auto: `Available` short-circuits on `HostGate` before `GetAvailableProviders`; `FromWire` scans the row roster rather than caching a frozen inverse, because a static table folded from `Items` beside the row fields reads an empty roster whenever its initializer wins the ordering race — and a ten-row ordinal scan disappears beside the session lease it precedes. `AutoSelect` ranks devices by row-owned `HardwareAffinity`, then CPU last, then provider/vendor/device identity for deterministic ties. One selected-device snapshot passes through `Register`, `Compatible`, and `WarmStartAdmissible`. `Register` folds session keys and precision `QdqKeys`, composes row-owned EP and location option tables, then uses direct autoEP registration when the snapshot is non-empty or the row's verified fallback registration otherwise. Only `CoreMl.LocationOptions` contributes `ModelCacheDirectory`; no foreign provider receives that key. `Compatible` runs the two-step probe over the same snapshot against the compiled artifact's embedded compat info. `WarmStartAdmissible` requires an existing context artifact and exactly `EP_SUPPORTED_OPTIMAL` read from that artifact; `EP_UNSUPPORTED`, `EP_SUPPORTED_PREFER_RECOMPILATION`, and `EP_NOT_APPLICABLE` compile fresh. `Veto` folds incompatibility reason, notes, and code per hardware device. `Resolve` reads the row roster by key, proves the native provider loaded through `Available`, and answers `Floor` otherwise. `ResultKey` stamps provider, runtime, precision, and the shared behavior-option fingerprint; external-library bytes participate through `ProviderLibrary.ContentKey`.
+- Auto: `Available` short-circuits on `HostGate` before `GetAvailableProviders`; `FromWire` scans the row roster rather than caching a frozen inverse, because a static table folded from `Items` beside the row fields reads an empty roster whenever its initializer wins the ordering race — and a ten-row ordinal scan disappears beside the session lease it precedes. `AutoSelect` ranks devices by row-owned `HardwareAffinity`, then CPU last, then provider/vendor/device identity for deterministic ties. One selected-device snapshot passes through `Register`, `Compatible`, and `WarmStartAdmissible`. `Register` folds session keys and precision `QdqKeys`, composes row-owned EP and location option tables, then uses direct autoEP registration when the snapshot is non-empty or the row's verified fallback registration otherwise — measured at the pin: `CoreMl` publishes NO `OrtEpDevice`, so its snapshot is empty BY CONSTRUCTION and the fallback arm is its only reachable path, while `WebGpu` is the macOS row that publishes a GPU device and takes the autoEP arm; `EpOptions` is EMPTY on every published device, so no row inherits discovery defaults and the row-owned option table is the sole source. Only `CoreMl.LocationOptions` contributes `ModelCacheDirectory`; no foreign provider receives that key. `Compatible` runs the two-step probe over the same snapshot against the compiled artifact's embedded compat info. `WarmStartAdmissible` requires an existing context artifact and exactly `EP_SUPPORTED_OPTIMAL` read from that artifact; `EP_UNSUPPORTED`, `EP_SUPPORTED_PREFER_RECOMPILATION`, and `EP_NOT_APPLICABLE` compile fresh. `Veto` folds incompatibility reason, notes, and code per hardware device. `Resolve` reads the row roster by key, proves the native provider loaded through `Available`, and answers `Floor` otherwise. `ResultKey` stamps provider, runtime, precision, and the shared behavior-option fingerprint; external-library bytes participate through `ProviderLibrary.ContentKey`.
 - Packages: Microsoft.ML.OnnxRuntime, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, `Domain.ContentHash`), BCL inbox
 - Growth: a built-in accelerator is one `ExecutionProvider` row with its provider name, OS gate, `HardwareAffinity`, EP-option/session-key projections, and register delegate — including an accelerator whose native provider this platform's runtime may not carry, because `Available` and `Resolve` already answer absence and no caller-facing surface moves. That row reaches every wire the moment it declares a `WireKey`; before it declares one, `FromWire` degrades the spelling it answers to onto the floor exactly as it degrades an unloaded provider. Out-of-tree accelerators enter through `External`, which brackets `RegisterExecutionProviderLibrary`/`UnregisterExecutionProviderLibrary` in one `ProviderLibrary` and returns a row using the same generic registration path. Each quantization posture is one `ModelPrecision` row folded into the same registration and fingerprint rails; a custom device-rank strategy is one `SetEpSelectionPolicyDelegate` arm on `AutoSelect`.
-- Boundary: each row owns one provider-specific fallback registration and one autoEP device registration path selected by a caller-held device snapshot, so one lease appends one provider. `CoreMl` alone uses the generic `AppendExecutionProvider("CoreMLExecutionProvider", options)` spelling because its row owns `ModelFormat`, compute units, specialization, cache directory, and precision; the flags overload never runs beside it. `WireKey` stays out of `OptionsFor` and out of `ResultKey`: it names the row for a boundary record and reaches nothing the built session does, so a rename changing no execution re-keys no cached result. Location options affect native artifact placement but stay out of result identity, while EP/session/precision options enter `OptionsFor`. `ProviderLibrary` rejects blank identities or an absent asset, hashes the registered bytes, unregisters once through `Interlocked.Exchange`, and threads its content identity into the dynamic row's behavior options. `HostGate` expresses row-specific OS capability while `GetAvailableProviders` proves the loaded native provider. `Full` leaves `mlas.enable_gemm_fastmath_arm64_bfloat16` disabled; `Bf16` alone sets it. Precision also reaches CoreML low-precision accumulation and MatMulNBits accuracy, and every behavior option participates in `ModelFingerprint.Of`. Compatibility consumes `OrtCompiledModelCompatibility` directly and admits reuse only for an existing `EP_SUPPORTED_OPTIMAL` artifact.
+- Boundary: each row owns one provider-specific fallback registration and one autoEP device registration path selected by a caller-held device snapshot, so one lease appends one provider. `CoreMl` and `WebGpu` use the generic `AppendExecutionProvider(name, options)` spelling for one measured reason: neither carries a dedicated managed method nor an exported C append entry (the pinned dylib exports exactly `_CPU` and `_CoreML` beside `OrtGetApiBase`, and no `_WebGPU`), so the string append is their only path — `CoreMl` because its row owns `ModelFormat`, compute units, specialization, cache directory, and precision beyond the flags overload, `WebGpu` because the EP has no other spelling at all; the `CoreMl` flags overload never runs beside its row. `WireKey` stays out of `OptionsFor` and out of `ResultKey`: it names the row for a boundary record and reaches nothing the built session does, so a rename changing no execution re-keys no cached result. Location options affect native artifact placement but stay out of result identity, while EP/session/precision options enter `OptionsFor`. `ProviderLibrary` rejects blank identities or an absent asset, hashes the registered bytes, unregisters once through `Interlocked.Exchange`, and threads its content identity into the dynamic row's behavior options. `HostGate` expresses row-specific OS capability while `GetAvailableProviders` proves the loaded native provider. `Full` leaves `mlas.enable_gemm_fastmath_arm64_bfloat16` disabled; `Bf16` alone sets it. Precision also reaches CoreML low-precision accumulation and MatMulNBits accuracy, and every behavior option participates in `ModelFingerprint.Of`. Compatibility consumes `OrtCompiledModelCompatibility` directly and admits reuse only for an existing `EP_SUPPORTED_OPTIMAL` artifact.
 
 ```csharp signature
 
@@ -37,6 +37,12 @@ public sealed partial class ModelPrecision {
     public static readonly ModelPrecision Bf16 = new("bf16", wireKey: Option<string>.None, lowPrecisionAccumulation: true, bfloat16FastMath: true, accuracyLevel: Option<int>.None, quantizedGraph: false, negativeTtl: Duration.FromMinutes(10));
     public static readonly ModelPrecision Int8 = new("int8", wireKey: Option<string>.None, lowPrecisionAccumulation: true, bfloat16FastMath: false, accuracyLevel: 4, quantizedGraph: true, negativeTtl: Duration.FromMinutes(5));
     public static readonly ModelPrecision Int4 = new("int4", wireKey: Option<string>.None, lowPrecisionAccumulation: true, bfloat16FastMath: false, accuracyLevel: 4, quantizedGraph: true, negativeTtl: Duration.FromMinutes(2));
+
+    private ModelPrecision(
+        string key, Option<string> wireKey, bool lowPrecisionAccumulation, bool bfloat16FastMath,
+        Option<int> accuracyLevel, bool quantizedGraph, Duration negativeTtl) : this(key) =>
+        (WireKey, LowPrecisionAccumulation, Bfloat16FastMath, AccuracyLevel, QuantizedGraph, NegativeTtl) =
+        (wireKey, lowPrecisionAccumulation, bfloat16FastMath, accuracyLevel, quantizedGraph, negativeTtl);
 
     public Option<string> WireKey { get; }
     public bool LowPrecisionAccumulation { get; }
@@ -145,6 +151,32 @@ public sealed partial class ExecutionProvider {
         registerRow: static (options, rows) => options.AppendExecutionProvider(
             "CoreMLExecutionProvider", new Dictionary<string, string>(rows, StringComparer.Ordinal)));
 
+    // WebGPU is macOS-arm64-EXCLUSIVE at the pin: only the osx-arm64 dylib carries the Dawn/Metal EP body and
+    // its ep.webgpuexecutionprovider.* option keys — every other RID holds the name literal with zero payload,
+    // so HostGate closes there and Available answers false before GetAvailableProviders is consulted. On this
+    // host GetAvailableProviders answers CoreML, WebGpu, CPU; the row publishes a GPU OrtEpDevice (vendor Apple,
+    // EpOptions empty) and takes the autoEP arm, the generic string append its fallback. The row exposes NO
+    // dawnBackendType and no native-handle knob (webgpuInstance/webgpuDevice/dawnProcTable/enablePIXCapture):
+    // a dawnBackendType naming an unavailable backend aborts the PROCESS from a native callback frame the CLR
+    // never unwinds, so the key is structurally unspellable here. Admitted vocabulary (bare keys on the string
+    // append; values case-sensitive and exact — `disabled`/`bucket`/`1`, never `Disabled`/`Bucket`/`true`):
+    // powerPreference (high-performance | low-power), preferredLayout (NCHW | NHWC), validationMode
+    // (disabled | wgpuOnly | basic | full), storageBufferCacheMode/uniformBufferCacheMode/
+    // queryResolveBufferCacheMode/defaultBufferCacheMode (disabled | lazyRelease | simple | bucket),
+    // enableGraphCapture (0|1), enableInt64 (0|1 — a capability toggle, never a precision posture),
+    // preserveDevice (0|1), maxStorageBufferBindingSize (bytes). ModelPrecision reaches WebGPU through NO
+    // EP-specific knob — the row contributes only the shared session/precision rails, and the default option
+    // table stays EMPTY so ORT's own defaults govern until a measured policy pins a key.
+    public static readonly ExecutionProvider WebGpu = new(
+        "webgpu", providerName: "WebGpuExecutionProvider", wireKey: "webGpu",
+        hostGate: static () => OperatingSystem.IsMacOS(),
+        epOptions: static _ => FrozenDictionary<string, string>.Empty,
+        locationOptions: static _ => FrozenDictionary<string, string>.Empty,
+        sessionKeys: static _ => FrozenDictionary<string, string>.Empty,
+        devicePolicy: Some(ExecutionProviderDevicePolicy.PREFER_GPU), hardwareAffinity: OrtHardwareDeviceType.GPU,
+        registerRow: static (options, rows) => options.AppendExecutionProvider(
+            "WebGPU", new Dictionary<string, string>(rows, StringComparer.Ordinal)));
+
     public static readonly ExecutionProvider OpenVino = Accelerator(
         "openvino", "OpenVINOExecutionProvider", OrtHardwareDeviceType.NPU, static () => true,
         static options => options.AppendExecutionProvider_OpenVINO(string.Empty));
@@ -160,6 +192,16 @@ public sealed partial class ExecutionProvider {
     public static readonly ExecutionProvider Dnnl = Accelerator(
         "dnnl", "DnnlExecutionProvider", OrtHardwareDeviceType.CPU, static () => true,
         static options => options.AppendExecutionProvider_Dnnl(1));
+
+    private ExecutionProvider(
+        string key, string providerName, Option<string> wireKey, Func<bool> hostGate,
+        Func<ModelPrecision, FrozenDictionary<string, string>> epOptions,
+        Func<string, FrozenDictionary<string, string>> locationOptions,
+        Func<ModelPrecision, FrozenDictionary<string, string>> sessionKeys,
+        Option<ExecutionProviderDevicePolicy> devicePolicy, OrtHardwareDeviceType hardwareAffinity,
+        Action<SessionOptions, IReadOnlyDictionary<string, string>> registerRow) : this(key) =>
+        (ProviderName, WireKey, HostGate, EpOptions, LocationOptions, SessionKeys, DevicePolicy, HardwareAffinity, RegisterRow) =
+        (providerName, wireKey, hostGate, epOptions, locationOptions, sessionKeys, devicePolicy, hardwareAffinity, registerRow);
 
     public string ProviderName { get; }
     public Option<string> WireKey { get; }
@@ -304,7 +346,7 @@ public sealed partial class ExecutionProvider {
 |  [03]   | `OrtEpDevice.HardwareDevice`   | `OrtHardwareDevice` — `Type` (`CPU`/`GPU`/`NPU`), `VendorId`, `DeviceId`, `Vendor`, `Metadata` |
 |  [04]   | `OrtEpDevice.EpMetadata`       | `OrtKeyValuePairs` EP self-description                                                         |
 |  [05]   | `OrtEpDevice.EpOptions`        | `OrtKeyValuePairs` default EP option set                                                       |
-|  [06]   | `OrtEpDevice.GetMemoryInfo`    | `OrtMemoryInfo` for the device's default allocation                                            |
+|  [06]   | `OrtEpDevice.GetMemoryInfo(OrtDeviceMemoryType)` | `OrtMemoryInfo` for the device allocation at the named memory type                |
 |  [07]   | `OrtEpDevice.CreateSyncStream` | `OrtSyncStream` tying a device-stream lifetime to the device                                   |
 
 `Veto` binds the `OrtDeviceEpIncompatibilityReason` `[Flags]` enum (`UInt32`) that `OrtDeviceEpIncompatibilityDetails.ReasonsBitmask` carries when an EP cannot claim a hardware device:
@@ -323,5 +365,4 @@ public sealed partial class ExecutionProvider {
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [WEBGPU_PROVIDER]-[OPEN]: does the pinned `osx-arm64` runtime ship WebGPU, and under which `GetAvailableProviders()` registration name; assay inspects restored native-package contents, enumerates `GetAvailableProviders()` and `GetEpDevices()`, then records `OrtEpDevice.EpOptions` before a row admits. One `Accelerator` row carrying `wireKey: "webGpu"` is the whole landing; until it lands `FromWire` reaches `Floor` there, and `Cpu` remains the guaranteed floor.
 - [COREML_PRECISION_RESIDUAL]-[OPEN]: what residual does the `CoreMl` row's MLProgram path reach against a `Cpu` run of the same graph at `ModelPrecision.Full`, per stage class; measure through the `Model/inference#STAGE_EXECUTION` canary comparison on the ORT host and record the observed band per model family rather than asserting a tolerance here.

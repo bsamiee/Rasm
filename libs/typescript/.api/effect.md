@@ -80,6 +80,7 @@
 - `Effect.onExit(cleanup: (exit: Exit.Exit<A, E>) => Effect<X, never, R2>)` is `Function.dual` and fires ONCE after the outcome settles, which is what makes it the single emission point for an outcome dimension: a string minted inside a recovery arm double-counts every retried attempt and never sees a defect. `Effect.onError` narrows the same aspect to failure, `Effect.ensuring` finalizes with no outcome in hand, and `Effect.exit` reifies the rail into `Exit<A, E>` for a caller folding it later.
 - `Exit.match({ onFailure, onSuccess })` folds the outcome and hands `onFailure` the whole `Cause`, never a bare error. Discrimination runs interrupt-first — `Cause.isInterruptedOnly(cause)` answers `boolean` and `Cause.failureOption(cause)` answers `Option<E>` — because an interrupted run carries no outcome and a defect is not a typed fault; reading `failureOption` first classifies an interrupt as an unknown failure.
 - `Effect.transposeOption` is a plain unary function while `Effect.transposeMapOption` is `Function.dual`, so a `pipe` chain passes the former by reference and calls the latter with its mapper.
+- Channel-shaping small combinators: `Effect.mapError` re-tags the error channel at a seam, `Effect.tapError` observes failure alone, and `Effect.tapBoth({ onFailure, onSuccess })` observes both SETTLED channels yet never a defect or interrupt — an outcome emission that must see every termination rides `onExit`. `Effect.zipRight` sequences discarding the left value; `Effect.void`, `Effect.succeedNone`, and `Effect.asSome` are the unit and `Option`-lift constructors; `Effect.timeoutFail({ duration, onTimeout })` converts a deadline into a typed fault on the channel (the bare `Effect.timeout` answers `Option`); the type extractor `Effect.Effect.Success<T>` projects a rail's success type wherever a derived surface types off a table of effects.
 
 [ENTRYPOINT_SCOPE]: `Schema` — decode, project, transform, derive; surfaces are `Schema.*` unless qualified
 - rail: boundaries
@@ -101,8 +102,11 @@
 |  [13]   | `standardSchemaV1(schema)`                               | interop       | `ui` forms + Standard-Schema consumers bind the decoder   |
 |  [14]   | `attachPropertySignature(key, value)`                    | project       | restores a family tag a draft projection omitted          |
 |  [15]   | `decodeOption(schema)` / `decodeSync` / `decode`         | decode        | takes the ENCODED value, never an `Option` wrapper        |
+|  [16]   | `OptionFromNonEmptyTrimmedString`                        | absence       | empty-string absence vs undefined absence — two encodings |
 
 - `Schema.decodeOption(schema)` returns `(encoded, options?) => Option<A>` and answers `none` on ANY parse failure, so handing it a value already wrapped in `Option` type-checks against `unknown`-tolerant call sites and returns `none` for every input alike — a decode inside an optional pipeline composes as `Option.flatMap(held, Schema.decodeOption(schema))`, never by passing the wrapper through.
+- Absence has two encodings and the producer picks which: `OptionFromNonEmptyTrimmedString` is `Schema<Option<string>, string>` reading `""` and whitespace as `none`, the landing for a proto3 singular string a peer leaves unset; `OptionFromUndefinedOr` and `optionalWith(s, { as: "Option" })` read `undefined`, the landing for explicit presence. Applying the undefined form to an empty-string producer refuses every legal document that omitted the column.
+- Leaf constructors `Schema.String` / `Number` / `Boolean` / `Array(s)` are the primitive vocabulary every `Struct` composes; bare `Schema.optional(s)` keeps a foreign report's own optional field shape — a tool's JSON verdict, a provider payload — where lifting to `Option` would re-shape a schema the producer owns; domain absence stays `optionalWith`.
 
 [ENTRYPOINT_SCOPE]: `Context` / `Layer` / `Runtime` — services and composition roots; surfaces are `Layer.*` unless qualified
 - rail: surfaces-and-dispatch
@@ -188,10 +192,10 @@
 |  [02]   | `Schedule.intersect` / `recurs` / `upTo`                     | recurrence     | compose schedules; `upTo` bounds total elapsed           |
 |  [03]   | `Schedule.whileInput` / `recurWhile` / `cron`                | recurrence     | gate re-drive on the fault value; `work/queue` cron      |
 |  [04]   | `Schedule.union(left, right)`                                | recurrence     | MINIMUM delay of the pair — caps an unbounded backoff    |
-|  [05]   | `Config.string` / `redacted` / `integer`                     | config schema  | `proc/config` typed ingress; `redacted` keeps secrets    |
-|  [06]   | `Config.withDefault` / `Config.nested`                       | config schema  | defaults + nested config sections                        |
+|  [05]   | `Config.string` / `redacted` / `integer` / `duration`        | config schema  | `proc/config` typed ingress; `redacted` keeps secrets    |
+|  [06]   | `Config.withDefault` / `Config.nested` / `Config.all`        | config schema  | defaults, nested sections, one composed record read      |
 |  [07]   | `ConfigProvider.fromEnv` / `fromJson` / `constantCase`       | provider chain | env→file→remote; `.orElse` chains; case adapters         |
-|  [08]   | `Duration.seconds` / `Duration.decode` / `Cron.parse`        | time           | `core/value/clock` HLC, `work` deadlines, `data` windows |
+|  [08]   | `Duration.seconds` / `minutes` / `decode` / `Cron.parse`     | time           | `core/value/clock` HLC, `work` deadlines, `data` windows |
 |  [09]   | `DateTime.now` / `DateTime.addDuration`                      | time           | wall-clock evidence over the HLC composition             |
 |  [10]   | `Metric.counter` / `histogram` / `gauge`                     | metric         | `otel` `(app, tenant)`-tagged instruments                |
 |  [11]   | `Metric.increment` / `incrementBy` / `update` / `set`        | metric         | per-kind update aspects; `incrementBy` charges batches   |

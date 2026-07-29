@@ -4,12 +4,10 @@ Schema evolution without migrations and its read accelerator in one owner: every
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                          |
-| :-----: | :----------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `CHAIN_VOCABULARY` | the raw envelope, the step chain, construction-checked completeness             |
-|  [02]   | `PLAN_FOLD`        | `Upcast.plan` for tagged families, `Upcast.chain` for single shapes, the decode |
-|  [03]   | `SNAPSHOT_ROW`     | the snapshot-as-projection ensure, the bound save/load, the monotonic upsert    |
-|  [04]   | `HYDRATE`          | the cadence policy row and the snapshot-plus-tail recovery fold                 |
+- [02]-[CHAIN_VOCABULARY]: the raw envelope, the step chain, construction-checked completeness.
+- [03]-[PLAN_FOLD]: `Upcast.plan` for tagged families, `Upcast.chain` for single shapes, the decode.
+- [04]-[SNAPSHOT_ROW]: the snapshot-as-projection ensure, the bound save/load, the monotonic upsert.
+- [05]-[HYDRATE]: the cadence policy row and the snapshot-plus-tail recovery fold.
 
 ## [02]-[CHAIN_VOCABULARY]
 

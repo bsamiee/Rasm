@@ -6,7 +6,7 @@
 
 - [01]-[SYSTEM](.planning/system/): Component floor — token authority dual-sunk to CSS and viewer linear space; motion, atom, hook, and vital owners.
 - [02]-[VIEW](.planning/view/): Dense surfaces instantiating the floor — forms, grid, overlay, and chart, each one owner where variation is rows.
-- [03]-[VIEWER](.planning/viewer/): Spatial tier — content-keyed residency behind the `GlbViewport` port and the one `GlobalId` selection plane.
+- [03]-[VIEWER](.planning/viewer/): Spatial tier — content-keyed residency, the environment dome, and the `GlobalId` selection plane.
 
 ## [02]-[DOMAIN_PACKAGES]
 

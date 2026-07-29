@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_SCENE_STAGE]
 
-`StageOp` owns USD/USDZ stage authoring as one closed Pixar OpenUSD source family over `RenderExport` and `MeshAuthor`. `RenderExport` writes a rendered scene through the source-build-gated `vtkUSDExporter`; `MeshAuthor` authors a `pxr.Usd.Stage` from admitted numpy buffers over `UsdGeom`, `Vt`, and `Gf`; and both fold to a serialized layer through one total `apply` match. `PackageOp` owns package, extraction, compliance, and relocation closes, while `packaged` returns one `Result[PackageFacts, PackageFault]` rail. `MeshScene` owns the recursive `PrimKind` graph, stage metadata, appearance, semantics, model kind, and eager-reference or deferred-payload `AssetArc` composition. Offscreen rendering stays at `scene/render#SCENE`, and raw mesh interchange stays at `geometry/mesh`.
+`StageOp` owns USD/USDZ stage authoring as one closed Pixar OpenUSD source family over `RenderExport` and `MeshAuthor`. `RenderExport` writes a rendered scene through the `vtkIOUSD`-gated `vtkUSDExporter`; `MeshAuthor` authors a `pxr.Usd.Stage` from admitted numpy buffers over `UsdGeom`, `Vt`, and `Gf`; and both fold to a serialized layer through one total `apply` match. `PackageOp` owns package, extraction, compliance, and relocation closes, while `packaged` returns one `Result[PackageFacts, PackageFault]` rail. `MeshScene` owns the recursive `PrimKind` graph, stage metadata, appearance, semantics, model kind, and eager-reference or deferred-payload `AssetArc` composition. Offscreen rendering stays at `scene/render#SCENE`, and raw mesh interchange stays at `geometry/mesh`.
 
 `pxr` imports eagerly at module scope — this module loads only on the worker floor — and every annotation remains parse-floor-safe. One guarded `_usd_exporter` resolver owns the optional `vtkmodules.vtkIOUSD` import. `scene/export#EXPORT` delegates `USD` and `USDZ` to the numpy authoring path, and its terminal adapter maps `PackageFault` onto `ExportFault`; no false provider return or failed compliance result can masquerade as a successful receipt.
 
@@ -382,6 +382,16 @@ class Material(Struct, frozen=True, kw_only=True):
         for slot, source in ordered:
             source.wire(stage, shader, path, slot)
         material.CreateSurfaceOutput().ConnectToSource(shader.ConnectableAPI(), "surface")
+        # A displacement-bearing material also authors the material-level TERMINAL: CreateDisplacementOutput
+        # namespaces per render context where a hand-rolled CreateOutput("displacement", ...) hardcodes the
+        # universal case, and the connect rides output-to-output forwarding onto the shader's declared
+        # `token outputs:displacement` — the terminal a renderer's displacement pass resolves, DISTINCT from
+        # the `float inputs:displacement` scalar the wire above feeds (Material.CreateDisplacementAttr is the
+        # legacy schema attribute no Compute*Source resolves — never authored here).
+        if SurfaceInput.DISPLACEMENT in self.inputs:
+            material.CreateDisplacementOutput().ConnectToSource(
+                shader.CreateOutput("displacement", Sdf.ValueTypeNames.Token)
+            )
         UsdShade.MaterialBindingAPI.Apply(prim).Bind(material)
 
 
@@ -827,7 +837,7 @@ def _usd_exporter() -> type:
     except ModuleNotFoundError:
         present = False
     if not present:
-        raise ImportError("vtkUSDExporter needs a VTK source build against OpenUSD; the standard vtk wheel ships no vtkmodules.vtkIOUSD")
+        raise ImportError("vtkUSDExporter needs a VTK build enabling vtkIOUSD against OpenUSD; the resident build ships no vtkmodules.vtkIOUSD")
     return import_module("vtkmodules.vtkIOUSD").vtkUSDExporter
 
 
@@ -872,4 +882,5 @@ def packaged(op: PackageOp) -> Result[PackageFacts, PackageFault]:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [DISPLACEMENT_TERMINAL]-[BLOCKED]: name the exact `UsdShade.Material` member connecting the material's `outputs:displacement` terminal to the surface shader's displacement output — `CreateDisplacementOutput()` versus the inherited `NodeGraph.CreateOutput("displacement", Sdf.ValueTypeNames.Token)` — so a bound `SurfaceInput.DISPLACEMENT` map reaches a renderer's displacement pass rather than stopping at the shader input; blocked on live reflection against an installed `pxr.UsdShade`, which the `usd-core` interpreter gate forecloses on the canonical venv, and on the `.api/usd-core.md` `UsdShade.Material` row carrying only `Define`/`CreateSurfaceOutput`/`CreateInput`.
+
+(none)

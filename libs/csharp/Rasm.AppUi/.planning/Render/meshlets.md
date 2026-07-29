@@ -9,12 +9,12 @@ The geometry-virtualization and residency owners for the infinite viewport consu
 
 ## [02]-[CLUSTER_CONSUMPTION]
 
-- Owner: `MeshletKey` the payload-local cluster identity; `ResidencyMeshletView` the decode-only projection of one Compute `ResidencyMeshlet` descriptor; `MeshletCluster` the cluster scene over the consumed payload; `ClusterCull` the cull-ladder fold; `HzbPyramid` the prior-frame depth pyramid; `BindlessTable` the bindless resource table.
-- Entry: `public static Fin<MeshletCluster> FromPayload(GpuBackend backend, ResidencyPayload payload, LodPolicy lod)` projects the payload's cluster rows and rejects a non-cluster payload kind; `public Fin<(MeshletCluster Cluster, CullResult Result)> Visible(Frustum frustum, ViewCamera camera, double lodScale, Option<HzbPyramid> hzb, double nearPlane)` executes the full ladder and returns the advanced immutable cull owner with its receipt.
+- Owner: `MeshletKey` the payload-local cluster identity; `ResidencyMeshletView` the decode-only projection of one Compute `ResidencyMeshlet` descriptor; `MeshletCluster` the cluster scene over the consumed payload and its decoded `ResidencyRuns`; `SurfaceSample` the per-hit interpolated attribute answer; `ClusterCull` the cull-ladder fold; `HzbPyramid` the prior-frame depth pyramid; `BindlessTable` the bindless resource table.
+- Entry: `public static Fin<MeshletCluster> FromPayload(GpuBackend backend, ResidencyPayload payload, LodPolicy lod)` projects the payload's cluster rows through the Compute `Residency.Runs` attribute decode and rejects a non-cluster payload kind; `public Option<SurfaceSample> Sample(int cluster, (double X, double Y, double Z) at)` resolves the nearest-triangle interpolated normal and UV for a hit on one cluster — the `Render/pathtrace#BSDF_SHADING` `SurfaceAttribution` closure binds it at composition, and `None` (an unmapped source: empty UV run) is the typed absence the bounding-proxy parameterization fills; `public Fin<(MeshletCluster Cluster, CullResult Result)> Visible(Frustum frustum, ViewCamera camera, double lodScale, Option<HzbPyramid> hzb, double nearPlane)` executes the full ladder and returns the advanced immutable cull owner with its receipt.
 - Auto: the clusters arrive Compute-built — meshopt clustering, REAL per-cluster bounds, REAL cone apex/axis/cutoff, and encoded `Error`/`ParentError` columns that are monotonic BY CONSTRUCTION (`ParentError >= Error` on the `payload.md` row — the landed encode guarantee), so cut well-formedness (crack-free, no double-draw) rides the producer guarantee and this page re-verifies nothing; the LOD SELECTION ALGEBRA is AppUi's own: the per-cluster error bound projects to screen space under the camera row, the `LodPolicy` pixel threshold picks the cut (`Projected(Error) <= threshold < Projected(ParentError)` — exactly one cluster per subtree by monotonicity), and the hysteresis band on the same policy row keeps a prior-cut cluster selected until its error crosses the threshold by the band so a dolly move never flickers the cut; the cull ladder is RAISED past cone parity per the page's infinite-viewport charter: frustum -> wire-cone backface (a cluster whose cone faces away from the eye rejects; a cutoff of -1 never rejects, so degenerate cones stay drawable) -> LOD cut -> prior-frame depth-pyramid (HZB) two-phase occlusion — draw the prior-visible set first, test the remainder against the pyramid, and a cluster fully occluded by the prior frame draws nothing; bindless resource indices resolve through `BindlessTable` so a draw names a resource by index, never a per-draw bind.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Compute (project), Silk.NET.WebGPU
 - Growth: a new LOD policy is one `LodPolicy` value; a new vertex-stream channel is one `BindlessTable` slot; a new cull phase is one ladder row; zero new surface.
-- Boundary: cluster geometry decodes from Compute `ResidencyPayload`; AppUi neither clusters, re-tessellates, nor admits a second meshoptimizer owner. Tiles and clusters retain the payload `ContentKey`. One shared-device compute pass builds the farthest-depth HZB mip chain, with `QueryType.Occlusion` as the capability fallback. GPU multi-draw consumes `RenderPassEncoderMultiDrawIndexedIndirectCount`, push constants, and the pipeline's `WgpuFrameEvidence` retirement and timestamp lanes, so no meshlet-local fence, timer, or evidence owner exists. TAA motion vectors occupy one `BindlessTable` slot.
+- Boundary: cluster geometry decodes from Compute `ResidencyPayload`, and every per-vertex attribute read crosses through the Compute `Residency.Runs` projection — AppUi neither clusters, re-tessellates, decodes a stream itself, nor admits a second meshoptimizer owner. Tiles and clusters retain the payload `ContentKey`. One shared-device compute pass builds the farthest-depth HZB mip chain, with `QueryType.Occlusion` as the capability fallback. GPU multi-draw consumes `RenderPassEncoderMultiDrawIndexedIndirectCount`, push constants, and the pipeline's `WgpuFrameEvidence` retirement and timestamp lanes, so no meshlet-local fence, timer, or evidence owner exists. TAA motion vectors occupy one `BindlessTable` slot.
 
 ```csharp signature
 public readonly record struct BoundingSphere(double X, double Y, double Z, double Radius) {
@@ -70,11 +70,11 @@ public sealed record HzbPyramid(int Width, int Height, int MipLevels, Func<int, 
 
     // Camera-row projection kernel: view-basis transform of the sphere center, conservative nearest depth,
     // and screen radius; orthographic scale derives from ViewHeight and perspective scale from vertical FOV.
+    // The triad reads OracleFrame.OfCamera — the ONE camera-basis derivation this compilation unit owns — so
+    // the occlusion projection and the integrator's primary rays cannot drift in handedness.
     (double X, double Y, double RadiusPx, double Depth) ScreenExtent(BoundingSphere bounds, ViewCamera camera, double nearPlane) {
         CameraFrame frame = camera.Frame;
-        (double fx, double fy, double fz) = Normalize(frame.Target.X - frame.Eye.X, frame.Target.Y - frame.Eye.Y, frame.Target.Z - frame.Eye.Z);
-        (double rx, double ry, double rz) = Normalize(Cross(fx, fy, fz, frame.Up.X, frame.Up.Y, frame.Up.Z));
-        (double ux, double uy, double uz) = Cross(rx, ry, rz, fx, fy, fz);
+        ((double fx, double fy, double fz), (double rx, double ry, double rz), (double ux, double uy, double uz)) = OracleFrame.OfCamera(frame);
         (double cx, double cy, double cz) = (bounds.X - frame.Eye.X, bounds.Y - frame.Eye.Y, bounds.Z - frame.Eye.Z);
         double z = (cx * fx) + (cy * fy) + (cz * fz);
         double x = (cx * rx) + (cy * ry) + (cz * rz);
@@ -102,15 +102,6 @@ public sealed record HzbPyramid(int Width, int Height, int MipLevels, Func<int, 
             });
     }
 
-    private static (double X, double Y, double Z) Normalize(double x, double y, double z) {
-        double length = Math.Max(Math.Sqrt((x * x) + (y * y) + (z * z)), 1e-12);
-        return (x / length, y / length, z / length);
-    }
-
-    private static (double X, double Y, double Z) Normalize((double X, double Y, double Z) v) => Normalize(v.X, v.Y, v.Z);
-
-    private static (double X, double Y, double Z) Cross(double ax, double ay, double az, double bx, double by, double bz) =>
-        ((ay * bz) - (az * by), (az * bx) - (ax * bz), (ax * by) - (ay * bx));
 }
 
 public sealed record CullState(LanguageExt.HashSet<MeshletKey> PriorCut, LanguageExt.HashSet<MeshletKey> PriorVisible);
@@ -175,28 +166,96 @@ public static class ClusterCull {
     }
 }
 
+// One cluster hit's interpolated attribute answer: the shading normal, the unwrap UV, and the distance from the
+// queried point to the surface the interpolation ran on — the consumer's own plausibility gate against a sphere-
+// oracle hit that landed far from any real triangle.
+public readonly record struct SurfaceSample((double X, double Y, double Z) Normal, (double U, double V) Uv, double Distance);
+
 public sealed record MeshletCluster(
     GpuBackend Backend,
     Seq<ResidencyMeshletView> Clusters,
+    ResidencyRuns Runs,
     LodPolicy Lod,
     BindlessTable Bindless,
     long Triangles,
     CullState State) {
     public static Fin<MeshletCluster> FromPayload(GpuBackend backend, ResidencyPayload payload, LodPolicy lod) =>
         payload.Kind == ResidencyKind.MeshletCluster
-            ? Fin.Succ(new MeshletCluster(
-                backend,
-                payload.Clusters.Map(static row => new ResidencyMeshletView(
-                    row.VertexOffset, row.VertexCount, row.TriangleOffset, row.TriangleCount,
-                    new BoundingSphere(row.Center.X, row.Center.Y, row.Center.Z, row.Radius),
-                    new NormalCone(row.ConeAxis.X, row.ConeAxis.Y, row.ConeAxis.Z, row.ConeCutoff),
-                    row.Error, row.ParentError, row.Level, row.Parent,
-                    new MeshletKey(payload.ContentKey, row.Level, row.VertexOffset, row.TriangleOffset))),
-                lod,
-                BindlessTable.Of("position", "normal", "uv", "color", "motion-vector"),
-                payload.Clusters.Sum(static row => (long)row.TriangleCount),
-                new CullState([], [])))
+            ? Residency.Runs(payload).MapFail(fault => (Error)new ViewportFault.Text($"meshlets/runs: {fault.Message}"))
+                .Map(runs => new MeshletCluster(
+                    backend,
+                    payload.Clusters.Map(static row => new ResidencyMeshletView(
+                        row.VertexOffset, row.VertexCount, row.TriangleOffset, row.TriangleCount,
+                        new BoundingSphere(row.Center.X, row.Center.Y, row.Center.Z, row.Radius),
+                        new NormalCone(row.ConeAxis.X, row.ConeAxis.Y, row.ConeAxis.Z, row.ConeCutoff),
+                        row.Error, row.ParentError, row.Level, row.Parent,
+                        new MeshletKey(payload.ContentKey, row.Level, row.VertexOffset, row.TriangleOffset))),
+                    runs,
+                    lod,
+                    BindlessTable.Of("position", "normal", "uv", "color", "motion-vector"),
+                    payload.Clusters.Sum(static row => (long)row.TriangleCount),
+                    new CullState([], [])))
             : Fin.Fail<MeshletCluster>(new ViewportFault.Text($"meshlets/payload-kind: {payload.Kind} is not meshlet-cluster"));
+
+    // The SurfaceAttribution data source: nearest triangle of ONE cluster to a world point, barycentric-
+    // interpolated UV and normal at the closest surface point. A cluster holds at most 124 triangles by encode
+    // policy, so the walk is a bounded scan, never a per-cluster acceleration structure. None = no UV run
+    // (an unmapped source) or an out-of-range cluster — the typed absence the pathtrace bounding-proxy fills.
+    public Option<SurfaceSample> Sample(int cluster, (double X, double Y, double Z) at) {
+        if (Runs.Uvs.IsEmpty || cluster < 0 || cluster >= Clusters.Count) { return None; }
+        ResidencyMeshletView view = Clusters[cluster];
+        ReadOnlySpan<float> positions = Runs.Positions.Span;
+        ReadOnlySpan<float> normals = Runs.Normals.Span;
+        ReadOnlySpan<float> uvs = Runs.Uvs.Span;
+        ReadOnlySpan<uint> table = Runs.MeshletVertices.Span;
+        ReadOnlySpan<byte> triangles = Runs.MeshletTriangles.Span;
+        (double best, (double, double, double) bn, (double, double) buv) = (double.MaxValue, (0d, 0d, 1d), (0d, 0d));
+        for (int t = 0; t < view.TriangleCount; t++) {
+            (int a, int b, int c) = (
+                (int)table[view.VertexOffset + triangles[view.TriangleOffset + (t * 3)]],
+                (int)table[view.VertexOffset + triangles[view.TriangleOffset + (t * 3) + 1]],
+                (int)table[view.VertexOffset + triangles[view.TriangleOffset + (t * 3) + 2]]);
+            (double u, double v, double w, double distance) = Closest(positions, a, b, c, at);
+            if (distance < best) {
+                best = distance;
+                buv = (
+                    (u * uvs[a * 2]) + (v * uvs[b * 2]) + (w * uvs[c * 2]),
+                    (u * uvs[(a * 2) + 1]) + (v * uvs[(b * 2) + 1]) + (w * uvs[(c * 2) + 1]));
+                bn = normals.IsEmpty
+                    ? FaceNormal(positions, a, b, c)
+                    : (
+                        (u * normals[a * 3]) + (v * normals[b * 3]) + (w * normals[c * 3]),
+                        (u * normals[(a * 3) + 1]) + (v * normals[(b * 3) + 1]) + (w * normals[(c * 3) + 1]),
+                        (u * normals[(a * 3) + 2]) + (v * normals[(b * 3) + 2]) + (w * normals[(c * 3) + 2]));
+            }
+        }
+        return best is double.MaxValue ? None : Some(new SurfaceSample(OracleFrame.Normalize(bn), buv, best));
+    }
+
+    // Near point on one triangle: barycentric coordinates of the plane projection, clamped into the triangle.
+    // The clamp is not the exact Ericson region walk — an edge-region query can land a corner-biased point — but
+    // the consumer picks the MINIMUM over a cluster's triangles and interpolates attributes at the pick, where
+    // that bias moves the answer by less than a texel; an exact walk buys nothing a shading read can see.
+    static (double U, double V, double W, double Distance) Closest(ReadOnlySpan<float> positions, int a, int b, int c, (double X, double Y, double Z) p) {
+        (double ax, double ay, double az) = (positions[a * 3], positions[(a * 3) + 1], positions[(a * 3) + 2]);
+        (double bx, double by, double bz) = (positions[b * 3] - ax, positions[(b * 3) + 1] - ay, positions[(b * 3) + 2] - az);
+        (double cx, double cy, double cz) = (positions[c * 3] - ax, positions[(c * 3) + 1] - ay, positions[(c * 3) + 2] - az);
+        (double px, double py, double pz) = (p.X - ax, p.Y - ay, p.Z - az);
+        (double d00, double d01, double d11) = ((bx * bx) + (by * by) + (bz * bz), (bx * cx) + (by * cy) + (bz * cz), (cx * cx) + (cy * cy) + (cz * cz));
+        (double d20, double d21) = ((px * bx) + (py * by) + (pz * bz), (px * cx) + (py * cy) + (pz * cz));
+        double denom = Math.Max((d00 * d11) - (d01 * d01), 1e-24);
+        double v = Math.Clamp(((d11 * d20) - (d01 * d21)) / denom, 0d, 1d);
+        double w = Math.Clamp(((d00 * d21) - (d01 * d20)) / denom, 0d, 1d - v);
+        (double qx, double qy, double qz) = ((v * bx) + (w * cx) - px, (v * by) + (w * cy) - py, (v * bz) + (w * cz) - pz);
+        return (1d - v - w, v, w, Math.Sqrt((qx * qx) + (qy * qy) + (qz * qz)));
+    }
+
+    // The cross and unit folds are OracleFrame's — the one owner this compilation unit declares; a page-local
+    // copy is the divergence surface (one sibling copy already forked its zero-length arm).
+    static (double X, double Y, double Z) FaceNormal(ReadOnlySpan<float> positions, int a, int b, int c) =>
+        OracleFrame.Cross(
+            positions[b * 3] - positions[a * 3], positions[(b * 3) + 1] - positions[(a * 3) + 1], positions[(b * 3) + 2] - positions[(a * 3) + 2],
+            positions[c * 3] - positions[a * 3], positions[(c * 3) + 1] - positions[(a * 3) + 1], positions[(c * 3) + 2] - positions[(a * 3) + 2]);
 
     public Fin<(MeshletCluster Cluster, CullResult Result)> Visible(Frustum frustum, ViewCamera camera, double lodScale, Option<HzbPyramid> hzb, double nearPlane) =>
         ClusterCull.Cull(Clusters, frustum, camera, lodScale, Lod, State, hzb, nearPlane) switch {
@@ -343,7 +402,7 @@ flowchart LR
 ## [04]-[GPU_BOUNDARY]
 
 - [VIEWPORT_GPU]: the shared-device lease owns bindless upload, the HZB farthest-depth reduction, `RenderPassEncoderMultiDrawIndexedIndirectCount`, and `RenderPassEncoderSetPushConstants`. Submission and timing compose the pipeline `WgpuFrameEvidence` lane, so meshlet selection owns no fence, timer, query set, or device lifetime.
-- [PAYLOAD_COLUMNS]: `ResidencyMeshlet` supplies `VertexOffset`, `TriangleOffset`, `VertexCount`, `TriangleCount`, `Center`, `Radius`, `ConeAxis`, `ConeCutoff`, `Level`, `Parent`, `Error`, and `ParentError`. `MeshletKey` composes `ResidencyPayload.ContentKey` with level and stream offsets, and hierarchy, hysteresis, residency, and wire projection consume that producer identity unchanged.
+- [PAYLOAD_COLUMNS]: `ResidencyMeshlet` supplies `VertexOffset`, `TriangleOffset`, `VertexCount`, `TriangleCount`, `Center`, `Radius`, `ConeAxis`, `ConeCutoff`, `Level`, `Parent`, `Error`, and `ParentError`. `MeshletKey` composes `ResidencyPayload.ContentKey` with level and stream offsets, and hierarchy, hysteresis, residency, and wire projection consume that producer identity unchanged. `Residency.Runs` supplies the decoded `positions`/`normals`/`uvs` runs with the meshlet vertex table and raw triangle bytes — the one attribute decode `Sample` indexes and the `BindlessTable` `uv` slot uploads; an empty `uvs` run is the payload's own declaration that the source carried no unwrap.
 
 ## [05]-[RESEARCH]
 

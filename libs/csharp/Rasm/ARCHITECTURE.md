@@ -22,7 +22,7 @@ Rasm/
 │   ├── Matrix.cs            # Dense/sparse/complex linear-algebra kernel
 │   ├── Integrate.cs         # Runge-Kutta integrator floor and field integrator
 │   ├── Spectral.cs          # Discrete-calculus DEC bundle and spectral algebra
-│   └── Calculus.cs          # Central-difference stencil and field-noise lattices
+│   └── Calculus.cs          # Central-difference stencil, field-noise lattices, and the solar almanac
 ├── Spatial/                 # Proximity, clouds, neighborhoods, transport, fields, and naming
 │   ├── Index.cs             # BVH/octree spatial index over the node store
 │   ├── Naming.cs            # Topological-name lineage and re-anchoring
@@ -171,6 +171,7 @@ flowchart LR
     AppHost([Rasm.AppHost])
     AppUi([Rasm.AppUi])
     Bim([Rasm.Bim])
+    Materials([Rasm.Materials])
     Domain e1@<-->|"[CONTENT_KEY]: XxHash128"| Element
     Domain e2@-->|"[CONTENT_KEY]: ContentHash"| Persistence
     Domain e3@-->|"[CONTENT_KEY]: ContentHash"| Compute
@@ -195,6 +196,9 @@ flowchart LR
     Domain e22@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + Slo"| AppUi
     Domain e23@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + SpanBand + Slo"| Compute
     Analysis e19@-->|"[SHAPE]: GeometryMeasures"| Bim
+    Numerics e25@-->|"[SHAPE]: SunPosition"| Compute
+    Numerics e26@-->|"[SHAPE]: SunPosition"| AppUi
+    Numerics e27@-->|"[SHAPE]: SunPosition"| Materials
 ```
 
 ```mermaid

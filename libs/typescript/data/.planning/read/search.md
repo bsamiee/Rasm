@@ -4,12 +4,10 @@ Retrieval is one bound owner: five data-driven lanes — FTS, trigram, phonetic,
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                                               |
-| :-----: | :------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | `PORTS`        | the `Embedder` port (fingerprint contract, `EmbedFault`) and the optional `Reranker` |
-|  [02]   | `INDEX_PLANE`  | `Search.Embedding`, `Search.Corpus`, the embedding relation, and index rows          |
-|  [03]   | `LANE_ROSTER`  | the closed five-lane row table — grants, floor, rank fragment, per-call admission    |
-|  [04]   | `FUSION_QUERY` | `Search.of` — the RRF statement, rerank admission, facet/snippet/cursor families     |
+- [02]-[PORTS]: the `Embedder` port (fingerprint contract, `EmbedFault`) and the optional `Reranker`.
+- [03]-[INDEX_PLANE]: `Search.Embedding`, `Search.Corpus`, the embedding relation, and index rows.
+- [04]-[LANE_ROSTER]: the closed five-lane row table — grants, floor, rank fragment, per-call admission.
+- [05]-[FUSION_QUERY]: `Search.of` — the RRF statement, rerank admission, facet/snippet/cursor families.
 
 ## [02]-[PORTS]
 

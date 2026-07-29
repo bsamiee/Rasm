@@ -127,13 +127,13 @@
       },
       "TextureCompressor": {
         "type": "Direct",
-        "requested": "[0.1.0, )",
+        "requested": "[0.1.0, 0.1.0]",
         "resolved": "0.1.0",
         "contentHash": "gLxq1s5HjuMideWpWn6XIfeByD6LDa/a8+v0x8ovuazgLlR+5drYJNIeTmQ86H7OSiyAb/NzqRS7xx3a8NsiPA=="
       },
       "TextureCompressor.FileFormats.Hdr": {
         "type": "Direct",
-        "requested": "[0.1.0, )",
+        "requested": "[0.1.0, 0.1.0]",
         "resolved": "0.1.0",
         "contentHash": "ct4obMwrCcYyCDOp8/7xWkjCaLB/VBFwQowhzBtLIq2XxxaY+DgnqXzUZEdnay06YucY0G5Wa+w576xDbBWWVg==",
         "dependencies": {
@@ -142,7 +142,7 @@
       },
       "TextureCompressor.FileFormats.Ktx": {
         "type": "Direct",
-        "requested": "[0.1.0, )",
+        "requested": "[0.1.0, 0.1.0]",
         "resolved": "0.1.0",
         "contentHash": "/awk5oiADFkQPhbUzWzQdDRpdt3q326oX22kkk5pF859BDj5yGRxjBQzzTBeTItz2zSjAYZWA0Uc9wQDLNGLVA==",
         "dependencies": {

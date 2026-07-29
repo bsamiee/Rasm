@@ -110,7 +110,7 @@ public sealed record SheetSet(string Key, Seq<Sheet> Sheets) {
 - Auto: `ProjectionBasis.From` derives the orthographic or perspective projection matrix from a `Viewpoint` camera so a saved 3D view drafts to a 2D viewport with the same basis — the drafting projection and the viewport camera share one camera vocabulary; standard views (top, front, right, iso) are basis presets; the projection scales model millimeters to sheet millimeters through the viewport scale so a 1:50 detail and a 1:1 detail are scale row values, never call-site arithmetic; visible-edge resolution composes the Fabrication projection seam — the `HiddenLineSeam` delegate runs the `Hlr.Solve` exact quantitative-invisibility solve over the kernel's exact silhouette locus and screen crossing lattice, returning the world-space visible, hidden, and silhouette edge sets, and `Viewport2D.Project` maps each set's sub-edges to the sheet through the basis and tags the style, so a concave self-occluding solid resolves by exact sign rather than by a depth-sorted painter approximation.
 - Packages: SkiaSharp, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Compute (project), Rasm.Fabrication (project)
 - Growth: a new standard view is one `ProjectionBasis` preset; a new line style is one `EdgeStyle` row; the hidden-line algorithm deepens at the single Fabrication owner, never in this page; zero new surface.
-- Boundary: `ProjectionBasis` consumes the shared `ViewCamera`, and `MeshSource` projects the canonical Compute geometry without re-tessellation. Fabrication's `Hlr.Solve` supplies world-space visible, hidden, and silhouette edge sets through `HiddenLineSeam`; AppUi projects those sets to sheet space and emphasizes `Silhouette` with the `EdgeStyle.Silhouette` row. Viewport scale remains millimeter-to-millimeter data, and projected segments draw through `DrawSource.Owned`, so the page owns neither a second camera, hidden-line kernel, nor Skia surface.
+- Boundary: `ProjectionBasis` consumes the shared `ViewCamera`, and `MeshSource` projects the canonical Compute geometry without re-tessellation. Fabrication's `Hlr.Solve` supplies world-space visible, hidden, and silhouette edge sets through `HiddenLineSeam`; AppUi projects those sets to sheet space and emphasizes `Silhouette` with the `EdgeStyle.Silhouette` row. Viewport scale remains millimeter-to-millimeter data, the screen projection reads its camera triad off the `Render/pathtrace#BSDF_SHADING` `OracleFrame.OfCamera` owner (the prior page-local normalize fabricated `+Z` on zero length — the divergence the one-owner law deletes), and projected segments draw through `DrawSource.Owned`, so the page owns neither a second camera, hidden-line kernel, nor Skia surface.
 
 ```csharp signature
 public sealed record ProjectionBasis(ViewCamera Camera, double Scale) {
@@ -133,9 +133,10 @@ public sealed record ProjectionBasis(ViewCamera Camera, double Scale) {
 
     private (double X, double Y) Screen((double X, double Y, double Z) point) {
         CameraFrame frame = Camera.Frame;
-        (double fx, double fy, double fz) = Normalize((frame.Target.X - frame.Eye.X, frame.Target.Y - frame.Eye.Y, frame.Target.Z - frame.Eye.Z));
-        (double rx, double ry, double rz) = Normalize(Cross((fx, fy, fz), (frame.Up.X, frame.Up.Y, frame.Up.Z)));
-        (double ux, double uy, double uz) = Cross((rx, ry, rz), (fx, fy, fz));
+        // ONE camera triad — the pathtrace OracleFrame.OfCamera owner, whose clamped-divisor normalize is the
+        // law: the prior page-local copy fabricated +Z on a zero-length forward, the one divergent arm in the
+        // compilation unit, deleted onto the owner.
+        ((double fx, double fy, double fz), (double rx, double ry, double rz), (double ux, double uy, double uz)) = OracleFrame.OfCamera(frame);
         (double px, double py, double pz) = (point.X - frame.Eye.X, point.Y - frame.Eye.Y, point.Z - frame.Eye.Z);
         (double x, double y, double z) = (
             (px * rx) + (py * ry) + (pz * rz),
@@ -151,15 +152,6 @@ public sealed record ProjectionBasis(ViewCamera Camera, double Scale) {
 
     private static ProjectionBasis Orthographic(System.Numerics.Vector3 eye, System.Numerics.Vector3 target, System.Numerics.Vector3 up) =>
         new(new ViewCamera.Orthographic(new CameraFrame(eye, target, up), 1d), 1d);
-
-    private static (double X, double Y, double Z) Cross((double X, double Y, double Z) a, (double X, double Y, double Z) b) =>
-        ((a.Y * b.Z) - (a.Z * b.Y), (a.Z * b.X) - (a.X * b.Z), (a.X * b.Y) - (a.Y * b.X));
-
-    private static (double X, double Y, double Z) Normalize((double X, double Y, double Z) v) =>
-        Math.Sqrt((v.X * v.X) + (v.Y * v.Y) + (v.Z * v.Z)) switch {
-            var len when len > 0d => (v.X / len, v.Y / len, v.Z / len),
-            _ => (0d, 0d, 1d),
-        };
 }
 
 [SmartEnum<string>]

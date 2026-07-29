@@ -1,6 +1,6 @@
 # [RASM_NUMERICS_CALCULUS]
 
-`Rasm.Numerics` calculus is the sample-anywhere analytic-math floor: differential operators, weight-profile mathematics, and procedural noise lattices, every owner generic over a sampler so no field, mesh, or cloud type reaches this floor.
+`Rasm.Numerics` calculus is the sample-anywhere analytic-math floor: differential operators, weight-profile mathematics, procedural noise lattices, and the geodetic solar almanac — the field operators generic over a sampler, the almanac closed-form over a site and an instant — so no field, mesh, or cloud type reaches this floor.
 
 Every operator threads `Op` and gates finite input through the Domain validation vocabulary, so admission composes upstream and this floor carries the mathematics alone; the `SlopeBound` and `DerivativeSupremum` slope evidence its kernels and profiles carry feeds the `Spatial/fields` Lipschitz fold downstream.
 
@@ -9,6 +9,7 @@ Every operator threads `Op` and gates finite input through the Domain validation
 - [02]-[DIFFERENTIAL_STENCIL]: `Nabla` sampler-generic central-difference stencil and the differential operators folding through its one `SampleAxes` traversal.
 - [03]-[WEIGHT_PROFILES]: compact-support kernels, reconstruction weights, and the radial-decay `Falloff` union with its metric-sampler anisotropic case.
 - [04]-[NOISE_LATTICES]: `FieldNoise` deterministic Perlin, simplex, and Worley lattices over one seed-folded permutation substrate.
+- [05]-[SOLAR_EPHEMERIS]: `SolarPosition` the branch's one NOAA/Meeus apparent-solar fold over a validated `SolarSite` and a NodaTime `Instant`.
 
 ## [02]-[DIFFERENTIAL_STENCIL]
 
@@ -231,7 +232,7 @@ public abstract partial record Falloff {
 - Receipt: none — pure deterministic functions.
 - Packages: BCL only (`Math.Floor`, integer bit ops), RhinoCommon `Point3d` as the coordinate carrier.
 - Growth: a new lattice is one member over the `Perm`/`HashCell` substrate; fractal octave sums (fBm, turbulence) are the consumer's fold over these single-octave taps, `Spatial/fields` owning the octave policy.
-- Boundary: `PermTable` is the canonical published Perlin permutation, the one sanctioned literal table on this page; the noise vocabulary — `NoiseKind` rows with caution flags and sampler columns — is `Spatial/fields`', this page owning only the lattice mathematics those rows point at.
+- Boundary: `PermTable` is the canonical published Perlin permutation, the one sanctioned literal table on this page; the noise vocabulary — `NoiseKind` rows with caution flags and sampler columns — is `Spatial/fields`', this page owning only the lattice mathematics those rows point at. `Rasm.Materials` `Appearance/texture#TEXTURE_UV` `ProceduralNoise` is a DELIBERATE second lattice family, split on differentiability-vs-parity: this owner hashes the canonical published permutation feeding `NoiseKind.ContinuouslyDifferentiable` (the `CurlNoise` admission gate and the `ScalarField.LipschitzBound` fold), while the Materials family holds FastNoiseLite byte-exactness for MaterialX category parity and the WGSL `f32` wrap law, with 2D arms, periodic-by-construction cell-index lattices, and the cellular return set this floor never needs — collapsing either end breaks the other's gating [branch RULINGS `[03]-[COLLAPSE]`].
 
 ```csharp
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -304,7 +305,100 @@ internal static class FieldNoise {
 }
 ```
 
-## [05]-[RESEARCH]
+## [05]-[SOLAR_EPHEMERIS]
+
+- Owner: `SolarSite` the validated geodetic site; `SunPosition` the apparent azimuth/altitude result with its derived zenith, horizon predicate, and survey-frame direction; `SolarPosition` the NOAA/Meeus closed-form apparent-solar fold — the branch's ONE solar ephemeris, every consumer a projection over it.
+- Entry: `At(site, instant)` derives apparent azimuth/altitude — quadratic mean longitude, nutation-corrected ecliptic longitude, the full nested obliquity expression, and elevation-derived pressure-corrected refraction; `SunPath(site, midnight, step, samples)` samples that same total function across a day.
+- Auto: the fold is total and effect-free — closed-form astronomy over finite admitted input carries no `Fin` rail; `SolarSite` gates latitude, longitude, timezone, and elevation once at admission.
+- Receipt: none — pure deterministic functions; sweep evidence is the composing analysis' own.
+- Packages: NodaTime (`Instant`/`Duration`/`NodaConstants` — the clock carrier; a `DateTime`-taking overload is the deleted form), Thinktecture.Runtime.Extensions (`[ComplexValueObject]`), LanguageExt.Core (`Seq`), BCL inbox (`Math`, `System.Numerics.Vector3`).
+- Growth: an accuracy refinement (full SPA periodic-term tables over the truncated form) is a body change on the same two entries; a new consumer composes `At`/`SunPath`, never a duplicate almanac; zero new surface.
+- Boundary: consumers project the ANGLES into their own world frame — `Rasm.Compute` `Analysis/daylight` casts shadow rays along `Direction` in the survey frame it spells, `Rasm.Materials` `Appearance/environment#SKY_MODEL` projects azimuth/altitude onto its `+X`-north `WorldDirection`, and `Rasm.AppUi` `Render/pathtrace#LIGHT_RIG` seats the angles on its Sun row — so the frame convention lives at each consuming edge and the almanac states angles alone; the geodetic datum, site CRS, and any reprojection stay the app-root edge's.
+
+```csharp
+// --- [MODELS] -----------------------------------------------------------------------------
+[ComplexValueObject]
+public sealed partial class SolarSite {
+    public double LatitudeDeg { get; }
+    public double LongitudeDeg { get; }
+    public double TimezoneHours { get; }
+    public double ElevationM { get; }
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double latitudeDeg, ref double longitudeDeg,
+        ref double timezoneHours, ref double elevationM) =>
+        validationError = double.IsFinite(latitudeDeg) && latitudeDeg is >= -90.0 and <= 90.0
+            && double.IsFinite(longitudeDeg) && longitudeDeg is >= -180.0 and <= 180.0
+            && double.IsFinite(timezoneHours) && timezoneHours is >= -14.0 and <= 14.0
+            && double.IsFinite(elevationM) && elevationM is > -500.0 and <= 10000.0
+                ? null
+                : new ValidationError(message: "<solar-site-invalid>");
+}
+
+// Azimuth from north clockwise (the survey convention); zenith and below-horizon derive, never stored.
+public readonly record struct SunPosition(double AzimuthDeg, double AltitudeDeg) {
+    public double ZenithDeg => 90.0 - AltitudeDeg;
+    public bool AboveHorizon => AltitudeDeg > 0.0;
+
+    // Unit sun direction in the +Y-north/+X-east SURVEY frame — the EPW/scene convention daylight shadow rays
+    // cast toward; a +X-north consumer (the Materials environment frame) projects AzimuthDeg/AltitudeDeg itself.
+    public Vector3 Direction {
+        get {
+            double alt = AltitudeDeg * Math.PI / 180.0, az = AzimuthDeg * Math.PI / 180.0;
+            return new Vector3(Math.Cos(alt) * Math.Sin(az), Math.Cos(alt) * Math.Cos(az), Math.Sin(alt));
+        }
+    }
+}
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+// Apparent-solar closed form at the branch's one truncation order: nutation on the ecliptic longitude, quadratic
+// mean longitude, nested obliquity, and pressure-corrected refraction — the strongest of the two folds this owner
+// collapsed, so every consumer reads one answer for one instant.
+public static class SolarPosition {
+    public static SunPosition At(SolarSite site, Instant instant) {
+        double jd = 2440587.5 + instant.ToUnixTimeTicks() / (double)NodaConstants.TicksPerDay;
+        double t = (jd - 2451545.0) / 36525.0;
+        double meanLongitude = Wrap360(280.46646 + t * (36000.76983 + t * 0.0003032));
+        double meanAnomaly = (357.52911 + t * (35999.05029 - 0.0001537 * t)) * Math.PI / 180.0;
+        double center = Math.Sin(meanAnomaly) * (1.914602 - t * (0.004817 + 0.000014 * t))
+            + Math.Sin(2.0 * meanAnomaly) * (0.019993 - 0.000101 * t)
+            + Math.Sin(3.0 * meanAnomaly) * 0.000289;
+        double eclipticLongitude = (meanLongitude + center - 0.00569 - 0.00478 * Math.Sin((125.04 - 1934.136 * t) * Math.PI / 180.0)) * Math.PI / 180.0;
+        double obliquity = (23.0 + (26.0 + (21.448 - t * (46.815 + t * (0.00059 - t * 0.001813))) / 60.0) / 60.0) * Math.PI / 180.0;
+        double declination = Math.Asin(Math.Sin(obliquity) * Math.Sin(eclipticLongitude));
+        double y = Math.Tan(obliquity / 2.0) * Math.Tan(obliquity / 2.0);
+        double meanLonRad = meanLongitude * Math.PI / 180.0;
+        double equationOfTime = 4.0 * (180.0 / Math.PI) * (
+            y * Math.Sin(2.0 * meanLonRad) - 2.0 * 0.016708634 * Math.Sin(meanAnomaly)
+            + 4.0 * 0.016708634 * y * Math.Sin(meanAnomaly) * Math.Cos(2.0 * meanLonRad)
+            - 0.5 * y * y * Math.Sin(4.0 * meanLonRad) - 1.25 * 0.016708634 * 0.016708634 * Math.Sin(2.0 * meanAnomaly));
+        double fractionalDay = jd - Math.Floor(jd) - 0.5 + site.TimezoneHours / 24.0;
+        double trueSolarMinutes = Wrap(fractionalDay * 1440.0 + equationOfTime + 4.0 * site.LongitudeDeg - 60.0 * site.TimezoneHours, 1440.0);
+        double hourAngle = ((trueSolarMinutes / 4.0) - 180.0) * Math.PI / 180.0;
+        double phi = site.LatitudeDeg * Math.PI / 180.0;
+        double altitude = Math.Asin(Math.Sin(phi) * Math.Sin(declination) + Math.Cos(phi) * Math.Cos(declination) * Math.Cos(hourAngle));
+        double azimuth = Math.Atan2(Math.Sin(hourAngle), Math.Cos(hourAngle) * Math.Sin(phi) - Math.Tan(declination) * Math.Cos(phi));
+        double altitudeDeg = altitude * 180.0 / Math.PI;
+        double pressureRatio = Math.Pow(1.0 - 2.25577e-5 * Math.Max(site.ElevationM, -500.0), 5.25588);
+        double refractionDeg = altitudeDeg is > -1.0 and < 90.0
+            ? pressureRatio * 1.02 / Math.Tan((altitudeDeg + 10.3 / (altitudeDeg + 5.11)) * Math.PI / 180.0) / 60.0
+            : 0.0;
+        return new SunPosition(Wrap360(azimuth * 180.0 / Math.PI + 180.0), altitudeDeg + refractionDeg);
+    }
+
+    // One day's positions at the policy step — the sun-hours sweep, the viewport sun-path arc, and the sun-study
+    // scrub all read this one sampler.
+    public static Seq<(Instant Instant, SunPosition Sun)> SunPath(SolarSite site, Instant midnight, Duration step, int samples) =>
+        toSeq(Enumerable.Range(0, samples)).Map(i => {
+            Instant at = midnight + step * i;
+            return (at, At(site, at));
+        });
+
+    static double Wrap360(double degrees) => Wrap(degrees, 360.0);
+    static double Wrap(double value, double period) => value - period * Math.Floor(value / period);
+}
+```
+
+## [06]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

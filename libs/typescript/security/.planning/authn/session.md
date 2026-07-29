@@ -4,11 +4,9 @@ Identity plane's session owner: the `Subject`/`Session`/`CredentialRef`/`TokenPa
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [PUBLIC]                                                                                              |
-| :-----: | :--------------- | :---------------------------------------------------------------------------------------------------- |
-|  [01]   | `IDENTITY_VOCAB` | `Subject`, `Session`, `CredentialRef`, `TokenPair`, `SessionFault`, `SessionStore`, `IdentityJournal` |
-|  [02]   | `ROTATION_LAW`   | `Token`, `RotationStep`, `BearerGuard`, `CurrentClaims`                                               |
-|  [03]   | `COOKIE_EGRESS`  | `Cookie`, `CookieSpec`, `CsrfFault`                                                                   |
+- [02]-[IDENTITY_VOCAB]: `Subject`, `Session`, `CredentialRef`, `TokenPair`, `SessionFault`, `SessionStore`, `IdentityJournal`.
+- [03]-[ROTATION_LAW]: `Token`, `RotationStep`, `BearerGuard`, `CurrentClaims`.
+- [04]-[COOKIE_EGRESS]: `Cookie`, `CookieSpec`, `CsrfFault`.
 
 ## [02]-[IDENTITY_VOCAB]
 

@@ -4,13 +4,11 @@ ONE sqlite lane runs journal, projection, tenancy, and capability contracts acro
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                                              |
-| :-----: | :------------------ | :---------------------------------------------------------------------------------- |
-|  [01]   | `DEGRADATION_TABLE` | the grant-total capability-to-fallback matrix — the lane's whole difference as data |
-|  [02]   | `PROFILE_ROWS`      | Layer constructors and their runtime coordinates                                    |
-|  [03]   | `PGLITE_PROFILE`    | generation-qualified embedded PostgreSQL, neutral SQL Layer, and dump custody       |
-|  [04]   | `SNAPSHOT_IO`       | whole-database export/backup/seed, zero-copy transfer, extension load               |
-|  [05]   | `PROFILE_HARVEST`   | the per-profile query-evidence arm — availability rows, timed EXPLAIN, page stats   |
+- [02]-[DEGRADATION_TABLE]: the grant-total capability-to-fallback matrix — the lane's whole difference as data.
+- [03]-[PROFILE_ROWS]: Layer constructors and their runtime coordinates.
+- [04]-[PGLITE_PROFILE]: generation-qualified embedded PostgreSQL, neutral SQL Layer, and dump custody.
+- [05]-[SNAPSHOT_IO]: whole-database export/backup/seed, zero-copy transfer, extension load.
+- [06]-[PROFILE_HARVEST]: the per-profile query-evidence arm — availability rows, timed EXPLAIN, page stats.
 
 ## [02]-[DEGRADATION_TABLE]
 

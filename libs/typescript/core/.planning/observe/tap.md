@@ -4,11 +4,9 @@ Hook-rail vocabulary of the observe plane, the fourth owner beside `convention`,
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                            | [PUBLIC]               |
-| :-----: | :----------------- | :-------------------------------------------------------------------------------- | :--------------------- |
-|  [01]   | `MODALITY_TABLE`   | the closed modality tuple, the dispatch rows, the feedback/purity/buffer axes     | `Tap` (modality reads) |
-|  [02]   | `POINT_VOCABULARY` | the point-name brand, the standing point rows, the fact-binding point mint        | `Tap` (point mint)     |
-|  [03]   | `RAIL_CONTRACT`    | subscription constructors, registry admission, breach isolation, the veto verdict | `Tap`, `TapFault`      |
+- [02]-[MODALITY_TABLE]: the closed modality tuple, the dispatch rows, the feedback/purity/buffer axes; `Tap` (modality reads).
+- [03]-[POINT_VOCABULARY]: the point-name brand, the standing point rows, the fact-binding point mint; `Tap` (point mint).
+- [04]-[RAIL_CONTRACT]: subscription constructors, registry admission, breach isolation, the veto verdict; `Tap`, `TapFault`.
 
 ## [02]-[MODALITY_TABLE]
 

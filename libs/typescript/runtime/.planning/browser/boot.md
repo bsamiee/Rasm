@@ -4,12 +4,10 @@ The browser boot plane: one `BrowserRuntime.runMain` call boots the document —
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                        | [PUBLIC]     |
-| :-----: | :---------------- | :---------------------------------------------------------------------------- | :----------- |
-|  [01]   | `BUDGET_VALUE`    | the `AppSpec` shape — identity, feed rows, ceilings                           | `AppSpec`    |
-|  [02]   | `SINGLE_BOOT`     | the one `runMain` seam, the spec Tag, the call-in handle, the hydration read  | `Boot`       |
-|  [03]   | `SIGNAL_CELLS`    | the seeded cells, their owned folds, the derived edges, wake, permission feed | `Connect`    |
-|  [04]   | `CAPABILITY_ROWS` | the Web-API service roster the root merges                                    | `Capability` |
+- [02]-[BUDGET_VALUE]: the `AppSpec` shape — identity, feed rows, ceilings; `AppSpec`.
+- [03]-[SINGLE_BOOT]: the one `runMain` seam, the spec Tag, the call-in handle, the hydration read; `Boot`.
+- [04]-[SIGNAL_CELLS]: the seeded cells, their owned folds, the derived edges, wake, permission feed; `Connect`.
+- [05]-[CAPABILITY_ROWS]: the Web-API service roster the root merges; `Capability`.
 
 ## [02]-[BUDGET_VALUE]
 

@@ -86,6 +86,30 @@ public static class Deterministic {
         double unit = ((OrderKey(point: point, seed: mixed) >> 11) + 1.0) * (1.0 / 9_007_199_254_740_992.0);
         return Math.Clamp(value: unit, min: EpsilonPolicy.SqrtEpsilon, max: 1.0 - EpsilonPolicy.SqrtEpsilon);
     }
+    // Stream mints a ref-threadable stream STATE from integer lanes and a 64-bit policy seed — the OrderKey fold
+    // over exact integer lanes, so (pixel: 5, ordinal: 0) and (pixel: 0, ordinal: 5) mint distinct streams where
+    // a hand XOR-pack of shifted lanes collides them, a full 64-bit seed rides one argument where a two-int split
+    // truncates it, and no consumer re-transcribes the private Gamma to mint a state of its own.
+    public static ulong Stream(ReadOnlySpan<long> lanes, long seed = 0L) {
+        ulong state = unchecked((ulong)seed + Gamma);
+        foreach (long lane in lanes) {
+            state = Mix(state: state ^ unchecked((ulong)lane));
+        }
+        return state;
+    }
+    // The EQUIDISTRIBUTED family beside the pseudo-random stream: RadicalInverse is the base-2 bit reversal onto
+    // [0, 1) and Hammersley the (i/n, radicalInverse(i)) pair a bounded-tap spherical integral reads — splitmix64
+    // clustering leaves visible noise at a bounded tap budget, so equidistribution is its own member family on
+    // the ONE deterministic-draw owner, never a consumer-page kernel.
+    public static double RadicalInverse(uint bits) {
+        bits = (bits << 16) | (bits >> 16);
+        bits = ((bits & 0x55555555u) << 1) | ((bits & 0xAAAAAAAAu) >> 1);
+        bits = ((bits & 0x33333333u) << 2) | ((bits & 0xCCCCCCCCu) >> 2);
+        bits = ((bits & 0x0F0F0F0Fu) << 4) | ((bits & 0xF0F0F0F0u) >> 4);
+        bits = ((bits & 0x00FF00FFu) << 8) | ((bits & 0xFF00FF00u) >> 8);
+        return bits * 2.3283064365386963e-10;
+    }
+    public static (double U0, double U1) Hammersley(int index, int count) => ((index + 0.5) / count, RadicalInverse(bits: (uint)index));
     // Signed zeros key identically: -0.0 normalizes before bit projection.
     private static ulong Bits(double value) => BitConverter.DoubleToUInt64Bits(value: value == 0.0 ? 0.0 : value);
 }

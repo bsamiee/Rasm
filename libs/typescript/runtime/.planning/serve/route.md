@@ -4,13 +4,11 @@ This serving assembly: routes are Layers under `HttpLayerRouter` — the app-ass
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                                             | [PUBLIC]           |
-| :-----: | :-------------- | :--------------------------------------------------------------------------------- | :----------------- |
-|  [01]   | `SEAM_ROWS`     | the one middleware composition: mark, ambient rows, trace, shield, respondable net | `Seam`             |
-|  [02]   | `LAYER_ROUTES`  | api/docs/health/tus/mount route Layers, the webhook intake row                     | `Router`, `Intake` |
-|  [03]   | `CEREMONY_ROWS` | oauth redirect pair, webauthn enroll/assert, refresh/logout, cookie application    | `Ceremony`         |
-|  [04]   | `ASSET_ROWS`    | the SPA/static fold: fingerprint predicate, cache-header table, traversal refusal  | `Router`           |
-|  [05]   | `SERVE_FOLD`    | multiplex rows, the serve Layer, the web-handler twin                              | `Router`           |
+- [02]-[SEAM_ROWS]: the one middleware composition: mark, ambient rows, trace, shield, respondable net; `Seam`.
+- [03]-[LAYER_ROUTES]: api/docs/health/tus/mount route Layers, the webhook intake row; `Router`, `Intake`.
+- [04]-[CEREMONY_ROWS]: oauth redirect pair, webauthn enroll/assert, refresh/logout, cookie application; `Ceremony`.
+- [05]-[ASSET_ROWS]: the SPA/static fold: fingerprint predicate, cache-header table, traversal refusal; `Router`.
+- [06]-[SERVE_FOLD]: multiplex rows, the serve Layer, the web-handler twin; `Router`.
 
 ## [02]-[SEAM_ROWS]
 

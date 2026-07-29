@@ -4,13 +4,11 @@ The one data-grid owner: TanStack Table models — rows, headers, facets, groupi
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                        | [PUBLIC] |
-| :-----: | :--------------- | :---------------------------------------------------------------------------- | :------- |
-|  [01]   | `STATE_FOLD`     | the one-atom `TableState` slice, the `Updater` application, persistence       | `Grid`   |
-|  [02]   | `COLUMN_PLANE`   | static helper columns and the `Feed.Document` band-driven dynamic column fold | `Grid`   |
-|  [03]   | `DERIVE_MODELS`  | the row-model roster — core, sort, filter, facet, group, expand, paginate     | —        |
-|  [04]   | `GRID_SEMANTICS` | aria grid roles, logical-count law, selection identity                        | —        |
-|  [05]   | `WINDOWING`      | the virtualizer fold — measurement, pinned-range union, selection echo scroll | `Grid`   |
+- [02]-[STATE_FOLD]: the one-atom `TableState` slice, the `Updater` application, persistence; `Grid`.
+- [03]-[COLUMN_PLANE]: static helper columns and the `Feed.Document` band-driven dynamic column fold; `Grid`.
+- [04]-[DERIVE_MODELS]: the row-model roster — core, sort, filter, facet, group, expand, paginate; —.
+- [05]-[GRID_SEMANTICS]: aria grid roles, logical-count law, selection identity; —.
+- [06]-[WINDOWING]: the virtualizer fold — measurement, pinned-range union, selection echo scroll; `Grid`.
 
 ## [02]-[STATE_FOLD]
 

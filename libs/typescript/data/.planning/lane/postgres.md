@@ -4,13 +4,11 @@ PostgreSQL's guarantee-lane spine owns first-party capabilities, concurrency pri
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                                 |
-| :-----: | :----------------- | :------------------------------------------------------------------------------------- |
-|  [01]   | `SPINE_ROWS`       | the first-party capability rows — identity mint, derivation, evidence, integrity forms |
-|  [02]   | `PRIMITIVE_TABLE`  | the concurrency/queue primitives with their upholds AND denies columns                 |
-|  [03]   | `EXTENSION_MATRIX` | the ruled extension rows, the derived grant union, demands, the image projection       |
-|  [04]   | `DRIVER_ROWS`      | the `PgClient` Layer mints, the listener bus, the jsonb fragment                       |
-|  [05]   | `PROFILE_HARVEST`  | the one engine-profile receipt family and the spine's statements and EXPLAIN arms      |
+- [02]-[SPINE_ROWS]: the first-party capability rows — identity mint, derivation, evidence, integrity forms.
+- [03]-[PRIMITIVE_TABLE]: the concurrency/queue primitives with their upholds AND denies columns.
+- [04]-[EXTENSION_MATRIX]: the ruled extension rows, the derived grant union, demands, the image projection.
+- [05]-[DRIVER_ROWS]: the `PgClient` Layer mints, the listener bus, the jsonb fragment.
+- [06]-[PROFILE_HARVEST]: the one engine-profile receipt family and the spine's statements and EXPLAIN arms.
 
 ## [02]-[SPINE_ROWS]
 

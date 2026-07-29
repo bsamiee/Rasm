@@ -15,7 +15,7 @@ Settled composition draws every mechanism from the kernel signal capsule — hoo
 ## [02]-[FACT_FAMILY]
 
 - Owner: `MaterialsFact` — the closed evidence union every tap fires and every projection folds.
-- Cases: `CatalogueAdmit` (the row a veto gate may transform or refuse pre-freeze), `SectionSolve` (profile case, solved section, wall duration), `CapacityCheck` (the lifted `CapacityReceipt`, the `Utilisation` verdict, wall duration), `GraphCompile` (material, ordered node count, wall duration), `AcquisitionFit` (the measured `Provenance` receipt, wall duration), `WireMint` (material, `WireProvenance` receipt), `ProjectionGate` (the `GraphDelta` a veto may refuse pre-merge), `TexturePress` (the lifted `PressReceipt` and the material it baked for), `PlaneCodec` (container row, direction, stored bytes, wall duration), `StageInfer` (the issued `StageRequest`, the lifted `StageResult`, and the card's licence class — the request rides so the tap can see a provider DEGRADATION, which the result alone cannot show), `EnvironmentPrefilter` (light key, sky model, level count, wall duration).
+- Cases: `CatalogueAdmit` (the row a veto gate may transform or refuse pre-freeze), `SectionSolve` (profile case, solved section, wall duration), `CapacityCheck` (the lifted `CapacityReceipt`, the `Utilisation` verdict, wall duration), `GraphCompile` (material, ordered node count, wall duration), `AcquisitionFit` (the measured `Provenance` receipt, wall duration), `WireMint` (material, `WireProvenance` receipt), `ProjectionGate` (the `GraphDelta` a veto may refuse pre-merge), `TexturePress` (the lifted `PressReceipt` and the material it baked for), `PlaneCodec` (container row, direction, stored bytes, wall duration), `StageInfer` (the issued `StageRequest` and the lifted `StageResult` — the request rides so the tap can see a provider DEGRADATION, which the result alone cannot show, and it already carries the grant class, so a second licence column would be two carriers for one value), `EnvironmentPrefilter` (light key, sky model, level count, wall duration).
 - Entry: each composition-root decorator fires one case after the owning entrypoint settles; veto cases fire before catalogue freeze or graph merge.
 - Auto: elapsed columns derive from one injected clock at the decorator boundary.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
@@ -59,7 +59,7 @@ public abstract partial record MaterialsFact {
     // shape the adequacy verdict already takes.
     public sealed record TexturePress(Op Key, Option<MaterialId> Material, PressReceipt Receipt) : MaterialsFact;
     public sealed record PlaneCodec(Op Key, RasterFormat Format, bool Encoded, long Bytes, Duration Elapsed) : MaterialsFact;
-    public sealed record StageInfer(Op Key, StageRequest Request, StageResult Result, LicenseClass License) : MaterialsFact;
+    public sealed record StageInfer(Op Key, StageRequest Request, StageResult Result) : MaterialsFact;
     public sealed record EnvironmentPrefilter(Op Key, string LightKey, string SkyModel, int SpecularMips, Duration Elapsed) : MaterialsFact;
 }
 ```
@@ -150,7 +150,7 @@ public sealed record MaterialsHooks(
 ## [04]-[INSTRUMENT_TAP]
 
 - Owner: `MaterialsInstruments` — the `rasm.materials.*` `InstrumentSpec` roster, the contributor port, and the rail-subscribed projection; the roster is composition-free data, so one declaration binds against any meter and any cells.
-- Cases: catalogue admissions by family off `CatalogueAdmit`; solve counts and duration off `SectionSolve`; capacity checks by adequacy verdict and governing utilisation off `CapacityCheck`; compile node census and duration off `GraphCompile`; fits by parameter-rank verdict and the residual off `AcquisitionFit`; wire mints by capture method off `WireMint`; projection admissions off `ProjectionGate`; catalogue and library row levels off composition-bound readers; fault counts off the rail's `IsolatedFault` cell banded by kernel category.
+- Cases: catalogue admissions by family off `CatalogueAdmit`; solve counts and duration off `SectionSolve`; capacity checks by adequacy verdict and governing utilisation off `CapacityCheck`; compile node census and duration off `GraphCompile`; fits by parameter-rank verdict and the residual off `AcquisitionFit`; wire mints by capture method off `WireMint`; projection admissions off `ProjectionGate`; press runs, texels, and duration by backend off `TexturePress`; plane bytes and codec duration by container and direction off `PlaneCodec`; inference runs, partitions, and golden residual by stage, provider, licence, and fidelity off `StageInfer`; prefilter runs and duration by sky model off `EnvironmentPrefilter`; catalogue and library row levels off composition-bound readers; fault counts off the rail's `IsolatedFault` cell banded by kernel category.
 - Entry: `MaterialsInstruments.Telemetry(string version, string schemaUrl = TelemetryIdentity.SchemaUrl)` — the one contributor port, carrying the `[06]` board pack beside these rows so board and reliability policy travel downward with the roster they name; `MaterialsInstruments.Tap(MaterialsHooks hooks, InstrumentSet set, params ReadOnlySpan<(string Name, Func<double> Read)> levels)` binds the pulled readers and mounts the observe subscriptions at composition, so create and write calls live only inside this spine.
 - Auto: every histogram row binds its named kernel `Buckets` row as the explicit-bucket fallback under the base2-exponential wire default, so no bound array is spelled here; every dimension key is a declared slot const carried on its own row's `Dimensions` column, so the governance leg derives view tag keys from the mounted roster rather than a second table; every write materializes its tag set through the kernel `InstrumentSet.Tags` entry, which folds the ambient `TenantContext` partition in beside the arm's own slots, so a partitioned host attributes every work row and a single-tenant one mints no dimension at all; each share indicator's outcome verdict rides the same write that counts the occurrence, so a good half can never miss an occurrence its denominator recorded and no second counter carries the numerator; a supplied reader binds through its own row's declared `MeasureForm`, so one supply shape serves a whole-count population and a real-valued level.
 - Packages: Rasm, LanguageExt.Core, BCL inbox (`System.Diagnostics.Metrics`).
@@ -255,9 +255,12 @@ public static class MaterialsInstruments {
         // one tenant at a time.
         InstrumentSpec.Count(PressRuns, "{press}", "texture presses settled by backend", MeasureForm.Whole, TenantContext.TenantSlot, BackendSlot),
         InstrumentSpec.Count(PressTexels, "{texel}", "texels shaded across every channel and mip level, by backend", MeasureForm.Whole, TenantContext.TenantSlot, BackendSlot),
-        InstrumentSpec.Advised(PressDuration, "s", "texture press wall duration by backend", MeasureForm.Real, Buckets.CompileSeconds, TenantContext.TenantSlot, BackendSlot),
+        // DecodeSeconds (10 ms – 300 s) is the ladder a bake's own comment demands: a 256 preview lands sub-second
+        // and a 16k production plane runs past the 60 s objective, so the 2 s-ceiling compile ladder and the
+        // 250 ms-ceiling solve ladder both saturate their top bucket exactly where the distribution matters.
+        InstrumentSpec.Advised(PressDuration, "s", "texture press wall duration by backend", MeasureForm.Real, Buckets.DecodeSeconds, TenantContext.TenantSlot, BackendSlot),
         InstrumentSpec.Count(PlaneBytes, "By", "plane bytes encoded or decoded by container and direction", MeasureForm.Whole, TenantContext.TenantSlot, ContainerSlot, DirectionSlot),
-        InstrumentSpec.Advised(CodecDuration, "s", "plane codec wall duration by container and direction", MeasureForm.Real, Buckets.SolveSeconds, TenantContext.TenantSlot, ContainerSlot, DirectionSlot),
+        InstrumentSpec.Advised(CodecDuration, "s", "plane codec wall duration by container and direction", MeasureForm.Real, Buckets.DecodeSeconds, TenantContext.TenantSlot, ContainerSlot, DirectionSlot),
         // Licence rides the inference POPULATION because a fleet operator's first question about a model estate is
         // which grant class its running inferences fall under — a research-class row appearing in production is a
         // posture change no duration or residual would ever surface.
@@ -265,7 +268,7 @@ public static class MaterialsInstruments {
         InstrumentSpec.Advised(InferPartitions, "{partition}", "ONNX graph partitions reached per inference by stage and provider", MeasureForm.Whole, Buckets.GraphCounts, TenantContext.TenantSlot, StageSlot, ProviderSlot),
         InstrumentSpec.Advised(InferGolden, "1", "inference residual against the model's CPU-reference output by stage and provider", MeasureForm.Real, Buckets.ResidualDecades, TenantContext.TenantSlot, StageSlot, ProviderSlot),
         InstrumentSpec.Count(PrefilterRuns, "{prefilter}", "IBL prefilters settled by sky model", MeasureForm.Whole, TenantContext.TenantSlot, SkySlot),
-        InstrumentSpec.Advised(PrefilterDuration, "s", "IBL prefilter wall duration by sky model", MeasureForm.Real, Buckets.CompileSeconds, TenantContext.TenantSlot, SkySlot),
+        InstrumentSpec.Advised(PrefilterDuration, "s", "IBL prefilter wall duration by sky model", MeasureForm.Real, Buckets.DecodeSeconds, TenantContext.TenantSlot, SkySlot),
         InstrumentSpec.Count(Faults, "{fault}", "veto refusals and isolated tap faults by category", MeasureForm.Whole, TenantContext.TenantSlot, KernelInstruments.CategorySlot));
 
     // Rows and the `[06]` pack over them leave as ONE downward fact, so the mounting root proves the pack in
@@ -393,7 +396,7 @@ public static class MaterialsInstruments {
                 // a CoreML request that degraded to CPU is correct and slow, and only this dimension distinguishes
                 // a healthy accelerator estate from one silently running every inference on the guaranteed floor.
                 return set.Write(InferRuns, 1L, [.. lane,
-                        new(LicenceSlot, fact.License.Key),
+                        new(LicenceSlot, fact.Request.LicenseClass.Key),
                         new(FidelitySlot, fact.Result.ProviderUsed == fact.Request.Provider ? Honoured : Degraded)])
                     .Bind(_ => set.Write(InferPartitions, (long)fact.Result.PartitionCount, lane))
                     .Bind(_ => set.Write(InferGolden, fact.Result.GoldenDelta, lane));

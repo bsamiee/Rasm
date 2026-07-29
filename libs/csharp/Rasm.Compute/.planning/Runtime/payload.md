@@ -10,14 +10,14 @@ Payload bytes address through the suite `Runtime/codecs#CONTENT_ADDRESSING` `XxH
 
 ## [02]-[RESIDENCY]
 
-- Owner: `ResidencyKind` `[SmartEnum<string>]` the one closed payload axis, each row's `ConeCullable`/`SplatBorne` columns telling the AppUi marshal which cull and shader to pick, so a new encoding is one row, never a per-kind payload type; `ResidencyStream`, `StreamMode`, `StreamFilter` the closed buffer-role, meshopt decode-mode, and attribute-filter axes whose keys ARE the `EXT_meshopt_compression` wire modes the manifest emits; `ResidencySource` `[Union]` the polymorphic encode input (`Leaf` for octree-leaf arms, `Splat` for a companion scan), so one entry discriminates on shape, never an `Encode`/`EncodeSplat` pair; `ResidencyMeshlet` the per-cluster cone-and-sphere descriptor carrying the cluster-LOD chain columns `Level`/`Parent`/`Error`/`ParentError`; `ResidencyPolicy` the encode-posture record; `ResidencyPayload` the content-keyed buffer carrier (blob, per-stream `StreamSpan` layout, clusters, bounding sphere, content key), not a manifest; `Residency` the static `Encode` fold with the `StreamSegment` `Receipt` projection.
+- Owner: `ResidencyKind` `[SmartEnum<string>]` the one closed payload axis, each row's `ConeCullable`/`SplatBorne` columns telling the AppUi marshal which cull and shader to pick, so a new encoding is one row, never a per-kind payload type; `ResidencyStream`, `StreamMode`, `StreamFilter` the closed buffer-role, meshopt decode-mode, and attribute-filter axes whose keys ARE the `EXT_meshopt_compression` wire modes the manifest emits; `ResidencySource` `[Union]` the polymorphic encode input (`Leaf` for octree-leaf arms, `Splat` for a companion scan), so one entry discriminates on shape, never an `Encode`/`EncodeSplat` pair; `ResidencyMeshlet` the per-cluster cone-and-sphere descriptor carrying the cluster-LOD chain columns `Level`/`Parent`/`Error`/`ParentError`; `ResidencyPolicy` the encode-posture record; `ResidencyPayload` the content-keyed buffer carrier (blob, per-stream `StreamSpan` layout, clusters, bounding sphere, content key), not a manifest; `ResidencyRuns` the decoded per-vertex attribute-run carrier a host consumer indexes per primitive; `Residency` the static `Encode` fold with the `StreamSegment` `Receipt` projection and the paired `Runs` decode.
 - Cases: `ResidencyKind` rows `meshlet-cluster` (cone-cullable cluster-LOD chain — global vertex stream, `EncodeIndexSequence` meshlet-vertex table, raw local triangle bytes, per-cluster descriptors across the `Meshopt.Simplify` levels `SimplifyTarget` drives) · `quantized-vertex` (exponent-filtered, level-compressed single tile) · `point-splat` (`SimplifyPoints`-decimated, exponent-filtered positions) · `gaussian-splat` (companion-decoded `SplatScan` — positions/scales/harmonics exponent-filter, rotation quaternions quaternion-filter).
-- Entry: `public static Fin<ResidencyPayload> Encode(ResidencySource source, ResidencyPolicy policy)` projects a leaf (or companion scan) onto the kind's arm; `public static ComputeReceipt.StreamSegment Receipt(ResidencyPayload payload, CorrelationId correlation, WorkLane lane, Duration elapsed)` projects onto the settled slot; `Fin<T>` aborts onto `ComputeFault.PayloadOverBounds` for an empty meshlet build, an out-of-range quantization budget, or an out-of-range simplify target, and onto `ComputeFault.ModelRejected` for a leaf routed at a splat-borne kind.
+- Entry: `public static Fin<ResidencyPayload> Encode(ResidencySource source, ResidencyPolicy policy)` projects a leaf (or companion scan) onto the kind's arm; `public static Fin<ResidencyRuns> Runs(ResidencyPayload payload)` is the ONE host-side attribute decode — meshlet-cluster only, each stream under its own `Layout` row, the `csharp:Rasm.AppUi/Render/meshlets#CLUSTER_CONSUMPTION` and `Render/pathtrace#BSDF_SHADING` `SurfaceAttribution` data source; `public static ComputeReceipt.StreamSegment Receipt(ResidencyPayload payload, CorrelationId correlation, WorkLane lane, Duration elapsed)` projects onto the settled slot; `Fin<T>` aborts onto `ComputeFault.PayloadOverBounds` for an empty meshlet build, an out-of-range quantization budget, an out-of-range simplify target, or a stream a decode rejects, and onto `ComputeFault.ModelRejected` for a leaf routed at a splat-borne kind or a non-cluster payload handed to `Runs`.
 - Auto: `Encode` admits every policy and source extent before dispatching the `ResidencySource` union; the `Leaf` arm reads the kind's row-owned `LeafArm` `[UseDelegateFromConstructor]` column, so the joint source-kind decision has one dispatch level. Meshlet encoding clusters through the `ClusterBuild` row (`cone` = `BuildMeshlets`, `flex` = `BuildMeshletsFlex`, `spatial` = `BuildMeshletsSpatial`), cache-optimizes the index buffer, and encodes the global vertices and the local-to-global meshlet indices while retaining raw local triangle bytes. Quantized, point, and splat arms filter their admitted attributes, and every stream carries its exact codec version through `StreamSpan.CodecVersion` before the whole blob keys through `InterchangeIdentity.Key`.
 - Receipt: the `Runtime/receipts#RECEIPT_UNION` `StreamSegment(string ArtifactId, int Segments, long Bytes)` slot carries the payload `ArtifactKey`, the cluster count (meshlet) or stream count (other kinds), and the blob length — a re-encode of identical geometry at identical policy stamps the same content key, so emission is auditable through the existing slot, never a new case; the blob dedups on the Persistence blob lane through `ArtifactIndexRow.Admit` and a hit stamps a `Cache` receipt.
-- Packages: Alimer.Bindings.MeshOptimizer, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
+- Packages: Alimer.Bindings.MeshOptimizer, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Element (project — the seam `ImportedGeometry` leaf carrier), BCL inbox
 - Growth: a new encoding is one `ResidencyKind` row carrying its `LeafArm` delegate column; a new meshlet-build strategy is one `ClusterBuild` row resolved inside the one pinned kernel; a new attribute is one `ResidencyStream` row with its filtered-stream line; a new filter or decode mode is one `StreamFilter`/`StreamMode` row on the `StreamSpan`; a new posture is one `ResidencyPolicy` column; a new source modality is one `ResidencySource` case; zero new surface — a `MeshletResidencyEncoder`/`SplatPayloadCodec`/`QuantizedVertexEncoder` sibling collapses onto the one `Encode` fold, and parallel `EncodedVertices`/`EncodedIndices`/`EncodedMeshlets` byte fields collapse onto the one `StreamSpan` layout.
-- Boundary: this lane owns the content-keyed payload blob and `StreamSpan`; `csharp:Rasm.AppUi/Render/pipeline#TS_PROJECTION` projects every byte window, codec mode, inverse filter, codec version, cluster, bound, and content key without re-derivation. `InterchangeIdentity.Key` covers the whole assembled blob and its byte-changing policy. Process-global index encoding pins through `EncodeIndexVersion`, vertex encoding carries `ResidencyPolicy.CodecVersion`, and raw meshlet triangles carry version `0`. Count-bearing native calls receive explicit semantic counts through pinned pointer kernels. Gaussian splat fitting and SPZ/SOG decoding remain companion-owned; point-cloud file readers remain the distinct `Runtime/codecs#FIELD_RESULT_CODEC` concern.
+- Boundary: this lane owns the content-keyed payload blob and `StreamSpan`; `csharp:Rasm.AppUi/Render/pipeline#TS_PROJECTION` projects every byte window, codec mode, inverse filter, codec version, cluster, bound, and content key without re-derivation. Host-side attribute reads cross through `Runs` alone — AppUi indexes the decoded runs and grows no second stream decoder. `InterchangeIdentity.Key` covers the whole assembled blob and its byte-changing policy. Process-global index encoding pins through `EncodeIndexVersion`, vertex encoding carries `ResidencyPolicy.CodecVersion`, and raw meshlet triangles carry version `0`. Count-bearing native calls receive explicit semantic counts through pinned pointer kernels. Gaussian splat fitting and SPZ/SOG decoding remain companion-owned; point-cloud file readers remain the distinct `Runtime/codecs#FIELD_RESULT_CODEC` concern.
 
 ```csharp signature
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -57,6 +57,7 @@ public sealed partial class ClusterBuild {
 public sealed partial class ResidencyStream {
     public static readonly ResidencyStream Positions = new("positions");
     public static readonly ResidencyStream Normals = new("normals");
+    public static readonly ResidencyStream Uvs = new("uvs");
     public static readonly ResidencyStream Indices = new("indices");
     public static readonly ResidencyStream Triangles = new("triangles");
     public static readonly ResidencyStream Scales = new("scales");
@@ -163,10 +164,24 @@ public sealed record ResidencyPayload(
     public long EncodedBytes => Blob.Length;
 }
 
+// The decoded per-vertex attribute runs a host consumer indexes per primitive — the data source behind the AppUi
+// SurfaceAttribution real arm. Positions/Normals/Uvs run in GLOBAL vertex order; MeshletVertices is the decoded
+// local-to-global vertex table and MeshletTriangles the raw local triangle bytes, so cluster-local triangle t
+// corner c reads global vertex MeshletVertices[cluster.VertexOffset + MeshletTriangles[cluster.TriangleOffset +
+// t*3 + c]]. An empty run is typed absence — a source with no normals or no unwrap decodes to empty, never a
+// fabricated constant a consumer cannot tell from data.
+public sealed record ResidencyRuns(
+    ReadOnlyMemory<float> Positions,
+    ReadOnlyMemory<float> Normals,
+    ReadOnlyMemory<float> Uvs,
+    ReadOnlyMemory<uint> MeshletVertices,
+    ReadOnlyMemory<byte> MeshletTriangles);
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class Residency {
     const int PositionStride = 3 * sizeof(float);
+    const int UvStride = 2 * sizeof(float);
     const int OctBits = 8;
     const int IndexCodecVersion = 1;
 
@@ -191,6 +206,63 @@ public static class Residency {
         new(payload.ArtifactKey, payload.Clusters.IsEmpty ? payload.Layout.Count : payload.Clusters.Count, payload.EncodedBytes) {
             Scope = new ReceiptScope.Execution(correlation, lane, Substrate.CpuTensor, AllocationClass.PooledMemory, elapsed),
         };
+
+    // The decode projection PAIRED with the meshlet encode — the one host-side attribute reader, so AppUi never
+    // grows a second stream decoder. Each stream decodes under its own Layout row: the vertex codec for
+    // attribute runs, the index-sequence codec for the meshlet vertex table, raw triangle bytes verbatim; the
+    // octahedral normal filter unpacks in place before the snorm8 lanes widen to unit floats. MESHLET-CLUSTER
+    // ONLY: the quantized/point/splat kinds ship exponent-filtered streams whose consumer is the web viewer's
+    // meshopt decoder, and a host read of those kinds is a routing defect this gate names rather than absorbs.
+    public static Fin<ResidencyRuns> Runs(ResidencyPayload payload) {
+        if (payload.Kind != ResidencyKind.MeshletCluster) {
+            return Fin.Fail<ResidencyRuns>(new ComputeFault.ModelRejected($"<residency-runs-kind:{payload.Kind.Key}>"));
+        }
+        ReadOnlySpan<byte> blob = payload.Blob.Span;
+        Vector3[] positions = new Vector3[Count(payload, ResidencyStream.Positions)];
+        uint[] packedNormals = new uint[Count(payload, ResidencyStream.Normals)];
+        Vector2[] uvs = new Vector2[Count(payload, ResidencyStream.Uvs)];
+        uint[] table = new uint[Count(payload, ResidencyStream.Indices)];
+        int status = Decode<Vector3>(payload, ResidencyStream.Positions, positions, blob)
+                   | Decode<uint>(payload, ResidencyStream.Normals, packedNormals, blob)
+                   | Decode<Vector2>(payload, ResidencyStream.Uvs, uvs, blob)
+                   | Decode<uint>(payload, ResidencyStream.Indices, table, blob);
+        if (status != 0) { return Fin.Fail<ResidencyRuns>(new ComputeFault.PayloadOverBounds($"<residency-runs-decode:{payload.ArtifactKey}>")); }
+        if (packedNormals.Length > 0) { Meshopt.DecodeFilterOct<uint>(packedNormals); }
+        ReadOnlyMemory<byte> triangles = payload.Layout.TryGetValue(ResidencyStream.Triangles, out StreamSpan raw)
+            ? blob.Slice(raw.Offset, raw.Length).ToArray()
+            : ReadOnlyMemory<byte>.Empty;
+        return Fin.Succ(new ResidencyRuns(
+            MemoryMarshal.Cast<Vector3, float>(positions).ToArray(),
+            UnpackSnorm(packedNormals),
+            MemoryMarshal.Cast<Vector2, float>(uvs).ToArray(),
+            table,
+            triangles));
+    }
+
+    static int Count(ResidencyPayload payload, ResidencyStream stream) =>
+        payload.Layout.TryGetValue(stream, out StreamSpan span) ? span.Count : 0;
+
+    // One decode body, the stream's own Mode selecting the codec; an absent stream decodes nothing and reports
+    // clean, so the fold above ORs real statuses only.
+    static int Decode<T>(ResidencyPayload payload, ResidencyStream stream, Span<T> destination, ReadOnlySpan<byte> blob) where T : unmanaged =>
+        destination.Length > 0 && payload.Layout.TryGetValue(stream, out StreamSpan span)
+            ? span.Mode == StreamMode.Indices
+                ? Meshopt.DecodeIndexSequence(destination, blob.Slice(span.Offset, span.Length))
+                : Meshopt.DecodeVertexBuffer(destination, blob.Slice(span.Offset, span.Length))
+            : 0;
+
+    // The OctBits=8 encode stores snorm8 lanes; the filter decode rehydrates them in place and this widening
+    // lifts the three component lanes to unit floats — the fourth lane is the filter's reconstruction slot,
+    // never data.
+    static float[] UnpackSnorm(ReadOnlySpan<uint> packed) {
+        float[] wide = new float[packed.Length * 3];
+        ReadOnlySpan<sbyte> lanes = MemoryMarshal.Cast<uint, sbyte>(packed);
+        for (int v = 0; v < packed.Length; v++) {
+            (wide[v * 3], wide[(v * 3) + 1], wide[(v * 3) + 2]) =
+                (lanes[v * 4] / 127f, lanes[(v * 4) + 1] / 127f, lanes[(v * 4) + 2] / 127f);
+        }
+        return wide;
+    }
 
     static Fin<(ResidencySource Source, ResidencyPolicy Policy)> Admit(ResidencySource source, ResidencyPolicy policy) {
         Seq<(bool Invalid, string Fact)> checks = Seq(
@@ -272,6 +344,7 @@ public static class Residency {
             (ResidencyStream.Indices, StreamMode.Indices, StreamFilter.None, chained.Vertices.Length, sizeof(uint), IndexCodecVersion, EncodeSequence(chained.Vertices, leaf.VertexCount)),
             (ResidencyStream.Triangles, StreamMode.Raw, StreamFilter.None, chained.Triangles.Length, 1, 0, chained.Triangles));
         if (HasNormals(leaf)) { streams = streams.Add((ResidencyStream.Normals, StreamMode.Attributes, StreamFilter.Octahedral, leaf.VertexCount, sizeof(uint), policy.CodecVersion, EncodeNormals(leaf.Normals.Span, leaf.VertexCount, policy))); }
+        if (HasUvs(leaf)) { streams = streams.Add((ResidencyStream.Uvs, StreamMode.Attributes, StreamFilter.None, leaf.VertexCount, UvStride, policy.CodecVersion, EncodeUvs(leaf.Uvs.Span, leaf.VertexCount, policy))); }
         return Fin.Succ(Assemble(ResidencyKind.MeshletCluster, leaf.FormatKey, streams, chained.Clusters, leaf.VertexCount, SphereBounds(positions, leaf.VertexCount), 0, policy));
     }
 
@@ -338,6 +411,7 @@ public static class Residency {
             (ResidencyStream.Positions, StreamMode.Attributes, StreamFilter.Exponential, leaf.VertexCount, PositionStride, policy.CodecVersion, EncodeExp(leaf.Vertices.Span, leaf.VertexCount, policy)),
             (ResidencyStream.Indices, StreamMode.Triangles, StreamFilter.None, leaf.Indices.Length, sizeof(uint), IndexCodecVersion, EncodeTriangles(ToUInt(leaf.Indices.Span), leaf.VertexCount)));
         if (HasNormals(leaf)) { streams = streams.Add((ResidencyStream.Normals, StreamMode.Attributes, StreamFilter.Octahedral, leaf.VertexCount, sizeof(uint), policy.CodecVersion, EncodeNormals(leaf.Normals.Span, leaf.VertexCount, policy))); }
+        if (HasUvs(leaf)) { streams = streams.Add((ResidencyStream.Uvs, StreamMode.Attributes, StreamFilter.None, leaf.VertexCount, UvStride, policy.CodecVersion, EncodeUvs(leaf.Uvs.Span, leaf.VertexCount, policy))); }
         return Fin.Succ(Assemble(ResidencyKind.QuantizedVertex, leaf.FormatKey, streams, Seq<ResidencyMeshlet>(), leaf.VertexCount, SphereBounds(leaf.Vertices.Span, leaf.VertexCount), 0, policy));
     }
 
@@ -388,6 +462,9 @@ public static class Residency {
     static ReadOnlyMemory<byte> EncodeVertices(ReadOnlySpan<float> positions, int count, ResidencyPolicy policy) =>
         EncodeStream(MemoryMarshal.Cast<float, Vector3>(positions[..(count * 3)]), policy.CodecLevel, policy.CodecVersion);
 
+    static ReadOnlyMemory<byte> EncodeUvs(ReadOnlySpan<float> uvs, int count, ResidencyPolicy policy) =>
+        EncodeStream(MemoryMarshal.Cast<float, Vector2>(uvs[..(count * 2)]), policy.CodecLevel, policy.CodecVersion);
+
     static ReadOnlyMemory<byte> EncodeExp(ReadOnlySpan<float> floats, int count, ResidencyPolicy policy) {
         Packed12[] packed = new Packed12[count];
         Meshopt.EncodeFilterExp<Packed12>(packed, policy.QuantizationBits, floats[..(count * 3)], EncodeExpMode.EncodeExpSharedComponent);
@@ -424,6 +501,8 @@ public static class Residency {
     }
 
     static bool HasNormals(ImportedGeometry leaf) => leaf.Normals.Length >= leaf.VertexCount * 3;
+
+    static bool HasUvs(ImportedGeometry leaf) => leaf.Uvs.Length >= leaf.VertexCount * 2;
 
     static ResidencyMeshlet Cluster(in Meshlet meshlet, Bounds bounds, int level, float error) {
         ReadOnlySpan<float> f = MemoryMarshal.CreateReadOnlySpan(ref Unsafe.As<Bounds, float>(ref bounds), 11);

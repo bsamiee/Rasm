@@ -4,14 +4,12 @@ The one public front door's declarative engine: a domain folder exports its `Htt
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                              | [PUBLIC]            |
-| :-----: | :--------------- | :---------------------------------------------------------------------------------- | :------------------ |
-|  [01]   | `SURFACE`     | version-prefix rows, the cursor brand, page-query and page-envelope constructors    | `Surface`        |
-|  [02]   | `GATE_FAULT`     | the reason-discriminated refusal family with class/status/retry rows                | `GateFault`         |
-|  [03]   | `CURRENT_ROWS`   | ambient stamp/tenant/locale references, locale negotiation, trace continuation      | `Current`           |
-|  [04]   | `ADMISSION_ROWS` | `Principal`, the scheme-threaded `Authn` security middleware, pressure, idempotency | `Principal`, `Gate` |
-|  [05]   | `CONTRIBUTION`   | the http and rpc pairing constructors, protocol and codec rosters, upload modality  | `Contribution`      |
-|  [06]   | `EMIT`           | spec artifact, docs stack, derived HTTP and RPC clients, the web-handler edge form  | `Emit`              |
+- [02]-[SURFACE]: version-prefix rows, the cursor brand, page-query and page-envelope constructors; `Surface`.
+- [03]-[GATE_FAULT]: the reason-discriminated refusal family with class/status/retry rows; `GateFault`.
+- [04]-[CURRENT_ROWS]: ambient stamp/tenant/locale references, locale negotiation, trace continuation; `Current`.
+- [05]-[ADMISSION_ROWS]: `Principal`, the scheme-threaded `Authn` security middleware, pressure, idempotency; `Principal`, `Gate`.
+- [06]-[CONTRIBUTION]: the http and rpc pairing constructors, protocol and codec rosters, upload modality; `Contribution`.
+- [07]-[EMIT]: spec artifact, docs stack, derived HTTP and RPC clients, the web-handler edge form; `Emit`.
 
 ## [02]-[SURFACE]
 

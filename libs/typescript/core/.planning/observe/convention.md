@@ -183,6 +183,8 @@ const _value = {
 - Law: outcome and reason tag VALUES stay bounded — the invoke outcome vocabulary is the `Exit`-fold union the emitting page anchors, the fault-reason vocabulary is the codec `Hops` row set, the security kind/dialect/surface/reason vocabularies are the reject stream's closed tables — so a Rasm tag key here never carries an identifier-grade value; identifier context rides span attributes and log annotations.
 - Law: core's log ownership is the `_event` vocabulary alone — log records mint through `Effect.log*` and reach the wire on the runtime export lane, so an event name is a row here, the record shape stays Effect's, and the decoded-evidence plane (`Receipt`, `FaultCapture`) owns every structured-evidence need; `breadcrumb` names the replay annotations riding the fatal capture, never a standalone record stream, so its consumer is the crash emission, not a board panel.
 - Law: the object rows are the content-addressed plane's receipt projections — the data object owners tap `objectWritten`, `objectSize`, and `objectReclaimed` off the write-receipt and sweep-mark folds, and `streamSize` projects the resumable-upload finalize receipt once per completed upload so retried offsets never double-count — instruments the runtime meter bridge exports while the receipts stay the evidence truth, and `board#PACKS`'s `object` pack is their standing consumer. Both byte measures name the quantity and carry `By` on the row: a `.bytes` tail restates the unit column inside the series name, which the Tier-0 grammar refuses because the descriptor already carries it and a UCUM rescale then renames the series.
+- Law: the asset rows are the served-asset transform plane's receipt projections — the data asset pipe taps `assetTransformed` off its transform receipts fanned on the closed engine-plane vocabulary the emitting page anchors, and brackets each transcode with the untagged `assetTranscodeDuration` span, so pipeline health reads as OTel series while the content-addressed receipts stay the evidence truth; the `{object}` code carries the counted thing and the millisecond ladder spans the block-compression tail a color-image ladder never reaches.
+- Law: `assetTransformed` partitions on OUTCOME beside the engine plane exactly as the object write counter does, so a boot-refused gate, an absent decoder, and a spawned-encoder failure each land on the one counter that already carries the landed half. Counters admitting only landed transforms strand every success share on a denominator nothing mounts, and the refused pipeline then reads exactly like an idle one; a second counter carrying the refusals doubles the mounted series and re-forks the share the tag partition exists to spell.
 - Law: the lake rows are the storage-harvest projection family — the olap trio meters the lake-engine admission lanes, `profileDuration` lands the harvested DuckDB/SQLite/pg engine profiles, and `cacheHits`/`cacheMisses`/`poolHeld` project the data-lane cache and pool census — every row a data-lane tap with its `board#PACKS` `lake` consumer, so lake-engine profile parity reads as OTel series beside every other signal.
 - Law: the bench rows are the claim bridge's lossy projection — the runtime meter bridge mints the timing, GC, heap, and hardware-counter bands from landed benchmark claims and `benchVerdicts` from the `board#PACKS` regression fold's grades — so boards trend claims while every dispute settles against the decoded claim landing, exactly the journal-versus-series split the work plane holds.
 - Law: `_profile.id` is the one profile-link attribute the runtime profiling bridge stamps on the long-lived scoped spans.
@@ -221,6 +223,7 @@ const _module = {
 // key resolves against. Each row fixes a capability subject, so `emitters` grows while the subject holds; a package
 // name promoted to a row strands every consumer joining on capability the moment a second package serves it.
 const _domain = {
+  asset: { emitters: ["data"], subject: "served-asset transform fanout and transcode economics" },
   audit: { emitters: ["data"], subject: "actor-attributed access decisions and the retention class each carries" },
   batch: { emitters: ["data"], subject: "resolver batching windows" },
   bench: { emitters: ["runtime"], subject: "benchmark claims and the verdicts grading them" },
@@ -250,6 +253,8 @@ const _domain = {
 } as const
 
 const _rasm = {
+  assetEngine: "rasm.asset.engine",
+  assetOutcome: "rasm.asset.outcome",
   auditAction: "rasm.audit.action",
   auditActorKey: "rasm.audit.actor.key",
   auditActorKind: "rasm.audit.actor.kind",
@@ -327,6 +332,8 @@ const _rasm = {
 const _ESTATE = ["ring", "tenant"] as const
 
 const _metric = {
+  assetTranscodeDuration: "rasm.asset.transcode.duration",
+  assetTransformed: "rasm.asset.transformed",
   batchDuration: "rasm.batch.duration",
   benchCounter: "rasm.bench.counter",
   benchGc: "rasm.bench.gc",
@@ -378,7 +385,7 @@ const _metric = {
   streamSize: "rasm.stream.size",
   vitalDuration: "rasm.vital.duration",
   vitalObserved: "rasm.vital.observed",
-  // the measure segment, never the type word: this row is the `1`-coded gauge whose suffixing tail IS `ratio`, so a
+  // name the measure segment, never the type word: this row is the `1`-coded gauge whose suffixing tail IS `ratio`, so a
   // `rasm.vital.ratio` mint renders `rasm_vital_ratio_ratio` and the sibling rows name their own measure the same way
   vitalScore: "rasm.vital.score",
   vitalSize: "rasm.vital.size",
@@ -496,6 +503,8 @@ const _tail = {
 // cannot see, and the unit column alone decides duration-ness. `bounds` rides the distributions, `bigint` the counting
 // rows, and `dimensions` the rows whose series fans, each column earned by the row consuming it rather than blank.
 const _instrument = {
+  assetTranscodeDuration: { bounds: { count: 11, factor: 2, ladder: "exponential", start: 16 }, description: "asset transcode wall span", kind: "histogram", name: _metric.assetTranscodeDuration, unit: _unit.milli },
+  assetTransformed: { description: "asset transforms by engine plane and outcome", dimensions: [_rasm.assetEngine, _rasm.assetOutcome], kind: "counter", name: _metric.assetTransformed, unit: _unit.object },
   batchDuration: { bounds: { count: 11, factor: 2, ladder: "exponential", start: 1 }, description: "resolver window wall span", kind: "histogram", name: _metric.batchDuration, unit: _unit.milli },
   benchCounter: { description: "hardware-counter band by axis", dimensions: [_rasm.benchBand, _rasm.benchLabel, _rasm.benchSuite], kind: "gauge", name: _metric.benchCounter, unit: _unit.event },
   benchGc: { description: "benchmark GC-timing band", dimensions: [_rasm.benchBand, _rasm.benchLabel, _rasm.benchSuite], kind: "gauge", name: _metric.benchGc, unit: _unit.nano },
@@ -563,7 +572,7 @@ const _instrument = {
 // Ordered temporal roster: the instrument names whose UCUM code is temporal. Membership is the tuple's fact and the
 // multiplier stays the unit column's, so a duration-admitting schema spreads this and no row restates a scale.
 const _durations = [
-  _metric.batchDuration, _metric.benchGc, _metric.benchTime, _metric.gatewayDuration, _metric.httpServerDuration,
+  _metric.assetTranscodeDuration, _metric.batchDuration, _metric.benchGc, _metric.benchTime, _metric.gatewayDuration, _metric.httpServerDuration,
   _metric.invokeDuration, _metric.olapDeferred, _metric.olapWait, _metric.outboxAge, _metric.profileDuration,
   _metric.securityJwksResolve, _metric.securityKdf, _metric.vitalDuration,
 ] as const

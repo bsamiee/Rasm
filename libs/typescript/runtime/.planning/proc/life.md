@@ -4,12 +4,10 @@ Lifecycle and health are one owner because they are one skeleton: register ranke
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                                    | [PUBLIC] |
-| :-----: | :------------- | :------------------------------------------------------------------------ | :------- |
-|  [01]   | `PHASE_SPINE`  | the phase vocabulary, the cell, the parked boot entry                     | `Life`   |
-|  [02]   | `RANKED_FOLD`  | the one budgeted row executor both registries share                       | `Life`   |
-|  [03]   | `DRAIN_BANDS`  | ranked drain rows, the two-tier budget, the drain receipt                 | `Life`   |
-|  [04]   | `PROBE_ROUTES` | the kind/route anchor, the grade lattice, the memoized phase-gated report | `Life`   |
+- [02]-[PHASE_SPINE]: the phase vocabulary, the cell, the parked boot entry; `Life`.
+- [03]-[RANKED_FOLD]: the one budgeted row executor both registries share; `Life`.
+- [04]-[DRAIN_BANDS]: ranked drain rows, the two-tier budget, the drain receipt; `Life`.
+- [05]-[PROBE_ROUTES]: the kind/route anchor, the grade lattice, the memoized phase-gated report; `Life`.
 
 ## [02]-[PHASE_SPINE]
 

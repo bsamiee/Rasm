@@ -4,14 +4,12 @@ The headless component spine: react-aria-components is ONE render-props + contex
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                         | [PUBLIC]    |
-| :-----: | :----------------- | :----------------------------------------------------------------------------- | :---------- |
-|  [01]   | `STYLED_SPINE`     | `Primitive.styled` — the cva × composeRenderProps × cn recipe factory          | `Primitive` |
-|  [02]   | `ROSTER_LAW`       | the component-family ownership table and the slot/context composition rules    | —           |
-|  [03]   | `TOAST_ANNOUNCE`   | the toast queue owner and the imperative live-region rail                      | `Primitive` |
-|  [04]   | `FAILURE_ENVELOPE` | the error-boundary row — Suspense + boundary as the whole async-failure rail   | `Primitive` |
-|  [05]   | `SANITIZE_GATE`    | the one DOMPurify gate before any `dangerouslySetInnerHTML` sink               | `Primitive` |
-|  [06]   | `CLIPBOARD_PORT`   | the folder-declared clipboard capability Tag the browser composition satisfies | `Clipboard` |
+- [02]-[STYLED_SPINE]: `Primitive.styled` — the cva × composeRenderProps × cn recipe factory; `Primitive`.
+- [03]-[ROSTER_LAW]: the component-family ownership table and the slot/context composition rules; —.
+- [04]-[TOAST_ANNOUNCE]: the toast queue owner and the imperative live-region rail; `Primitive`.
+- [05]-[FAILURE_ENVELOPE]: the error-boundary row — Suspense + boundary as the whole async-failure rail; `Primitive`.
+- [06]-[SANITIZE_GATE]: the one DOMPurify gate before any `dangerouslySetInnerHTML` sink; `Primitive`.
+- [07]-[CLIPBOARD_PORT]: the folder-declared clipboard capability Tag the browser composition satisfies; `Clipboard`.
 
 ## [02]-[STYLED_SPINE]
 

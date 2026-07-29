@@ -244,7 +244,10 @@ public static class AnalyticsProjection {
         Func<MaterialId, Op, Fin<AppearanceSummary>> lookup) =>
         materials.TraverseM(id => lookup(id, frame.Key).Map(summary =>
             new LibrarySummaryRow(
-                id.Value, $"{summary.AppearanceKey:x32}", summary.BaseColorR, summary.BaseColorG,
+                // X32 — the wire spelling. A warehouse column is a WIRE VALUE the texture dataset's own
+                // TextureSetWire.AppearanceKey joins against; lowering here forks the one join both datasets exist
+                // to serve, and the path-segment lowering happens at egress-name construction alone.
+                id.Value, summary.AppearanceKey.ToString("X32"), summary.BaseColorR, summary.BaseColorG,
                 summary.BaseColorB, summary.Metallic, summary.Roughness, summary.Opacity,
                 summary.Transmissive, frame.At))).As();
 

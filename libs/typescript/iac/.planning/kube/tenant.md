@@ -4,10 +4,8 @@ Tenant isolation on the `selfhosted-k8s` arm is one tier over one dispatch: `Ten
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                      | [PUBLIC]  |
-| :-----: | :---------------- | :---------------------------------------------------------- | :-------- |
-|  [01]   | `ISOLATION_MODES` | the mode dispatch: Capsule tenancy rows, vcluster planes    | `Tenants` |
-|  [02]   | `PLATFORM_SEAM`   | the cross-stack read: platform outputs into tenant programs | `Tenants` |
+- [02]-[ISOLATION_MODES]: the mode dispatch: Capsule tenancy rows, vcluster planes; `Tenants`.
+- [03]-[PLATFORM_SEAM]: the cross-stack read: platform outputs into tenant programs; `Tenants`.
 
 ## [02]-[ISOLATION_MODES]
 

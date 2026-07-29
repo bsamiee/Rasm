@@ -4,12 +4,10 @@ The durable-actor plane: a cluster entity is an `@effect/rpc` `RpcGroup` given s
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]    | [OWNS]                                                                                   | [PUBLIC]    |
-| :-----: | :----------- | :--------------------------------------------------------------------------------------- | :---------- |
-|  [01]   | `WORK_CLASS` | the one service-class row table — concurrency, mailbox, idle, budget, attempts, priority | `WorkClass` |
-|  [02]   | `ACTOR_MINT` | the entity mint: protocol, fenced bounds, durability annotations, client, exposure       | `Actor`     |
-|  [03]   | `MAILBOX`    | the durable-message port, dedup receipt, the `ClusterError → FaultClass` bridge          | `Mailbox`   |
-|  [04]   | `GRID`       | leaderless topology, runner health, entry rows, singleton, the workflow-engine bridge    | `Grid`      |
+- [02]-[WORK_CLASS]: the one service-class row table — concurrency, mailbox, idle, budget, attempts, priority; `WorkClass`.
+- [03]-[ACTOR_MINT]: the entity mint: protocol, fenced bounds, durability annotations, client, exposure; `Actor`.
+- [04]-[MAILBOX]: the durable-message port, dedup receipt, the `ClusterError → FaultClass` bridge; `Mailbox`.
+- [05]-[GRID]: leaderless topology, runner health, entry rows, singleton, the workflow-engine bridge; `Grid`.
 
 ## [02]-[WORK_CLASS]
 

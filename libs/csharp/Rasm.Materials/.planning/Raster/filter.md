@@ -2,7 +2,7 @@
 
 THE DECODED-PLANE TRANSFORM ALGEBRA. One `PlaneOp` `[Union]` closes the per-plane transform family — resample, convolve, height correspondence, height derivative, tonal remap, and lane swizzle — under ONE `Apply` entry that PLANS every shape before it rents an output, SCHEDULES the sequence into stages by each op's own dependency class, and folds each stage over the plane's decoded row rails. `PlaneOp` holds a transform as a case, `ConvolveKernel` a convolution as a row, `RemapCurve` a tonal curve as a case, `HeightDerivative` a height derivative as a case, and `SwizzleLane` a lane projection as a row — never a per-transform entrypoint, a per-curve method, or a boolean selecting between two bodies.
 
-Scheduling is the page's load-bearing decision, and it exists because the ops genuinely differ in what they can see. `Levels` remaps one texel; a Gaussian reads a neighbourhood; a histogram remap must see the WHOLE plane before it can map its first texel; a normal-to-height integration is a global spectral or sparse-linear solve; a resample changes the grid itself. Fusing that mixture into one per-row pass is a fiction — a row action cannot supply a neighbour it has not written, a plane statistic it has not gathered, or a grid it has not resized — so each case declares its `StageKind` and the scheduler fuses only what genuinely fuses: consecutive pointwise ops collapse into ONE row pass, a neighbourhood op takes a bordered two-buffer pass under its own `EdgeMode`, and a global op takes a whole-plane pass. Adding an op therefore cannot corrupt its neighbours, and adding a dependency class is one row on the scheduler. `PlaneOp` composes the `plane#TEXTURE_PLANE` typed arena with its decoded `Read`/`Write` row rails and its `PlaneFormat.For` retyping, the `codec#RASTER_FAULT` band-2460 rail for nothing at all (every refusal here is a SHAPE refusal on band 2450), TinyEXR.NET `ImageProcessing`/`Lut3D` for every separable resample, transfer, and LUT fold, MathNet.Numerics `Fourier` for the spectral integration, the kernel `SparseMatrix`/`CholeskySparse` for the bounded Poisson solve, the kernel `SampleKind` blue-noise spectrum and `Deterministic` splitmix64 stream for the occlusion cast, and `CommunityToolkit.HighPerformance` `ParallelHelper` over `struct IAction` partitions — re-minting no resampler, no transform, no factorization, no sampler spectrum, and no random source.
+Scheduling is the page's load-bearing decision, and it exists because the ops genuinely differ in what they can see. `Levels` remaps one texel; a Gaussian reads a neighbourhood; a histogram remap must see the WHOLE plane before it can map its first texel; a normal-to-height integration is a global spectral or sparse-linear solve; a resample changes the grid itself. Fusing that mixture into one per-row pass is a fiction — a row action cannot supply a neighbour it has not written, a plane statistic it has not gathered, or a grid it has not resized — so each case declares its `StageKind` and the scheduler fuses only what genuinely fuses: consecutive pointwise ops collapse into ONE row pass, a neighbourhood op takes a bordered two-buffer pass under its own `EdgeMode`, and a global op takes a whole-plane pass. Adding an op therefore cannot corrupt its neighbours, and adding a dependency class is one row on the scheduler. `PlaneOp` composes the `plane#TEXTURE_PLANE` typed arena with its decoded `Read`/`Write` row rails and its `PlaneFormat.For` retyping, the `codec#RASTER_FAULT` band-2460 rail for nothing at all (every refusal here is a SHAPE refusal on band 2450), TinyEXR.NET `ImageProcessing`/`Lut3D` for every separable resample, transfer, and LUT fold, MathNet.Numerics `Fourier` for the spectral integration, the kernel `SparseMatrix`/`CholeskySparse` for the bounded Poisson solve, the kernel `Deterministic` coordinate-keyed draw for the occlusion cast's per-texel rotation, and `CommunityToolkit.HighPerformance` `ParallelHelper` over `struct IAction` partitions — re-minting no resampler, no transform, no factorization, and no random source.
 
 ## [01]-[INDEX]
 
@@ -14,22 +14,23 @@ Scheduling is the page's load-bearing decision, and it exists because the ops ge
 
 - Owner: `PlaneOp` the transform family; `StageKind` the dependency axis each case declares; `ConvolveKernel` the neighbourhood-kernel family; `RemapCurve` the tonal-curve family; `HeightDerivative` the height-derived-field family; `SwizzleLane` the lane-projection roster; `PlaneShape` the projected shape carrier.
 - Cases: op {`Resize`, `Convolve`, `HeightNormal`, `FromHeight`, `Remap`, `Swizzle`} · stage {`pointwise`, `neighbourhood`, `global`} · kernel {`Gaussian`, `UnsharpMask`} · curve {`Levels`, `Histogram`, `Lut`} · derivative {`Occlusion`, `Curvature`} · lane {`r`, `g`, `b`, `a`, `zero`, `one`, `rInverse`, `gInverse`, `bInverse`, `aInverse`}.
-- Law: `HeightNormal` carries BOTH directions of one correspondence on one case. `Inverse` is the column carrying direction, because a height field and a tangent-space normal field are the forward and inverse of a single relation — never a `NormalFromHeight`/`HeightFromNormal` sibling pair. `HeightEvidence` crosses from the forward to the inverse — the millimetre scale, the field mean, and the convention the forward recorded — because integration recovers a gradient field's shape and never its absolute offset or amplitude, and an inverse whose ingress is raw samples re-shaped into the forward's input domain fabricates exactly what the forward destroyed.
+- Law: `HeightNormal` carries BOTH directions of one correspondence on one case. `Inverse` is the column carrying direction, because a height field and a tangent-space normal field are the forward and inverse of a single relation — never a `NormalFromHeight`/`HeightFromNormal` sibling pair. `HeightEvidence` crosses from the forward to the inverse — the millimetre scale, the millimetre-per-texel pitch, the field mean, and the convention the forward recorded — because integration recovers a gradient field's shape and never its absolute offset or amplitude, and an inverse whose ingress is raw samples re-shaped into the forward's input domain fabricates exactly what the forward destroyed.
 - Law: `SwizzleLane` is DATA — a source index, a scale, and a bias — so lane reordering, lane inversion, constant fill, and the `dx`→`gl` green flip are all one kernel over a row of rows. `Swizzle(R, GInverse, B, A)` is exactly the `plane#PLANE_VOCABULARY` `NormalConvention` conversion and mints no second operation, so the corpus has one green-flip site rather than a conversion pair beside a swizzle.
 - Law: `Remap` closes the tonal family on one case. `RemapCurve.Levels.Invert` is a ROW of the levels case — black at one, white at zero — so the `roughness = 1 − gloss` ingest inversion, a contrast stretch, and a gamma lift are one curve family rather than an `Invert` op beside a `Levels` op. Every curve evaluates in the LINEAR domain over decoded lanes, which is what makes an `srgb`-authored gloss plane invert correctly rather than forking the roughness silently.
 - Law: `Project` is TOTAL and runs before any rental. It folds the whole sequence into a final `PlaneShape`, so a shape refusal anywhere in the chain leaves the source untouched and costs nothing — a mid-chain refusal after three rentals is the failure mode the plan-first order forecloses. Retyping resolves through `PlaneFormat.For`, so a lane-count change lands on the storage row the semantic count rounds up to and never on a fabricated format.
 - Law: shape refusals rail `MaterialFault.Parameter` on band 2450. This page reaches band 2460 nowhere: a filter has no container, no device, and no synthesizer, so a `RasterFault` here would be a shape refusal wearing a mechanical code.
-- Entry: `PlaneOp.Apply(TexturePlane source, Seq<PlaneOp> ops, Op key, TimeProvider? clock = null)` is the ONE entry over every arity — an empty sequence returns the source with an empty receipt, a single op and a chain take the identical path, and no `ApplyOne`/`ApplyMany` pair exists; the clock rides so the receipt's elapsed is measured, and `press#TEXTURE_PRESS` threads its own.
+- Entry: `PlaneOp.Apply(TexturePlane source, Seq<PlaneOp> ops, Op key, TimeProvider? clock = null)` is the ONE entry over every arity — an empty sequence returns the source with an empty receipt, a single op and a chain take the identical path, and no `ApplyOne`/`ApplyMany` pair exists; the clock rides so the receipt's elapsed is measured, and `press#TEXTURE_PRESS` threads its own. `PlaneOp.Digest` is the ONE canonical per-op spelling a content-key preimage folds — `press#PRESS_PLAN` pieces its post chains through it, and a consumer spelling an op through `ToString` re-keys on the next case rename.
 - Packages: `plane#TEXTURE_PLANE` (composed — `TexturePlane.Of`/`Read`/`Write`/`Layer`, `PlaneFormat.For`, `PlaneTransfer`, `AlphaMode`, `PlaneRange`, `NormalConvention`), TinyEXR.NET (composed — `ResizeFilter`/`EdgeMode` the resample vocabulary, `Lut3D.TryParseCube`/`Apply` the `.cube` curve), `Rasm.Numerics` (`Dimension`, `UnitInterval`), `Rasm.Domain` (`Op`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
-- Growth: a new transform is one `PlaneOp` case declaring its `StageKind` plus one `Project` arm and one kernel arm — the scheduler, the receipt, and every consumer are untouched. A new convolution is one `ConvolveKernel` case, a new curve one `RemapCurve` case, a new derived field one `HeightDerivative` case, a new lane projection one `SwizzleLane` row.
+- Growth: a new transform is one `PlaneOp` case declaring its `StageKind` plus one `Project` arm, one `Digest` arm, and one kernel arm — the scheduler, the receipt, and every consumer are untouched. A new convolution is one `ConvolveKernel` case, a new curve one `RemapCurve` case, a new derived field one `HeightDerivative` case, a new lane projection one `SwizzleLane` row.
 - Boundary: this page transforms DECODED planes and decides nothing about what a plane MEANS. Channel semantics, neutrals, packing, and mip law are `set#TEXTURE_CHANNEL`'s; containers are `codec#RASTER_CODEC`'s; the mip chain is `plane#TEXTURE_PYRAMID`'s and `Resize` is deliberately NOT its alias — a level is a halving under a declared policy, so a resize can never produce a level a sampler then trilinearly blends against a different filter's neighbours.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using System.Globalization;                       // CultureInfo — the invariant Digest spelling
 using LanguageExt;                                // Fin, Option, Seq
 using Rasm.Domain;                                // Op
 using Rasm.Materials.Appearance.Bsdf;             // MaterialFault — the band-2450 shape rail
-using Rasm.Numerics;                              // Dimension, UnitInterval, SampleKind
+using Rasm.Numerics;                              // Dimension, UnitInterval
 using Thinktecture;                               // [Union], [SmartEnum<T>]
 using TinyEXR.V3;                                 // ResizeFilter, EdgeMode, Lut3D, LutInterpolation
 using static LanguageExt.Prelude;
@@ -64,6 +65,10 @@ public abstract partial record ConvolveKernel {
     // Three standard deviations carry over 99.7% of a Gaussian's mass, so the halo truncates there rather than at a
     // caller-supplied radius that silently clips the tail into a visible ring at high sigma.
     public int Radius => Math.Max(1, (int)Math.Ceiling(3.0 * Sigma));
+
+    public string Digest => Switch(
+        gaussian:    static k => string.Create(CultureInfo.InvariantCulture, $"gaussian|{k.Sigma:R}"),
+        unsharpMask: static k => string.Create(CultureInfo.InvariantCulture, $"unsharp|{k.Sigma:R}|{k.Amount:R}|{k.Threshold:R}"));
 }
 
 // The tonal curves. Levels is affine-plus-gamma, Histogram matches an empirical CDF, Lut applies a parsed .cube —
@@ -80,13 +85,25 @@ public abstract partial record RemapCurve {
     }
 
     public sealed record Histogram(Seq<double> TargetCdf, int Bins) : RemapCurve;
-    public sealed record Lut(Lut3D Table, LutInterpolation Interpolation) : RemapCurve;
+
+    // TableKey is the parsed table's content identity, minted from the .cube SOURCE TEXT at the one TryParseCube
+    // call site (ContentHash.Of over its UTF-8 bytes) — Lut3D exposes no lattice read-back, so the source bytes
+    // are the only digestible truth and a Lut case without them is a curve no plan key can name.
+    public sealed record Lut(Lut3D Table, LutInterpolation Interpolation, UInt128 TableKey) : RemapCurve;
 
     // Only the histogram match needs the whole plane before it maps a texel; the other two are per-texel functions.
     public StageKind Stage => Switch(
         levels:    static _ => StageKind.Pointwise,
         histogram: static _ => StageKind.Global,
         lut:       static _ => StageKind.Pointwise);
+
+    public string Digest => Switch(
+        levels:    static c => string.Create(CultureInfo.InvariantCulture, $"levels|{c.Black:R}|{c.White:R}|{c.Gamma:R}"),
+        // The empirical CDF enters WHOLE: a bin count alone admits two different target distributions under one
+        // key, and a cached plane matched to a different histogram is cache poisoning wearing a key.
+        histogram: static c => string.Create(CultureInfo.InvariantCulture,
+            $"histogram|{c.Bins}|{string.Join(',', c.TargetCdf.Map(static v => v.ToString("R", CultureInfo.InvariantCulture)))}"),
+        lut:       static c => string.Create(CultureInfo.InvariantCulture, $"lut|{c.TableKey:x32}|{(int)c.Interpolation}"));
 }
 
 // The fields a height plane derives. Occlusion carries its own cast policy with compile-time defaults so a channel
@@ -95,8 +112,12 @@ public abstract partial record RemapCurve {
 public abstract partial record HeightDerivative {
     private HeightDerivative() { }
 
-    public sealed record Occlusion(int Rays = 64, double Distance = 0.05, ulong Seed = 0UL, Option<SampleKind> Spectrum = default) : HeightDerivative;
+    public sealed record Occlusion(int Rays = 64, double Distance = 0.05, ulong Seed = 0UL) : HeightDerivative;
     public sealed record Curvature(CurvatureMeasure Measure = CurvatureMeasure.Mean) : HeightDerivative;
+
+    public string Digest => Switch(
+        occlusion: static d => string.Create(CultureInfo.InvariantCulture, $"occlusion|{d.Rays}|{d.Distance:R}|{d.Seed:x16}"),
+        curvature: static d => string.Create(CultureInfo.InvariantCulture, $"curvature|{(int)d.Measure}"));
 }
 
 public enum CurvatureMeasure { Mean, Gaussian, PrincipalMaximum, PrincipalMinimum }
@@ -172,6 +193,22 @@ public abstract partial record PlaneOp {
         remap:        static _ => 0,
         swizzle:      static _ => 0);
 
+    // THE canonical per-op spelling every content-key preimage folds — press#PRESS_PLAN's post-chain pieces read
+    // this member and nothing else. Rename-stable by construction: case tokens are frozen lowercase literals,
+    // owned rows spell their SmartEnum Key, external enums spell their invariant integer — never a type name a
+    // refactor re-keys — and every numeric formats under InvariantCulture at "R" round-trip precision. Evidence
+    // columns that only REPORT (HeightEvidence.Residual) stay out of the preimage; every column that moves the
+    // produced bytes enters whole.
+    public string Digest => Switch(
+        resize:       static op => string.Create(CultureInfo.InvariantCulture,
+            $"resize|{op.Width.Value}x{op.Height.Value}|{(int)op.Filter}|{(int)op.Edge}"),
+        convolve:     static op => string.Create(CultureInfo.InvariantCulture, $"convolve|{op.Kernel.Digest}|{(int)op.Edge}"),
+        heightNormal: static op => string.Create(CultureInfo.InvariantCulture,
+            $"height-normal|{(op.Inverse ? "inverse" : "forward")}|{op.Solver.Key}|{op.Evidence.Digest}"),
+        fromHeight:   static op => string.Create(CultureInfo.InvariantCulture, $"from-height|{op.Derivative.Digest}|{op.Evidence.Digest}"),
+        remap:        static op => $"remap|{op.Curve.Digest}",
+        swizzle:      static op => $"swizzle|{string.Join(',', op.Lanes.Map(static lane => lane.Key))}");
+
     // TOTAL shape projection, folded across the whole sequence before the first rental — so a chain that cannot type
     // costs nothing and leaves the source untouched.
     public Fin<PlaneShape> Project(PlaneShape input, Op key) => Switch(
@@ -181,6 +218,11 @@ public abstract partial record PlaneOp {
         convolve: _ => Fin.Succ(input),
         heightNormal: op => (op.Inverse, input.Format.Components) switch {
             (false, 1) => input.Retyped(3, AlphaMode.None, PlaneRange.Signed, key),
+            // The inverse solves ONE bounded or periodic grid: the Laplacian and the spectral kernel are w x h
+            // operators, so a layered plane refuses outright — per-layer integration is the caller's Layer fold,
+            // exactly as Resize rules it.
+            (true, >= 3) when input.Layers.Value is not 1 =>
+                MaterialFault.Parameter(key, $"<height-inverse-layered:{input.Layers.Value}>"),
             (true, >= 3) => input.Retyped(1, AlphaMode.None, PlaneRange.Unit, key),
             (false, int n) => MaterialFault.Parameter(key, $"<height-normal-scalar:{n}>"),
             (true, int n) => MaterialFault.Parameter(key, $"<height-normal-vector:{n}>"),
@@ -216,8 +258,9 @@ using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;   // ParallelHelper, IAction
 using TinyEXR.V3;                                 // ImageProcessing — the composed separable resample
 using LanguageExt;
-using Rasm.Domain;                                // Op
+using Rasm.Domain;                                // Op, Deterministic — the ONE replayable coordinate-keyed draw
 using Rasm.Materials.Appearance.Bsdf;             // MaterialFault
+using Rhino.Geometry;                             // Point3d — the coordinate key the occlusion rotation draws on
 using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Raster;
@@ -310,7 +353,7 @@ internal static class PlaneKernel {
     private readonly struct PointwiseRows(TexturePlane source, TexturePlane destination, Seq<(PlaneOp Op, PlaneShape Shape)> ops) : IAction {
         public void Invoke(int index) {
             int layer = index / destination.Height.Value, row = index % destination.Height.Value;
-            int widest = Math.Max(source.Width.Value * 4, destination.Width.Value * 4);
+            int widest = Math.Max(source.Width.Value, destination.Width.Value) * PlaneFormat.MaxComponents;
             using SpanOwner<double> ping = SpanOwner<double>.Allocate(widest);
             using SpanOwner<double> pong = SpanOwner<double>.Allocate(widest);
             source.Read(row, layer, ping.Span[..source.RowScalars]);
@@ -328,7 +371,8 @@ internal static class PlaneKernel {
 
         // One op, one shape hop. Remap runs in place on the copied row; a swizzle projects lane-for-lane. The
         // pattern switch is deliberate: the row spans are ref structs no generated dispatch state can carry, and
-        // the kernel is the page's named statement exemption — the non-fusing cases are unreachable by scheduling.
+        // the kernel is the page's named statement exemption — the non-fusing cases are unreachable by scheduling,
+        // and the tail arm still copies the row so a reached arm can never publish pool residue as a result.
         private static void Thread(PlaneOp op, ReadOnlySpan<double> input, Span<double> output, int width, int inLanes, int outLanes) {
             switch (op) {
                 case PlaneOp.Remap remap:
@@ -338,15 +382,20 @@ internal static class PlaneKernel {
                 case PlaneOp.Swizzle swizzle:
                     Project(swizzle.Lanes, input, output, width, inLanes, outLanes);
                     break;
-                default: break;
+                default:
+                    input[..(width * inLanes)].CopyTo(output);
+                    break;
             }
         }
 
+        // Every OUTPUT lane writes: a lane past the swizzle roster fills zero, because the retype rounds a semantic
+        // count up through the storage roster and an unwritten trailing lane would carry the ping-pong buffer's
+        // previous contents into the result.
         private static void Project(Seq<SwizzleLane> lanes, ReadOnlySpan<double> input, Span<double> output, int width, int inLanes, int outLanes) {
             for (int x = 0; x < width; x++) {
                 ReadOnlySpan<double> texel = input.Slice(x * inLanes, inLanes);
-                for (int lane = 0; lane < Math.Min(lanes.Count, outLanes); lane++) {
-                    output[(x * outLanes) + lane] = lanes[lane].Project(texel);
+                for (int lane = 0; lane < outLanes; lane++) {
+                    output[(x * outLanes) + lane] = lane < lanes.Count ? lanes[lane].Project(texel) : 0.0;
                 }
             }
         }
@@ -370,7 +419,9 @@ internal static class PlaneKernel {
                     for (int x = 0; x < texels; x++) {
                         for (int c = 0; c < 3; c++) { triple.Span[(x * 3) + c] = (float)row[(x * lanes) + Math.Min(c, lanes - 1)]; }
                     }
-                    lut.Table.Apply(triple.Span, triple.Span, texels, lut.Interpolation);
+                    // The third argument is the CHANNEL COUNT of the interleaved run — the span length carries the
+                    // texel count — so a texel count here reads a three-channel row as an N-channel one.
+                    lut.Table.Apply(triple.Span, triple.Span, 3, lut.Interpolation);
                     for (int x = 0; x < texels; x++) {
                         for (int c = 0; c < Math.Min(3, lanes); c++) { row[(x * lanes) + c] = triple.Span[(x * 3) + c]; }
                     }
@@ -390,7 +441,7 @@ internal static class PlaneKernel {
         Materialize(source, staging.Span);
         return stage.Ops.Head.Op.Switch(
             convolve: op => { Separable(staging.Span, source, destination, op); return Fin.Succ(Option<HeightEvidence>.None); },
-            heightNormal: op => Fin.Succ(Some(HeightField.ToNormal(source, destination, op.Evidence, key))),
+            heightNormal: op => Fin.Succ(Some(HeightField.ToNormal(staging.Span, source, destination, op.Evidence, key))),
             fromHeight: op => Fin.Succ(Some(Derive(staging.Span, source, destination, op, key))),
             resize: static _ => Fin.Succ(Option<HeightEvidence>.None),
             remap: static _ => Fin.Succ(Option<HeightEvidence>.None),
@@ -425,7 +476,7 @@ internal static class PlaneKernel {
     // The four staging primitives every non-fusing pass shares. Materialize and Deposit are the ONE plane-to-run
     // bridge, generic over the staging scalar so the float legs the composed folds demand and the double legs the
     // local kernels prefer are one body rather than two transcriptions.
-    private static void Materialize<T>(TexturePlane plane, Span<T> staging) where T : unmanaged, INumberBase<T> {
+    internal static void Materialize<T>(TexturePlane plane, Span<T> staging) where T : unmanaged, INumberBase<T> {
         using SpanOwner<double> row = SpanOwner<double>.Allocate(plane.Width.Value * plane.Lanes);
         for (int layer = 0, at = 0; layer < plane.Layers.Value; layer++) {
             for (int y = 0; y < plane.Height.Value; y++) {
@@ -448,16 +499,253 @@ internal static class PlaneKernel {
     // The separable convolution. A Gaussian is one axis-pass pair; an unsharp mask is that same blur SUBTRACTED from
     // the source and scaled — so the sharpen arm reuses the blur rather than carrying a second kernel, and the
     // threshold suppresses amplification of the noise floor a flat region carries.
-    private static void Separable(ReadOnlySpan<double> staging, TexturePlane source, TexturePlane destination, PlaneOp.Convolve op) { /* two axis passes at op.Kernel.Radius under op.Edge; the UnsharpMask arm folds source + Amount * (source - blurred) where |source - blurred| exceeds Threshold */ }
+    // The separable convolution: a Gaussian is TWO axis passes over one intermediate, which is O(2r) per texel
+    // where the square kernel is O(r²) — at the three-sigma radius a sigma-8 blur that costs 2401 taps square
+    // costs 98 separable. The unsharp arm reuses that same blur rather than carrying a second kernel: the halo
+    // it subtracts IS the blur, and the threshold suppresses amplification of the noise floor a flat region
+    // carries. Weights normalize over the taps the edge mode actually admitted, so a Clamp border neither
+    // darkens nor brightens the rim the way a fixed-divisor kernel does.
+    private static void Separable(ReadOnlySpan<double> staging, TexturePlane source, TexturePlane destination, PlaneOp.Convolve op) {
+        int width = source.Width.Value, height = source.Height.Value, lanes = source.Lanes, radius = op.Kernel.Radius;
+        int taps = (radius * 2) + 1;
+        using SpanOwner<double> weights = SpanOwner<double>.Allocate(taps);
+        double sigma = Math.Max(1e-6, op.Kernel.Sigma), total = 0.0;
+        for (int tap = -radius; tap <= radius; tap++) {
+            double weight = Math.Exp(-(tap * tap) / (2.0 * sigma * sigma));
+            weights.Span[tap + radius] = weight;
+            total += weight;
+        }
+        for (int tap = 0; tap < taps; tap++) { weights.Span[tap] /= total; }
 
-    // The height-derived fields. Occlusion casts op.Derivative's ray budget against the blue-noise spectrum over the
-    // Deterministic stream keyed by its own seed; curvature projects the Hessian eigenvalue pair onto the requested
-    // measure. Both read the SAME staged height run, so a set deriving both pays one materialization.
-    private static HeightEvidence Derive(ReadOnlySpan<double> staging, TexturePlane source, TexturePlane destination, PlaneOp.FromHeight op, Op key) { /* Occlusion: cosine-weighted hemisphere cast to op.Distance; Curvature: Hessian projection onto op.Measure */ }
+        // The coverage lane premultiplies BEFORE the fold and divides back out after — the same law the mip fold
+        // freezes — so a transparent texel never bleeds its colour across a coverage edge; the alpha lane itself
+        // blurs as plain coverage.
+        using MemoryOwner<double> working = MemoryOwner<double>.Allocate(staging.Length);
+        staging.CopyTo(working.Span);
+        int alphaLane = source.Alpha.Carries ? lanes - 1 : -1;
+        if (alphaLane >= 0) {
+            for (int at = 0; at < working.Length; at += lanes) {
+                double coverage = working.Span[at + alphaLane];
+                for (int c = 0; c < alphaLane; c++) { working.Span[at + c] *= coverage; }
+            }
+        }
+        using MemoryOwner<double> horizontal = MemoryOwner<double>.Allocate(staging.Length);
+        using MemoryOwner<double> blurred = MemoryOwner<double>.Allocate(staging.Length);
+        for (int layer = 0, plane = 0; layer < source.Layers.Value; layer++, plane += width * height * lanes) {
+            Axis(working.Span, horizontal.Span, plane, width, height, lanes, radius, weights.Span, op.Edge, horizontalPass: true);
+            Axis(horizontal.Span, blurred.Span, plane, width, height, lanes, radius, weights.Span, op.Edge, horizontalPass: false);
+        }
+        if (alphaLane >= 0) {
+            for (int at = 0; at < blurred.Length; at += lanes) {
+                double coverage = blurred.Span[at + alphaLane];
+                for (int c = 0; c < alphaLane; c++) { blurred.Span[at + c] = coverage > 0.0 ? blurred.Span[at + c] / coverage : 0.0; }
+            }
+        }
+        if (op.Kernel is not ConvolveKernel.UnsharpMask mask) { Deposit(destination, blurred.Span); return; }
+        for (int at = 0; at < blurred.Length; at++) {
+            double difference = staging[at] - blurred.Span[at];
+            blurred.Span[at] = Math.Abs(difference) > mask.Threshold ? staging[at] + (mask.Amount * difference) : staging[at];
+        }
+        Deposit(destination, blurred.Span);
+    }
 
-    // The histogram match. The source distribution gathers over the WHOLE plane into op.Bins buckets before the first
-    // texel maps, which is exactly why this curve is a global stage and cannot fuse into a row pass.
-    private static void Match(TexturePlane source, TexturePlane destination, RemapCurve curve) { /* accumulate the empirical CDF over Bins, then map each texel through it into TargetCdf */ }
+    // ONE axis body serves both passes: the pass flag selects which coordinate the tap walks, so the vertical
+    // pass is the horizontal one transposed rather than a second transcription that drifts.
+    private static void Axis(
+        ReadOnlySpan<double> input, Span<double> output, int plane, int width, int height, int lanes,
+        int radius, ReadOnlySpan<double> weights, EdgeMode edge, bool horizontalPass) {
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                for (int lane = 0; lane < lanes; lane++) {
+                    double sum = 0.0, admitted = 0.0;
+                    for (int tap = -radius; tap <= radius; tap++) {
+                        int sx = horizontalPass ? Address(x + tap, width, edge) : x;
+                        int sy = horizontalPass ? y : Address(y + tap, height, edge);
+                        if (sx < 0 || sy < 0) { continue; }
+                        double weight = weights[tap + radius];
+                        sum += weight * input[plane + (((sy * width) + sx) * lanes) + lane];
+                        admitted += weight;
+                    }
+                    output[plane + (((y * width) + x) * lanes) + lane] = admitted > 0.0 ? sum / admitted : 0.0;
+                }
+            }
+        }
+    }
+
+    // The ONE out-of-extent addressing fold every neighbourhood kernel on this page reads. Wrap is what makes a
+    // tiled plane convolve without a seam, Reflect mirrors about the border texel rather than repeating it, and
+    // Clamp is stated as a NEGATIVE index the caller drops from its weight sum rather than as a duplicated edge
+    // texel — a clamped tap that contributes its own value with full weight is a rim the blur brightens.
+    private static int Address(int index, int extent, EdgeMode edge) =>
+        index >= 0 && index < extent
+            ? index
+            : edge switch {
+                EdgeMode.Wrap => ((index % extent) + extent) % extent,
+                EdgeMode.Reflect => Reflect(index, extent),
+                _ => -1,
+            };
+
+    private static int Reflect(int index, int extent) {
+        int period = Math.Max(1, (extent - 1) * 2);
+        int folded = ((index % period) + period) % period;
+        return folded < extent ? folded : period - folded;
+    }
+
+    // The height-derived fields. Occlusion sweeps its ray budget as a low-discrepancy azimuth fan rotated per
+    // texel by the Deterministic coordinate draw; curvature projects the Hessian eigenvalue pair onto the
+    // requested measure. Both read the SAME staged height run, so a set deriving both pays one materialization,
+    // both walk LAYERS at a plane offset so a cube face never reads its neighbour's relief across the seam, and
+    // both return the evidence carrying the field mean the inverse consumes.
+    private static HeightEvidence Derive(ReadOnlySpan<double> staging, TexturePlane source, TexturePlane destination, PlaneOp.FromHeight op, Op key) =>
+        op.Derivative switch {
+            HeightDerivative.Occlusion cast => Occlude(staging, source, destination, cast, op.Evidence),
+            _ => Curve(staging, source, destination, (HeightDerivative.Curvature)op.Derivative, op.Evidence),
+        };
+
+    // The horizon sweep. Each ray marches the height field along one azimuth out to the derivative's own reach
+    // in texel units and records the greatest elevation angle it saw; the texel's visibility is the fraction of
+    // the hemisphere no horizon occluded. The azimuth fan is a REGULAR set rotated per texel — the rotated
+    // regular construction whose discrepancy beats an independent uniform draw at every ray count, and whose
+    // values are exactly computable, so a re-derived plane is byte-identical. The rotation is COORDINATE-keyed
+    // rather than stream-sequential, so a band partition cannot reorder a draw and the seed genuinely replays.
+    private static HeightEvidence Occlude(
+        ReadOnlySpan<double> staging, TexturePlane source, TexturePlane destination, HeightDerivative.Occlusion cast, HeightEvidence evidence) {
+        int width = source.Width.Value, height = source.Height.Value, layers = source.Layers.Value, lanes = source.Lanes;
+        int reach = Math.Max(1, (int)Math.Round(cast.Distance * Math.Max(width, height)));
+        int rays = Math.Max(1, cast.Rays);
+        using MemoryOwner<double> visibility = MemoryOwner<double>.Allocate(width * height * layers);
+        double mean = 0.0;
+        for (int layer = 0; layer < layers; layer++) {
+            int plane = layer * width * height * lanes;
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    double centre = Tap(staging, plane, x, y, width, height, lanes);
+                    mean += centre;
+                    // The two int parameters carry the FULL 64-bit seed — low half as salt, high half as seed — so
+                    // the replay key loses nothing; Point3d is the kernel draw's own coordinate parameter.
+                    double rotation = Deterministic.UnitInterval(new Point3d(x, y, layer),
+                        salt: unchecked((int)cast.Seed), seed: unchecked((int)(cast.Seed >> 32)));
+                    double open = 0.0;
+                    for (int ray = 0; ray < rays; ray++) {
+                        double azimuth = ((ray / (double)rays) + rotation) * 2.0 * Math.PI;
+                        double dx = Math.Cos(azimuth), dy = Math.Sin(azimuth);
+                        double horizon = 0.0;
+                        for (int step = 1; step <= reach; step++) {
+                            int sx = x + (int)Math.Round(dx * step), sy = y + (int)Math.Round(dy * step);
+                            // A march leaving the extent STOPS rather than clamping: a clamped tap re-reads the
+                            // border texel at every remaining step and manufactures a horizon the relief has not.
+                            if (sx < 0 || sx >= width || sy < 0 || sy >= height) { break; }
+                            // The tangent is a MILLIMETRE rise over the evidence's own run — millimetres per texel
+                            // when the pitch is declared — so the same relief at two resolutions casts one horizon.
+                            double rise = (Tap(staging, plane, sx, sy, width, height, lanes) - centre) * evidence.ScaleMm;
+                            horizon = Math.Max(horizon, rise / evidence.RunMm(step));
+                        }
+                        // sin²θ of the horizon angle is the cosine-weighted fraction that azimuth's slice occludes
+                        // — ∫₀^θ sin·cos over the slice — so the visible fraction is 1/(1+tan²θ) and no arctangent
+                        // is evaluated per step.
+                        open += 1.0 / (1.0 + (horizon * horizon));
+                    }
+                    visibility.Span[(((layer * height) + y) * width) + x] = open / rays;
+                }
+            }
+        }
+        Deposit(destination, visibility.Span);
+        return evidence with { Mean = mean / (width * (double)height * layers) };
+    }
+
+    // Curvature is ONE eigenvalue projection over the local second-difference Hessian, so the four measures are
+    // four reads of one pair rather than four kernels. The stencil is local by necessity: the kernel Nabla
+    // family differentiates an ambient R3 SAMPLER through Fin-returning axis taps at an epsilon, which a texel
+    // grid can neither supply nor afford at plane extents — so this is the discrete owner rather than a
+    // reimplementation of a continuous one.
+    private static HeightEvidence Curve(
+        ReadOnlySpan<double> staging, TexturePlane source, TexturePlane destination, HeightDerivative.Curvature curvature, HeightEvidence evidence) {
+        int width = source.Width.Value, height = source.Height.Value, layers = source.Layers.Value, lanes = source.Lanes;
+        using MemoryOwner<double> field = MemoryOwner<double>.Allocate(width * height * layers);
+        double mean = 0.0;
+        for (int layer = 0; layer < layers; layer++) {
+            int plane = layer * width * height * lanes;
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    double centre = Tap(staging, plane, x, y, width, height, lanes);
+                    mean += centre;
+                    double xx = Tap(staging, plane, x + 1, y, width, height, lanes) - (2.0 * centre) + Tap(staging, plane, x - 1, y, width, height, lanes);
+                    double yy = Tap(staging, plane, x, y + 1, width, height, lanes) - (2.0 * centre) + Tap(staging, plane, x, y - 1, width, height, lanes);
+                    double xy = (Tap(staging, plane, x + 1, y + 1, width, height, lanes) - Tap(staging, plane, x + 1, y - 1, width, height, lanes)
+                               - Tap(staging, plane, x - 1, y + 1, width, height, lanes) + Tap(staging, plane, x - 1, y - 1, width, height, lanes)) * 0.25;
+                    // The eigenvalue pair of a 2x2 Hessian is the half-trace plus and minus the root of the
+                    // half-trace squared less the determinant, so mean, Gaussian, and both principal extrema read
+                    // off ONE decomposition rather than three further stencil passes.
+                    double half = (xx + yy) * 0.5;
+                    double gap = Math.Sqrt(Math.Max(0.0, (half * half) - ((xx * yy) - (xy * xy))));
+                    double signed = curvature.Measure switch {
+                        CurvatureMeasure.Mean => half,
+                        CurvatureMeasure.Gaussian => (xx * yy) - (xy * xy),
+                        CurvatureMeasure.PrincipalMaximum => half + gap,
+                        _ => half - gap,
+                    };
+                    // A second difference is inverse-length-squared: the millimetre rise divides by the run squared,
+                    // so a declared pitch makes the measure physical and the zero-pitch mode stays texel-relative
+                    // under the evidence's stated bound.
+                    field.Span[(((layer * height) + y) * width) + x] =
+                        Math.Clamp(signed * evidence.ScaleMm / (evidence.RunMm(1) * evidence.RunMm(1)), -1.0, 1.0);
+                }
+            }
+        }
+        Deposit(destination, field.Span);
+        return evidence with { Mean = mean / (width * (double)height * layers) };
+    }
+
+    // The ONE bordered read the height-derived kernels share. A tap outside the extent CLAMPS, which states a
+    // zero normal derivative at the edge — the Neumann condition the bounded height solver assembles, so the two
+    // kernels agree at the boundary rather than disagreeing by one texel of relief. The plane offset is the
+    // layer's own base, so a layered plane's faces never fold into one another.
+    internal static double Tap(ReadOnlySpan<double> staging, int plane, int x, int y, int width, int height, int lanes) =>
+        staging[plane + ((((Math.Clamp(y, 0, height - 1) * width) + Math.Clamp(x, 0, width - 1)) * lanes))];
+
+    // The histogram match. The source distribution gathers over the WHOLE plane into op.Bins buckets before the
+    // first texel maps, which is exactly why this curve is a global stage and cannot fuse into a row pass. The
+    // map is the classical CDF composition: a texel's own quantile under the source distribution is looked up in
+    // the TARGET's inverse, and the target CDF is read by LINEAR interpolation between its bracketing entries so
+    // a coarse target does not quantize the result into visible steps. Alpha is untouched — a tonal match over
+    // coverage moves every edge.
+    private static void Match(TexturePlane source, TexturePlane destination, RemapCurve curve) {
+        if (curve is not RemapCurve.Histogram histogram || histogram.TargetCdf.IsEmpty) { return; }
+        int width = source.Width.Value, height = source.Height.Value, lanes = source.Lanes;
+        int colour = source.Alpha.Carries ? Math.Max(1, lanes - 1) : lanes;
+        int bins = Math.Max(2, histogram.Bins);
+        using MemoryOwner<double> staging = MemoryOwner<double>.Allocate(width * height * source.Layers.Value * lanes);
+        Materialize(source, staging.Span);
+        using SpanOwner<double> cdf = SpanOwner<double>.Allocate(bins);
+        cdf.Span.Clear();
+        long counted = 0;
+        for (int at = 0; at < staging.Length; at++) {
+            if (lanes > 1 && (at % lanes) >= colour) { continue; }
+            cdf.Span[Math.Clamp((int)(staging.Span[at] * (bins - 1)), 0, bins - 1)] += 1.0;
+            counted++;
+        }
+        for (int bin = 1; bin < bins; bin++) { cdf.Span[bin] += cdf.Span[bin - 1]; }
+        for (int bin = 0; bin < bins; bin++) { cdf.Span[bin] = counted > 0 ? cdf.Span[bin] / counted : 0.0; }
+        double[] target = histogram.TargetCdf.ToArray();
+        for (int at = 0; at < staging.Length; at++) {
+            if (lanes > 1 && (at % lanes) >= colour) { continue; }
+            staging.Span[at] = Invert(target, cdf.Span[Math.Clamp((int)(staging.Span[at] * (bins - 1)), 0, bins - 1)]);
+        }
+        Deposit(destination, staging.Span);
+    }
+
+    // The target's INVERSE CDF at a quantile, linearly interpolated between the bracketing entries so a coarse
+    // target distribution does not stair-step the matched plane.
+    private static double Invert(ReadOnlySpan<double> target, double quantile) {
+        for (int bin = 0; bin < target.Length; bin++) {
+            if (target[bin] < quantile) { continue; }
+            double lower = bin > 0 ? target[bin - 1] : 0.0;
+            double span = target[bin] - lower;
+            double within = span > 0.0 ? (quantile - lower) / span : 0.0;
+            return Math.Clamp((bin + within) / Math.Max(1, target.Length - 1), 0.0, 1.0);
+        }
+        return 1.0;
+    }
 }
 ```
 
@@ -465,24 +753,29 @@ internal static class PlaneKernel {
 
 - Owner: `HeightEvidence` the correspondence carrier; `HeightSolver` the integration routes; the occlusion and curvature derivative kernels.
 - Law: `HeightEvidence` is what makes the `HeightNormal` inverse honest. A gradient field determines a height field only up to an additive constant and, at integer depth, only up to the scale the forward normalization consumed — so the forward RECORDS the millimetre span, the field mean, and the convention it read, and the inverse consumes them. An inverse invoked with no evidence rails rather than reconstructing a plausible field, because a fabricated amplitude is a displacement that renders confidently and wrongly.
-- Law: `HeightSolver` is chosen by PERIODICITY, not by preference. `Spectral` is the Frankot-Chellappa least-squares integration in the frequency domain and it assumes a periodic domain — which is exactly true of a tiled plane and exactly false of a bounded one, where it wraps the opposite edge's gradient into the solution. `Poisson` assembles the five-point Laplacian with Neumann boundaries and factors it once, which is correct on a bounded plane and needlessly expensive on a tiled one. The `Periodic` column carries the choice, so a caller states the plane's own nature rather than a solver name.
+- Law: `HeightSolver` is chosen by PERIODICITY, not by preference. `Spectral` is the Frankot-Chellappa least-squares integration in the frequency domain and it assumes a periodic domain — which is exactly true of a tiled plane and exactly false of a bounded one, where it wraps the opposite edge's gradient into the solution. `Poisson` assembles the five-point Laplacian with Neumann boundaries, which is correct on a bounded plane and needlessly expensive on a tiled one. The `Periodic` column carries the choice, so a caller states the plane's own nature rather than a solver name; the direct-versus-iterative split INSIDE the bounded arm is the arm's own extent policy — the kernel `CholeskySparse` exact factor to the `DirectCeiling` unknown count, the MathNet `MILU0Preconditioner`-under-`BiCgStab` Krylov lane above it, one operator assembly serving both — never a third row a caller could mis-pick.
 - Law: the spectral route runs entirely on the composed transform: forward the gradient divergence, divide by the frequency-squared kernel with the zero bin held at zero (the additive constant the evidence's mean then restores), and inverse. Every buffer is caller-owned and the transform mutates it in place under the symmetric scaling that makes the forward-inverse round trip an identity.
 - Law: the bounded route assembles by TRIPLET ACCUMULATION and factors through the kernel's own SPD cache. Duplicate triplets sum and zeros drop at admission, so the Laplacian assembles by accumulation and never by hand-built compressed storage, and the factor carries the pivot-loss refusal onto the typed rail rather than as a bare exception.
-- Law: occlusion casts against the BLUE-NOISE spectrum with a replayable stream. The cast directions are drawn from the kernel sampler spectrum rather than from a uniform draw, because uniform ray sets clump and leave the low-frequency banding an occlusion map shows worst on a flat wall; the stream is the kernel splitmix64 keyed by the derivative's own seed, so a re-derived occlusion plane is byte-identical and its set re-keys to the same address.
-- Law: curvature reads the height field's SECOND derivative through the kernel's own stencil family and projects the requested measure — mean, Gaussian, or a principal extremum — so the four measures are one eigenvalue projection rather than four kernels, and the signed result rides a `PlaneRange.Signed` plane whose integer encoding is the vocabulary's single packing.
-- Packages: MathNet.Numerics (composed — `IntegralTransforms.Fourier.Forward2D(Complex[], int, int, FourierOptions)` and `Inverse2D(Complex[], int, int, FourierOptions)` over the row-major gradient staging, `FourierOptions.Default` the symmetric scaling that makes the round trip an identity), `Rasm.Numerics` (composed — `SparseMatrix.FromTriplets` the accumulating assembly, `CholeskySparse.Of`/`Solve` the SPD factor cache carrying the pivot-loss refusal, `Nabla` the stencil family the curvature projection reads, `SampleKind` the blue-noise spectrum, `Dimension`), `Rasm.Domain` (composed — `Deterministic.NextUnit` the ONE replayable jitter stream, `Op`), CommunityToolkit.HighPerformance (`MemoryOwner<T>.Allocate` the solver staging, `ParallelHelper.For` the cast partition), BCL inbox (`System.Numerics.Complex`).
+- Law: occlusion casts a LOW-DISCREPANCY azimuth set decorrelated per texel. The set is the exactly-computable uniform fan, and the per-texel rotation comes from the kernel `Deterministic.UnitInterval` COORDINATE draw keyed by the derivative's own seed — never a sequential stream — so a band partition cannot reorder a draw, a re-derived plane is byte-identical, and the low-frequency banding a shared direction set leaves on a flat wall breaks. The kernel `SampleKind` spectrum is NOT the owner here: it draws `Point3d` sets over an `ExtractionDomain` of support space, mesh, or cloud, none of which a texel grid supplies, so composing it would mean minting a fourth domain case to serve one cast.
+- Law: curvature reads the height field's SECOND derivative through a local Hessian stencil and projects the requested measure — mean, Gaussian, or a principal extremum — so the four measures are one eigenvalue projection rather than four kernels, and the signed result rides a `PlaneRange.Signed` plane whose integer encoding is the vocabulary's single packing. The kernel `Nabla` family is the AMBIENT owner and not this one: it differentiates a `Func<Point3d, Fin<T>>` sampler through `SampleAxes` at an epsilon, which a texel grid can neither supply nor afford one `Fin` allocation per tap across a plane's texels.
+- Law: the bounded route assembles the NEGATED Laplacian — positive diagonal, negative couplings, right-hand side negated to match — because Cholesky demands positive definiteness and the raw ∇² orientation is negative-semidefinite. The last row PINS to the identity with its couplings eliminated SYMMETRICALLY (a one-sided pin leaves an asymmetric matrix no factor admits): a pure Neumann Laplacian carries the constant vector in its null space, so no factor exists for it unpinned, and the pinned gauge is exactly what the reconstruction's mean restores afterward.
+- Packages: MathNet.Numerics (composed — `IntegralTransforms.Fourier.Forward(Complex[], FourierOptions)` and `Inverse(Complex[], FourierOptions)` as the ROW-COLUMN 2D fold over the row-major gradient staging — the `Forward2D`/`Inverse2D` multidim rows route to the provider seam whose MANAGED realization throws `NotSupportedException`, so the 1D pair is the platform-total form — `FourierOptions.Default` the symmetric scaling that makes the per-axis fold the 2D transform and the round trip an identity; `Double.SparseMatrix.OfIndexed` + `SparseCompressedRowMatrixStorage<double>.NormalizeDuplicates` the Krylov-lane CSR assembly — OfIndexed APPENDS coincident triplets, so the normalize is load-bearing — `MILU0Preconditioner` the row-sum-preserving incomplete factor, `BiCgStab.Solve(A, b, x, Iterator<double>, IPreconditioner<double>)` writing into the caller vector with the verdict on `Iterator<double>.Status`, the explicit Failure→Divergence→IterationCount→Residual stop set with the ∞-norm-RELATIVE residual semantics), `Rasm.Numerics` (composed — `SparseMatrix.FromTriplets` the accumulating assembly, `CholeskySparse.Of`/`Solve` the SPD factor cache carrying the pivot-loss refusal, `Dimension`), `Rasm.Domain` (composed — `Deterministic.UnitInterval(Point3d, int, int)` the ONE replayable coordinate-keyed draw, `Op`), CommunityToolkit.HighPerformance (`MemoryOwner<T>.Allocate` the solver staging, `SpanOwner<T>.Allocate` the row rental), BCL inbox (`System.Numerics.Complex`, `INumberBase<T>` the one divergence body over two stagings).
 - Growth: a new integration route is one `HeightSolver` row plus one solve arm; a new derived field is one `HeightDerivative` case; a new curvature measure is one enum row the eigenvalue projection reads.
 - Boundary: this section derives fields from a height plane and never SOURCES one. A height plane arrives from an ingest classification, a press bake, or the `HeightNormal` inverse over an acquired normal plane under a depth prior — and no inference stage emits height, because integration under a prior is pure mathematics the estate owns rather than a model it would have to license.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
-using System.Numerics;                            // Complex
+using System.Globalization;                       // CultureInfo — the invariant Digest spelling
+using System.Numerics;                            // Complex, INumberBase — the one divergence body over two stagings
 using CommunityToolkit.HighPerformance.Buffers;
 using LanguageExt;
 using MathNet.Numerics.IntegralTransforms;        // Fourier, FourierOptions
+using MathNet.Numerics.LinearAlgebra.Double.Solvers; // BiCgStab, MILU0Preconditioner — the large-extent Krylov arm
+using MathNet.Numerics.LinearAlgebra.Solvers;     // Iterator<T>, IterationStatus, the four stop criteria
+using MathNet.Numerics.LinearAlgebra.Storage;     // SparseCompressedRowMatrixStorage — NormalizeDuplicates after OfIndexed
 using Rasm.Domain;                                // Op, Deterministic
 using Rasm.Materials.Appearance.Bsdf;             // MaterialFault
-using Rasm.Numerics;                              // SparseMatrix, CholeskySparse, SampleKind, Dimension
+using Rasm.Numerics;                              // SparseMatrix, CholeskySparse, Dimension
 using Thinktecture;
 using static LanguageExt.Prelude;
 
@@ -505,19 +798,63 @@ public sealed partial class HeightSolver {
 // --- [MODELS] ------------------------------------------------------------------------------
 // What the forward direction DESTROYED and the inverse must be handed back: the millimetre span the normalized [0,1]
 // field was measured against, the mean the integration's free constant restores, the convention the gradient read,
-// and the residual the solve reports. Unit is the identity evidence a channel row carries where the set supplies the
-// real span at bind time.
-public readonly record struct HeightEvidence(double ScaleMm, double Mean, NormalConvention Convention, double Residual) {
+// and the reconstruction-fit residual the inverse reports. PitchMm is the SPATIAL grain — millimetres per texel —
+// without which no derivative has physical units: a horizon angle, a curvature magnitude, and a gradient slope all
+// divide a millimetre rise by a run, and a run in texels changes with resolution while the relief does not. Zero
+// pitch declares NORMALIZED mode: the run stays in texels, the derived field is resolution-relative, and the bound
+// is stated here once — two extents of one relief then derive different fields, which is the price a caller who
+// supplied no physical pitch has accepted. Unit is the identity evidence a channel row carries where the set
+// supplies the real span at bind time.
+public readonly record struct HeightEvidence(double ScaleMm, double Mean, NormalConvention Convention, double Residual, double PitchMm = 0.0) {
     public static readonly HeightEvidence Unit = new(ScaleMm: 1.0, Mean: 0.5, NormalConvention.Gl, Residual: 0.0);
     public HeightEvidence With(double residual) => this with { Residual = residual };
+
+    // Residual is REPORTED evidence, never a preimage column: keying on a prior run's fit residual re-keys an
+    // identical operation by its own measurement noise.
+    public string Digest =>
+        string.Create(CultureInfo.InvariantCulture, $"{ScaleMm:R}|{Mean:R}|{Convention.Key}|{PitchMm:R}");
+    // The run for one texel of march: physical when the pitch is declared, texel-unit otherwise.
+    public double RunMm(int steps) => PitchMm > 0.0 ? steps * PitchMm : steps;
 }
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 internal static class HeightField {
-    // The FORWARD direction: the central-difference gradient of the height field scaled by its own millimetre span,
-    // composed into a unit tangent-space normal under the declared convention. It records the evidence the inverse
-    // consumes, so the round trip is a correspondence rather than two unrelated transforms.
-    internal static HeightEvidence ToNormal(TexturePlane height, TexturePlane normal, HeightEvidence evidence, Op key) { /* bordered central difference scaled by evidence.ScaleMm; write the normalized (-dx, -dy * evidence.Convention.GreenSign, 1) triple, and return the evidence carrying the measured field mean */ }
+    // The FORWARD direction: the central-difference gradient of the height field scaled by its own millimetre span
+    // over the evidence's run, composed into a unit tangent-space normal under the declared convention. It reads the
+    // STAGED height run its caller already materialized — the bordered pass stages once and every kernel in the pass
+    // reads that one run — and records the evidence the inverse consumes, so the round trip is a correspondence
+    // rather than two unrelated transforms.
+    internal static HeightEvidence ToNormal(ReadOnlySpan<double> field, TexturePlane height, TexturePlane normal, HeightEvidence evidence, Op key) {
+        int width = height.Width.Value, lanes = height.Lanes;
+        using SpanOwner<double> row = SpanOwner<double>.Allocate(normal.RowScalars);
+        double mean = 0.0;
+        for (int layer = 0, plane = 0; layer < height.Layers.Value; layer++, plane += width * height.Height.Value * lanes) {
+            for (int y = 0; y < height.Height.Value; y++) {
+                for (int x = 0; x < width; x++) {
+                    double centre = PlaneKernel.Tap(field, plane, x, y, width, height.Height.Value, lanes);
+                    mean += centre;
+                    // The half-difference over a two-texel span, scaled into the plane's own millimetre relief over
+                    // the evidence's run: the slope IS the height gradient, so the surface normal is the cross
+                    // product of the two tangents (1,0,dx) and (0,1,dy), which is exactly (-dx, -dy, 1) before
+                    // normalization.
+                    double dx = (PlaneKernel.Tap(field, plane, x + 1, y, width, height.Height.Value, lanes)
+                               - PlaneKernel.Tap(field, plane, x - 1, y, width, height.Height.Value, lanes)) * 0.5 * evidence.ScaleMm / evidence.RunMm(1);
+                    double dy = (PlaneKernel.Tap(field, plane, x, y + 1, width, height.Height.Value, lanes)
+                               - PlaneKernel.Tap(field, plane, x, y - 1, width, height.Height.Value, lanes)) * 0.5 * evidence.ScaleMm / evidence.RunMm(1);
+                    double length = Math.Sqrt((dx * dx) + (dy * dy) + 1.0);
+                    int at = x * normal.Lanes;
+                    row.Span[at] = -dx / length;
+                    row.Span[at + 1] = -dy * evidence.Convention.GreenSign / length;
+                    row.Span[at + 2] = 1.0 / length;
+                    for (int lane = 3; lane < normal.Lanes; lane++) { row.Span[at + lane] = 1.0; }
+                }
+                normal.Write(y, layer, row.Span);
+            }
+        }
+        // The forward direction is what DESTROYS the constant; recording the measured mean here is what lets the
+        // inverse restore it rather than centring on whatever offset a solve happened to land.
+        return evidence with { Mean = mean / (width * (double)height.Height.Value * height.Layers.Value) };
+    }
 
     // The INVERSE: least-squares integration of the gradient field. The spectral route divides the divergence by the
     // frequency-squared kernel with the zero bin HELD at zero — that bin is exactly the additive constant integration
@@ -526,11 +863,14 @@ internal static class HeightField {
     internal static Fin<HeightEvidence> ToHeight(TexturePlane normal, TexturePlane height, HeightSolver solver, HeightEvidence evidence, Op key) =>
         solver.Periodic ? Spectral(normal, height, evidence, key) : Bounded(normal, height, evidence, key);
 
+    // Spectral rides the route's shared Fin shape — its own body has no failure arm, and the rail exists because
+    // ToHeight is ONE entry whose bounded sibling genuinely refuses; a per-route return-type fork would push the
+    // solver choice back onto every caller.
     private static Fin<HeightEvidence> Spectral(TexturePlane normal, TexturePlane height, HeightEvidence evidence, Op key) {
         int w = height.Width.Value, h = height.Height.Value;
         using MemoryOwner<Complex> field = MemoryOwner<Complex>.Allocate(w * h);
         Divergence(normal, field.Span, w, h);
-        Fourier.Forward2D(field.DangerousGetArray().Array!, h, w, FourierOptions.Default);
+        Fourier2(field.Span, w, h, forward: true);
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
                 double u = 2.0 * Math.PI * (x <= w / 2 ? x : x - w) / w;
@@ -539,42 +879,188 @@ internal static class HeightField {
                 field.Span[(y * w) + x] = denominator > 0.0 ? field.Span[(y * w) + x] / -denominator : Complex.Zero;
             }
         }
-        Fourier.Inverse2D(field.DangerousGetArray().Array!, h, w, FourierOptions.Default);
+        Fourier2(field.Span, w, h, forward: false);
         using MemoryOwner<double> real = MemoryOwner<double>.Allocate(w * h);
         for (int i = 0; i < real.Length; i++) { real.Span[i] = field.Span[i].Real; }
-        return Fin.Succ(Restore(height, real.Span, evidence, w, h));
+        return Fin.Succ(Restore(height, real.Span, evidence));
     }
 
+    // The 2D transform is the ROW-COLUMN fold over the managed 1D kernel — the MEASURED provider truth: the composed
+    // Forward2D/Inverse2D pair routes every multidimensional call to FourierTransformControl.Provider.ForwardMultidim,
+    // and the MANAGED provider throws NotSupportedException there — the multidim rows run only under a native FFT
+    // provider, and no native provider row serves this platform — while the 1D Forward/Inverse pair is managed-complete
+    // (Radix-2 at a power of two, Bluestein otherwise). Symmetric scaling composes per axis (1/√w · 1/√h = 1/√(w·h)),
+    // so the fold IS the 2D transform under FourierOptions.Default and the round trip stays an identity. Exact-length
+    // line stagings feed the whole-array 1D entry; tile#TILE_GATE reads this same fold for its periodicity spectrum.
+    internal static void Fourier2(Span<Complex> field, int width, int height, bool forward) {
+        Complex[] row = new Complex[width];
+        for (int y = 0; y < height; y++) {
+            field.Slice(y * width, width).CopyTo(row);
+            FourierLine(row, forward);
+            row.CopyTo(field.Slice(y * width, width));
+        }
+        Complex[] column = new Complex[height];
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) { column[y] = field[(y * width) + x]; }
+            FourierLine(column, forward);
+            for (int y = 0; y < height; y++) { field[(y * width) + x] = column[y]; }
+        }
+    }
+
+    private static void FourierLine(Complex[] line, bool forward) {
+        if (forward) { Fourier.Forward(line, FourierOptions.Default); }
+        else { Fourier.Inverse(line, FourierOptions.Default); }
+    }
+
+    // Direct-vs-iterative is the bounded arm's OWN policy, driven by the system's unknown count — never a caller
+    // knob and never a third HeightSolver row, because the plane's PERIODICITY is the only nature a caller can
+    // state: at or under the ceiling the kernel SPD Cholesky factor is exact and cache-amortized; above it the 2D
+    // nested-dissection fill makes the factor the memory bound, and the arm rides the MathNet MILU0-preconditioned
+    // BiCgStab over the SAME negated pinned Laplacian. 1 << 22 unknowns seats a 2048² plane on the exact factor
+    // and a 4k+ plane on the Krylov lane.
+    const int DirectCeiling = 1 << 22;
+    const int KrylovIterations = 1000;
+    const double KrylovTolerance = 1e-9;
+
     // The BOUNDED route: the five-point Neumann Laplacian assembled by triplet ACCUMULATION — duplicates sum and
-    // zeros drop at admission — factored once through the kernel's SPD cache, which lowers the composed solver's bare
-    // pivot-loss exception onto the typed rail rather than letting it escape.
+    // zeros drop at admission — factored once through the kernel's SPD cache below the ceiling, which lowers the
+    // composed solver's bare pivot-loss exception onto the typed rail rather than letting it escape.
     private static Fin<HeightEvidence> Bounded(TexturePlane normal, TexturePlane height, HeightEvidence evidence, Op key) {
         Dimension order = Dimension.Create(value: checked((int)height.Texels));
         using MemoryOwner<double> rhs = MemoryOwner<double>.Allocate(order.Value);
         Divergence(normal, rhs.Span, height.Width.Value, height.Height.Value);
+        // The assembled operator is the NEGATED Laplacian — the positive-definite form Cholesky demands — so the
+        // system is -∇²h = -div and the right-hand side negates to match; a raw ∇² assembly is negative-semidefinite
+        // and admits no factor however the gauge is pinned.
+        for (int at = 0; at < order.Value; at++) { rhs.Span[at] = -rhs.Span[at]; }
+        // The pinned row's right-hand side is ZERO, matching the identity row that fixes the gauge: leaving the
+        // divergence there would set the pinned texel to an arbitrary curvature value and drag the mean the
+        // reconstruction re-centres on with it.
+        rhs.Span[order.Value - 1] = 0.0;
+        if (order.Value > DirectCeiling) { return Krylov(rhs.Span, height, evidence, key); }
         return from matrix in SparseMatrix.FromTriplets(order, order, Laplacian(height.Width.Value, height.Height.Value), key)
                from factor in CholeskySparse.Of(matrix, key)
                from solved in factor.Solve(new Arr<double>(rhs.Span), key)
-               select Restore(height, solved.AsSpan(), evidence, height.Width.Value, height.Height.Value);
+               select Restore(height, solved.AsSpan(), evidence);
+    }
+
+    // The LARGE-EXTENT arm rides the kernel's OWN preconditioned-Krylov rail: the SAME FromTriplets assembly
+    // the direct arm uses (duplicates sum at admission — one operator, two solve routes), the
+    // SparsePreconditioner.Milu0 row (modified row-sum-preserving incomplete LU, exactly the elliptic
+    // preconditioner the Neumann Laplacian wants), and SolveIterativeDetailed's no-fallback contract — a
+    // non-converged run reports IterativeExhausted with the true residual, and this page rails it by name
+    // rather than letting the kernel's dense-fallback route densify millions of unknowns. A second CSR
+    // assembly on the MathNet plane beside the kernel's is the deleted form.
+    private static Fin<HeightEvidence> Krylov(ReadOnlySpan<double> rhs, TexturePlane height, HeightEvidence evidence, Op key) {
+        Dimension order = Dimension.Create(rhs.Length);
+        Arr<double> source = new(rhs);
+        return SparseMatrix.FromTriplets(order, order, Laplacian(height.Width.Value, height.Height.Value), key)
+            .Bind(matrix => matrix.SolveIterativeDetailed(source, SparsePreconditioner.Milu0, KrylovTolerance, KrylovIterations, key))
+            .Bind(receipt => receipt.Stop.IsUsable
+                ? Fin.Succ(Restore(height, receipt.Solution.AsSpan(), evidence))
+                : MaterialFault.Parameter(key, $"<height-krylov:{receipt.Stop.Key}:{receipt.Residual:R}>"));
     }
 
     // The gradient DIVERGENCE the integration inverts, over the staged normal field: each texel's (-nx/nz, -ny/nz)
     // slope pair differentiated once more, so the right-hand side is the Laplacian of the height field being sought.
-    private static void Divergence(TexturePlane normal, Span<double> field, int width, int height) { /* stage the normal rows, form the slope pair per texel, and accumulate the central-difference divergence */ }
-    private static void Divergence(TexturePlane normal, Span<Complex> field, int width, int height) { /* the same accumulation into the spectral staging, imaginary part zero */ }
+    // ONE slope-pair accumulation, written into whichever staging the route rents. The generic constraint is the
+    // point: the spectral route needs Complex cells and the bounded route needs double cells, and the divergence
+    // they invert is one body — a second transcription is where a sign flips in exactly one of them and only the
+    // periodic plane shows it.
+    private static void Divergence<T>(TexturePlane normal, Span<T> field, int width, int height) where T : INumberBase<T> {
+        int lanes = normal.Lanes;
+        using MemoryOwner<double> staged = MemoryOwner<double>.Allocate(width * height * lanes);
+        PlaneKernel.Materialize(normal, staged.Span);
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                // p = -nx/nz and q = -ny/nz are the height gradients the unit normal encodes; the divergence of
+                // that pair IS the Laplacian of the height field the solve seeks. A degenerate nz would divide
+                // by zero on a normal the plane admitted, so the floor keeps the whole fold total.
+                double px = Slope(staged.Span, x + 1, y, width, height, lanes).P;
+                double mx = Slope(staged.Span, x - 1, y, width, height, lanes).P;
+                double qy = Slope(staged.Span, x, y + 1, width, height, lanes).Q;
+                double ry = Slope(staged.Span, x, y - 1, width, height, lanes).Q;
+                field[(y * width) + x] = T.CreateChecked(((px - mx) + (qy - ry)) * 0.5);
+            }
+        }
+    }
 
-    // The five-point Neumann Laplacian as a TRIPLET STREAM: duplicates sum and zeros drop at admission, so the
-    // boundary rows assemble by accumulation and a hand-built compressed storage never appears.
-    private static IEnumerable<(int Row, int Col, double Value)> Laplacian(int width, int height) { /* interior -4/+1 stencil; boundary rows drop their absent neighbours, which IS the Neumann condition */ }
+    private static (double P, double Q) Slope(ReadOnlySpan<double> staged, int x, int y, int width, int height, int lanes) {
+        int at = ((Math.Clamp(y, 0, height - 1) * width) + Math.Clamp(x, 0, width - 1)) * lanes;
+        double nz = staged[at + 2];
+        double floor = Math.Abs(nz) < 1e-6 ? Math.CopySign(1e-6, nz == 0.0 ? 1.0 : nz) : nz;
+        return (-staged[at] / floor, -staged[at + 1] / floor);
+    }
 
-    // Integration recovers the field up to an additive constant, so the reconstruction re-centres on the evidence's
-    // recorded mean rather than on whatever offset the solve happened to land — and it reports the residual it left.
-    private static HeightEvidence Restore(TexturePlane height, ReadOnlySpan<double> solved, HeightEvidence evidence, int width, int rows) { /* re-centre on evidence.Mean, write through the row rail, and return evidence.With(residual) */ }
+    // The NEGATED five-point Neumann Laplacian as a TRIPLET STREAM: positive count on the diagonal, minus one per
+    // kept neighbour — the positive-definite orientation a Cholesky factor demands, with the right-hand side
+    // negated to match at the one assembly site. Duplicates sum and zeros drop at admission, so the boundary rows
+    // assemble by accumulation and a hand-built compressed storage never appears; a boundary row simply omits its
+    // absent neighbours and carries the count of the ones it kept, which IS the zero normal derivative — the same
+    // border the forward gradient reads. The last row is PINNED to the identity so the operator is non-singular: a
+    // pure Neumann Laplacian has the constant vector in its null space and no factor exists for it, and the
+    // constant is exactly what the evidence's mean restores afterward.
+    private static IEnumerable<(int Row, int Col, double Value)> Laplacian(int width, int height) {
+        int order = width * height, pinned = order - 1;
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int row = (y * width) + x;
+                if (row == pinned) { yield return (row, row, 1.0); continue; }
+                int kept = 0;
+                // The pin eliminates SYMMETRICALLY: a neighbour of the pinned texel keeps its diagonal count but
+                // emits no coupling, because a one-sided pin leaves an asymmetric matrix no Cholesky factor admits.
+                foreach (int neighbour in Neighbours(x, y, width, height)) {
+                    if (neighbour != pinned) { yield return (row, neighbour, -1.0); }
+                    kept++;
+                }
+                yield return (row, row, kept);
+            }
+        }
+    }
+
+    private static IEnumerable<int> Neighbours(int x, int y, int width, int height) {
+        int row = (y * width) + x;
+        if (x > 0) { yield return row - 1; }
+        if (x < width - 1) { yield return row + 1; }
+        if (y > 0) { yield return row - width; }
+        if (y < height - 1) { yield return row + width; }
+    }
+
+    // Integration recovers the field up to an additive constant, so the reconstruction re-centres on the
+    // evidence's recorded mean rather than on whatever offset the solve happened to land. The residual it
+    // reports is the RECONSTRUCTION FIT — the largest excursion the re-centred field made outside the
+    // normalized span, relative to the field's own spread — which is the one signal both routes can measure at
+    // one owner: the spectral route consumes its right-hand side in place inside the transform, so no linear
+    // residual survives to this seam, and a column only one route could fill would read as zero on the other.
+    private static HeightEvidence Restore(TexturePlane height, ReadOnlySpan<double> solved, HeightEvidence evidence) {
+        int width = height.Width.Value;
+        double low = double.PositiveInfinity, high = double.NegativeInfinity, sum = 0.0;
+        for (int at = 0; at < solved.Length; at++) {
+            low = Math.Min(low, solved[at]);
+            high = Math.Max(high, solved[at]);
+            sum += solved[at];
+        }
+        double offset = evidence.Mean - (sum / Math.Max(1, solved.Length));
+        double spread = Math.Max(1e-12, high - low);
+        using SpanOwner<double> row = SpanOwner<double>.Allocate(height.RowScalars);
+        double residual = 0.0;
+        for (int layer = 0, at = 0; layer < height.Layers.Value; layer++) {
+            for (int y = 0; y < height.Height.Value; y++) {
+                for (int x = 0; x < width; x++, at++) {
+                    double value = solved[at] + offset;
+                    double clamped = Math.Clamp(value, 0.0, 1.0);
+                    residual = Math.Max(residual, Math.Abs(value - clamped) / spread);
+                    for (int lane = 0; lane < height.Lanes; lane++) { row.Span[(x * height.Lanes) + lane] = clamped; }
+                }
+                height.Write(y, layer, row.Span);
+            }
+        }
+        return evidence.With(residual);
+    }
 }
 ```
 
 ## [05]-[RESEARCH]
 
-- [FOURIER_BUFFER_ACCESS]-[OPEN]: the spectral route hands the transform the pooled rental's backing array through `MemoryOwner<Complex>.DangerousGetArray()`. Verify that the returned `ArraySegment<Complex>` has a zero offset for a full-length rental; a non-zero offset would transform the wrong window, and the fallback is a plain `Complex[]` staging with one copy at each end.
-- [NABLA_CURVATURE_PROJECTION]-[OPEN]: the four `CurvatureMeasure` rows are asserted to project from one Hessian eigenvalue pair the kernel `Numerics/calculus` `Nabla` stencil family supplies. Verify the stencil entry's spelling and whether it returns the second-derivative triple directly; the alternative is a local 3x3 second-difference kernel, which would be a hand-rolled reimplementation if the stencil family already covers it.
-- [SAMPLEKIND_DIRECTION_DRAW]-[OPEN]: the occlusion cast draws hemisphere directions from the kernel `Processing/sample` `SampleKind` blue-noise spectrum. Verify the entry that turns a spectrum row plus a `Deterministic` stream into a cosine-weighted hemisphere direction set; a spectrum that only produces planar points would need the cosine mapping stated here, and stating it twice is the duplication this row exists to prevent.
+(none)
+

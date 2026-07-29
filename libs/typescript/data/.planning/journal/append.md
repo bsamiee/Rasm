@@ -6,15 +6,13 @@ ONE write owner of the record of truth: journal, outbox, and idempotency ledger 
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                                                                     |
-| :-----: | :------------------ | :--------------------------------------------------------------------------------------------------------- |
-|  [01]   | `STREAM_VOCABULARY` | `StreamKey`, the event-family contract, the persisted row models, the ensure rows                          |
-|  [02]   | `APPEND_SURFACE`    | `Occ`, the locked OCC append, `VersionConflict`, the receipt, the bulk lane                                |
-|  [03]   | `LEDGER_CLAIM`      | the idempotency ledger — scoped key, explicit first-writer marker, replay receipt                          |
-|  [04]   | `ATOMIC_PUBLISH`    | the one publish transaction — claim, append, outbox, slots, settle, wake                                   |
-|  [05]   | `READ_SURFACE`      | `head` and the windowed `read` stream lifted through the evolve plan                                       |
-|  [06]   | `RELAY_ROWS`        | the deliverable model, the SKIP-LOCKED claim/complete pair, the CloudEvents envelope, the overlay bindings |
-|  [07]   | `HOOK_POINTS`       | the core-brand data hook points and the publisher port the app mounts on the runtime engine                |
+- [02]-[STREAM_VOCABULARY]: `StreamKey`, the event-family contract, the persisted row models, the ensure rows.
+- [03]-[APPEND_SURFACE]: `Occ`, the locked OCC append, `VersionConflict`, the receipt, the bulk lane.
+- [04]-[LEDGER_CLAIM]: the idempotency ledger — scoped key, explicit first-writer marker, replay receipt.
+- [05]-[ATOMIC_PUBLISH]: the one publish transaction — claim, append, outbox, slots, settle, wake.
+- [06]-[READ_SURFACE]: `head` and the windowed `read` stream lifted through the evolve plan.
+- [07]-[RELAY_ROWS]: the deliverable model, the SKIP-LOCKED claim/complete pair, the CloudEvents envelope, the overlay bindings.
+- [08]-[HOOK_POINTS]: the core-brand data hook points and the publisher port the app mounts on the runtime engine.
 
 ## [02]-[STREAM_VOCABULARY]
 

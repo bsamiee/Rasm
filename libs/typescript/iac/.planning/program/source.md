@@ -1,13 +1,11 @@
 # [IAC_SOURCE]
 
-`Source` owns the bootstrap-axis source-control shell and static-distribution fold. Repository law, deployment environments aligned with `StackSpec.doppler.config`, public deploy keys, webhook configuration, and non-secret Actions variables share one tier. `Source.distribute` converges a built frontend into an arm's object cell and publishes caller-supplied artifact rows as content-addressed `served` outputs. `secretssync.GithubActions` alone fills secret values from the canonical config. Module `iac/src/program/source.ts` grows by one environment row, `_FOLDERS` dialect row, artifact row, or variable entry.
+`Source` owns the bootstrap-axis source-control shell and static-distribution fold. Repository law, deployment environments aligned with `StackSpec.doppler.config`, public deploy keys, webhook configuration, and non-secret Actions variables share one tier. `Source.distribute` converges a built frontend into an arm's object cell and publishes caller-supplied artifact rows as content-addressed `served` outputs — a multi-file artifact publishing every leaf under one digest directory. `secretssync.GithubActions` alone fills secret values from the canonical config. Module `iac/src/program/source.ts` grows by one environment row, `_FOLDERS` dialect row, `_DECODERS` row, `_TYPE_REPAIR` row, artifact row, or variable entry.
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                               | [PUBLIC] |
-| :-----: | :--------------- | :------------------------------------------------------------------- | :------- |
-|  [01]   | `SOURCE_CONTROL` | repo, branch law, environment gates, deploy keys, webhook, variables | `Source` |
-|  [02]   | `DISTRIBUTION`   | the synced-folder dialect record and roster-derived serving rows     | `Source` |
+- [02]-[SOURCE_CONTROL]: repo, branch law, environment gates, deploy keys, webhook, variables; `Source`.
+- [03]-[DISTRIBUTION]: synced-folder dialects, digest-directory addresses, leaf presence, headers; `Source`.
 
 ## [02]-[SOURCE_CONTROL]
 
@@ -21,9 +19,9 @@
 - Entry: `new Source("source", { spec, owner, token, repository, environments, webhook, variables }, opts)` from the composing root, `token` the `GITHUB_TOKEN` fan-in read; `source.deployKey.privateKeyOpenssh` stays graph-interior; `RepositoryEnvironment` names feed the `_MIRRORS` githubActions rows.
 - Growth: a new gated environment is one `environments` row; a new org-level posture (`Team`, `TeamRepository`, `OrganizationRuleset`) is one row when the estate grows an org.
 - Boundary: the mirror mechanics are `operate/secret.md`'s; the CI workflows that run inside the shells are app repo material, never lib code; `appAuth` (GitHub-App identity) supersedes the PAT when the estate earns a durable machine identity.
-- Packages: `@pulumi/github` (`Provider`, `Repository`, `RepositoryRuleset`, `RepositoryEnvironment`, `RepositoryEnvironmentDeploymentPolicy`, `RepositoryDeployKey`, `RepositoryWebhook`, `ActionsVariable`); `@pulumi/tls` (`PrivateKey`); `effect` (`Array`, `Record`); `../program/spec.ts` (`StackSpec`, `Tier`).
+- Packages: `@pulumi/github` (`Provider`, `Repository`, `RepositoryRuleset`, `RepositoryEnvironment`, `RepositoryEnvironmentDeploymentPolicy`, `RepositoryDeployKey`, `RepositoryWebhook`, `ActionsVariable`); `@pulumi/tls` (`PrivateKey`); `@pulumi/pulumi` (`Input`, `ComponentResourceOptions`); `effect` (`Array`, `Record`, `Schema`); `./spec.ts` (`StackSpec`, `Tier`).
 
-```typescript
+```typescript signature
 import * as github from "@pulumi/github"
 import * as pulumi from "@pulumi/pulumi"
 import * as tls from "@pulumi/tls"
@@ -47,10 +45,24 @@ declare namespace Source {
 }
 
 class Source extends Tier {
+  // decoder rows own their leaf sets; the digest arrives from the build that copied those bytes, so a
+  // caller supplies identity alone and no call site re-spells a filename the viewer resolves by name
+  static decoder(slug: Source.DecoderSlug, digest: string): Source.AssetRow {
+    return { slug, digest, ..._DECODERS[slug] }
+  }
+  // served-header rows reach an arm that converges no folder — a static origin uploading its build product
+  // out of graph fronts the same addresses and reads these values rather than re-spelling one
+  static get edge(): typeof _EDGE_RULES {
+    return _EDGE_RULES
+  }
+  // admission runs BEFORE the dialect registers — a refused artifact set leaves no converging component
+  // behind, and the built directory answers both the collision question and the presence question at once
   static distribute(name: string, args: Source.Distribution, opts?: pulumi.ComponentResourceOptions): Source.Distributed {
+    const rows = Schema.decodeUnknownSync(_assetsUnder(args.path))(args.assets ?? [])
     return {
       folder: _FOLDERS[args.arm](name, args, opts),
-      served: Record.fromEntries(Array.map(Schema.decodeUnknownSync(_Assets)(args.assets ?? []), _addressed)),
+      served: Record.fromEntries(Array.flatMap(rows, _addressedAll)),
+      edge: _EDGE_RULES,
     }
   }
   readonly deployKey: tls.PrivateKey
@@ -121,24 +133,40 @@ class Source extends Tier {
 [DISTRIBUTION]:
 - Law: the bucket is the arm's object cell, the folder is its content — `_FOLDERS` is the dialect record keyed by the arms whose object cells the synced-folder component reaches: the `aws` row converges onto `aws.s3.BucketV2.bucket`, the `gcp` row onto `gcp.storage.Bucket.name`; the component never creates a bucket, cloud credentials thread through the arm's one provider seam via `opts.providers`, and the `cloudflare` arm's static distribution stays its own `PagesProject`/R2 rows — no R2 dialect exists here and none is faked through the S3 row.
 - Law: the sync policy is one row — `sync.managed` (default true) tracks every file as a state-managed object (per-file diffs, policy visibility, drift evidence) with `false` the large-site row where per-file state is cost; `sync.hidden` admits the dotfiles (`.well-known`) the sync skips by default; `sync.aliases: false` opts out of the aliasing that smooths a managed-mode flip; `path` points at a built artifact directory handed in like every pin — the UI folder's build product, never a lib literal.
-- Law: artifact identity enters as caller data admitted once — each `{ slug, digest, file }` row decodes through the `_Assets` schema at `distribute`: path-safe single-segment `digest` and `file` spellings (no separators, no traversal, no empty form) and slug-unique rows, so a malformed or colliding row fails the deploy loud and never overwrites a served entry; the plane addresses rows without interpreting the slug, and no UI codec vocabulary is declared here.
-- Law: serving paths are content-addressed and immutable — `_addressed` derives `assets/<digest>/<file>` from the row alone, both seam ends compute the identical derivation so no free-form path string ever crosses, a byte change mints a new digest hence a new path, and every published path is cache-forever; edge cache posture over `assets/*` rides the owning arm's CDN rows, never per-file metadata writes.
-- Law: `distribute` returns the synced component beside the `served` slug-to-path record, and the composing arm returns that record through `StackOutputs`; under `sync.managed`, a declared artifact absent from the built directory surfaces as per-object drift.
-- Entry: `Source.distribute("frontend", { arm: "aws", path, bucket, assets }, { providers })` inside the owning arm after its object cell stands; the returned `served` record exits through the arm's `served` plane keys.
-- Growth: a new distribution target is one `_FOLDERS` row when a new arm's dialect ships; a new artifact is one caller row.
-- Boundary: fronting DNS/CDN rows stay on the owning arms; artifact-vocabulary minting stays with the consuming folder; the `served` plane's decode is `spec.md`'s.
-- Packages: `@pulumi/synced-folder` (`S3BucketFolder`, `GoogleCloudFolder`); `effect` (`Array`, `Record`, `Schema`).
+- Law: artifact identity enters as caller data admitted once — each `{ slug, digest, file, siblings }` row decodes at `distribute` over one `_SEGMENT` admission (no separators, no traversal, no empty or dot-only form) so a slug can never spell a derived key and a leaf can never escape its directory; `siblings` names every further leaf publishing under the row's own digest, which is what makes a multi-file artifact ONE identity rather than a family of independently-versioned rows.
+- Law: `assets` takes the ENCODED row, so `siblings` enters optional and the schema fills the empty set — a single-leaf app artifact spells three fields, `Source.decoder` fills all four for a multi-leaf decoder, and one entry type admits both; demanding the decoded row at the entry refuses every caller whose artifact roster predates the sibling column while its own admission accepts them.
+- Law: `_Assets` admits on the derived ENTRY set, never on a field — the flattened `_addressedAll` output is injective in both directions, so a duplicate slug, a repeated sibling, a sibling colliding with its own `file`, and two rows sharing one digest all fail as the single collision they are; a per-field uniqueness check passes the two-rows-one-directory case that silently gives one address space two owners.
+- Law: serving paths are content-addressed and immutable — `_addressed` is the ONE address projection of `_segments`, the empty leaf spelling the digest directory itself, so the file form and the directory form cannot drift; a byte change mints a new digest hence a new path and a new directory, and both seam ends compute the derivation independently because no free-form path string ever crosses.
+- Law: the digest segment is LOWERCASE at admission — a hex key lowers ONCE, at egress-name construction, so `_Asset` admits no uppercase letter and a key handed over un-lowered refuses here instead of publishing `assets/<UPPER>/…` beside the `assets/<lower>/…` the reading end derives from the same key; uppercasing a path segment to match a wire value is the deleted direction, and one set answering to two directories is the address fork this admission forecloses.
+- Law: one row publishes three key shapes — the bare slug carries the row's primary leaf, the trailing-slash key carries its digest directory, and each sibling appends its own leaf; a consumer resolving a decoder by directory and a consumer resolving one file read the same row without a second identity, and the primary leaf takes the bare key exactly once so no address answers to two keys.
+- Law: `_DECODERS` owns the served decoder leaf sets and `Source.decoder` mints the row from a slug and a build-supplied digest — `draco` publishes `draco_wasm_wrapper.js` beside `draco_decoder.wasm` and the `draco_decoder.js` fallback because the loader resolves all three from the directory it is handed and dropping the fallback strands every runtime without wasm; `ktx2` publishes `basis_transcoder.js` beside `basis_transcoder.wasm`; `meshopt` publishes the UMD decoder build under a `meshopt_decoder.js` leaf alone — its consumer injects a CLASSIC script element, so the ES-module distribution leaf raises a syntax error nothing reports, and the distribution's own `.cjs` spelling stamps `application/node` at the sync (a MIME `nosniff` refuses for scripts), so the build copies the UMD bytes to the `.js` leaf the row names. `msc_basis_transcoder` is deleted vocabulary the current transcoder refuses by name — a row spelling it publishes bytes no consumer loads.
+- Law: `_EDGE_RULES` is the estate's one served-header roster and `Source.edge` publishes it to EVERY arm, not only the arms that converge a folder — a static origin whose build product uploads out of graph fronts the same addresses, so reachability tied to a `distribute` call is what forces that arm to invent a second literal. Synced-folder dialects expose no metadata coordinate — each object's content type stamps once from the leaf extension (`mime.getType`, `text/plain` the fallback) and nothing else is settable — so every header the origin cannot carry lands on whichever edge fronts it, and one `pattern`/`header`/`value` shape carries each.
+- Law: `_CACHE_POSTURE` is the roster's immutable-asset row — `assets/*` answers `Cache-Control: public, max-age=31536000, immutable`, because a content-addressed leaf never changes bytes under one path and revalidation buys nothing the address has already proven; an unfronted origin serves these leaves under its own default posture, which the row makes addressable instead of leaving each arm to invent a header.
+- Law: `_TYPE_REPAIR` carries the roster's content-type rows — the egress leaf grammar resolves through the provider's mime table for `png` `tif` `webp` `exr` `ktx2` `avif`, and misses on `hdr` and `jxl`, which publish as `text/plain`; a `nosniff` origin refuses every consumer that types its read, so the two misses are rows the edge corrects and a new codec extension joins the roster the same way. Rows here state the SERVED type of bytes this plane already publishes and never what a codec means.
+- Law: the served address IS the object key — no dialect carries a key prefix, so `assets/<digest>/<leaf>` is equally the published address and the leaf's path relative to `path`, and `_segments` owns that coordinate once: joined on `/` it spells the address, spread into the host join it spells where the build copies the bytes. Two answers for one leaf grow exactly where a second layout literal lands.
+- Law: `_assetsUnder` gates presence at graph construction — the sync manages only the files it FINDS, so a declared leaf the build never copied mints no object, raises no drift, and publishes an address that answers 404 until a consumer refuses at runtime; the gate runs BEFORE the dialect registers, names every absent leaf, and leaves no converging component behind a refused artifact set. Per-object drift under `sync.managed` proves a MANAGED object changed and proves nothing about an artifact the roster declared and the directory never held.
+- Law: `distribute` returns the synced component beside the `served` slug-to-path record and the edge roster, and the composing arm returns that record through `StackOutputs`.
+- Entry: `Source.distribute("frontend", { arm: "aws", path, bucket, assets }, { providers })` inside the owning arm after its object cell stands, `assets` carrying `Source.decoder(slug, digest)` rows beside the app's own artifacts; the returned `served` record exits through the arm's `served` plane keys, and `Source.edge` reads the header roster from any arm with an edge.
+- Growth: a new distribution target is one `_FOLDERS` row carrying its bucket coordinates alone — `_sync` owns the policy triple, so no dialect restates it and no third copy drifts from these defaults; a new decoder is one `_DECODERS` row; a new served-header fact is one `_TYPE_REPAIR` row; a new artifact is one caller row.
+- Boundary: fronting DNS/CDN rows stay on the owning arms; this plane declares WHICH bytes publish under one identity and never what a codec means — transcoder wiring, format vocabulary, and capability refusal stay with the consuming folder; the `served` plane's decode is `spec.md`'s.
+- Packages: `@pulumi/synced-folder` (`S3BucketFolder`, `GoogleCloudFolder`); `@pulumi/pulumi` (`Input`, `ComponentResource`, `ComponentResourceOptions`); `effect` (`Array`, `Record`, `Schema`); `node:fs` (`existsSync`); `node:path` (`join`).
 
-```typescript
+```typescript signature
 import * as syncedFolder from "@pulumi/synced-folder"
+import { existsSync } from "node:fs"
+import { join } from "node:path"
 
 declare namespace Source {
+  // entries take the ENCODED row so siblings stay optional for a single-leaf artifact; Source.decoder
+  // mints the decoded row every derivation reads, its empty set already filled
+  type AssetInput = typeof _Asset.Encoded
   type AssetRow = typeof _Asset.Type
+  type DecoderSlug = keyof typeof _DECODERS
   type Distribution = {
     readonly arm: keyof typeof _FOLDERS
     readonly path: string
     readonly bucket: pulumi.Input<string>
-    readonly assets?: ReadonlyArray<AssetRow>
+    readonly assets?: ReadonlyArray<AssetInput>
     readonly sync?: {
       readonly managed?: boolean
       readonly hidden?: boolean
@@ -148,45 +176,123 @@ declare namespace Source {
   type Distributed = {
     readonly folder: pulumi.ComponentResource
     readonly served: Record.ReadonlyRecord<string, string>
+    readonly edge: typeof _EDGE_RULES
   }
 }
 
-// path admission: one relative segment per coordinate — no separators, no traversal, no empty spelling —
-// so the derived assets/<digest>/<file> address is safe by construction, and slug-unique rows keep
-// Record.fromEntries collision-free
+// one relative segment per coordinate — no separators, no traversal, no empty or dot-only spelling — so a
+// slug can never forge a derived key and a leaf can never climb out of its digest directory
+const _SEGMENT = Schema.String.pipe(Schema.pattern(/^(?!\.{1,2}$)[A-Za-z0-9._-]+$/))
+
 const _Asset = Schema.Struct({
-  slug: Schema.NonEmptyString,
-  digest: Schema.String.pipe(Schema.pattern(/^[A-Za-z0-9_-]+$/)),
-  file: Schema.String.pipe(Schema.pattern(/^(?!\.{1,2}$)[A-Za-z0-9._-]+$/)),
+  slug: _SEGMENT,
+  // no dot: a digest names a directory, never a file — and no uppercase: a key lowers once at egress
+  // construction, so an un-lowered key refuses here instead of forking one set across two directories
+  digest: Schema.String.pipe(Schema.pattern(/^[a-z0-9_-]+$/)),
+  file: _SEGMENT,
+  siblings: Schema.optionalWith(Schema.Array(_SEGMENT), { default: () => [] }),
 })
 
+// admission reads the DERIVED entries, so slug collisions, repeated siblings, a sibling equal to its own
+// row's file, and two rows sharing one digest directory all fail here as the one collision they are — and
+// refusal names every offender, because a wide derived-entry roster makes "some pair collided" a diagnosis
+// no operator can act on
 const _Assets = Schema.Array(_Asset).pipe(
-  Schema.filter((rows) => Array.dedupe(Array.map(rows, (row) => row.slug)).length === rows.length, {
-    message: () => "asset slugs are unique — a later row never silently overwrites a served entry",
+  Schema.filter((rows) => {
+    const entries = Array.flatMap(rows, _addressedAll)
+    const keys = Array.map(entries, ([key]) => key)
+    const paths = Array.map(entries, ([, path]) => path)
+    const collided = Array.dedupe([
+      ...Array.filter(keys, (key, rank) => keys.indexOf(key) !== rank),
+      ...Array.filter(paths, (path, rank) => paths.indexOf(path) !== rank),
+    ])
+    return collided.length === 0
+      ? undefined
+      : `one address answers one key and one digest one row — collided: ${collided.join(", ")}`
   }),
 )
 
-const _addressed = (asset: Source.AssetRow): readonly [string, string] =>
-  [asset.slug, `assets/${asset.digest}/${asset.file}`] as const
+// ONE coordinate owner for the pair of questions the address answers: no dialect carries a key prefix, so
+// object keys ARE the path relative to the synced root — joined on "/" these segments spell the published
+// address, spread into the host join they spell where the build copies the bytes
+const _segments = (digest: string, leaf: string): ReadonlyArray<string> => ["assets", digest, leaf]
+
+// sync manages only the files it FINDS: a declared leaf the build never copied mints no object, raises no
+// drift, and publishes an address answering 404 until a consumer refuses at runtime — so presence proves
+// at graph construction, where the roster and the built directory are both in hand
+const _assetsUnder = (root: string) =>
+  _Assets.pipe(
+    Schema.filter((rows) => {
+      const absent = Array.filter(
+        Array.flatMap(rows, (row) => Array.map([row.file, ...row.siblings], (leaf) => _segments(row.digest, leaf))),
+        (parts) => !existsSync(join(root, ...parts)),
+      )
+      return absent.length === 0
+        ? undefined
+        : `every declared leaf ships under the built directory — absent: ${Array.map(absent, (parts) => parts.join("/")).join(", ")}`
+    }),
+  )
+
+const _addressed = (digest: string, leaf: string): string => _segments(digest, leaf).join("/")
+
+// three key shapes per row — the bare slug carries the primary leaf, the trailing-slash key its digest
+// directory, each sibling its own leaf — and no address publishes twice
+const _addressedAll = (asset: Source.AssetRow): ReadonlyArray<readonly [string, string]> => [
+  [asset.slug, _addressed(asset.digest, asset.file)] as const,
+  [`${asset.slug}/`, _addressed(asset.digest, "")] as const,
+  ...Array.map(asset.siblings, (leaf) => [`${asset.slug}/${leaf}`, _addressed(asset.digest, leaf)] as const),
+]
+
+// leaf spellings transcribe the viewer's own decoder distributions: the draco loader resolves its wrapper,
+// wasm, and js fallback from the directory it is handed, and the transcoder resolves its js/wasm pair the
+// same way; meshopt alone renames — its consumer injects a classic script element, which the ES-module
+// leaf cannot serve, and the UMD build's .cjs spelling stamps application/node at the sync, which nosniff
+// refuses — so the build copies the UMD bytes to the .js leaf this row names
+const _DECODERS = {
+  draco: { file: "draco_wasm_wrapper.js", siblings: ["draco_decoder.wasm", "draco_decoder.js"] },
+  ktx2: { file: "basis_transcoder.js", siblings: ["basis_transcoder.wasm"] },
+  meshopt: { file: "meshopt_decoder.js", siblings: [] },
+} as const
+
+// content-addressed leaves never change bytes under one path, so revalidation buys nothing the address
+// has not already proven
+const _CACHE_POSTURE = {
+  pattern: "assets/*",
+  header: "Cache-Control",
+  value: "public, max-age=31536000, immutable",
+} as const
+
+// sync stamps a leaf's type from mime.getType with text/plain the fallback, and the egress grammar's hdr
+// and jxl spellings answer null there — a nosniff origin then refuses every consumer that types its read,
+// so the edge restates the misses and every other egress extension resolves already
+const _TYPE_REPAIR = [
+  { pattern: "assets/*.hdr", header: "Content-Type", value: "image/vnd.radiance" },
+  { pattern: "assets/*.jxl", header: "Content-Type", value: "image/jxl" },
+] as const
+
+// ONE roster of the headers the sync cannot set, ordered cache-then-type: an arm that converges a folder
+// reads it off Distributed, an arm whose static origin uploads out of graph reads Source.edge, and neither
+// re-spells a value — the second literal is how one estate grows two answers for one address
+const _EDGE_RULES = [_CACHE_POSTURE, ..._TYPE_REPAIR] as const
+
+// sync policy is ONE fact every dialect shares, so it projects once and each row spreads it — a new
+// dialect then carries its bucket coordinates alone and no copy of the triple drifts from these
+// defaults, which is the whole difference between a dialect record and parallel constructions
+const _sync = (args: Source.Distribution) => ({
+  path: args.path,
+  managedObjects: args.sync?.managed ?? true,
+  includeHiddenFiles: args.sync?.hidden ?? false,
+  disableManagedObjectAliases: args.sync?.aliases === false,
+})
 
 const _FOLDERS = {
   aws: (name: string, args: Source.Distribution, opts?: pulumi.ComponentResourceOptions): pulumi.ComponentResource =>
-    new syncedFolder.S3BucketFolder(name, {
-      path: args.path,
-      bucketName: args.bucket,
-      acl: "private",
-      managedObjects: args.sync?.managed ?? true,
-      includeHiddenFiles: args.sync?.hidden ?? false,
-      disableManagedObjectAliases: args.sync?.aliases === false,
-    }, opts),
+    // a fresh BucketV2 defaults Object Ownership to bucket-owner-enforced, which refuses every ACL-bearing
+    // PutObject EXCEPT the bucket-owner-full-control canned ACL — the one spelling the required `acl` knob
+    // accepts under both ownership postures, so the sync never trips AccessControlListNotSupported
+    new syncedFolder.S3BucketFolder(name, { ..._sync(args), bucketName: args.bucket, acl: "bucket-owner-full-control" }, opts),
   gcp: (name: string, args: Source.Distribution, opts?: pulumi.ComponentResourceOptions): pulumi.ComponentResource =>
-    new syncedFolder.GoogleCloudFolder(name, {
-      path: args.path,
-      bucketName: args.bucket,
-      managedObjects: args.sync?.managed ?? true,
-      includeHiddenFiles: args.sync?.hidden ?? false,
-      disableManagedObjectAliases: args.sync?.aliases === false,
-    }, opts),
+    new syncedFolder.GoogleCloudFolder(name, { ..._sync(args), bucketName: args.bucket }, opts),
 } as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------

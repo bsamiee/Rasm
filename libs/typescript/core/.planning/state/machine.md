@@ -4,11 +4,9 @@ The statechart owner: a closed transition system is data — one `Transition.Spe
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                  | [PUBLIC]                               |
-| :-----: | :----------------- | :---------------------------------------------------------------------- | :------------------------------------- |
-|  [01]   | `STATECHART_TABLE` | node/row/config vocabulary, one-shot compile, static tree facts         | `Transition.Spec`, `Transition.spec`   |
-|  [02]   | `MACROSTEP_FOLD`   | selection, conflict removal, exit/entry algebra, fuel-bounded macrostep | `Transition.drive`, `Transition.trace` |
-|  [03]   | `ACTOR`            | boot, restore, wire admission, arming, subscribable state, fact stream  | compiled `boot`/`restore`              |
+- [02]-[STATECHART_TABLE]: node/row/config vocabulary, one-shot compile, static tree facts; `Transition.Spec`, `Transition.spec`.
+- [03]-[MACROSTEP_FOLD]: selection, conflict removal, exit/entry algebra, fuel-bounded macrostep; `Transition.drive`, `Transition.trace`.
+- [04]-[ACTOR]: boot, restore, wire admission, arming, subscribable state, fact stream; compiled `boot`/`restore`.
 
 ## [02]-[STATECHART_TABLE]
 

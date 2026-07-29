@@ -4,12 +4,10 @@ One authorization owner: the entitlement vocabulary a verified token resolves in
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]           | [PUBLIC]                                      |
-| :-----: | :------------------ | :-------------------------------------------- |
-|  [01]   | `CLAIM_VOCABULARY`  | `Role`, `ClaimSet`, `ClaimFault`              |
-|  [02]   | `CLAIM_RESOLUTION`  | `Claim`                                       |
-|  [03]   | `POLICY_VOCABULARY` | `PolicyDecision`, `RelationStore`, `FlagGate` |
-|  [04]   | `POLICY_EVALUATION` | `Policy`, `PolicyFault`                       |
+- [02]-[CLAIM_VOCABULARY]: `Role`, `ClaimSet`, `ClaimFault`.
+- [03]-[CLAIM_RESOLUTION]: `Claim`.
+- [04]-[POLICY_VOCABULARY]: `PolicyDecision`, `RelationStore`, `FlagGate`.
+- [05]-[POLICY_EVALUATION]: `Policy`, `PolicyFault`.
 
 ## [02]-[CLAIM_VOCABULARY]
 

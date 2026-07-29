@@ -26,6 +26,14 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: `value/fault#CLASS_VOCABULARY` assembly grammar; `clock.md` `Uncertainty`; `evidence.md` `Availability`; `codec.md` `WireFault._policy`; the derivation vocabulary-table owner form.
 - Tension: the fault-module collapse ruling keeps the three row families distinct — the generator shares machinery, never merges; the stated-annotation export gate constrains a generic assembled-owner annotation.
 
+[PBR_GROUPS_MAP_FIELDS]-[BLOCKED]: Decoded parameter-group landings bind their baked planes — `PbrGroups` gains the map-address block.
+- Capability: the OpenPBR parameter-group landing carries per-map texture addresses — digest, egress leaf, color space, uv transform — beside its scalar blocks, so a viewer material binds baked planes off the one decoded truth instead of scalars alone.
+- Shape: map-address fields on `PbrGroups` in `libs/typescript/core/.planning/interchange/codec.md` `[06]-[LANDING_WIRE]`, mirroring the C# projection field-for-field.
+- Unlocks: the ui viewer's PBR bind reaches baked planes through the census landing, and the served-asset directory join gains its material-bind consumer.
+- Anchors: the `TextureSetWire`/`AssetSetManifest` census landings already carrying `maps[{role, digest, file, colorSpace}]` rows; `libs/.planning/ARCHITECTURE.md` `[07]-[CROSS_LANGUAGE_WIRE]` domain single-producer law and the `csharp:Rasm.Materials/Appearance/interchange` C#-sole-producer law — the TS landing mirrors the projection and never widens it ahead of its producer.
+- Arms: the C# `OpenPbrGroupsWire` projection gains its map columns at `csharp:Rasm.Materials/Appearance/interchange#MATERIAL_WIRE` and the regenerated emit lands them on `pb.OpenPbrGroupsWireSchema`.
+- Ripple: `ui` viewer material-bind counterpart follows.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed idea card template:

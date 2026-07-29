@@ -4,12 +4,10 @@ Overlay owns anchored floats, drag-dismissable sheets, command palettes, and pre
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                                  | [PUBLIC]  |
-| :-----: | :---------------- | :-------------------------------------------------------------------------------------- | :-------- |
-|  [01]   | `ANCHOR_HOST`     | the floating-anchor hook stack, middleware pipeline, dismiss policy, arrow, delay group | `Overlay` |
-|  [02]   | `SHEET_HOST`      | the vaul sheet rows — detent policy, drag discipline, nesting                           | `Overlay` |
-|  [03]   | `PALETTE`         | the `Overlay.Command` vocabulary, the cmdk hosting-shell law, the copy rail             | `Overlay` |
-|  [04]   | `PRESENCE_COHORT` | live presence cursors — client-point and world-projected anchoring                      | —         |
+- [02]-[ANCHOR_HOST]: the floating-anchor hook stack, middleware pipeline, dismiss policy, arrow, delay group; `Overlay`.
+- [03]-[SHEET_HOST]: the vaul sheet rows — detent policy, drag discipline, nesting; `Overlay`.
+- [04]-[PALETTE]: the `Overlay.Command` vocabulary, the cmdk hosting-shell law, the copy rail; `Overlay`.
+- [05]-[PRESENCE_COHORT]: live presence cursors — client-point and world-projected anchoring; —.
 
 ## [02]-[ANCHOR_HOST]
 

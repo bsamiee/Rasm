@@ -6,12 +6,10 @@ Poison never wedges a lane: a failing event diverts to a typed quarantine and th
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]     | [OWNS]                                                                          |
-| :-----: | :------------ | :------------------------------------------------------------------------------ |
-|  [01]   | `LANE_SPEC`   | the plan-bound lane value, the keyed relation, the realized `AsOf` coordinate   |
-|  [02]   | `INLINE_SLOT` | the zero-staleness lane — the slot the publish transaction executes             |
-|  [03]   | `DRAIN_ACTOR` | checkpoint ledger, SKIP-LOCKED claim, wake merge, quarantine, the machine Layer |
-|  [04]   | `MAINTENANCE` | cron/ivm/incremental rows and the shadow-table rebuild with atomic swap         |
+- [02]-[LANE_SPEC]: the plan-bound lane value, the keyed relation, the realized `AsOf` coordinate.
+- [03]-[INLINE_SLOT]: the zero-staleness lane — the slot the publish transaction executes.
+- [04]-[DRAIN_ACTOR]: checkpoint ledger, SKIP-LOCKED claim, wake merge, quarantine, the machine Layer.
+- [05]-[MAINTENANCE]: cron/ivm/incremental rows and the shadow-table rebuild with atomic swap.
 
 ## [02]-[LANE_SPEC]
 

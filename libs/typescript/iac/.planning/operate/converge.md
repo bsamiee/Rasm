@@ -4,11 +4,9 @@
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]     | [OWNS]                                                       | [PUBLIC]   |
-| :-----: | :------------ | :----------------------------------------------------------- | :--------- |
-|  [01]   | `PROJECTION`  | generated files, expected identity, runner and target inputs | `Converge` |
-|  [02]   | `RUNNER_FOLD` | ordered materialize, hydrate, and observed-proof Jobs        | `Converge` |
-|  [03]   | `PUBLICATION` | retained evidence and the generation pointer after proof     | `Converge` |
+- [02]-[PROJECTION]: generated files, expected identity, runner and target inputs; `Converge`.
+- [03]-[RUNNER_FOLD]: ordered materialize, hydrate, and observed-proof Jobs; `Converge`.
+- [04]-[PUBLICATION]: retained evidence and the generation pointer after proof; `Converge`.
 
 ## [02]-[PROJECTION]
 

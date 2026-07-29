@@ -6,6 +6,7 @@ The cross-stratum alignment seam: TWO instance-interface floors the AEC peers de
 
 - [02]-[PROJECTION_CONTRACT]: the `IElementProjection` projector floor and its one `Project`, the `ProjectionContext` element-identity/header/primitives carrier with the `Owns` vouch predicate and the `ConstraintWaiver` reviewed-deviation set, the `ProjectionSuite` graded-registration mint, and the `Assemble` composition capability the apps wire, returning the `AssemblyReceipt`.
 - [03]-[GRAPH_CONSTRAINT]: the `IGraphConstraint` IFC-semantic legality floor Bim implements, composed in `Assemble` after the structural admission, accumulating every violation applicatively — each violation graded by its `ConstraintRegistration` row's `ConstraintSeverity`, waived by content key, and the non-blocking findings landed typed on the receipt.
+- [04]-[INTERCHANGE_CARRIER]: `ImportedGeometry` the one decoded interchange mesh-pool carrier the Bim import rail produces and the Compute tile/residency lane reads, with its `MeshBlock`/`MeshInstance` instancing overlay and the seam-owned `Bake` flatten.
 
 ## [02]-[PROJECTION_CONTRACT]
 
@@ -20,6 +21,7 @@ The cross-stratum alignment seam: TWO instance-interface floors the AEC peers de
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using System.Collections.Frozen;
+using System.Numerics;                               // Matrix4x4, Vector3 — the interchange-carrier placement currency
 using LanguageExt;
 using LanguageExt.Common;
 using NodaTime;
@@ -194,7 +196,87 @@ public interface IGraphConstraint {
 }
 ```
 
-## [04]-[RESEARCH]
+## [04]-[INTERCHANGE_CARRIER]
+
+- Owner: `ImportedGeometry` the decoded interchange mesh-POOL carrier — flat `Vertices`/`Normals`/`Uvs`/`Indices` buffers holding each decoded source mesh ONCE as a `MeshBlock` range, `MeshInstance` rows placing blocks by rigid transform, `Bake()` flattening on demand; `MeshBlock` the pool range; `MeshInstance` the rigid placement.
+- Entry: `Rasm.Bim` `Exchange/import#IMPORT_RAIL` decode arms construct it (one contiguous allocation per decode, one identity instance per block on a non-instanced source) and `Rasm.Compute` `Runtime/codecs#TILE_PARTITION` slices baked leaves from it; `Bake()` is the ONE flatten — positions `Transform`, normals `TransformNormal`, UV pairs copied rigid-invariant — so a consumer needing world-space geometry calls the one owner and a consumer preserving instancing reads the overlay.
+- Law: this seat is the `STRATA_TWIN` resolution — the carrier crosses `Rasm.Bim` (S2 producer) and `Rasm.Compute` (S3 consumer), two packages that never reference each other, so the shape homes at the lowest stratum both reach; the prior same-named twins (a Bim pool form without `Uvs`, a Compute soup form without `Blocks`/`Instances`) merged onto this superset and both packages compose it.
+- Receipt: none — the carrier is data; decode evidence rides the Bim `ModelLoad` receipt, partition evidence the Compute `StreamSegment` receipt.
+- Packages: LanguageExt.Core (`Seq`), NodaTime (`Instant`), BCL inbox (`System.Numerics` `Matrix4x4`/`Vector3` — the rigid-placement currency).
+- Growth: a new vertex attribute is one buffer column threaded through `Bake` and each producing decode arm; a new placement semantic is one `MeshInstance` column; a per-format decode arm stays `Rasm.Bim`'s and a partition/encoding arm `Rasm.Compute`'s — the seam owns the SHAPE alone.
+- Boundary: `FormatKey` carries the `Rasm.Bim` `Exchange/format#FORMAT_AXIS` row KEY — the format VOCABULARY is S2 host-local row data the strata forbid below its stratum, so the seam records the canonical key string and the Bim end alone re-hydrates the row (`InterchangeFormat.Get`); `Uvs` is TEXCOORD_0 as interleaved `(u, v)` pairs — 2 floats per vertex, empty when the source declares no parameterization — filled at the decode, sliced by the tile partition with the same triangle gather, and encoded by the residency meshlet arm as its own stream, so a streamed cluster resolves a REAL unwrap with no second decode of the same bytes; geometry buffers here are host-neutral float pools, never a host geometry type, and the GRAPH keeps geometry by content hash — this carrier is the interchange DECODE product beside the graph, not a node payload.
+
+```csharp signature
+// --- [MODELS] -----------------------------------------------------------------------------
+// Mesh-POOL carrier: Vertices/Normals/Uvs/Indices hold each decoded source mesh ONCE as a Blocks range, and
+// Instances places blocks by rigid transform, so an instanced source (glTF node reuse + EXT_mesh_gpu_instancing,
+// dotbim Mesh pool, Assimp node tree, USD prim placement) round-trips its sharing instead of N baked copies.
+// Non-instanced decode is one identity instance per block, so its pool IS its world-space scene and Bake() returns
+// it unchanged; a consumer needing flat world-space geometry from an instanced carrier calls Bake() once.
+public readonly record struct MeshBlock(int VertexOffset, int VertexCount, int IndexOffset, int IndexCount);
+
+public readonly record struct MeshInstance(int Block, Matrix4x4 Transform);
+
+// Uvs carries the source's TEXCOORD_0 as interleaved (u, v) pairs — 2 floats per vertex, empty when the source
+// declares no parameterization. The Bim glTF decode fills it beside positions and normals, the Compute tile
+// partition slices it with the same triangle gather, and the residency meshlet arm encodes it as its own stream —
+// so a hit on a streamed cluster resolves a REAL unwrap instead of the bounding-proxy stand-in.
+public sealed record ImportedGeometry(
+    string FormatKey,
+    ReadOnlyMemory<float> Vertices,
+    ReadOnlyMemory<float> Normals,
+    ReadOnlyMemory<float> Uvs,
+    ReadOnlyMemory<long> Indices,
+    int VertexCount,
+    int TriangleCount,
+    Seq<MeshBlock> Blocks,
+    Seq<MeshInstance> Instances,
+    Instant At) {
+
+    public bool IsBaked => Instances.ForAll(static i => i.Transform.IsIdentity);
+
+    // Flatten the pool through the instance placements — positions Transform, normals TransformNormal, UV pairs
+    // copied unchanged (a parameterization is rigid-invariant) — into one pre-sized allocation; the baked carrier
+    // re-describes itself as one block per placement, identity instances.
+    public ImportedGeometry Bake() {
+        if (IsBaked) { return this; }
+        var (v, n, t, x) = (Vertices.Span, Normals.Span, Uvs.Span, Indices.Span);
+        int vertexTotal = Instances.Sum(i => Blocks[i.Block].VertexCount);
+        int indexTotal = Instances.Sum(i => Blocks[i.Block].IndexCount);
+        var (vertices, normals, indices) = (new float[vertexTotal * 3], new float[vertexTotal * 3], new long[indexTotal]);
+        float[] uvs = t.IsEmpty ? [] : new float[vertexTotal * 2];
+        var (blocks, placed, vSlot, iSlot) = (Seq<MeshBlock>(), Seq<MeshInstance>(), 0, 0);
+        foreach (var instance in Instances) {
+            MeshBlock block = Blocks[instance.Block];
+            for (int k = 0; k < block.VertexCount; k++) {
+                int src = (block.VertexOffset + k) * 3;
+                var p = Vector3.Transform(new Vector3(v[src], v[src + 1], v[src + 2]), instance.Transform);
+                var m = Vector3.TransformNormal(new Vector3(n[src], n[src + 1], n[src + 2]), instance.Transform);
+                int dst = (vSlot + k) * 3;
+                (vertices[dst], vertices[dst + 1], vertices[dst + 2]) = (p.X, p.Y, p.Z);
+                (normals[dst], normals[dst + 1], normals[dst + 2]) = (m.X, m.Y, m.Z);
+                if (!t.IsEmpty) {
+                    int uvSrc = (block.VertexOffset + k) * 2;
+                    int uvDst = (vSlot + k) * 2;
+                    (uvs[uvDst], uvs[uvDst + 1]) = (t[uvSrc], t[uvSrc + 1]);
+                }
+            }
+            for (int k = 0; k < block.IndexCount; k++) {
+                indices[iSlot + k] = vSlot + (x[block.IndexOffset + k] - block.VertexOffset);
+            }
+            blocks = blocks.Add(new MeshBlock(vSlot, block.VertexCount, iSlot, block.IndexCount));
+            placed = placed.Add(new MeshInstance(blocks.Count - 1, Matrix4x4.Identity));
+            (vSlot, iSlot) = (vSlot + block.VertexCount, iSlot + block.IndexCount);
+        }
+        return this with {
+            Vertices = vertices, Normals = normals, Uvs = uvs, Indices = indices,
+            VertexCount = vertexTotal, TriangleCount = indexTotal / 3, Blocks = blocks, Instances = placed,
+        };
+    }
+}
+```
+
+## [05]-[RESEARCH]
 
 - [TWO_INTERFACE_SPLIT]: the net-new Rasm interface count is 2 [M3] — `IElementProjection` (the projector floor each AEC peer implements over its captured foreign source, lowering onto a `GraphDelta`) and `IGraphConstraint` (the IFC-semantic legality Bim implements, validating a delta against the graph) — so the seam's total `Switch` enforces ONLY the structural edge law and the schema legality lives in the consumer's constraint. This is the cross-stratum alignment pattern: a lowest-stratum seam hosts the instance-interface floors the closed-vocabulary siblings depend up on and implement, aligning by contract without sibling references, each package usable in isolation (Materials projects a material subgraph, Bim the IFC projection, Persistence persists any `ElementGraph`). Both floors are open points foreign code plugs into (the `OPEN_FLOOR_DISPATCH` form) — the projector returning `Fin` (one dependent lowering) and the constraint returning `Validation` (independent legality rules accumulating) — never a `[Union]` the foreign assembly extends and never an instance default-interface-member.
 - [OWNER_MINTS_IDENTITY]: the OWNER of a concept mints its `Object` under the ONE rooted-identity regime (`Graph/element#NODE_MODEL` `ObjectKind ∈ {Type, Occurrence}`, no content-keyed-vs-rooted bifurcation for an `Object`). `Rasm.Materials` owns Component Types, so the `ComponentProjector` mints the DETERMINISTIC-rooted Type id through the kernel Type-seed `NodeId` derivation — rooted, yet a pure function of the `Object` canonical content with the volatile `Representations` EXCLUDED from the seed, so identical Components dedup to one Type and a later geometry attach (the heavy `Body` content hash) never re-keys it; the determinism is LOAD-BEARING, because a pure-function id is known BEFORE the projection runs and the owner seeds it into `ElementIds` with no minting race. An occurrence-authoring projector (a `SemanticProjector` ingesting an `IfcElement`, an app authoring from scratch) mints the Guid-v7 Occurrence id through `NodeId.Rooted()`, the IFC GlobalId riding a Bim-stored `Object.ExternalId` [H6]. An ASPECT projector mints NOTHING: it authors edges only INTO a context-vouched id through `ProjectionContext.Owns`, composing `ctx.Owns(element) ? Link(...) : ProjectionFault.Unvouched(...)` — the skip-vs-rail policy the projector's, because a pure-isolation run authoring no edge is no fault while a binding to an unvouched element MUST rail, never a silent drop [H12]. The mint-vs-vouch split is per-CONCEPT, not per-projector — the `ComponentProjector` mints the Type it OWNS and vouches the occurrence it BINDS through `Assign.TypeDefinition` in ONE `Project` — replacing the fragile minter-stamps-the-aspect-egress convention, the seam adding no interface and no mint method: both mints are owner-side compositions of the kernel `NodeId` floor.

@@ -11,11 +11,11 @@ THE MATERIAL WIRE VOCABULARY and THE MATERIALX NODE-GRAPH INTERCHANGE. This page
 ## [02]-[MATERIAL_WIRE]
 
 - Owner: `MaterialWire` the canonical OpenPBR-vector payload behind the seam appearance content key; `OpenPbrGroupsWire` the OpenPBR Surface 1.1 parameter-group projection; `WireProvenance` the wire receipt; `WireMap` the ONE generated `[Mapper]` owning the `OpenPbrSurface`→wire and `Provenance`→wire transcriptions; `MaterialWire.Summary`/`Project`/`Mint` the static lowering folds co-located on the record (`Summary` → seam `AppearanceSummary`, `Project` → the full payload, `Mint` → the registered-row mint); `WireCodec` the serialization owner (the one `JsonSerializerOptions` and `MessagePackSerializerOptions` the `MaterialWire` encodes/decodes through) with `WireResolver` the `[GeneratedMessagePackResolver]` AOT source-generated resolver over the annotated wire records.
-- Entry: `public static Fin<AppearanceSummary> Summary(MaterialParameters parameters, Op key)` lowers a library row to the SEAM `AppearanceSummary` through the seam-owned `AppearanceSummary.Of` factory — the neutral PBR scalars with the `AppearanceKey` the factory mints (the kernel seed-zero `XxHash128` over the canonical PBR bytes, the ONE hasher) on the factory's own `Fin` rail, since it gates every channel to the unit range and takes the `Op` key rather than a tolerance, the CONTRACTED entry `Projection/component#COMPONENT_SUBGRAPH` `ComponentSubgraph.Capture` composes (`MaterialLibrary.Lookup(id, key).Bind(row => MaterialWire.Summary(row, key))`) and the SAME seam factory `Rasm.Bim` `Semantics/appearance#APPEARANCE_PROJECTION` composes; `public static MaterialWire Project(MaterialId id, MaterialParameters parameters, Provenance provenance, SurfaceShade preview)` mints the FULL OpenPBR-vector payload behind that key through the generated `WireMap.ToWire` transcriptions; `public static Fin<MaterialWire> Mint(MaterialId id, Op key)` resolves a registered row, evaluates the default graph for the preview, and projects under `Provenance.Authored` — the SINGLE site the full payload is minted (a measured material routes `Project` directly with its real `Provenance`); `WireCodec.ToJson<TWire>`/`FromJson<TWire>` and `WireCodec.ToMessagePack<TWire>`/`FromMessagePack<TWire>` are the one serialization entry EVERY appearance document round-trips through — generic over `IAppearanceWire<TSelf>`, so a new document is a record with its annotation rather than four more codec entries — both decode legs converting the codec throw into the `MaterialFault.Graph` rail with the provider message and the document's own `WireId` preserved; the `MtlxDocument` (its `Seq`/`Option` members) renders to `.mtlx` text through `System.Xml.Linq` at the host edge, never a structured JSON codec; the TS `MaterialWire`/`OpenPbrGroupsWire`/`AppearanceSummary` interface and the Python `MaterialWire`/`AppearanceSummary` dataclass DECODE this exact shape and never re-mint the OpenPBR algebra.
+- Entry: `public static Fin<AppearanceSummary> Summary(MaterialParameters parameters, Op key)` lowers a library row to the SEAM `AppearanceSummary` through the seam-owned `AppearanceSummary.Of` factory — the neutral PBR scalars with the `AppearanceKey` the factory mints (the kernel seed-zero `XxHash128` over the canonical PBR bytes, the ONE hasher) on the factory's own `Fin` rail, since it gates every channel to the unit range and takes the `Op` key rather than a tolerance, the CONTRACTED entry `Projection/component#COMPONENT_SUBGRAPH` `ComponentSubgraph.Capture` composes (`MaterialLibrary.Lookup(id, key).Bind(row => MaterialWire.Summary(row, key))`) and the SAME seam factory `Rasm.Bim` `Semantics/appearance#APPEARANCE_PROJECTION` composes; `public static MaterialWire Project(MaterialId id, MaterialParameters parameters, Provenance provenance, SurfaceShade preview)` mints the FULL OpenPBR-vector payload behind that key through the generated `WireMap.ToWire` transcriptions; `public static Fin<MaterialWire> Mint(MaterialId id, Op key)` resolves a registered row, evaluates the default graph for the preview, and projects under `Provenance.Authored` — the SINGLE site the full payload is minted (a measured material routes `Project` directly with its real `Provenance`); `WireCodec.ToJson<TWire>`/`FromJson<TWire>` and `WireCodec.ToMessagePack<TWire>`/`FromMessagePack<TWire>` are the one serialization entry EVERY appearance document round-trips through — generic over `IAppearanceWire<TSelf>`, so a new document is a record with its annotation rather than four more codec entries — both decode legs converting the codec throw into the `MaterialFault.Graph` rail with the provider message and the document's own `WireId` preserved; the `MtlxDocument` (its `Seq`/`Option` members) renders to `.mtlx` text through `System.Xml.Linq` at the host edge, never a structured JSON codec; the TS `MaterialWire`/`OpenPbrGroupsWire`/`AppearanceSummary` interface and the Python `MaterialWire`/`AppearanceSummaryWire` msgspec Structs (the `runtime/transport/shapes#SHAPES` mint under `PROTO_VOCABULARY` — proto3 zero defaults, nested `T | None = None`) DECODE this exact shape and never re-mint the OpenPBR algebra.
 - Packages: Riok.Mapperly (composed — the `[Mapper]`/`[MapProperty]`/`[MapValue]`/`[MapPropertyFromSource]`/`[UseStaticMapper]`/`[MapperIgnoreSource]` generated transcription; `RequiredMappingStrategy.Both` makes the RMG unmapped-member diagnostics the wire-completeness gate; folder-local analyzer-style reference `PrivateAssets="all"`), MessagePack (composed directly — `MessagePackSerializer`, `[MessagePackObject]`/`[Key]` positional modeling, `[GeneratedMessagePackResolver]` the AOT source-generated resolver, `MessagePackCompression.Lz4BlockArray` + `WithCompressionMinLength` payload compression, `MessagePackSecurity.UntrustedData` hardening; `MessagePackAnalyzer` enforces `[Key]` coverage at compile time), Wacton.Unicolour (composed — scene-linear color hex/linear-triple projection for the wire color fields), Rasm.Element (the SEAM `MaterialId` identity and the `AppearanceSummary` neutral PBR record + its seam-owned `AppearanceSummary.Of` content-key factory the `Summary` lowering composes — the factory owns the `ContentAddress`/`CanonicalWriter` `XxHash128` hashing, so this page mints NO key bytes of its own and never a second hasher), Thinktecture.Runtime.Extensions + Thinktecture.Runtime.Extensions.Json (`ThinktectureJsonConverterFactory` the generated `JsonConverterFactory` resolving every SmartEnum/Union/ValueObject key by its `IObjectFactory`/`IKeyedValueObject` shape) + Thinktecture.Runtime.Extensions.MessagePack (`ThinktectureMessageFormatterResolver` the generated `IFormatterResolver` composed between the wire resolver and the standard fallback), LanguageExt.Core (`Fin`/`Option`/`Seq`/`Try` for the projection and capture rails), BCL inbox (`System.Text.Json`, `System.Xml.Linq`). Every admitted row lands version-less in `Rasm.Materials.csproj` against the central `Directory.Packages.props` pins, with its README `[02]`/`[03]` registry entry.
 - Growth: a new appearance DOCUMENT is one record implementing `IAppearanceWire<TSelf>` with its `[MessagePackObject]` annotation and its `CorpusBorne` verdict — the codec, the generated resolver, and the fault terminal reach it unedited; a new OpenPBR parameter is one column on `OpenPbrGroupsWire` with its trailing `[Key(n)]` (and its TS/Py decode row) — the RMG diagnostic then FORCES the `WireMap` mapping row or an explicit ignore, and old MessagePack bytes decode unchanged because a missing trailing positional member reads as default; a new wire receipt field is one `WireProvenance` column under the same forcing; a new metal is one `ConductorMetal` row the wire names by key — never a parallel material wire shape and never a per-material wire type. `MaterialWire` carries the OpenPBR-vector payload `surface#OPENPBR_SLAB` `OpenPbrSurface` defines; the renderer-side consumer at `Rasm.AppUi/Render/pathtrace#PATH_TRACE` reads the C# `MaterialParameters` interior directly (same runtime), the seam carries the `AppearanceSummary` key + scalars, and the cross-language peers read the full `MaterialWire` over the wire by the content key.
 - Law: C# is the sole producer of the appearance wire vocabulary — the OpenPBR parameter groups, the `ConductorMetal` key, the `SurfaceShade` preview, the `WireProvenance` receipt, and the `AppearanceKey` content hash are minted once on this page and decoded by every peer; a TS or Python re-derivation of the OpenPBR lowering, the conductor-IOR table, or the MaterialX node schema is the named cross-language drift defect, so the peers carry a decode-only `MaterialWire` shape that mirrors this projection field-for-field and never an OpenPBR construction of their own. Seam-owned `AppearanceSummary.Of` mints the `AppearanceKey` — the kernel seed-zero `XxHash128` over the canonical PBR bytes via the seam `ContentAddress`/`CanonicalWriter`, NOT a second hasher and NOT a non-zero seed — so the `Summary` lowering here and the `Rasm.Bim` `AppearanceProjection.Project` lowering compose the SAME factory and produce the SAME key for one surface; a local `CanonicalWriter` over the PBR vector beside the seam factory couples Materials and Bim by byte-order convention and is the divergence defect. `WireMap` GENERATES the wire transcription under `RequiredMappingStrategy.Both` + `MappingConversionType.None`, making every member correspondence explicit (auto by name, `[MapProperty]` flatten, `[MapValue]` synthesis, `[MapPropertyFromSource]` derivation, `[MapperIgnoreSource]` waiver) and every implicit conversion a build error; union-case dispatch stays generated `Switch` (compile-time total) — `[MapDerivedType]` is REJECTED for the Mtlx projections because its unregistered-case arm throws at RUNTIME where the generated `Switch` breaks the BUILD, and its per-case target types do not fit a single-row-target projection.
-- Boundary: `MaterialWire`/`AppearanceSummary` is the ONE appearance wire — a per-consumer material DTO is the deleted form. `AppearanceSummary` crosses the seam NEUTRAL (the `UInt128 AppearanceKey` + scene-linear `BaseColorR`/`G`/`B` + `Metallic` + `Roughness` + `Opacity` + `Transmissive`), flat for a consumer reading without the lobe graph — a private constructor behind its one `Of` factory keeps every peer from assembling the record; the full `MaterialWire` is the payload behind that key, decoded by the renderer/GLB `KHR_materials_pbrMetallicRoughness`+`KHR_materials_transmission` author and the host-free peers, carrying the `MaterialId` `family.name` key (the SEAM `Rasm.Element` `[ValueObject<string>]` identity, NEVER a parallel `family.name` re-declaration), the `OpenPbrGroupsWire` flat OpenPBR vector (the `surface#OPENPBR_SLAB` `OpenPbrSurface` columns projected to wire scalars and color triples, the `SubsurfaceRadius` band carrier flattening to its per-channel `SubsurfaceRadiusR`/`G`/`B` mean-free-path scalars), the `ConductorMetal` key string for the metal grounding (empty for a dielectric — the `OpenPbrSurface.Conductor` column is the ONE explicitly-waived source member, `[MapperIgnoreSource]`, because the conductor crosses as the top-level key, not a group column), the `WireProvenance` receipt (the `acquisition#ACQUISITION` `Provenance` device/wavelength/residual with the `CaptureMethod.Key` instrument and angular/texel sample count, the six capture-evidence mirrors — the `Svd` fit conditioning `FitConditionNumber`/`FitRank` and the grounded base-color chromaticity/CCT `DominantWavelengthNm`/`ExcitationPurity`/`CctKelvin`/`CctDuv` — and the model-attribution pair `ModelCard`/`License` a neural capture fills, lowered from their `Option` sources to keys with empty for typed absence so a peer honouring a grant reads the licence class the estate recorded rather than inferring one from a model name; `Measured` DERIVED structurally as `p != Provenance.Authored`, never a magic-string device compare), and the resolved `SurfaceShade` preview as a scene-linear linear-RGB triple with the clipped `Hex` the web swatch reads; color fields cross as the scene-linear `RgbLinear.Triplet` triple so a peer renders without re-deriving the ACEScg working space. `MaterialWire` crosses as portable data (no `Rhino.Geometry`, no `Unicolour` object crosses — only projected scalars/triples), and its single-mint invariant holds end-to-end: `WireMap.ToWire` + `MaterialWire.Project` are the only OpenPBR-vector construction sites, `MaterialWire.Summary` the only `AppearanceKey` derivation on this side, and the TS `decodeMaterialWire`/Python `MaterialWire.from_wire` are pure structural decoders. `WireCodec` SERIALIZES `MaterialWire`: the JSON leg is the in-Rhino-ALC-safe wire (BCL-inbox System.Text.Json, Web camelCase, named non-finite literals, the Thinktecture factory resolving any future generated wire key, the options `MakeReadOnly` — one stable contract identity, never per-call options); the MessagePack leg is the heavy-transitive companion/outside-Rhino wire behind the firebreak — the wire records carry `[MessagePackObject]` + positional `[Key(n)]` (the compact array form whose trailing growth is version-tolerant), `WireResolver` resolves them AOT source-generated (no IL-emit `DynamicObjectResolver` in a plugin ALC), `Lz4BlockArray` compresses the heavy OpenPBR-vector payloads past the `WithCompressionMinLength` floor, and `MessagePackSecurity.UntrustedData` (depth cap, decompression-size cap, collision-resistant maps) hardens the peer bytes the codec decodes — a `Standard`-resolver-only options object cannot even RESOLVE an unannotated record, so the annotation + resolver + hardening travel as one wire profile; both decode legs capture the codec throw through `Try.lift(...).Run()` into `MaterialFault.Graph` with the provider message preserved, never an escaping `JsonException`/`MessagePackSerializationException` and never a discarded cause. Zero-copy transport rides the MessagePack leg beside the `byte[]` form — a pooled `IBufferWriter<byte>` egress and a multi-segment `ReadOnlySequence<byte>` ingress under the one canonical `ToMessagePack`/`FromMessagePack` names — so a relay holding the sink or a framed peer read decodes the heavy compressed payload without a contiguous round-trip; framing and stream custody stay the app-tier transport owner's, so the codec surface is the synchronous bounded-payload set and the `MessagePackSerializer` `Stream`/async family stays unconsumed by construction. `MtlxDocument` (its `Seq<MtlxNode>`/`Option<string>` members) renders to `.mtlx` text through `System.Xml.Linq` at the host edge rather than through a JSON/MessagePack codec.
+- Boundary: `MaterialWire`/`AppearanceSummary` is the ONE appearance wire — a per-consumer material DTO is the deleted form. `AppearanceSummary` crosses the seam NEUTRAL (the `UInt128 AppearanceKey` + scene-linear `BaseColorR`/`G`/`B` + `Metallic` + `Roughness` + `Opacity` + `Transmissive`), flat for a consumer reading without the lobe graph — a private constructor behind its one `Of` factory keeps every peer from assembling the record; the full `MaterialWire` is the payload behind that key, decoded by the renderer/GLB `KHR_materials_pbrMetallicRoughness`+`KHR_materials_transmission` author and the host-free peers, carrying the `MaterialId` `family.name` key (the SEAM `Rasm.Element` `[ValueObject<string>]` identity, NEVER a parallel `family.name` re-declaration), the `OpenPbrGroupsWire` flat OpenPBR vector (the `surface#OPENPBR_SLAB` `OpenPbrSurface` columns projected to wire scalars and color triples, the `SubsurfaceRadius` band carrier flattening to its per-channel `SubsurfaceRadiusR`/`G`/`B` mean-free-path scalars), the `ConductorMetal` key string for the metal grounding (empty for a dielectric — the `OpenPbrSurface.Conductor` column is the ONE explicitly-waived source member, `[MapperIgnoreSource]`, because the conductor crosses as the top-level key, not a group column), the `WireProvenance` receipt (the `acquisition#ACQUISITION` `Provenance` device/wavelength/residual with the `CaptureMethod.Key` instrument and angular/texel sample count, the six capture-evidence mirrors — the `Svd` fit conditioning `FitConditionNumber`/`FitRank` and the grounded base-color chromaticity/CCT `DominantWavelengthNm`/`ExcitationPurity`/`CctKelvin`/`CctDuv` — and the model-attribution pair `ModelCard`/`License` a neural capture fills, lowered from their `Option` sources to keys with empty for typed absence so a peer honouring a grant reads the licence class the estate recorded rather than inferring one from a model name; `Measured` DERIVED structurally as `p != Provenance.Authored`, never a magic-string device compare), and the resolved `SurfaceShade` preview as a scene-linear linear-RGB triple with the clipped `Hex` the web swatch reads; color fields cross as the scene-linear `RgbLinear.Triplet` triple so a peer renders without re-deriving the ACEScg working space. `MaterialWire` crosses as portable data (no `Rhino.Geometry`, no `Unicolour` object crosses — only projected scalars/triples), and its single-mint invariant holds end-to-end: `WireMap.ToWire` + `MaterialWire.Project` are the only OpenPBR-vector construction sites, `MaterialWire.Summary` the only `AppearanceKey` derivation on this side, and the TS `decodeMaterialWire` and the Python `PROTO_VOCABULARY` `MaterialWire` row are pure structural decoders. `WireCodec` SERIALIZES `MaterialWire`: the JSON leg is the in-Rhino-ALC-safe wire (BCL-inbox System.Text.Json, Web camelCase, named non-finite literals, the Thinktecture factory resolving any future generated wire key, the options `MakeReadOnly` — one stable contract identity, never per-call options); the MessagePack leg is the heavy-transitive companion/outside-Rhino wire behind the firebreak — the wire records carry `[MessagePackObject]` + positional `[Key(n)]` (the compact array form whose trailing growth is version-tolerant), `WireResolver` resolves them AOT source-generated (no IL-emit `DynamicObjectResolver` in a plugin ALC), `Lz4BlockArray` compresses the heavy OpenPBR-vector payloads past the `WithCompressionMinLength` floor, and `MessagePackSecurity.UntrustedData` (depth cap, decompression-size cap, collision-resistant maps) hardens the peer bytes the codec decodes — a `Standard`-resolver-only options object cannot even RESOLVE an unannotated record, so the annotation + resolver + hardening travel as one wire profile; both decode legs capture the codec throw through `Try.lift(...).Run()` into `MaterialFault.Graph` with the provider message preserved, never an escaping `JsonException`/`MessagePackSerializationException` and never a discarded cause. Zero-copy transport rides the MessagePack leg beside the `byte[]` form — a pooled `IBufferWriter<byte>` egress and a multi-segment `ReadOnlySequence<byte>` ingress under the one canonical `ToMessagePack`/`FromMessagePack` names — so a relay holding the sink or a framed peer read decodes the heavy compressed payload without a contiguous round-trip; framing and stream custody stay the app-tier transport owner's, so the codec surface is the synchronous bounded-payload set and the `MessagePackSerializer` `Stream`/async family stays unconsumed by construction. `MtlxDocument` (its `Seq<MtlxNode>`/`Option<string>` members) renders to `.mtlx` text through `System.Xml.Linq` at the host edge rather than through a JSON/MessagePack codec.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -377,90 +377,88 @@ interface MaterialWire {
 ```
 
 ```python signature
-@dataclass(frozen=True, slots=True)
-class AppearanceSummary:
-    appearance_key: str  # UInt128 content key as hex (the seam XxHash128 dedup key)
-    base_color_r: float
-    base_color_g: float
-    base_color_b: float
-    metallic: float
-    roughness: float
-    opacity: float
-    transmissive: bool  # the refractive flag DISTINCT from opacity/alpha — the GLB KHR_materials_transmission signal
+# TRANSCRIPTION of the landed python mint at `python:runtime/transport/shapes#SHAPES` — msgspec Structs under
+# PROTO_VOCABULARY with proto3 zero defaults on every scalar and `T | None = None` on every nested message; a
+# dataclass with required fields asserts a decode contract python does not implement.
+class AppearanceSummaryWire(Struct, frozen=True, gc=False):
+    appearance_key: str = ""  # UInt128 content key as hex (the seam XxHash128 dedup key)
+    base_color_r: float = 0.0
+    base_color_g: float = 0.0
+    base_color_b: float = 0.0
+    metallic: float = 0.0
+    roughness: float = 0.0
+    opacity: float = 0.0
+    transmissive: bool = False  # the refractive flag DISTINCT from opacity/alpha — the GLB KHR_materials_transmission signal
 
 
-@dataclass(frozen=True, slots=True)
-class WireColor:
-    r: float
-    g: float
-    b: float
-    hex: str
+class WireColor(Struct, frozen=True, gc=False):
+    r: float = 0.0
+    g: float = 0.0
+    b: float = 0.0
+    hex: str = ""
 
 
-@dataclass(frozen=True, slots=True)
-class WireProvenance:
-    device: str
-    wavelength_count: int
-    fit_residual: float
-    measured: bool
-    method: str  # the CaptureMethod key — goniophotometer/spectrophotometer/neural-svbrdf/authored
-    angular_samples: int  # the goniophotometer sample count or neural texel count
-    fit_condition_number: float  # Svd fit conditioning; +Inf arrives as the JSON "Infinity" named literal, decode explicitly
-    fit_rank: int
-    dominant_wavelength_nm: float
-    excitation_purity: float
-    cct_kelvin: float
-    cct_duv: float  # gates cct_kelvin validity at |duv| <= 0.05
-    model_card: str  # the ModelCard registry row an acquired material rode; empty when authored
-    license: str  # the LicenseClass key the acquisition carried; empty when authored
+class WireProvenance(Struct, frozen=True, gc=False):
+    device: str = ""
+    wavelength_count: int = 0
+    fit_residual: float = 0.0
+    measured: bool = False
+    method: str = ""  # the CaptureMethod key — goniophotometer/spectrophotometer/neural-svbrdf/authored
+    angular_samples: int = 0  # the goniophotometer sample count or neural texel count
+    fit_condition_number: float = 0.0  # Svd fit conditioning; +Inf arrives as the JSON "Infinity" named literal, decode explicitly
+    fit_rank: int = 0
+    dominant_wavelength_nm: float = 0.0
+    excitation_purity: float = 0.0
+    cct_kelvin: float = 0.0
+    cct_duv: float = 0.0  # gates cct_kelvin validity at |duv| <= 0.05
+    model_card: str = ""  # the ModelCard registry row an acquired material rode; empty when authored
+    license: str = ""  # the LicenseClass key the acquisition carried; empty when authored
 
 
-@dataclass(frozen=True, slots=True)
-class OpenPbrGroupsWire:
-    base_weight: float
-    base_color: WireColor
-    base_metalness: float
-    base_diffuse_roughness: float
-    base_specular_tint: float
-    specular_weight: float
-    specular_color: WireColor
-    specular_roughness: float
-    specular_ior: float
-    specular_anisotropy: float
-    transmission_weight: float
-    transmission_roughness: float
-    subsurface_weight: float
-    subsurface_radius_r: float
-    subsurface_radius_g: float
-    subsurface_radius_b: float
-    coat_weight: float
-    coat_color: WireColor
-    coat_roughness: float
-    coat_ior: float
-    fuzz_weight: float
-    fuzz_color: WireColor
-    fuzz_roughness: float
-    thin_film_weight: float
-    thin_film_thickness: float
-    thin_film_ior: float
-    emission_color: WireColor
-    emission_luminance: float
-    geometry_opacity: float
+class OpenPbrGroupsWire(Struct, frozen=True):
+    base_weight: float = 0.0
+    base_color: WireColor | None = None
+    base_metalness: float = 0.0
+    base_diffuse_roughness: float = 0.0
+    base_specular_tint: float = 0.0
+    specular_weight: float = 0.0
+    specular_color: WireColor | None = None
+    specular_roughness: float = 0.0
+    specular_ior: float = 0.0
+    specular_anisotropy: float = 0.0
+    transmission_weight: float = 0.0
+    transmission_roughness: float = 0.0
+    subsurface_weight: float = 0.0
+    subsurface_radius_r: float = 0.0
+    subsurface_radius_g: float = 0.0
+    subsurface_radius_b: float = 0.0
+    coat_weight: float = 0.0
+    coat_color: WireColor | None = None
+    coat_roughness: float = 0.0
+    coat_ior: float = 0.0
+    fuzz_weight: float = 0.0
+    fuzz_color: WireColor | None = None
+    fuzz_roughness: float = 0.0
+    thin_film_weight: float = 0.0
+    thin_film_thickness: float = 0.0
+    thin_film_ior: float = 0.0
+    emission_color: WireColor | None = None
+    emission_luminance: float = 0.0
+    geometry_opacity: float = 0.0
 
 
-@dataclass(frozen=True, slots=True)
-class MaterialWire:
-    id: str
-    open_pbr: OpenPbrGroupsWire
-    conductor: str
-    provenance: WireProvenance
-    preview: WireColor
+class MaterialWire(Struct, frozen=True):
+    id: str = ""
+    open_pbr: OpenPbrGroupsWire | None = None
+    conductor: str = ""
+    provenance: WireProvenance | None = None
+    preview: WireColor | None = None
 ```
 
 ## [03]-[MATERIALX_DOCUMENT]
 
 - Owner: `MtlxDocument` the MaterialX 1.39 document; `MtlxNode`/`MtlxInput` the node-graph element shapes; `NodeCategory` `[SmartEnum<string>]` the MaterialX node-category axis carrying each category's DEFAULT output port; `Mtlx` the static serialize/admit fold owning the per-node category+port resolution and the input projection.
-- Entry: `public static Fin<MtlxDocument> FromGraph(MaterialGraph graph, MaterialId id, MaterialParameters parameters, Op key, HashMap<PortId, TextureSource> textures = default)` projects the `graph#MATERIAL_GRAPH` node DAG to the MaterialX node-graph document — `parameters` PROBES each `Input` node's pulled `PortValue` for its constant polarity and rendered `value` attribute (a `constant` node with no value is meaningless MaterialX), `textures` is the wiring-site binding that recovers each `Texture` node's `TextureSource` (the graph case deliberately erases the source into its total sampler closure, so the projection cannot read it back — the map IS the recoverable spelling; an unbound texture node floors to `image`), and an unprojectable node rails `MaterialFault.Graph`; `public static Fin<MtlxDocument> ToOpenPbr(MaterialWire wire, Option<TextureSetWire> planes, Op key)` emits the `open_pbr_surface` node document from the material wire by FOLDING the `OpenPbrPorts` schema table — one row per OpenPBR Surface 1.1 input naming port, polarity, and wire column — and, where a baked set is supplied, REPLACES each covered input's constant with a `tiledimage` edge whose `file` is the set's own egress leaf under the channel's own `MtlxBinding` row, so one entry serves the textured and untextured documents alike. Both target the MaterialX 1.39 `<materialx version="1.39">` root; the `.mtlx` XML serialization rides `System.Xml.Linq` at the host boundary.
+- Entry: `public static Fin<MtlxDocument> FromGraph(MaterialGraph graph, MaterialId id, MaterialParameters parameters, Op key, HashMap<PortId, TextureSource> textures = default)` projects the `graph#MATERIAL_GRAPH` node DAG to the MaterialX node-graph document — `parameters` PROBES each `Input` node's pulled `PortValue` for its constant polarity and rendered `value` attribute (a `constant` node with no value is meaningless MaterialX), `textures` is the wiring-site binding that recovers each `Texture` node's `TextureSource` (the graph case deliberately erases the source into its total sampler closure, so the projection cannot read it back — the map IS the recoverable spelling; an unbound texture node floors to `image`), and an unprojectable node rails `MaterialFault.Graph`; `public static Fin<MtlxDocument> ToOpenPbr(MaterialWire wire, Option<TextureSetWire> planes, Op key)` emits the `open_pbr_surface` node document from the material wire by FOLDING the `OpenPbrPorts` schema table — one row per OpenPBR Surface 1.1 input naming port, polarity, and wire column — and, where a baked set is supplied, REPLACES each covered constant input with a `tiledimage` edge whose `file` is the set's own egress leaf under the channel's own `MtlxBinding` row — and APPENDS the texture-only geometry ports (a bound normal channel routes through a `normalmap` node, a tangent binds its vector image direct), so one entry serves the textured and untextured documents alike and a baked normal map reaches the surface rather than orphaning. Both target the MaterialX 1.39 `<materialx version="1.39">` root; the `.mtlx` XML serialization rides `System.Xml.Linq` at the host boundary.
 - Packages: Rasm.Element (the SEAM `MaterialId` identity), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`System.Xml.Linq` at the serialize boundary).
 - Growth: a new `MathOp` row breaks the total generated `Switch` in `MathRow` at compile time and lands as one category+port arm; a new `MixOp` row resolves through the `MixRows` `BlendMode` disposition table — an unlisted mode rails `MaterialFault.Graph` loud at projection, and its native/lowered disposition is one table row; a new MaterialX node category is one `NodeCategory` row; a new `TextureSource` case lands through the `texture#TEXTURE_UV` `TextureSource.MtlxCategory` + `MtlxParameters` projections this page resolves via `Mtlx.CategoryOf(TextureSource)` and folds into inputs via `TextureInputs`; a new OpenPBR wire column is one `OpenPbrPorts` row — never a per-node serializer, never a second MaterialX schema, never a new call expression in a hand-listed input chain.
 - Law: the projection is HONEST or LOUD, never silently wrong — `MathOp.Power` projects `power`, `MathOp.OneMinus` projects `invert` (the MaterialX amount-minus-in node), `MathOp.Scale` projects the vector3 `multiply` variant, the widened rows project their stdlib categories (`modulo`/`sqrt`/`absval`/`sin`/`cos`/`crossproduct`/`normalize`), every UNARY op crosses on the stdlib `in` port (never `in1` — `invert`/`clamp`/`sqrt` declare `in`), and `MathOp.Fresnel` (a pbr-level concept with NO MaterialX 1.39 stdlib category) rails `MaterialFault.Graph` — the prior form lowered every unmapped op to `multiply`, a silent semantic corruption; `MixOp.Lerp` projects `mix`, `MixOp.Multiply` the `multiply` math node (its factor is unread by construction), and `MixOp.Screen`/`Overlay` the MaterialX blend-compositing `screen`/`overlay` nodes — never a blanket `mix` mislabeling a screen composite as a lerp. `OpenPbrPorts` keeps the `ToOpenPbr` port table NODEDEF-HONEST: `base_specular_tint` is not an `open_pbr_surface` input, so the Disney tint lowers INTO `specular_color` as the specular→base lerp; `subsurface_radius` is `float` and `subsurface_radius_scale` `color3` in the nodedef, so the mm bands split into max-band distance with per-channel ratio; `TransmissionRoughness` has no input and never crosses — an invented input name is the same silent-corruption class as a mislabeled node. Node OUTPUT types resolve per instance: a math/mix node's concrete type comes from its OP row (MaterialX math nodes are type-polymorphic — `multiply` as vector3 for `Scale`, float for `Multiply`), a texture node's from its resolved category row, an `Input` constant's from the probed `PortValue` case, and an interior EDGE carries its SOURCE node's resolved output type (the polymorphic-variant law: an input's type attribute must match what feeds it) while a surface-slot edge carries the SLOT's declared type — never a blanket `color3` on every edge. `Mtlx` runs this same projection over the `standard_surface` category for the Standard-Surface translation.
@@ -549,6 +547,18 @@ public static class Mtlx {
             [NodeCategory.TiledImage] = ["file"],
             [NodeCategory.Triplanar] = ["filex", "filey", "filez"],
         }.ToFrozenDictionary();
+
+    // The four open_pbr_surface GEOMETRY inputs are TEXTURE-ONLY ports: no OpenPbrGroupsWire column feeds a
+    // constant — the nodedef default IS the shading frame — so SurfaceNode emits none of them and a bound channel
+    // APPENDS its edge onto the surface node. TRUE marks the two normal rows that route through a `normalmap` node
+    // (a tangent-space texel becomes a shading-frame perturbation); the two tangent rows bind their vector image
+    // direct. The wrap is a ROW fact here, never a category or key check at the emit site.
+    static readonly FrozenDictionary<TextureChannel, bool> GeometryPorts = new Dictionary<TextureChannel, bool> {
+        [TextureChannel.GeometryNormal] = true,
+        [TextureChannel.GeometryCoatNormal] = true,
+        [TextureChannel.GeometryTangent] = false,
+        [TextureChannel.GeometryCoatTangent] = false,
+    }.ToFrozenDictionary();
 
     // CategoryOf resolves the per-TextureSource-case MaterialX category string to the closed NodeCategory row; texture#TEXTURE_UV owns the
     // case→category projection itself (TextureSource.MtlxCategory). FromGraph composes it through the wiring-site binding map — the graph's
@@ -736,7 +746,10 @@ public static class Mtlx {
 
     // OpenPbrPorts holds the OpenPBR Surface 1.1 port schema as DATA — one row per open_pbr_surface input naming the port, its polarity, and the
     // wire column it reads; SurfaceNode FOLDS the table, so a new wire column is one row here (and its decode row), never a new call expression in
-    // a 26-entry hand list. Named node0 to key consistently with node{id}. NODEDEF-HONEST rows cover the two wire columns with no 1:1 input:
+    // a 26-entry hand list. Named node0 to key consistently with node{id}. The table spans the CONSTANT-VALUED
+    // inputs alone: the four geometry inputs (geometry_normal, geometry_coat_normal, geometry_tangent,
+    // geometry_coat_tangent) are genuine nodedef ports with NO wire column — GeometryPorts owns them and Textured
+    // appends their edges only when a baked channel binds one. NODEDEF-HONEST rows cover the two wire columns with no 1:1 input:
     // `base_specular_tint` is NOT an open_pbr_surface input — the Disney tint lowers INTO `specular_color` as the per-channel specular→base lerp;
     // `subsurface_radius` is FLOAT and `subsurface_radius_scale` is COLOR3 in the nodedef, so the mm bands split into the max-band distance with the
     // per-channel ratio. `TransmissionRoughness` has NO input (OpenPBR couples transmission roughness to `specular_roughness`) and deliberately
@@ -763,7 +776,10 @@ public static class Mtlx {
         ("fuzz_color", MtlxPort.Color3, static g => Rgb(g.FuzzColor)),
         ("fuzz_roughness", MtlxPort.Float, static g => Num(g.FuzzRoughness)),
         ("thin_film_weight", MtlxPort.Float, static g => Num(g.ThinFilmWeight)),
-        ("thin_film_thickness", MtlxPort.Float, static g => Num(g.ThinFilmThickness)),
+        // The frozen unit fork: thickness is NANOMETRES everywhere, and the open_pbr_surface nodedef's
+        // thin_film_thickness input alone is MICROMETRES — the divide by 1000 lives at exactly this egress row and
+        // nowhere else, so every other consumer reads nm and only the .mtlx text carries the µm lowering.
+        ("thin_film_thickness", MtlxPort.Float, static g => Num(g.ThinFilmThickness / 1000.0)),
         ("thin_film_ior", MtlxPort.Float, static g => Num(g.ThinFilmIor)),
         ("emission_color", MtlxPort.Color3, static g => Rgb(g.EmissionColor)),
         ("emission_luminance", MtlxPort.Float, static g => Num(g.EmissionLuminance)),
@@ -810,6 +826,14 @@ public static class Mtlx {
                 // dangling phantom port this arm's own law forecloses; Textured already skips the wiring, and the
                 // node list must match it.
                 MtlxBinding.Absent => (channel, Seq<MtlxNode>(), string.Empty),
+                // A normal-row geometry channel routes tiledimage -> normalmap -> the surface's geometry input, so
+                // the raw tangent-space texel never binds a shading-frame port direct; the normalmap output is the
+                // source the surface edge references.
+                _ when GeometryPorts.TryGetValue(channel, out bool wrapped) && wrapped => (channel, Seq(
+                        Image(channel, row.File),
+                        new MtlxNode($"nrm_{channel.Key}", NodeCategory.Normalmap, MtlxPort.Vector3,
+                            Seq(new MtlxInput("in", MtlxPort.Vector3, string.Empty, Some($"tex_{channel.Key}"))))),
+                    $"nrm_{channel.Key}"),
                 _ => (channel, Seq(Image(channel, row.File)), $"tex_{channel.Key}"),
             })
             : Fin.Fail<(TextureChannel, Seq<MtlxNode>, string)>(MaterialFault.Graph(key, $"<mtlx-unknown-channel:{row.Role}>"));
@@ -821,14 +845,20 @@ public static class Mtlx {
     // Textured REPLACES every covered channel's constant input with its texture edge under the row's own MtlxBinding: an Absent binding
     // contributes nothing (the channel has no OpenPBR input at all) and a Lowered or Split binding names the input its own row carries, so the
     // port names come from the roster rather than a second list here that could disagree with the OpenPbrPorts table SurfaceNode already folds.
+    // A GEOMETRY port has no constant row to replace — the surface table carries no input for it — so a bound
+    // geometry channel APPENDS its edge; replace-or-append is one probe on the same fold, never a second emit path.
     static MtlxNode Textured(MaterialWire wire, Seq<(TextureChannel Channel, Seq<MtlxNode> Nodes, string Source)> bound) =>
         bound.Fold(SurfaceNode(wire), static (node, entry) => entry.Channel.Mtlx is MtlxBinding.Absent
             ? node
-            : node with {
-                Inputs = node.Inputs.Map(input => input.Name == PortNameOf(entry.Channel)
-                    ? input with { Value = string.Empty, NodeName = Some(entry.Source) }
-                    : input),
-            });
+            : node.Inputs.Exists(input => input.Name == PortNameOf(entry.Channel))
+                ? node with {
+                    Inputs = node.Inputs.Map(input => input.Name == PortNameOf(entry.Channel)
+                        ? input with { Value = string.Empty, NodeName = Some(entry.Source) }
+                        : input),
+                }
+                : node with {
+                    Inputs = node.Inputs.Add(new MtlxInput(PortNameOf(entry.Channel), Lane(entry.Channel), string.Empty, Some(entry.Source))),
+                });
 
     // PortNameOf reads the OpenPBR input a channel binds: its own canonical key where the binding is canonical or scaled, the named host input
     // where it lowers, and the paired scale input where the row splits — read off the row, never spelled.
@@ -840,8 +870,11 @@ public static class Mtlx {
         };
 
     // Lane drives a float input from a single-component channel and a color3 from a multi-component one; the count is the roster's SEMANTIC
-    // column, so a vector channel stored in a four-component plane still declares three.
-    static MtlxPort Lane(TextureChannel channel) => channel.Components is 1 ? MtlxPort.Float : MtlxPort.Color3;
+    // column, so a vector channel stored in a four-component plane still declares three. A geometry channel is
+    // vector data, never color — its image node and its surface edge both type vector3.
+    static MtlxPort Lane(TextureChannel channel) =>
+        GeometryPorts.ContainsKey(channel) ? MtlxPort.Vector3
+        : channel.Components is 1 ? MtlxPort.Float : MtlxPort.Color3;
 
     static MtlxInput Value(string name, MtlxPort type, double v) => new(name, type, Num(v), Option<string>.None);
     static string Num(double v) => v.ToString("R", CultureInfo.InvariantCulture);
@@ -852,14 +885,14 @@ public static class Mtlx {
 
 ## [04]-[TEXTURE_EGRESS]
 
-- Owner: `IAppearanceWire<TSelf>` the wire-family contract (declared at `[02]`); `TextureSetWire` the baked-set document behind the seam appearance key, with `ChannelWire`/`PackWire`/`PressReceiptWire` its rows; `EnvironmentLightWire` the resolved-dome mirror; `StageRequestWire`/`StageResultWire` with `StageInputWire`/`StageOutputWire` the photo-to-PBR inference crossing; `PlaneEgress`/`PackEgress` the per-plane storage evidence a projection consumes; `TextureWireMap` the ONE generated `[Mapper]` owning every transcription this page does not derive.
+- Owner: `IAppearanceWire<TSelf>` the wire-family contract (declared at `[02]`); `TextureSetWire` the baked-set document behind the seam appearance key, with `ChannelWire`/`PackWire`/`PressReceiptWire` its rows; `EnvironmentLightWire` the resolved-dome mirror; `StageRequestWire`/`StageResultWire` with `StageInputWire`/`StageOutputWire` the photo-to-PBR inference crossing; `LevelEgress`/`PlaneEgress`/`PackEgress` the level-ordered storage evidence a projection consumes; `PlaneRefWire` the one address triple every stored file crosses as; `TextureWireMap` the ONE generated `[Mapper]` owning every transcription this page does not derive.
 - Cases: wire family {`MaterialWire` (corpus-borne, proto `rasm.materials.material.v1`), `TextureSetWire` (corpus-borne, proto `rasm.materials.textureset.v1`), `EnvironmentLightWire` (branch-interior), `StageRequestWire`/`StageResultWire` (branch-interior)} — `CorpusBorne` is the column the `tests/contracts/MANIFEST.md` census derives from, never a remembered list.
 - Entry: `public static Fin<TextureSetWire> TextureSetWire.Of(TextureSet set, AppearanceSummary summary, Seq<PlaneEgress> planes, Seq<PackEgress> packs, WireProvenance provenance, Option<PressReceipt> press, Op key)` projects an ADMITTED set and its stored-plane evidence to the document; `public static EnvironmentLightWire EnvironmentLightWire.Of(EnvironmentLight light, EnvironmentBlobs blobs)` mirrors the resolved row; `public static StageRequestWire StageRequestWire.Of(StageRequest request)` and `public static Fin<StageResult> StageResultWire.Admit(StageResultWire wire, ModelCard card, Op key)` are the two halves of the inference crossing — Materials writes the request and re-admits the returned result through the `neural#MODEL_REGISTRY` gate rather than trusting an executor's bytes; `WireCodec.ToJson`/`FromJson`/`ToMessagePack`/`FromMessagePack` carry every one of them generically.
 - Law: the plane BYTES never enter a document. Every wire carries a `ContentAddress` and a leaf NAME, so the write-once object store holds the payload and the document holds its address; an embedded plane puts a sixteen-megabyte texel field behind a dedup key whose whole purpose is to stay thin, and two sets sharing one atlas plane each carry a copy of it. `Raster/set#TEXTURE_SET` `TextureSet.Egress` renders the leaf name ONCE from the set's own lowered key and this projection reads that string, so the `.mtlx` file attribute, the object-store path, and the wire column are one value rather than three renderings of one grammar that drift on the day a variant infix moves.
 - Law: `TextureSetWire` rides BEHIND the `AppearanceKey`, never inside it. `AppearanceSummary` takes its preimage from the frozen seven-value PBR vector, so the set key is a PAYLOAD column: a widened summary forks the `Rasm.Bim` dedup key and re-ids every `Node.Appearance` in the estate for a field only a texture consumer reads. One appearance key therefore covers a material with and without a baked set — the set refines the same appearance rather than describing a different one.
 - Packages: MessagePack (the `[MessagePackObject]`/`[Key]` positional modeling and the `[GeneratedMessagePackResolver]` registration every new document joins), Riok.Mapperly (the `TextureWireMap` transcriptions under `RequiredMappingStrategy.Both`), `Rasm.Materials.Raster` (composed — `TextureSet`/`TextureChannel`/`ChannelPack`/`ChannelPackPlane`/`EgressSlot`/`EgressVariant`/`TexturePyramid`/`PlaneFormat`/`PlaneTransfer`/`AlphaMode`/`MipPolicy`/`NormalConvention`/`LayerLaw`/`UdimTile`/`RasterFormat`/`BlockFormat`/`KtxPayload`/`PressReceipt`/`PressBackend`), `environment#ENVIRONMENT_LIGHT` (composed — `EnvironmentLight`/`EnvironmentBlobs`/`Sh9`/`IblProducts`), `neural#MODEL_REGISTRY` (composed — `StageRequest`/`StageResult`/`StageInput`/`StageOutput`/`StageProduct`/`PbrStage`/`ModelCard`/`ModelCardId`/`LicenseClass`/`InferenceProvider`/`TensorPrecision`/`TilePlan`), Rasm.Element (the seam `ContentAddress` and its ONE `ToValue` uppercase spelling), LanguageExt.Core, BCL inbox.
 - Growth: a new document is one record implementing `IAppearanceWire<TSelf>` with its `[MessagePackObject]` annotation and its `CorpusBorne` verdict — the codec, the resolver, and the fault terminal all reach it with no edit; a new channel column is one `ChannelWire` slot with its trailing `[Key(n)]` and its two peer decode rows; a new stage column is one `StageRequestWire` slot the RMG diagnostics then force onto a `TextureWireMap` row or an explicit ignore.
-- Boundary: this section projects and NEVER decides. `Raster/` owns the channel roster, the transfer band, the alpha law, the pack order, the mip policy, the payload class, and the egress grammar, all of which this page spells as KEYS; `environment#IBL_PREFILTER` owns the SH band order and the equirect correspondence; `neural#MODEL_REGISTRY` owns the stage, licence, provider, and precision vocabularies. Every one of them crosses as its own row's key string, so a peer decodes against the same closed vocabulary the producer holds and an unknown key REFUSES at decode rather than defaulting — a `role` no `TextureChannel` claims, a `ktxPayload` of `rawBcn` (desktop-native, never wire-legal — the roster carries no neutral row, so every channel declares a real payload class and only the illegal one refuses), a `transfer` of `pq` or `hlg` on a channel plane (a bake target is scene-referred), or a `backend` of `webgpu` on a persisted set (GPU output is a preview carrying no key at all) each rail rather than admit. `StageRequestWire`/`StageResultWire` cross the `Rasm.Materials/Appearance/neural` ↔ `Rasm.Compute/Model/inference` `[WIRE]` edge recorded at BOTH folder `ARCHITECTURE.md` `[03]-[SEAMS]` maps: the branch strata forbid a project reference in either direction, so the hop is BYTES the app root relays and Compute transcribes into its own mirror — and it mints NO `tests/contracts/MANIFEST.md` entry, because it never leaves the C# runtime and a corpus entry for a branch-interior hop is the fabricated contract the cross-`libs/` ruling forecloses. `EnvironmentLightWire` is branch-interior for the same reason: `Rasm.AppUi` consumes the resolved `EnvironmentLight` VALUE over the declared `[BOUNDARY]` edge, and the wire exists for the app-root relay and the durable receipt, not for a peer runtime.
+- Boundary: this section projects and NEVER decides. `Raster/` owns the channel roster, the transfer band, the alpha law, the pack order, the mip policy, the payload class, and the egress grammar, all of which this page spells as KEYS; `environment#IBL_PREFILTER` owns the SH band order and the equirect correspondence; `neural#MODEL_REGISTRY` owns the stage, licence, provider, and precision vocabularies. Every one of them crosses as its own row's key string, so a peer decodes against the same closed vocabulary the producer holds and an unknown key REFUSES at decode rather than defaulting — a `role` no `TextureChannel` claims, a `ktxPayload` of `rawBcn` or `astc` (branch-local desktop payloads, never wire-legal — the roster's `Raster/codec#RASTER_CODEC` `KtxPayload.None` row carries every non-KTX2 file AND the uncompressed deep KTX2, so every channel declares a real payload class and only the two illegal ones refuse), a `transfer` of `pq` or `hlg` on a channel plane (a bake target is scene-referred), or a `backend` of `webgpu` on a persisted set (GPU output is a preview carrying no key at all) each rail rather than admit. `StageRequestWire`/`StageResultWire` cross the `Rasm.Materials/Appearance/neural` ↔ `Rasm.Compute/Model/inference` `[WIRE]` edge recorded at BOTH folder `ARCHITECTURE.md` `[03]-[SEAMS]` maps: the branch strata forbid a project reference in either direction, so the hop is BYTES the app root relays and Compute transcribes into its own mirror — and it mints NO `tests/contracts/MANIFEST.md` entry, because it never leaves the C# runtime and a corpus entry for a branch-interior hop is the fabricated contract the cross-`libs/` ruling forecloses. `EnvironmentLightWire` is branch-interior for the same reason: `Rasm.AppUi` consumes the resolved `EnvironmentLight` VALUE over the declared `[BOUNDARY]` edge, and the wire exists for the app-root relay and the durable receipt, not for a peer runtime.
 
 ```csharp signature
 // (Continues the Rasm.Materials.Appearance.Interchange compilation unit — the [02] prelude is in scope, plus:)
@@ -867,33 +900,46 @@ using Rasm.Materials.Raster;                   // the whole Raster vocabulary th
 using Rasm.Numerics;                            // Dimension
 
 // --- [MODELS] ------------------------------------------------------------------------------
-// PlaneEgress carries the per-plane storage evidence a projection consumes. RasterCodec.Encode returns BYTES, and the app root's write-once
-// object store is where those bytes come to rest, so the container row, the stored address, and the stored length arrive together from the step
-// that wrote them — a projection re-deriving any of the three asserts a fact about a store it never touched.
-public readonly record struct PlaneEgress(
-    TextureChannel Channel, RasterFormat Format, BlockFormat Block, KtxPayload Payload,
-    EgressVariant Variant, ContentAddress Blob, ulong ByteLength);
+// LevelEgress carries ONE stored file's evidence — the variant slot its leaf spells, the write-once address, and the
+// stored length. RasterCodec.Encode returns BYTES, and the app root's write-once object store is where those bytes
+// come to rest, so the evidence arrives from the step that wrote it — a projection re-deriving any column asserts a
+// fact about a store it never touched. PlaneEgress/PackEgress then carry the per-plane container row and the
+// LEVEL-ORDERED evidence list in ascending level order: ONE entry for a self-pyramiding container, one per level otherwise.
+public readonly record struct LevelEgress(EgressVariant Variant, ContentAddress Blob, ulong ByteLength);
 
-public readonly record struct PackEgress(
-    ChannelPack Pack, RasterFormat Format, EgressVariant Variant, ContentAddress Blob, ulong ByteLength);
+public readonly record struct PlaneEgress(
+    TextureChannel Channel, RasterFormat Format, BlockFormat Block, KtxPayload Payload, Seq<LevelEgress> Levels);
+
+public readonly record struct PackEgress(ChannelPack Pack, RasterFormat Format, Seq<LevelEgress> Levels);
+
+// The C#-family address triple: ONE stored plane FILE. `blob` spells ContentAddress.ToValue() verbatim — 32
+// uppercase hex — and a consumer joining it to a path lowers it, never the reverse.
+[MessagePackObject]
+public readonly record struct PlaneRefWire(
+    [property: Key(0)] string File, [property: Key(1)] string Blob, [property: Key(2)] ulong ByteLength);
 
 // One channel row. Every enum column crosses as its own SmartEnum key string — never an ordinal, because an ordinal
 // binds the wire to a declaration ORDER that a roster append is free to move. `channels` is the SEMANTIC component
 // count off the roster and `format` the STORAGE width, so a three-component vector plane reads 3 against an rgba16
-// row rather than collapsing the two facts into one ambiguous number.
+// row rather than collapsing the two facts into one ambiguous number; `container` is the FILE-container key the
+// alpha-association gate selects on — recovering it by string-parsing the egress extension is the unspellable form
+// the column replaces. `levels` is the LEVEL-ORDERED address-triple list under the frozen plane-levels law: ONE
+// entry for a self-pyramiding container whatever `mips` declares, one entry per level otherwise — a scalar address
+// beside a `mips` count named files it could not address and left every level past the base undigested.
 [MessagePackObject]
 public readonly record struct ChannelWire(
     [property: Key(0)] string Role, [property: Key(1)] string Transfer, [property: Key(2)] string Format,
-    [property: Key(3)] uint Channels, [property: Key(4)] string AlphaMode, [property: Key(5)] uint Mips,
-    [property: Key(6)] string MipPolicy, [property: Key(7)] string BlockFormat, [property: Key(8)] string KtxPayload,   // the payload CLASS the plane was encoded under, always a wire-legal row
-    [property: Key(9)] string Blob, [property: Key(10)] string File, [property: Key(11)] ulong ByteLength);
+    [property: Key(3)] string Container, [property: Key(4)] uint Channels, [property: Key(5)] string AlphaMode,
+    [property: Key(6)] uint Mips, [property: Key(7)] string MipPolicy, [property: Key(8)] string BlockFormat,
+    [property: Key(9)] string KtxPayload,   // wire-legal row: uastc | etc1s | none (none = non-KTX2 file OR uncompressed deep KTX2)
+    [property: Key(10)] PlaneRefWire[] Levels);
 
 // One packed sheet. `present` is three flags in the PACK ROW's own slot order — the order is the row, never a wire
 // list — so a reader resolves which lane holds what from the same ChannelPack table the producer packed against.
 [MessagePackObject]
 public readonly record struct PackWire(
     [property: Key(0)] string Pack, [property: Key(1)] bool[] Present, [property: Key(2)] string Format,
-    [property: Key(3)] uint Mips, [property: Key(4)] string Blob, [property: Key(5)] string File, [property: Key(6)] ulong ByteLength);
+    [property: Key(3)] string Container, [property: Key(4)] uint Mips, [property: Key(5)] PlaneRefWire[] Levels);
 
 // PressReceiptWire carries the press evidence a baked set holds and an ingested set omits. GpuDeltaMax is NULLABLE rather than zero: a
 // single-lane press measured no divergence, and a zero there reads to the parity gate as a perfect match — the interior press#PRESS_RECEIPT
@@ -950,7 +996,7 @@ public sealed record TextureSetWire(
             .Traverse(entry => Channel(set, entry.Channel, entry.Plane, key)).As()
         from packed in packs.Traverse(pack => Pack(set, pack, key)).As()
         select new TextureSetWire(
-            AppearanceKey: $"{summary.AppearanceKey:X32}",
+            AppearanceKey: summary.AppearanceKey.ToString("X32"),
             SetKey: set.Digest.ToValue(),
             MaterialId: set.Material.Map(static id => id.Value).IfNone(string.Empty),
             Conductor: set.Conductor.Map(static metal => metal.Key).IfNone(string.Empty),
@@ -962,29 +1008,61 @@ public sealed record TextureSetWire(
             Provenance: provenance,
             Press: press.Map(TextureWireMap.ToWire).ToNullable());
 
-    // Channel reads the leaf name from the SET's own Egress render, so the wire column, the object-store path, and the .mtlx file attribute are one
-    // string. Its pyramid supplies depth and storage width; the ROW supplies transfer, alpha, mip law, and payload class — the plane cannot
-    // contradict its channel's declared law because the set admission already proved they agree.
+    // A UDIM sheet crosses as ONE document: the tile axis is the frozen `<variant>` slot, so channel rows repeat per
+    // ascending tile under each tile's own Udim egress leaf, `udimTiles` carries the Mari indices the rows group by,
+    // and the sheet key replaces the per-tile set key. Extent and vocabulary columns are any tile's — UdimSheet.Of
+    // proved roster and vocabulary agreement before the sheet keyed, so the head tile speaks for the sheet.
+    public static Fin<TextureSetWire> Of(
+        UdimSheet sheet, AppearanceSummary summary,
+        Seq<(UdimTile Tile, Seq<PlaneEgress> Planes, Seq<PackEgress> Packs)> storage,
+        WireProvenance provenance, Option<PressReceipt> press, Op key) =>
+        from _ in guard(storage.Count == sheet.Tiles.Count,
+                MaterialFault.Parameter(key, "<texture-set-wire-udim-storage-mismatch>"))
+        from tiles in sheet.Tiles.Traverse(pair =>
+            storage.Find(entry => entry.Tile == pair.Tile)
+                .ToFin(MaterialFault.Parameter(key, $"<texture-set-wire-udim-missing-tile:{pair.Tile.Value}>"))
+                .Bind(entry => Of(pair.Set, summary, entry.Planes, entry.Packs, provenance, press, key)
+                    .Map(wire => (pair.Tile, Wire: wire)))).As()
+        from head in tiles.Head.ToFin(MaterialFault.Parameter(key, "<texture-set-wire-udim-empty>"))
+        select head.Wire with {
+            SetKey = sheet.Key.ToString("X32"),
+            UdimTiles = tiles.Map(static entry => (uint)entry.Tile.Value).ToArray(),
+            Channels = tiles.Bind(static entry => toSeq(entry.Wire.Channels)).ToArray(),
+            Packs = tiles.Bind(static entry => toSeq(entry.Wire.Packs)).ToArray(),
+        };
+
+    // Channel reads each leaf name from the SET's own Egress render, so the wire column, the object-store path, and the .mtlx file attribute are
+    // one string. Its pyramid supplies depth and storage width; the ROW supplies transfer, alpha, mip law, and payload class; and the frozen
+    // level-list length law holds at the PRODUCER — one triple for a self-pyramiding container whatever the chain declares, one per level
+    // otherwise — so a document naming files it cannot address is unrepresentable rather than a reader's discovery.
     static Fin<ChannelWire> Channel(TextureSet set, TextureChannel channel, PlaneEgress plane, Op key) =>
         from pyramid in set.Channels.Find(channel).ToFin(MaterialFault.Parameter(key, $"<texture-set-wire-unbound-channel:{channel.Key}>"))
         from legal in guard(plane.Payload.WireLegal, MaterialFault.Parameter(key, $"<texture-set-wire-payload-illegal:{channel.Key}:{plane.Payload.Key}>"))
         // Belt on the frozen scene-referred law at the one C# crossing: the set admission proves it for admitted
         // sets, and this guard is what makes the page's own decode-refusal roster true of the surface it owns.
         from scene in guard(pyramid.Base.Transfer.SceneReferred, MaterialFault.Parameter(key, $"<texture-set-wire-display-referred:{channel.Key}:{pyramid.Base.Transfer.Key}>"))
-        from leaf in set.Egress(channel, plane.Variant, plane.Format, key)
+        from law in guard(plane.Levels.Count == (plane.Format.HoldsPyramid ? 1 : pyramid.Levels.Count),
+                MaterialFault.Parameter(key, $"<texture-set-wire-levels-unaddressed:{channel.Key}:{plane.Levels.Count}:{pyramid.Levels.Count}>"))
+        from levels in plane.Levels.Traverse(level =>
+            set.Egress(channel, level.Variant, plane.Format, key)
+                .Map(leaf => new PlaneRefWire(File: leaf, Blob: level.Blob.ToValue(), ByteLength: level.ByteLength))).As()
         select new ChannelWire(
             Role: channel.Key, Transfer: pyramid.Base.Transfer.Key, Format: pyramid.Base.Format.Key,
-            Channels: (uint)channel.Components, AlphaMode: pyramid.Base.Alpha.Key, Mips: (uint)pyramid.Levels.Count,
-            MipPolicy: pyramid.Policy.Key, BlockFormat: plane.Block.Key, KtxPayload: plane.Payload.Key,
-            Blob: plane.Blob.ToValue(), File: leaf, ByteLength: plane.ByteLength);
+            Container: plane.Format.Key, Channels: (uint)channel.Components, AlphaMode: pyramid.Base.Alpha.Key,
+            Mips: (uint)pyramid.Levels.Count, MipPolicy: pyramid.Policy.Key, BlockFormat: plane.Block.Key,
+            KtxPayload: plane.Payload.Key, Levels: levels.ToArray());
 
     static Fin<PackWire> Pack(TextureSet set, PackEgress pack, Op key) =>
         from plane in set.Packs.Find(seated => seated.Pack == pack.Pack)
             .ToFin(MaterialFault.Parameter(key, $"<texture-set-wire-unbound-pack:{pack.Pack.Key}>"))
-        from leaf in set.Egress(pack.Pack, pack.Variant, pack.Format, key)
+        from law in guard(pack.Levels.Count == (pack.Format.HoldsPyramid ? 1 : plane.Plane.Levels.Count),
+                MaterialFault.Parameter(key, $"<texture-set-wire-pack-levels-unaddressed:{pack.Pack.Key}:{pack.Levels.Count}:{plane.Plane.Levels.Count}>"))
+        from levels in pack.Levels.Traverse(level =>
+            set.Egress(pack.Pack, level.Variant, pack.Format, key)
+                .Map(leaf => new PlaneRefWire(File: leaf, Blob: level.Blob.ToValue(), ByteLength: level.ByteLength))).As()
         select new PackWire(
             Pack: pack.Pack.Key, Present: plane.Flags.ToArray(), Format: plane.Plane.Base.Format.Key,
-            Mips: (uint)plane.Plane.Levels.Count, Blob: pack.Blob.ToValue(), File: leaf, ByteLength: pack.ByteLength);
+            Container: pack.Format.Key, Mips: (uint)plane.Plane.Levels.Count, Levels: levels.ToArray());
 }
 
 // EnvironmentLightWire mirrors the resolved dome. Every field of the environment row resolves at environment#ENVIRONMENT_LIGHT, so this
@@ -1078,16 +1156,16 @@ public sealed record StageRequestWire(
     // neural#MODEL_REGISTRY StageRequest.Of already gated the request — a blocked licence has no request to project — so Of transcribes alone and
     // carries no second gate whose verdict could differ from the first.
     public static StageRequestWire Of(StageRequest request) =>
-        new(Stage: request.Stage.Key, ModelCardId: request.ModelCard.Value, LicenseClass: request.License.Key,
+        new(Stage: request.Stage.Key, ModelCardId: request.ModelCardId.Value, LicenseClass: request.LicenseClass.Key,
             Inputs: request.Inputs.Map(static input => input.Wire switch {
                 var flat => new StageInputWire(flat.Stage, flat.Role, flat.Key),
             }).ToArray(),
             InputWidth: (uint)request.InputWidth.Value, InputHeight: (uint)request.InputHeight.Value,
             OutputWidth: (uint)request.OutputWidth.Value, OutputHeight: (uint)request.OutputHeight.Value,
-            TileWidth: request.Tiles.TileWidth.Value, TileHeight: request.Tiles.TileHeight.Value,
-            Overlap: request.Tiles.Overlap, PadMode: request.Tiles.PadMode, Bucket: request.Tiles.Bucket,
+            TileWidth: request.TileWidth, TileHeight: request.TileHeight,
+            Overlap: request.Overlap, PadMode: request.PadMode, Bucket: request.Bucket,
             Provider: request.Provider.Key, Precision: request.Precision.Key, Seed: request.Seed,
-            Op: request.Key.ToString());
+            Op: request.Op.ToString());
 }
 
 // THE INFERENCE RESULT. ProviderUsed is the provider AFTER any refusal, PartitionCount the graph fragmentation the
@@ -1114,6 +1192,9 @@ public sealed record StageResultWire(
     // prohibition, the partition bound, the residual ceiling, and the output completeness are all proved by their
     // owner. A decode that merely deserialized would let a peer publish a fabricated normal plane as measured.
     public static Fin<StageResult> Admit(StageResultWire wire, ModelCard card, Op key) =>
+        // The executor echoes the correlation key VERBATIM (freeze [07]); a result whose echo names another
+        // request refuses before any vocabulary lift — without this guard the op correlation is write-only.
+        from _echo in guard(wire.Op == key.ToString(), MaterialFault.Parameter(key, $"<stage-op-echo:{wire.Op}>"))
         from stage in PbrStage.TryGet(wire.Stage, out PbrStage? row) ? Fin.Succ(row!) : Refused<PbrStage>(key, "stage", wire.Stage)
         from provider in InferenceProvider.TryGet(wire.ProviderUsed, out InferenceProvider? used) ? Fin.Succ(used!) : Refused<InferenceProvider>(key, "provider", wire.ProviderUsed)
         from outputs in toSeq(wire.Outputs).Traverse(output => Output(output, key)).As()
@@ -1158,40 +1239,44 @@ public static partial class TextureWireMap {
     [MapperIgnoreSource(nameof(PressReceipt.Downgraded))]  // a mip-policy downgrade is press telemetry, not a set contract
     public static partial PressReceiptWire ToWire(PressReceipt receipt);
 
-    static string PlanHex(PressReceipt receipt) => $"{receipt.PlanKey:X32}";
+    static string PlanHex(PressReceipt receipt) => receipt.PlanKey.ToString("X32");
 
     // GraphHex crosses a graphless press (a raw field, an aged slab) as an empty string, the honest absence — that press has NO graph key, and a
     // zeroed hex reads to a lineage query as a real digest every graphless press shared.
-    static string GraphHex(PressReceipt receipt) => receipt.GraphKey.Map(static hex => $"{hex:X32}").IfNone(string.Empty);
+    static string GraphHex(PressReceipt receipt) => receipt.GraphKey.Map(static hex => hex.ToString("X32")).IfNone(string.Empty);
 
     static double? DeltaOrAbsent(PressReceipt receipt) => receipt.GpuDelta.ToNullable();
 }
 ```
 
 ```ts signature
+interface PlaneRefWire {
+  readonly file: string;          // the egress leaf, relative to the set directory
+  readonly blob: string;          // ContentAddress, 32 uppercase hex; lower it to join assets/<digest>/
+  readonly byteLength: number;
+}
+
 interface ChannelWire {
   readonly role: string;          // a canonical TextureChannel key; an unknown key refuses at decode
   readonly transfer: string;      // linear | srgb | raw — pq/hlg refuse on a channel plane
   readonly format: string;        // the PlaneFormat storage key
+  readonly container: string;     // the FILE-container key; the alpha-association gate selects on it
   readonly channels: number;      // the SEMANTIC component count, distinct from the storage width
   readonly alphaMode: string;
   readonly mips: number;
   readonly mipPolicy: string;
   readonly blockFormat: string;
-  readonly ktxPayload: string;    // uastc | etc1s — rawBcn refuses at decode; no basis transcoder reads it
-  readonly blob: string;          // ContentAddress, 32 uppercase hex; lower it to join assets/<digest>/
-  readonly file: string;
-  readonly byteLength: number;
+  readonly ktxPayload: string;    // uastc | etc1s | none (non-KTX2 file or uncompressed deep KTX2) — rawBcn/astc refuse at decode
+  readonly levels: readonly PlaneRefWire[];   // level-ordered; ONE entry for a self-pyramiding container, one per level otherwise
 }
 
 interface PackWire {
   readonly pack: string;
   readonly present: readonly boolean[];   // flags in the pack row's own slot order
   readonly format: string;
+  readonly container: string;
   readonly mips: number;
-  readonly blob: string;
-  readonly file: string;
-  readonly byteLength: number;
+  readonly levels: readonly PlaneRefWire[];   // the pack name is the <channel> slot of each leaf
 }
 
 interface PressReceiptWire {
@@ -1226,63 +1311,68 @@ interface TextureSetWire {
 ```
 
 ```python signature
-@dataclass(frozen=True, slots=True)
-class ChannelWire:
-    role: str
-    transfer: str
-    format: str
-    channels: int  # the SEMANTIC component count, distinct from the storage width
-    alpha_mode: str
-    mips: int
-    mip_policy: str
-    block_format: str
-    ktx_payload: str  # uastc | etc1s — raw_bcn refuses at decode; no basis transcoder reads it
-    blob: str  # ContentAddress, 32 uppercase hex; lower it to join a path segment
-    file: str
-    byte_length: int
+# TRANSCRIPTION of the landed python decode at `python:runtime/transport/shapes#SHAPES` — msgspec Structs, proto3
+# zero defaults, `T | None = None` nested; `layers` alone defaults 1 because a zero Dimension is an invalid decode.
+class PlaneRefWire(Struct, frozen=True, gc=False):
+    # the C#-family address triple: ONE stored plane FILE; `blob` spells ContentAddress.ToValue() verbatim in
+    # 32 uppercase hex, lowered only where a consumer joins a path segment
+    file: str = ""
+    blob: str = ""
+    byte_length: int = 0
 
 
-@dataclass(frozen=True, slots=True)
-class PackWire:
-    pack: str
-    present: tuple[bool, ...]  # flags in the pack row's own slot order
-    format: str
-    mips: int
-    blob: str
-    file: str
-    byte_length: int
+class ChannelWire(Struct, frozen=True):
+    role: str = ""
+    transfer: str = ""
+    format: str = ""
+    container: str = ""  # the FILE-container key the alpha-association gate reads; recovering it from an extension is the deleted form
+    channels: int = 0  # the SEMANTIC component count, distinct from the storage width
+    alpha_mode: str = ""
+    mips: int = 0
+    mip_policy: str = ""
+    block_format: str = ""
+    ktx_payload: str = ""  # uastc | etc1s | none (non-KTX2 file or uncompressed deep KTX2) — raw_bcn/astc refuse at decode
+    levels: list[PlaneRefWire] = msgspec.field(default_factory=list)
+    # ^ LEVEL-ORDERED triples: ONE entry for a self-pyramiding container whatever `mips` declares, one per level otherwise
 
 
-@dataclass(frozen=True, slots=True)
-class PressReceiptWire:
-    backend: str  # always cpu on a persisted set
-    plan_key: str
-    graph_key: str  # empty for a graphless press
-    seed: int
-    texels: int
-    elapsed_ms: float
-    gpu_delta_max: float | None  # absent until a parity run measures it; never a zero
+class PackWire(Struct, frozen=True):
+    pack: str = ""
+    present: list[bool] = msgspec.field(default_factory=list)  # flags in the pack row's own slot order
+    format: str = ""
+    container: str = ""
+    mips: int = 0
+    levels: list[PlaneRefWire] = msgspec.field(default_factory=list)  # the pack name is the `<channel>` slot of each leaf
 
 
-@dataclass(frozen=True, slots=True)
-class TextureSetWire:
-    appearance_key: str  # the seam key this set hangs BEHIND, never a column of it
-    set_key: str
-    material_id: str
-    conductor: str
-    width: int
-    height: int
-    layers: int
-    layer_law: str
-    normal_convention: str
-    alpha_mode: str
-    height_scale: float
-    tiled: bool  # the projection of a measured tile proof, never an assertion
-    udim_tiles: tuple[int, ...]
-    channels: tuple[ChannelWire, ...]  # roster-ordered; the order IS the key preimage order
-    packs: tuple[PackWire, ...]
-    provenance: WireProvenance
-    press: PressReceiptWire | None
+class PressReceiptWire(Struct, frozen=True, gc=False):
+    backend: str = ""  # always cpu on a persisted set
+    plan_key: str = ""
+    graph_key: str = ""  # empty for a graphless press
+    seed: int = 0
+    texels: int = 0
+    elapsed_ms: float = 0.0
+    gpu_delta_max: float | None = None  # absent until a parity run measures it; never a zero
+
+
+class TextureSetWire(Struct, frozen=True):
+    appearance_key: str = ""  # the seam key this set hangs BEHIND, never a column of it
+    set_key: str = ""
+    material_id: str = ""
+    conductor: str = ""
+    width: int = 0
+    height: int = 0
+    layers: int = 1  # frozen default 1 — the one field whose proto3 zero-absence would decode invalid
+    layer_law: str = ""
+    normal_convention: str = ""
+    alpha_mode: str = ""
+    height_scale: float = 0.0
+    tiled: bool = False  # the projection of a measured tile proof, never an assertion
+    udim_tiles: list[int] = msgspec.field(default_factory=list)
+    channels: list[ChannelWire] = msgspec.field(default_factory=list)  # roster-ordered; the order IS the key preimage order
+    packs: list[PackWire] = msgspec.field(default_factory=list)
+    provenance: WireProvenance | None = None
+    press: PressReceiptWire | None = None
 ```
 
 ## [05]-[RESEARCH]

@@ -6,14 +6,12 @@ Board content is code and the UI is drift: `storeDashboardSha256: true` diffs da
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]             | [OWNS]                                                                   | [PUBLIC] |
-| :-----: | :-------------------- | :----------------------------------------------------------------------- | :------- |
-|  [01]   | `STORE_ROWS`          | the closed metrics-store family with tenancy/rules/retention/degradation | `Lgtm`   |
-|  [02]   | `CHART_ROWS`          | the backend and residence chart rows, pinned names, decoded collector    | `Lgtm`   |
-|  [03]   | `SCRAPE_ROWS`         | the pg-server metrics arm pair under the one-ingress law                 | `Lgtm`   |
-|  [04]   | `DEV_ROW`             | the docker-arm estate as one all-in-one tier publishing the URL plane    | `Dev`    |
-|  [05]   | `ENDPOINT_PROJECTION` | the ingest, query, residence, and collector rows consumers bind          | `Lgtm`   |
-|  [06]   | `BOARD_APPLY`         | provider, folder, sources, the builder compile leg, alerts, RBAC         | `Boards` |
+- [02]-[STORE_ROWS]: the closed metrics-store family with tenancy/rules/retention/degradation; `Lgtm`.
+- [03]-[CHART_ROWS]: the backend and residence chart rows, pinned names, decoded collector; `Lgtm`.
+- [04]-[SCRAPE_ROWS]: the pg-server metrics arm pair under the one-ingress law; `Lgtm`.
+- [05]-[DEV_ROW]: the docker-arm estate as one all-in-one tier publishing the URL plane; `Dev`.
+- [06]-[ENDPOINT_PROJECTION]: the ingest, query, residence, and collector rows consumers bind; `Lgtm`.
+- [07]-[BOARD_APPLY]: provider, folder, sources, the builder compile leg, alerts, RBAC; `Boards`.
 
 ## [02]-[STORE_ROWS]
 

@@ -4,15 +4,13 @@ The remote-origin filesystem plane: ONE origin-addressed surface owning every no
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                                |
-| :-----: | :----------------- | :------------------------------------------------------------------------------------ |
-|  [01]   | `ORIGIN_ROWS`      | the `Origin` class, the scheme capability-flag table, the reason-discriminated fault  |
-|  [02]   | `SESSION_ROWS`     | the tagged session family, per-scheme scoped brackets, pooled reuse, the flag probe   |
-|  [03]   | `OP_SURFACE`       | the polymorphic verb set — stat/list/read/write/copy/move/remove/mkdir/lock, degrade  |
-|  [04]   | `TRANSFER_ENGINES` | the resume policy rows — rsync delta, offset, chunked-parallel — and the intake fold  |
-|  [05]   | `SYNC_ENGINE`      | persisted listings, comparator rows, the diff-apply-recover fold                      |
-|  [06]   | `WATCH_ROWS`       | the watch strategy rows — ssh exec-push, universal poll; local intake stays owned     |
-|  [07]   | `EXEC`             | remote command execution — typed channels, exit disposition, the local `Command` twin |
+- [02]-[ORIGIN_ROWS]: the `Origin` class, the scheme capability-flag table, the reason-discriminated fault.
+- [03]-[SESSION_ROWS]: the tagged session family, per-scheme scoped brackets, pooled reuse, the flag probe.
+- [04]-[OP_SURFACE]: the polymorphic verb set — stat/list/read/write/copy/move/remove/mkdir/lock, degrade.
+- [05]-[TRANSFER_ENGINES]: the resume policy rows — rsync delta, offset, chunked-parallel — and the intake fold.
+- [06]-[SYNC_ENGINE]: persisted listings, comparator rows, the diff-apply-recover fold.
+- [07]-[WATCH_ROWS]: the watch strategy rows — ssh exec-push, universal poll; local intake stays owned.
+- [08]-[EXEC]: remote command execution — typed channels, exit disposition, the local `Command` twin.
 
 ## [02]-[ORIGIN_ROWS]
 

@@ -46,6 +46,12 @@ Encoding stays outside: the provisioned `ktx` CLI mints every KTX2 the branch se
 
 `[ALPHA_FLAG]: `KHR_DF_FLAG_ALPHA_STRAIGHT` `KHR_DF_FLAG_ALPHA_PREMULTIPLIED`` — the `flags` field carrying the container's alpha association.
 
+`[TRANSFER_SPELLED]: `KHR_DF_TRANSFER_LINEAR` `KHR_DF_TRANSFER_SRGB` `KHR_DF_TRANSFER_PQ_EOTF` `KHR_DF_TRANSFER_HLG_EOTF`` — the DFD spellings behind the frozen five-tag transfer roster (`raw` shares `LINEAR` with no chromaticity).
+
+`[PRIMARIES_SPELLED]: `KHR_DF_PRIMARIES_UNSPECIFIED` `KHR_DF_PRIMARIES_BT709` `KHR_DF_PRIMARIES_BT2020` `KHR_DF_PRIMARIES_ACESCC`` — the working spaces the transfer tags name; `ACESCC` reads back for the AP1 scene-linear space.
+
+`[VK_FORMAT_SPELLED]: `VK_FORMAT_UNDEFINED` `VK_FORMAT_R8_UNORM` `VK_FORMAT_R8_SRGB` `VK_FORMAT_R8G8_UNORM` `VK_FORMAT_R8G8_SRGB` `VK_FORMAT_R8G8B8A8_UNORM` `VK_FORMAT_R8G8B8A8_SRGB` `VK_FORMAT_R16_UNORM` `VK_FORMAT_R16_SFLOAT` `VK_FORMAT_R32_SFLOAT` `VK_FORMAT_R16G16_UNORM` `VK_FORMAT_R16G16B16A16_UNORM` `VK_FORMAT_R16G16B16A16_SFLOAT` `VK_FORMAT_R32G32B32A32_SFLOAT`` — the ten-store roster's exact enum spellings plus the transcoding sentinel; a transcription table imports these verbatim, never a re-derived numeral.
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the whole surface — three functions
@@ -77,12 +83,12 @@ Encoding stays outside: the provisioned `ktx` CLI mints every KTX2 the branch se
 
 [LOCAL_ADMISSION]:
 - Encode is NOT this package: the provisioned `ktx` CLI mints every KTX2 the branch serves, and `write` exists to repack a container this branch already owns — a KTX2 assembled level-by-level from raw block data here forks the encoder.
-- Repacking a content-addressed container demands `keepWriter: true`. Default `write` rewrites `KTXwriter` and shortens the file, so `write(read(bytes))` answers a DIFFERENT digest than the CLI produced and silently re-keys an immutable object.
+- `write` never spells on the object plane — default `write` rewrites `KTXwriter` and shortens the file, so `write(read(bytes))` answers a DIFFERENT digest than the CLI produced and silently re-keys an immutable object, and `keepWriter: true` buys back only the repack the CLI `deflate` subcommand already owns; the package composes READ-ONLY per `RULINGS.md`.
 - Wire legality is a payload-class read, not a suffix read: `colorModel` UASTC or ETC1S admits to a web consumer, and a container reporting a BC block `vkFormat` is a desktop-native payload the branch's own transcoder path cannot consume.
 - Mip depth is `levelCount`, and `levelCount === 0` declares a base-level-only file whose pyramid the loader generates — distinct from `levelCount === 1`, which declares that no other level is meant to exist.
 
 [RAIL_LAW]:
 - Package: `ktx-parse`
 - Owns: KTX 2.0 container read and write as plain data — the `KTX2Container` record, its Data Format Descriptor, BasisLZ global data, key/value metadata, and the Khronos constant vocabularies that classify payload, transfer, primaries, and alpha
-- Accept: header classification of a delivered container before admission, DFD validation against the plane's declared transfer and alpha, `keepWriter` repacking of a content-addressed file, `Effect.try`-lifted `read` with a tagged fault, browser and server parsing of one byte plane
-- Reject: a `vkFormat` branch standing in for the payload class, a default `write` over content-addressed bytes, `dist/util.js` members imported as public surface, level bytes decoded or transcoded here, a KTX2 encoded here instead of by the provisioned CLI, `layerCount` or `pixelDepth` read as a ≥1 count
+- Accept: header classification of a delivered container before admission, DFD validation against the plane's declared transfer and alpha, `Effect.try`-lifted `read` with a tagged fault, browser and server parsing of one byte plane
+- Reject: a `vkFormat` branch standing in for the payload class, ANY `write` over object-plane bytes — the CLI `deflate` subcommand owns the repack — `dist/util.js` members imported as public surface, level bytes decoded or transcoded here, a KTX2 encoded here instead of by the provisioned CLI, `layerCount` or `pixelDepth` read as a ≥1 count

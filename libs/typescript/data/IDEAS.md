@@ -63,6 +63,20 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: `object/store.md` S3-conditional store; `journal/retain.md` retention classes and crypto-shredding; `lane/capability.md` `Backend.compose` source rows.
 - Tension: object custody is provider-shaped where relational artifacts are content-shaped; a bucket has no canonical byte form, so its artifact row keys on a declared custody descriptor rather than content, and that descriptor must stay identity-bearing without turning operator settings into generation inputs.
 
+[CHANNEL_PACK_ASSEMBLY]-[QUEUED]: Packed texture planes assemble from their component channels on the raster owner, so the frozen packing orders gain a producer.
+- Capability: the object plane mints a multi-component plane by folding single-component sources into declared slots under a named packing order, each absent slot filled with its channel's own neutral rather than zero, so the packing vocabulary the container gate already reads has something on this branch that writes it.
+- Shape: a channel-assembly rendition row on `libs/typescript/data/.planning/object/file.md` `[04]-[DERIVATIVE_ROWS]`, admitting sibling source keys beside the fan-out source and terminating in the same content-addressed mint.
+- Unlocks: `IDEAS.md [CHANNEL_PACK_ASSEMBLY]` — a packed plane reaches the `ktx` encode rows as one input file, so the glTF read order the wire declares crosses to a viewer without a peer branch minting the bytes first.
+- Anchors: `.api/sharp.md` `[CHANNEL_FOLD]` `joinChannel`/`extractChannel`/`bandbool`; `object/asset.md` `[03]` swizzle columns, which reorder ONE input's channels and cannot gather across sources; `object/file.md` `[05]` decode-once clone-N fold.
+- Tension: the derivative spine opens exactly one verified source, so a multi-source rendition either fetches its siblings inside the engine's emit — the shape the `ktx` engine already proved — or the spine gains a plural-source open that every single-source engine then carries; the row belongs where it costs the spine nothing.
+
+[ASSET_UNWRAP_ROW]-[BLOCKED]: UV-atlas generation joins the container transform vocabulary as one row.
+- Capability: served containers gain a generated UV atlas — texture-space bake targets and lightmap-ready second channels — through the same one-fold optimization vocabulary, the atlas codec injected like every other engine instance.
+- Shape: one `_TRANSFORMS` row on `libs/typescript/data/.planning/object/asset.md` `[03]-[TRANSFORM_ROWS]` minting `unwrap` with its injected `watlas` instance.
+- Unlocks: mesh-space texture products for the C# chart-atlas bake counterpart and lightmap channels with zero new surface — the roster growth law is the acceptance contract.
+- Anchors: `.api/gltf-transform-functions.md` `unwrap`/`UnwrapOptions` injected-codec row; `object/asset.md` `[03]` roster growth law.
+- Arms: `watlas` admitted in `pnpm-workspace.yaml` with its `.api` catalogue row landed.
+
 [GENERATION_RECOVERY_CONTRACT]-[QUEUED]: Restored lanes admit on evidence — the contract owner grades recovery instead of trusting the store it opened.
 - Capability: the contract admission verdict widens to a restored store — recovered generation identity, the frontier instant the restore reached, and the objective the composition root declares grade together, so a promoted replica, a point-in-time restore, and a rebuilt embedded lane resolve on one verdict; the branch mints its recovery evidence from its own lanes and reads no peer's runbook.
 - Shape: recovery observation and verdict rows on `libs/typescript/data/.planning/lane/capability.md` `[05]-[CONTRACT]`, sourced from the lane owners that already carry restore mechanics — `lane/sqlite.md` embedded rebuild and `journal/evolve.md` generation succession.

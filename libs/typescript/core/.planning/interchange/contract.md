@@ -4,11 +4,9 @@ The schema-drift authority of the interchange plane: pure reflection over two `F
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                    | [PUBLIC]         |
-| :-----: | :---------------- | :------------------------------------------------------------------------ | :--------------- |
-|  [01]   | `DRIFT_VERDICT`   | the change union, severity and grade tables, the verdict receipt and fold | `ContractDrift`  |
-|  [02]   | `GENERATION_DIFF` | the field-signature walk, the wire-fact compare, the enum-roster walk     | interior         |
-|  [03]   | `GATE_SERVICE`    | the boot verdict census, per-family admission, the coverage law           | `DescriptorGate` |
+- [02]-[DRIFT_VERDICT]: the change union, severity and grade tables, the verdict receipt and fold; `ContractDrift`.
+- [03]-[GENERATION_DIFF]: the field-signature walk, the wire-fact compare, the enum-roster walk; interior.
+- [04]-[GATE_SERVICE]: the boot verdict census, per-family admission, the coverage law; `DescriptorGate`.
 
 ## [02]-[DRIFT_VERDICT]
 

@@ -4,13 +4,11 @@ Content-addressed object identity is core `ContentKey`; this page delegates mint
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                                         |
-| :-----: | :---------------- | :--------------------------------------------------------------------------------------------- |
-|  [01]   | `CLIENT_SEAM`     | the scoped client, the one typed send, the fault fold, config, the engine table                |
-|  [02]   | `CONDITIONAL`     | the put algebra — 412-noop, CAS, multipart-at-complete, streaming, verified reads              |
-|  [03]   | `REFERENCE_GC`    | the reference ledger, the derived retention tag, If-Match CAS sweep, lifecycle, multipart reap |
-|  [04]   | `INSTRUMENT_ROWS` | the Convention projections — dedup outcome, bytes written, GC reclaim off the receipts         |
-|  [05]   | `GRANT_MINT`      | the one presign entry, TTL narrowing, header policy, the typed grant                           |
+- [02]-[CLIENT_SEAM]: the scoped client, the one typed send, the fault fold, config, the engine table.
+- [03]-[CONDITIONAL]: the put algebra — 412-noop, CAS, multipart-at-complete, streaming, verified reads.
+- [04]-[REFERENCE_GC]: the reference ledger, the derived retention tag, If-Match CAS sweep, lifecycle, multipart reap.
+- [05]-[INSTRUMENT_ROWS]: the Convention projections — dedup outcome, bytes written, GC reclaim off the receipts.
+- [06]-[GRANT_MINT]: the one presign entry, TTL narrowing, header policy, the typed grant.
 
 ## [02]-[CLIENT_SEAM]
 

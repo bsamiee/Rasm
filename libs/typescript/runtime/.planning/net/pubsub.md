@@ -8,14 +8,12 @@ Retention makes replay a warm-up and recovery window, never the system of record
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                                               | [PUBLIC]                     |
-| :-----: | :-------------- | :----------------------------------------------------------------------------------- | :--------------------------- |
-|  [01]   | `TOPIC_ROWS`    | the topic policy vocabulary: subject, retention, replay, ack posture, redelivery     | `Fanout`                     |
-|  [02]   | `PORT_SHAPE`    | the engine-neutral port — publish, subscribe, consume, replay, stash, haul — faults  | `Fanout`, `FanoutFault`      |
-|  [03]   | `LOCAL_ROW`     | the in-process engine over `PubSub` replay and the in-process blob shelf             | `Fanout.local`               |
-|  [04]   | `TAB_ROW`       | the browser cross-tab engine — `BroadcastChannel` bridge decorating the local cells  | `Fanout.tab`                 |
-|  [05]   | `JETSTREAM_ROW` | the NATS engine: ordered vs durable lanes, dedup, double-ack, heartbeat, blob store  | `Fanout.jetstream`, `Broker` |
-|  [06]   | `KAFKA_ROW`     | Kafka engine: librdkafka client, manual-commit lane, explicit degradation, reconcile | `Fanout.kafka`               |
+- [02]-[TOPIC_ROWS]: the topic policy vocabulary: subject, retention, replay, ack posture, redelivery; `Fanout`.
+- [03]-[PORT_SHAPE]: the engine-neutral port — publish, subscribe, consume, replay, stash, haul — faults; `Fanout`, `FanoutFault`.
+- [04]-[LOCAL_ROW]: the in-process engine over `PubSub` replay and the in-process blob shelf; `Fanout.local`.
+- [05]-[TAB_ROW]: the browser cross-tab engine — `BroadcastChannel` bridge decorating the local cells; `Fanout.tab`.
+- [06]-[JETSTREAM_ROW]: the NATS engine: ordered vs durable lanes, dedup, double-ack, heartbeat, blob store; `Fanout.jetstream`, `Broker`.
+- [07]-[KAFKA_ROW]: Kafka engine: librdkafka client, manual-commit lane, explicit degradation, reconcile; `Fanout.kafka`.
 
 ## [02]-[TOPIC_ROWS]
 

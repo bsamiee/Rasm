@@ -14,7 +14,7 @@ Python's mint of the suite wire vocabulary: every canonical `msgspec.Struct` the
 - Owner: field names are the producer's snake_case proto names verbatim — `MessageToDict(preserving_proto_field_name=True)` keys the mapping by them — so no `rename=` layer exists and the struct declaration IS the wire contract. Producers whose own serializers spell a second casing change nothing here — the C# appearance leg emits Web camelCase off its PascalCase members, and that casing and this one are both mechanical projections of the ONE snake_case proto name, so a camelCase slot on these structs decodes nothing.
 - Cases: every scalar slot carries its proto3 zero default because `MessageToDict` omits a field at its default value — a default-less slot rejects the producer's legitimate zero, so presence is the proto3 no-presence contract, never a required-field re-mint. Nested message slots spell `T | None = None` — proto message absence is a real wire value, the one place `None` crosses inward, collapsed by the consuming owner at its seam. Explicit presence rides every scalar the producer declares `optional`, spelling `T | None = None` for that reason alone: the field distinguishes unmeasured from measured-zero, so folding it onto the zero default reads a measurement no producer took — `TextureSetWire`'s press divergence is the standing instance, and a scalar without the producer's `optional` keyword never takes this shape. `SolveRequest` deliberately carries bare column-major `float64` bytes, never a tensor envelope, per the producer's no-geometry-envelope law.
 - Auto: no shape lifts the causal halves to `Hlc` — the `clock/clock#CLOCK` owner reconstructs causal cells at full 100-ns tick fidelity from the carrier slots, and a `datetime`-mediated lift here truncates to microseconds. `Packed` types the two producer-open envelopes, open within the additive-only contract by the producer's own design and never widened past the declared slots. `TessellationRequest`/`TessellationReceipt` are contract rows this registry mints and streams over the existing `artifact_frame` leg — geometry `mesh/serve` binds the field floor by symbol, minting no wire shape.
-- Law: PRODUCER DIRECTION is a per-family fact this page records and never averages. `MaterialWire`, `OpenPbrGroupsWire`, `AppearanceSummaryWire`, and the `WireColor`/`WireProvenance` leaves form the appearance family, DECODE-ONLY: `csharp:Rasm.Materials/Appearance/interchange#MATERIAL_WIRE` is the sole producer of the OpenPBR parameter algebra, the conductor key, the capture receipt, and the appearance content hash, so these structs mirror that projection field-for-field and a python-side lowering, conductor table, or key derivation is the named cross-language drift defect. `TextureSetWire` with its `ChannelWire`/`PackWire`/`PressReceiptWire` leaves forms the baked-set family, DECODE-ONLY on the same authority, `csharp:Rasm.Materials/Raster/set#TEXTURE_SET` pressing the plane bytes and keying the set, and it REUSES `WireProvenance` rather than minting a second capture receipt. `AssetSetManifest` and its `MapEntry`/`PackEntry`/`IblEntry` leaves run the other way — `artifacts/graphic/texture/set#TEXTURE_SET` FILLS them behind its merkle set key and the peers decode. Both set documents stand DISTINCT and neither name covers the other: the C# one hangs behind an `AppearanceKey` and carries a press receipt, the python one carries a `kind` discriminant and an IBL entry, and one channel roster, transfer vocabulary, normal convention, and pack order serve both — two producers under two names sharing one frozen vocabulary. Their hex spellings also diverge and neither derives from the other: the C# document carries its content addresses UPPERCASE and the python one lowercase, so a consumer joining a key across the pair lowers, never uppercases. Every family spells repeated slots `list[...]` because the frozen cross-branch fragment declares them so and the producer constructs them so; `convert` coerces either container inward, so the declaration follows the fragment rather than re-spelling it, and the interior owners that consume these documents hold their own immutable collections.
+- Law: PRODUCER DIRECTION is a per-family fact this page records and never averages. `MaterialWire`, `OpenPbrGroupsWire`, `AppearanceSummaryWire`, and the `WireColor`/`WireProvenance` leaves form the appearance family, DECODE-ONLY: `csharp:Rasm.Materials/Appearance/interchange#MATERIAL_WIRE` is the sole producer of the OpenPBR parameter algebra, the conductor key, the capture receipt, and the appearance content hash, so these structs mirror that projection field-for-field and a python-side lowering, conductor table, or key derivation is the named cross-language drift defect. `TextureSetWire` with its `ChannelWire`/`PackWire`/`PressReceiptWire` leaves forms the baked-set family, DECODE-ONLY on the same authority, `csharp:Rasm.Materials/Raster/set#TEXTURE_SET` pressing the plane bytes and keying the set, and it REUSES `WireProvenance` rather than minting a second capture receipt. `AssetSetManifest` and its `MapEntry`/`PackEntry`/`IblEntry` leaves run the other way — `artifacts/graphic/texture/set#TEXTURE_SET` FILLS them behind its merkle set key and the peers decode. Both set documents stand DISTINCT and neither name covers the other: the C# one hangs behind an `AppearanceKey` and carries a press receipt, the python one carries a `kind` discriminant and an IBL entry, and one channel roster, transfer vocabulary, normal convention, and pack order serve both — two producers under two names sharing one frozen vocabulary. Their hex spellings also diverge and neither derives from the other: the C# document carries its content addresses UPPERCASE and the python one lowercase, so a consumer joining a key across the pair lowers, never uppercases. Every family spells repeated slots `list[...]` because the frozen cross-branch fragment declares them so and the producer constructs them so; `convert` coerces either container inward, so the declaration follows the fragment rather than re-spelling it, and the interior owners that consume these documents hold their own immutable collections. Every addressed plane on BOTH set documents is a level-ordered address-triple list — `PlaneRefWire` on the C# family, `PlaneRef` on the python one, per the fragment's plane-levels law — one triple for a self-pyramiding container and one per level otherwise, so no level past the base crosses undigested; the container key rides its own column on every channel, pack, and map row because the alpha-association gate selects on it and an extension parse is the unspellable form that column replaces.
 - Receipt: `FaultDetail` is the typed conflict the whole suite converges on, riding the `TransactionReceipt.conflict` slot in band and the `grpc-status-details-bin` trailer out of band; `transport/serve#SERVE` owns the Python trailer egress and ingress — this page owns only the shape.
 - Packages: `msgspec`, `protobuf`, and the faults rail per the fence imports; `transport/wire#PROTO_TRANSCODE` runs the `convert(strict=False)` decimal-string coercion leg.
 - Growth: a new producer message is one `Struct` with one `PROTO_VOCABULARY` row the gate proves on the next boot; a new field on an existing message is one slot with its proto3 zero default; a new sibling-consumer field floor is one registry row pair, never a sibling vocabulary. Every peer-produced DOCUMENT lands as its whole struct family — each nested envelope carries its own row, because the gate walks a registered row's top-level fields alone and an unregistered leaf drifts field-silently while its parent still passes.
@@ -301,29 +301,46 @@ class MaterialWire(Struct, frozen=True):
     preview: WireColor | None = None
 
 
-class ChannelWire(Struct, frozen=True, gc=False):
+class PlaneRefWire(Struct, frozen=True, gc=False):
+    # the C#-family address triple: ONE stored plane FILE. The address field spells `blob` in UPPERCASE hex —
+    # `ContentAddress.ToValue()` verbatim — and a consumer joining it to a path lowers it, never the reverse.
+    file: str = ""
+    blob: str = ""
+    byte_length: WireU64 = 0
+
+
+class PlaneRef(Struct, frozen=True, gc=False):
+    # the python-family triple names its address `digest` in 32-lowercase hex — `ContentKey.project("wire")` —
+    # matching the fragment's `planeRefProto`; the two triples never share a struct because their hex cases differ.
+    file: str = ""
+    digest: str = ""
+    byte_length: WireU64 = 0
+
+
+class ChannelWire(Struct, frozen=True):
     role: str = ""  # a canonical channel name; an unknown key is the producer's own decode refusal, never a widened slot
     transfer: str = ""  # a display transfer on a channel plane refuses: a bake target is scene-referred
     format: str = ""  # the storage-texel key verbatim, where the python document records the same row as a (depth, channels) pair
+    container: str = ""  # the FILE-container key the alpha-association gate reads; recovering it from an extension is the deleted form
     channels: int = 0  # the SEMANTIC component count; storage width rounds it up through {1, 2, 4}
     alpha_mode: str = ""
     mips: int = 0
     mip_policy: str = ""
     block_format: str = ""
     ktx_payload: str = ""  # a raw block payload no basis transcoder reads refuses here: the viewer this set feeds cannot open it
-    blob: str = ""  # the plane's content address in the write-once object store, UPPERCASE hex
-    file: str = ""
-    byte_length: WireU64 = 0
+    levels: list[PlaneRefWire] = msgspec.field(default_factory=list)
+    # ^ LEVEL-ORDERED address triples under the plane-levels law: ONE entry for a self-pyramiding container
+    # whatever `mips` declares, one per level otherwise with the list length EQUAL to `mips` — a scalar address
+    # beside a level count named files it could not address and left every level past the base undigested
 
 
 class PackWire(Struct, frozen=True):
     pack: str = ""  # the packing order names the slot order; a wire list of slots would be a second truth
     present: list[bool] = msgspec.field(default_factory=list)
     format: str = ""
+    container: str = ""
     mips: int = 0
-    blob: str = ""
-    file: str = ""
-    byte_length: WireU64 = 0
+    levels: list[PlaneRefWire] = msgspec.field(default_factory=list)  # the pack name is the `<channel>` slot of each leaf
 
 
 class PressReceiptWire(Struct, frozen=True, gc=False):
@@ -348,7 +365,7 @@ class TextureSetWire(Struct, frozen=True):
     conductor: str = ""  # empty for a dielectric; the set-level metal fact no per-texel plane carries
     width: int = 0
     height: int = 0
-    layers: int = 0
+    layers: int = 1  # frozen default 1 (Dimension >= 1); the ONE field whose proto3 zero-absence would decode invalid, so the struct default carries the law
     layer_law: str = ""  # cube faces, arrays, volumes, and flipbooks are rows here, never a second document shape
     normal_convention: str = ""  # the INGEST-source record; the plane bytes always carry the canonical convention
     alpha_mode: str = ""
@@ -361,40 +378,40 @@ class TextureSetWire(Struct, frozen=True):
     press: PressReceiptWire | None = None  # absent for an ingested set
 
 
-class MapEntry(Struct, frozen=True, gc=False):
+class MapEntry(Struct, frozen=True):
     role: str = ""
-    file: str = ""
-    digest: str = ""
     color_space: str = ""
     depth: str = ""
-    format: str = ""  # the container the file holds, never a storage-texel key
+    container: str = ""  # the FILE-container key the file holds — the DeepFormat roster IS this column's python transcription
     channels: int = 0  # the SEMANTIC component count; storage width rounds it up through {1, 2, 4}
     mips: int = 0
     ktx_payload: str = ""
-    byte_length: WireU64 = 0
+    levels: list[PlaneRef] = msgspec.field(default_factory=list)
+    # ^ level-ordered triples under the plane-levels law: one entry for a self-pyramiding container, one per
+    # level otherwise with length EQUAL to `mips`; a UDIM tile is its OWN map entry, never a level of one
+    tool: str = ""  # this map's OWN producing tool: ktx | imagecodecs | pyvips | openexr — a set legitimately spans several
+    tool_version: str = ""  # the leg/distribution version the probe recorded for THIS map; the ktx rows name the leg
 
 
 class PackEntry(Struct, frozen=True):
     pack: str = ""  # the packing order names the slot order; a wire list of slots would be a second truth
     present: list[bool] = msgspec.field(default_factory=list)
-    format: str = ""
+    format: str = ""  # the 4-component storage-texel key; a pack is always the four-lane row
+    container: str = ""
     mips: int = 0
-    blob: str = ""  # [04.3] spells the pack address `blob`; the mirror clause binds the snake_case NAME, and MapEntry alone spells `digest`
-    file: str = ""
-    byte_length: WireU64 = 0
+    levels: list[PlaneRef] = msgspec.field(default_factory=list)  # the pack name is the `<channel>` slot of each leaf
 
 
 class IblEntry(Struct, frozen=True):
     sh9: list[float] = msgspec.field(default_factory=list)  # EXACTLY 27, band-major with RGB interleaved at i*3+c
-    equirect_file: str = ""
-    equirect_digest: str = ""
-    specular_files: list[str] = msgspec.field(default_factory=list)
-    roughness_per_mip: list[float] = msgspec.field(default_factory=list)
-    brdf_lut_file: str = ""
-    brdf_lut_digest: str = ""
-    luminance_cdf_file: str = ""
+    equirect: PlaneRef | None = None  # the source equirect; 2:1 extent enforced at the producer's admit
+    specular: list[PlaneRef] = msgspec.field(default_factory=list)  # the GGX prefilter pyramid, level-ordered; every level digested
+    roughness_per_mip: list[float] = msgspec.field(default_factory=list)  # same length as `specular`; ascending; index for index
+    brdf_lut: PlaneRef | None = None  # the split-sum BRDF LUT
+    luminance_cdf: PlaneRef | None = None  # marginal+conditional CDF; None disables importance sampling
     intensity: float = 0.0  # applied ON READ; a producer baking it into the planes forks every consumer sharing the digest
     up_axis: str = ""  # FROZEN to the one shading frame; a Y-up runtime remaps its direction basis at the read and never the bands
+    rotation: float = 0.0  # rad about +Z in [0, 2pi); applied ON READ exactly as intensity, so re-orienting a dome re-keys no blob
 
 
 class AssetSetManifest(Struct, frozen=True):
@@ -412,8 +429,7 @@ class AssetSetManifest(Struct, frozen=True):
     packs: list[PackEntry] = msgspec.field(default_factory=list)
     ibl: IblEntry | None = None
     unresolved: list[str] = msgspec.field(default_factory=list)
-    tool: str = ""
-    tool_version: str = ""
+    height_scale: float = 0.0  # mm span the [0,1] height plane normalizes against; 0.0 = the set carries no height plane
     license_class: str = ""
 ```
 
@@ -488,10 +504,12 @@ PROTO_VOCABULARY: Final[tuple[tuple[str, type[Struct], type[Message]], ...]] = (
     ("channel_wire", ChannelWire, channels_pb2.ChannelWire),
     ("pack_wire", PackWire, channels_pb2.PackWire),
     ("press_receipt_wire", PressReceiptWire, channels_pb2.PressReceiptWire),
+    ("plane_ref_wire", PlaneRefWire, channels_pb2.PlaneRefWire),
     ("asset_set_manifest", AssetSetManifest, channels_pb2.AssetSetManifest),
     ("map_entry", MapEntry, channels_pb2.MapEntry),
     ("pack_entry", PackEntry, channels_pb2.PackEntry),
     ("ibl_entry", IblEntry, channels_pb2.IblEntry),
+    ("plane_ref", PlaneRef, channels_pb2.PlaneRef),
 )
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

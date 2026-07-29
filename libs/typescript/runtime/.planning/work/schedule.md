@@ -4,11 +4,9 @@ Calendar recurrence as a vocabulary: a scheduled job is one `Cadence` row — cr
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                                    | [PUBLIC]  |
-| :-----: | :------------- | :------------------------------------------------------------------------ | :-------- |
-|  [01]   | `CADENCE_ROWS` | the recurrence vocabulary — cron, anchor, misfire, catch-up, class, group | `Cadence` |
-|  [02]   | `CLUSTER_MINT` | the registration fold onto `ClusterCron` and the catch-up computation     | `Cadence` |
-|  [03]   | `HOST_ROW`     | the in-process fallback engine over the same rows                         | `Cadence` |
+- [02]-[CADENCE_ROWS]: the recurrence vocabulary — cron, anchor, misfire, catch-up, class, group; `Cadence`.
+- [03]-[CLUSTER_MINT]: the registration fold onto `ClusterCron` and the catch-up computation; `Cadence`.
+- [04]-[HOST_ROW]: the in-process fallback engine over the same rows; `Cadence`.
 
 ## [02]-[CADENCE_ROWS]
 

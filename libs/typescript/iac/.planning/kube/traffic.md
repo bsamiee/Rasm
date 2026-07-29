@@ -4,10 +4,8 @@ The network edge of the `selfhosted-k8s` arm: one `Traffic` tier sinks the issue
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                                    | [PUBLIC]  |
-| :-----: | :------------- | :------------------------------------------------------------------------ | :-------- |
-|  [01]   | `EDGE_FAMILY`  | the proven exposure cases, the `_EDGES` api vocabulary, the fence         | `Traffic` |
-|  [02]   | `EDGE_REALIZE` | gateway/route construction, external-dns, tunnel row, WAF and vanity rows | `Traffic` |
+- [02]-[EDGE_FAMILY]: the proven exposure cases, the `_EDGES` api vocabulary, the fence; `Traffic`.
+- [03]-[EDGE_REALIZE]: gateway/route construction, external-dns, tunnel row, WAF and vanity rows; `Traffic`.
 
 ## [02]-[EDGE_FAMILY]
 

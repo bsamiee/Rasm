@@ -4,14 +4,12 @@
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                               | [PUBLIC]    |
-| :-----: | :--------------- | :------------------------------------------------------------------- | :---------- |
-|  [01]   | `PACK_ASSEMBLY`  | the pack value, enforcement vocabulary, compliance frames            | `Guard`     |
-|  [02]   | `POLICY_ROWS`    | the typed validation, stack-invariant, and remediation rows          | `Guard`     |
-|  [03]   | `DRIFT_REPORT`   | the report owner: drifted rows, rotation watch, skew evidence        | `Drift`     |
-|  [04]   | `EVIDENCE_SPINE` | the typed evidence union, the sink contract, file sink, sweep cursor | `Evidence`  |
-|  [05]   | `DRIFT_SWEEP`    | the reconcile projection, the fleet sweep, the conformance read-back | `Drift`     |
-|  [06]   | `RECONCILE_LOOP` | the in-cluster PKO operator and its typed Stack CR rows              | `Reconcile` |
+- [02]-[PACK_ASSEMBLY]: the pack value, enforcement vocabulary, compliance frames; `Guard`.
+- [03]-[POLICY_ROWS]: the typed validation, stack-invariant, and remediation rows; `Guard`.
+- [04]-[DRIFT_REPORT]: the report owner: drifted rows, rotation watch, skew evidence; `Drift`.
+- [05]-[EVIDENCE_SPINE]: the typed evidence union, the sink contract, file sink, sweep cursor; `Evidence`.
+- [06]-[DRIFT_SWEEP]: the reconcile projection, the fleet sweep, the conformance read-back; `Drift`.
+- [07]-[RECONCILE_LOOP]: the in-cluster PKO operator and its typed Stack CR rows; `Reconcile`.
 
 ## [02]-[PACK_ASSEMBLY]
 

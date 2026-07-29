@@ -172,14 +172,14 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Route: re-run the source build on the Forge scientific lane into a scratch venv at the floor and read the pythran targets alone before the marker moves.
 - Atomic: one manifest row.
 
-[SCENE_STACK_UNGATE]-[BLOCKED]: `vtk` and `usd-core` admit at the interpreter floor.
-- Capability: the offscreen render and USD stage halves resolve their natives on an estate lane rather than an interpreter cap pinning them to a retired runtime.
-- Shape: the `vtk` and `usd-core` rows in the root `pyproject.toml` drop their `python_version` markers under whichever route arms first — an upstream sdist or floor wheel, or a nixpkgs python-overlay admission lane.
+[SCENE_STACK_UNGATE]-[BLOCKED]: uv alone explains the scene natives.
+- Capability: the folder's package registry resolves the offscreen render and USD stage natives through one admission mechanism, so no registry row carries a second lane a reader has to reconcile against the manifest.
+- Shape: the `vtk`, `pyvista`, and `usd-core` rows in the root `pyproject.toml` drop their `python_version` markers, and the three `[SCENE]` rows at `libs/python/artifacts/README.md` drop their overlay clause.
 - Unlocks: `IDEAS.md` [FLOOR_UNGATING] — the scene half of the completeness bar.
-- Anchors: neither distribution publishes an sdist, `usd-core` caps its wheel metadata below the floor on top of that, and no source lane exists today; the nixpkgs attrs for both build on aarch64-darwin, which is what makes the overlay route plausible at all.
-- Arms: four blockers clear together — the nixpkgs attrs lag the admitted versions, its `python3Packages` build against an interpreter older than the estate floor, the floor's closure is uncached and forces a full local VTK and USD source build, and the wrapper exposes no mechanism seating a nixpkgs-built module in the uv-managed venv.
-- Route: read the upstream index for a floor wheel or a new sdist first, then `nix eval` both attrs against the locked nixpkgs; wrapper work starts only after both reads refuse.
-- Tension: the overlay lane is a SECOND admission mechanism beside uv, owned in the machine estate — buying it for two distributions widens what this folder's package registry can no longer explain alone.
+- Anchors: the Forge python-overlay `.pth` supplies `vtk`, `pyvista`, and `pxr` at the interpreter floor today, so all three markers guard uv resolution alone; `vtk` and `usd-core` publish no sdist, `usd-core` caps its wheel metadata below the floor on top of that, and `pyvista` gates only through its hard `vtk` requirement — an ungated row backsolves to the pre-requirement 0.36.0 that no longer imports.
+- Arms: an upstream cp315 `vtk` wheel ungates `pyvista` with it; `usd-core` needs its own.
+- Route: read the PyPI wheel-tag roster per release; a marker moves against a newly published cp315 tag alone, never a re-probe of the same releases.
+- Atomic: three manifest rows.
 
 ## [02]-[CLOSED]
 

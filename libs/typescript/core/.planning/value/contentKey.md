@@ -1,15 +1,13 @@
 # [CORE_CONTENTKEY]
 
-The one content identity of the branch and the digest engine beneath it: `ContentKey` is the `XxHash128` seed-zero digest branded at the canonical `:x32` spelling — 32 lowercase hex characters in the big-endian persistence layout `docs/laws/patterns.md` `[CONTENT_KEY]` fixes for every branch alike — and `Digest` is the ONE hasher surface, a width-parameterized row table whose `content` row is that mint, whose sibling rows carry the short trace address, the wire checksum, and the Merkle proof-tree digest, and whose session and keyed modalities ride the same compiled state machines. The delegate census names every content-mint site — `interchange/frame` reassembly, the runtime browser fetch worker, the data object store, and the data object planes minting chunk sub-keys (`object/stream`) and derivative keys (`object/file`) through the same mint — and a second mint, a second content-address notion, or a non-zero seed is the named cross-language drift defect. The hasher's hex is already the canonical spelling — `hash-wasm` renders the digest in that big-endian order — so no byte-order step exists on the key path. This owner MINTS the branch's `CANONICAL_BYTE_IDENTITY` instance under the `docs/laws/patterns.md` `[PREIMAGE_FRAMING]` law at seed zero, parity across the three independent mints IS the conformance, and bit-parity asserts against `MESH_ADJACENCY_GOLDEN`, the frozen domain vector the `tests/contracts` drivers replay. The module is `core/src/value/contentKey.ts` — the only cataloguing and import site of `hash-wasm` in the branch.
+`ContentKey` and `Digest` carry the branch's one content identity and the engine beneath it: `ContentKey` is the `XxHash128` seed-zero digest branded at the canonical `:x32` spelling — 32 lowercase hex characters in the big-endian persistence layout `docs/laws/patterns.md` `[CONTENT_KEY]` fixes for every branch alike — and `Digest` is the ONE hasher surface, a width-parameterized row table whose `content` row is that mint, whose sibling rows carry the short trace address, the wire checksum, and the Merkle proof-tree digest, and whose session and keyed modalities ride the same compiled state machines. Census delegation names every content-mint site — `interchange/frame` reassembly, the runtime browser fetch worker, the data object store, and the data object planes minting chunk sub-keys (`object/stream`) and derivative keys (`object/file`) through the same mint — and a second mint, a second content-address notion, or a non-zero seed is the named cross-language drift defect. `hash-wasm` already renders the digest in that big-endian order, so the hasher's hex IS the canonical spelling and no byte-order step exists on the key path. This owner MINTS the branch's `CANONICAL_BYTE_IDENTITY` instance under the `docs/laws/patterns.md` `[PREIMAGE_FRAMING]` law at seed zero, parity across the three independent mints IS the conformance, and bit-parity asserts against `MESH_ADJACENCY_GOLDEN`, the frozen domain vector the `tests/contracts` drivers replay. Module `core/src/value/contentKey.ts` owns it — the only cataloguing and import site of `hash-wasm` in the branch.
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                            | [PUBLIC]     |
-| :-----: | :------------------ | :---------------------------------------------------------------- | :----------- |
-|  [01]   | `KEY_BRAND`         | the `:x32` branded schema and its sixteen-byte binary twin        | `ContentKey` |
-|  [02]   | `DIGEST_TABLE`      | the width-row vocabulary, memoized compiles, the polymorphic mint | `Digest`     |
-|  [03]   | `RESUMABLE_SESSION` | the save/load checkpoint algebra over one shared compiled hasher  | `Digest`     |
-|  [04]   | `SEALED_DIGEST`     | the keyed authentication mint and its `Seal` brand                | `Digest`     |
+- [02]-[KEY_BRAND]: the `:x32` branded schema and its binary and X32-hex wire twins; `ContentKey`.
+- [03]-[DIGEST_TABLE]: the width-row vocabulary, memoized compiles, the polymorphic mint; `Digest`.
+- [04]-[RESUMABLE_SESSION]: the save/load checkpoint algebra over one shared compiled hasher; `Digest`.
+- [05]-[SEALED_DIGEST]: the keyed authentication mint and its `Seal` brand; `Digest`.
 
 ## [02]-[KEY_BRAND]
 
@@ -18,6 +16,7 @@ The one content identity of the branch and the digest engine beneath it: `Conten
 - Law: the `:x32` spelling is the whole refinement — exactly 32 lowercase hex characters, the big-endian hex of the 16-byte digest — so an admitted key is wire-canonical by construction and equality is bare `===` on branded strings with zero comparator ceremony.
 - Law: an inbound key on a C# wire shape decodes through this schema at the wire's field record; a key minted locally arrives through `Digest.mint("content", ...)` — both paths land the identical brand, so verification at a delegate is mint-then-compare with no normalize step.
 - Law: `Digest.FromBytes` is the binary twin — 16 raw bytes carried on a frame decode through `Encoding.encodeHex` into the branded hex and encode back through `Encoding.decodeHex` — one declaration owns the byte-carried key, and a delegate-side hex conversion is unspellable; the decode arm lands the hex on the brand's encoded plane and the brand's own refinement re-proves before the branded key exists, so no assertion bridges bytes to brand; `digest("binary")` bytes and the frame bytes share this display order, the reverse of the little-endian destination-buffer dump `XxHash128` writes, so raw-buffer parity reverses exactly one side and the hex path never does.
+- Law: `Digest.FromX32` is the hex-carried twin — a peer minting keys through the C# `ContentAddress.ToValue()` spells them 32 UPPERCASE hex, so that spelling admits at its own refinement, folds case ONCE here, and re-emits UPPERCASE on encode; the round trip is byte-identical, which is what keeps `docs/laws/patterns.md` `[WIRE_TOKEN]` intact while the branded interior stays lowercase. Case folding at a landing field, a consumer join, or a path construction is the same delegate-side conversion the byte twin already forecloses, and a landing carrying the foreign spelling raw strands every `ContentKey` join behind a per-call fold.
 - Law: a child key — a chunk sub-key, a derivative's key — is the content mint over the child's OWN bytes; parenthood is receipt data on the consuming plane's row (`parent`, `ordinal`, `child`), never a derivation from the parent's hex, so the identity algebra has one input (bytes) and the family relationship stays evidence a receipt carries.
 - Boundary: the data object store aliases its object key as a type alias over this brand, never a re-brand; a second brand over the same digest forks container identity.
 - Packages: `effect` (`Schema`, `Encoding`, `ParseResult`).
@@ -28,7 +27,7 @@ The one content identity of the branch and the digest engine beneath it: `Conten
 - Owner: `Digest`, the assembled hasher vocabulary — the interior row table carries each width row's factory and key brand as two columns of one row, so `Digest.Key<K>` derives by indexed access over the row's `key` column and the factory-to-brand correspondence has exactly one edit site; the exported owner assembles the binary twin, the mint, the session algebra, and the keyed mint under a stated annotation, and the roster is seed data on one parameterized pattern — a new digest width is one row carrying both columns, never a new surface.
 - Law: four rows ride the table — `content` (`createXXHash128(0, 0)`, 32 hex, the cross-language ContentKey), `trace` (`createXXHash64(0, 0)`, 16 hex, the short correlation address log and sampling keys carry), `check` (`createCRC32()`, 8 hex, the wire checksum frame rails verify), `proof` (`createBLAKE3(256)`, 64 hex, the collision-resistant digest the data object stream folds its chunk-receipt Merkle proof tree through — leaf-versus-node domain separation is the consumer's framing byte) — and the seed is zero on every seeded row; a non-zero seed on any content-address path is out of contract.
 - Law: each row's factory promise is memoized through `GlobalValue.globalValue` under a row-keyed scope, so the WASM compile happens once per runtime per row across bundler-duplicated module instances, `init()` resets state between mints without recompiling, and an untouched row never compiles.
-- Law: `mint` is modality-polymorphic — one annotated arrow whose payload discriminates on the value shape: a whole `Uint8Array` or an `Iterable<Uint8Array>` chunk sequence, both landing on one digest walk; a `mode` flag, a `mintMany` twin, or a string input (encoding ambiguity) is the rejected surface, and text hashes only after the caller's own explicit encode to bytes. The iterable modality IS the streaming verify — a multi-band reassembly proves its declared key over held bands with zero joined re-hash, and the interchange `Parity` combinator delegates exactly this walk, so no streaming-verify sibling exists anywhere.
+- Law: `mint` is modality-polymorphic — one annotated arrow whose payload discriminates on the value shape: a whole `Uint8Array` or an `Iterable<Uint8Array>` chunk sequence, both landing on one digest walk; a `mode` flag, a `mintMany` twin, or a string input (encoding ambiguity) is the rejected surface, and text hashes only after the caller's own explicit encode to bytes. Iterable payloads ARE the streaming verify — a multi-band reassembly proves its declared key over held bands with zero joined re-hash, and the interchange `Parity` combinator delegates exactly this walk, so no streaming-verify sibling exists anywhere.
 - Law: the mint cannot fail — `Effect.promise` carries the compile (rejection is a defect), the returned hex is proven by construction against the row's brand, and the per-row decode record is the mapped handler contract that keeps the generic indexed dispatch cast-free; `Effect.orDie` states that a decode fault here is a defect, never a channel member.
 - Law: the digest walk is synchronous and JS-thread-atomic — every await sits before `init`, so concurrent mints on a shared hasher cannot interleave and the shared state machine needs no lock.
 - Exemption: `_walk` is a marked kernel — the `IHasher` state machine forces the statement loop across the chunk walk, only the immutable hex string leaves, and the implementer carries the `// BOUNDARY ADAPTER` mark on its first line.
@@ -56,7 +55,7 @@ The one content identity of the branch and the digest engine beneath it: `Conten
 - Growth: an HMAC row over a digest factory (`createHMAC(createSHA256(), key)`) lands as one sibling arm when a peer contract demands an HMAC construction over a specific hash; the blake3 keyed mode stays the default seal.
 - Boundary: which surfaces carry seals, key custody, and rotation are `security` concerns; this owner mints and brands only.
 
-```typescript
+```typescript signature
 import { Effect, Either, Encoding, GlobalValue, ParseResult, Predicate, Redacted, Schema } from "effect"
 import { createBLAKE3, createCRC32, createXXHash64, createXXHash128, type IHasher } from "hash-wasm"
 
@@ -71,6 +70,7 @@ const _Check = Schema.String.pipe(Schema.pattern(_hex(8)), Schema.brand("Checksu
 const _Proof = Schema.String.pipe(Schema.pattern(_hex(64)), Schema.brand("ProofKey"))
 const _Seal = Schema.String.pipe(Schema.pattern(_hex(64)), Schema.brand("Seal"))
 const _Bytes = Schema.Uint8ArrayFromSelf.pipe(Schema.filter((bytes) => bytes.length === 16))
+const _X32 = Schema.String.pipe(Schema.pattern(/^[0-9A-F]{32}$/)) // the peer's own spelling, refined here so a lowered or unpadded alias refuses exactly as its minting owner refuses it
 
 const _rows = {
   check: { key: _Check, make: () => createCRC32() },
@@ -87,6 +87,7 @@ declare namespace Digest {
   type Session<K extends Kind = Kind> = { readonly kind: K; readonly state: Uint8Array }
   type Shape = {
     readonly FromBytes: Schema.transformOrFail<typeof _Bytes, typeof ContentKey>
+    readonly FromX32: Schema.transform<typeof _X32, typeof ContentKey>
     readonly Seal: typeof _Seal
     readonly absorb: <K extends Kind>(session: Session<K>, chunk: Uint8Array) => Effect.Effect<Session<K>>
     readonly finish: <K extends Kind>(session: Session<K>) => Effect.Effect<Key<K>>
@@ -125,8 +126,17 @@ const _FromBytes: Schema.transformOrFail<typeof _Bytes, typeof ContentKey> = Sch
     }),
 })
 
+// Both directions are total against `_X32`'s own refinement, so the transform is the strict form and ContentKey's
+// lowercase filter re-proves the decoded hex before the brand exists — no assertion bridges the two spellings.
+const _FromX32: Schema.transform<typeof _X32, typeof ContentKey> = Schema.transform(_X32, ContentKey, {
+  strict: true,
+  decode: (spelled) => spelled.toLowerCase(),
+  encode: (key) => key.toUpperCase(),
+})
+
 const Digest: Digest.Shape = {
   FromBytes: _FromBytes,
+  FromX32: _FromX32,
   Seal: _Seal,
   absorb: (session, chunk) =>
     Effect.map(_compiled(session.kind), (hasher) => ({

@@ -4,13 +4,11 @@ The PWA shell plane: the web-app manifest as a typed VALUE the app constructs an
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                           | [PUBLIC]                                   |
-| :-----: | :---------------- | :--------------------------------------------------------------- | :----------------------------------------- |
-|  [01]   | `MANIFEST_VALUE`  | the typed manifest owner and its emitted wire twin               | `Manifest`                                 |
-|  [02]   | `LIFECYCLE_OWNER` | Workbox resource, phase cell, update handshake, fault            | `Sw`, `SwFault`, `SwLifecycle`             |
-|  [03]   | `CACHE_ROWS`      | strategy vocabulary, `RuntimeCaching` projection, build partial  | `Sw.caching`, `Sw.build`                   |
-|  [04]   | `REPLAY_DRAIN`    | the outbox enqueue and the merged-wake drain fold                | `Sw`                                       |
-|  [05]   | `INSTALL_OWNER`   | the prompt capture, the stance cell, the ask/refresh affordances | `Install`, `InstallFault`, `InstallStance` |
+- [02]-[MANIFEST_VALUE]: the typed manifest owner and its emitted wire twin; `Manifest`.
+- [03]-[LIFECYCLE_OWNER]: Workbox resource, phase cell, update handshake, fault; `Sw`, `SwFault`, `SwLifecycle`.
+- [04]-[CACHE_ROWS]: strategy vocabulary, `RuntimeCaching` projection, build partial; `Sw.caching`, `Sw.build`.
+- [05]-[REPLAY_DRAIN]: the outbox enqueue and the merged-wake drain fold; `Sw`.
+- [06]-[INSTALL_OWNER]: the prompt capture, the stance cell, the ask/refresh affordances; `Install`, `InstallFault`, `InstallStance`.
 
 ## [02]-[MANIFEST_VALUE]
 

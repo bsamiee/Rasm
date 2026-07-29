@@ -8,7 +8,7 @@
 
 - [02]-[INFERENCE_MODES]: every `OrtValue`-only run mode folded over the shared session, one polymorphic input admission feeding the vectorized reductions, the two-leg native bracket, and the cross-request batching gate.
 - [03]-[TILED_INFERENCE]: fixed-bucket tiling with row-owned pad, blend, and layout kernels over one gather-run-scatter fold that overlap-adds every product of one forward pass into its own plane and proves its own coverage.
-- [04]-[STAGE_EXECUTION]: transcribed photo-to-PBR request and result records over a grant gate, a single-construction tile plan, a roster-owned provider and precision projection, and floor-provider residual measurement.
+- [04]-[STAGE_EXECUTION]: photo-to-PBR request and result records bound as LOWERED PRIMITIVES over a grant gate, a per-row producer-extent gate at resolution, a layout-owned channel stack for the full input roster, a single-construction tile plan, a roster-owned provider, precision, and licence projection, a lease-side seed gate, and a ceiling-gated decision-keyed floor-provider residual memo that demotes a breach to the floor.
 - [05]-[RESULT_CACHE]: version-stamped deterministic keys and column-driven policy rows over an echo-validated single-flight read-through with drift-gated invalidation.
 
 ## [02]-[INFERENCE_MODES]
@@ -16,11 +16,11 @@
 - Owner: `RunOps` folds every run mode over the shared session; `RunInput` admits one operand polymorphically on carrier shape through the `Tensor/residency#ORT_BRIDGE` `TensorBridge.Ingress` carriers; `PlannedRun` owns the `RunOptions` + `Terminate`-latch registration pair; a `BoundFlow` capsule composes the shared-arena device-resident hot path; `BatchGate` the bounded-window cross-request coalescer over one shared session.
 - Cases: `Infer` single run; `InferBound` bound batch over a populated `OrtIoBinding` with an optional name-zip arm; `BoundFlow` the arena-allocated device-resident steady state; `Chunked` streaming windows over a `RecyclableMemoryStream.GetReadOnlySequence` view; `Embed` mean/CLS/last/max-pool text-to-vector; `Classify` softmax top-`k` over the interchange `PointScan` encoding; `ClashScore` scalar clash false-positive scoring over a `ClashPair` feature vector; `InferTensor` the `System.Numerics.Tensors` carrier bridge; `BatchGate.Submit` the coalesced single-row shape; `InferTiled` the fixed-bucket mosaic over a plane exceeding every admitted shape (`[03]-[TILED_INFERENCE]`). Native async `RunAsync` is the rejected spelling — it demands pre-allocated output `OrtValue`s and completes on a native callback outside the lane scope, so the lane seam owns the thread hop.
 - Entry: `public Fin<T> Infer<T>(RunOptions options, CancelScope scope, Seq<(string Name, OrtValue Value)> inputs, Seq<string> outputs, Func<IDisposableReadOnlyCollection<OrtValue>, Fin<T>> project)` — the projection runs inside the native-result bracket, and the bracket CONSUMES the admitted inputs: one run is one deterministic release for both native legs, so a repeated same-shape loop rides `BoundFlow`, never re-admitted one-shot inputs.
-- Auto: `Plan` folds the `RunConfig` row table into `AddRunConfigEntry` and returns a `PlannedRun` capsule pairing the `RunOptions` with the `Terminate`-latch `CancellationTokenRegistration` off the linked `CancelScope` — the registration disposes with the capsule, so a latch firing into a disposed `RunOptions` is structurally impossible and a bare `Token.Register` whose registration nobody owns is the named use-after-free; `Faulted` is the single fault oracle — it classifies by scope provenance into `DeadlineExpired`/`Cancelled` and lifts a non-cancellation native fault to `ModelRejected`, never a raw `Error.New` leaking an unclassified native exception. Output buffers size from `GetTensorTypeAndShape().ElementCount`, never re-multiplied dimensions. `RunInput` composes the `TensorBridge.Ingress` overloads (the sole dense `OrtValue` C-data factory owner) over the open unmanaged `T`; ONNX-owned strings and preconstructed sparse `OrtValue`s ride distinct cases, with sparse ownership transferring only after `IsSparseTensor` proves the carrier. `Pooling` carries each reduction as its delegate-backed row, and `Embed` admits only an unbatched hidden-state tensor, so a multi-row output never collapses unrelated embeddings into one vector. `Classify` selects each row's top-`k` through a class-stable bounded `PriorityQueue` min-heap (`O(width·log k)`, never a full-taxonomy `Array.Sort`) and materializes per row through an explicit span walk — no `ReadOnlySpan<float>` captured into a lambda, the named kernel exemption. `BatchGate` snapshots each admitted row, caps queued mass at `BatchPolicy.MaxPending`, and packs rows arriving within `MaxDelay` up to `MaxRows` into one bound execution using the injected `TimeProvider` — the bound input stays shaped `[MaxRows, rowWidth]`, a partial window zero-pads its tail rows, and fan-out returns only the submitted rows, because rows are independent under a feed-forward per-row model and a variable-shape rebind per window is the rejected form; per-call ORT dispatch overhead dominates small-tensor inference, so the screening loops the charter names ride one packed run per window instead of thousands of singletons.
+- Auto: `Plan` folds the `RunConfig` row table into `AddRunConfigEntry` and returns a `PlannedRun` capsule pairing the `RunOptions` with the `Terminate`-latch `CancellationTokenRegistration` off the linked `CancelScope` — the registration disposes with the capsule, so a latch firing into a disposed `RunOptions` is structurally impossible and a bare `Token.Register` whose registration nobody owns is the named use-after-free; `Faulted` is the single fault oracle — it classifies by scope provenance into `DeadlineExpired`/`Cancelled` and lifts a non-cancellation native fault to `ModelRejected`, never a raw `Error.New` leaking an unclassified native exception. Shape reads bind the tensor's own `GetTensorTypeAndShape()` columns — `Shape` for an axis, `ElementCount` for a total — never re-multiplied dimensions. `RunInput` composes the `TensorBridge.Ingress` overloads (the sole dense `OrtValue` C-data factory owner) over the open unmanaged `T`; ONNX-owned strings and preconstructed sparse `OrtValue`s ride distinct cases, with sparse ownership transferring only after `IsSparseTensor` proves the carrier. `Pooling` carries each reduction as its delegate-backed row, and `Embed` admits only an unbatched hidden-state tensor, so a multi-row output never collapses unrelated embeddings into one vector. `Classify` selects each row's top-`k` through a class-stable bounded `PriorityQueue` min-heap (`O(width·log k)`, never a full-taxonomy `Array.Sort`) and materializes per row through an explicit span walk — no `ReadOnlySpan<float>` captured into a lambda, the named kernel exemption. `BatchGate` snapshots each admitted row, caps queued mass at `BatchPolicy.MaxPending`, and packs rows arriving within `MaxDelay` up to `MaxRows` into one bound execution using the injected `TimeProvider` — the bound input stays shaped `[MaxRows, rowWidth]`, a partial window zero-pads its tail rows, and fan-out returns only the submitted rows, because rows are independent under a feed-forward per-row model and a variable-shape rebind per window is the rejected form; per-call ORT dispatch overhead dominates small-tensor inference, so the screening loops the charter names ride one packed run per window instead of thousands of singletons.
 - Receipt: `ModelRun` carries model checksum, EP, run mode, batch, the `OrtValue.GetTensorSizeInBytes` output footprint as `PeakBytes`, the `GetTensorMemoryInfo` allocator name as `ArenaAllocator`, and the optional `Runtime/receipts#BENCHMARK_CLAIMS` `ProfileArtifact.ChromeTrace` profile evidence — content-keyed by the admitted `ArtifactIndexRow`'s `ContentAddress` and stamped with the `InferenceSession.ProfilingStartTimeNs` epoch, never a loose path string; profiling artifacts land as `ArtifactKind.OnnxProfile` rows. Every `BatchGate` window emits ONE `ModelRun` whose `BatchSize` is the window's submitted row count (zero-padded tail rows never count) — per-submitter receipt fan-out is the rejected form.
 - Packages: Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Persistence (project)
 - Growth: a new run shape is one payload case; a new run-config posture is one `RunConfig` row with its `AddRunConfigEntry` pairs and `OrtAllocatorType` arena column; a new pooling shape is one delegate-backed `Pooling` row; a wider classifier candidate set is the `Classify` `top` arity; a batching posture is one `BatchPolicy` value, never a second coalescer; a `ZipMap` sequence-of-maps classifier reads through the `Model/extension#EXTENSION_OPS` `Egress`→`OpOutput.Batched` reader, never a parallel arm on `Classify` (whose softmax owns the numeric-logit shape only); a BIM point-cloud→element classifier, symbol recognizer, or clash scorer is one more `Classify`/`ClashScore` run over the shared session — consuming the interchange `PointScan` encoding and the `Solver/clash#CLASH_AND_TWIN` `ClashPair` vector — never a BIM-specific service; a tensor-lane handoff already holding a `Tensor<T>` is one `InferTensor` run with zero managed copy; an input plane larger than the session's admitted shape is one `[03]-[TILED_INFERENCE]` `TilePlan` over this same `BoundFlow`, never a free-dimension override that re-plans memory on every extent.
-- Boundary: `RunOps` extends `Model/sessions#SESSION_CAPSULE` with bracketed native disposal. `CreateTensorValueFromMemory` binds rented staging without a copy; input ownership transfers at the run, and `Bracket` disposes every admitted input beside the result collection. `InferBound` calls the `OrtValue`-only `RunWithBoundResults` member directly; its named arm zips `GetOutputNames()` against that same collection and never materializes `DisposableNamedOnnxValue`. Every projection proves a nonempty output collection before `First()`. `BoundFlow` binds input and sink from `ModelSessions.SharedAllocator`, and `Pulse` writes through the mutable native span without staging. `Chunked` copies each `ReadOnlySequence<byte>` window into the bound value and emits one terminal `StreamSegment`. `Embed` derives its final axis from output shape and L2-normalizes the pooled vector; `Classify` derives class width, proves row divisibility, and uses bounded top-`k`; `BatchGate` proves packed output cardinality before fan-out. `Profile` admits its artifact through `ArtifactIndexRow.Admit(kind, key, bytes, classification, at, sourceKey)`, grouping the trace under the profiled model checksum, and mints the typed `ProfileArtifact.ChromeTrace` evidence from the admitted row's `ContentAddress` and the `ProfilingStartTimeNs` epoch in the same pass — the index row is custody, the union case is receipt evidence, one identity joining both; retention derives from `ArtifactKind.Retention`.
+- Boundary: `RunOps` extends `Model/sessions#SESSION_CAPSULE` with bracketed native disposal. `CreateTensorValueFromMemory` binds rented staging without a copy; input ownership transfers at the run, and `Bracket` disposes every admitted input beside the result collection. `InferBound` calls the `OrtValue`-only `RunWithBoundResults` member directly; its named arm zips `GetOutputNames()` against that same collection and never materializes `DisposableNamedOnnxValue`. Every projection proves a nonempty output collection before `First()`. `BoundFlow` binds input and sink from `ModelSessions.SharedAllocator`, and `Pulse` writes through the mutable native span without staging. `Chunked` copies each `ReadOnlySequence<byte>` window into the bound value and emits one terminal `StreamSegment`. `Embed` derives its final axis from output shape and L2-normalizes the pooled vector; `Classify` derives class width, proves row divisibility, and uses bounded top-`k`; `BatchGate` proves packed output cardinality before fan-out. `Profile` admits its artifact through `ArtifactIndexRow.Admit(kind, key, bytes, classification, at, sourceKey)`, grouping the trace under the profiled model checksum, and mints the typed `ProfileArtifact.ChromeTrace` evidence from the admitted row's `ContentAddress` and the `ProfilingStartTimeNs` epoch in the same pass — the index row is custody, the union case is receipt evidence, one identity joining both; retention derives from `ArtifactKind.Retention`; the admitted trace is a BARE JSON event array — never a `traceEvents`-wrapped object — whose measured node-event key roster the `Profile` member states as fence law, and the `Model/sessions#SESSION_CAPSULE` options fold sets `ProfileOutputPathPrefix` BEFORE `EnableProfiling` because the setter reads the prefix at flip time and discards a later assignment silently.
 
 ```csharp signature
 public sealed record RunConfig(FrozenDictionary<string, string> Entries, OrtAllocatorType Arena) {
@@ -146,6 +146,20 @@ public static partial class RunOps {
                     }
                 });
 
+        // TRACE SCHEMA (measured at the pin): the emitted profile is a BARE JSON ARRAY — no traceEvents wrapper —
+        // one object per line, every event carrying exactly {cat, pid, tid, dur, ts, ph, name, args} with ph "X"
+        // and ts/dur in microseconds relative to profiling start. cat is "Session" (args always {}; names
+        // model_loading_uri, session_initialization, SequentialExecutor::Execute, model_run) or "Node"; a node
+        // event's name is <node>_kernel_time (no _fence_before/_fence_after exists) and its args bag spells
+        // op_name, provider, node_index (a STRING decimal), activation_size/parameter_size/output_size (STRING
+        // byte counts), input_type_shape/output_type_shape (arrays of one-key {type: [dims]} objects), and
+        // thread_scheduling_stats (main_thread + sub_threads keyed by hex thread handle — parse as a map). A
+        // graph_index key does not exist. Array order is COMPLETION order (node events precede their enclosing
+        // Session spans) — join on ts/dur, never position; read args by key, never position. provider spells the
+        // full EP class name (the GetAvailableProviders vocabulary, 1:1 onto the ExecutionProvider rows); a
+        // non-CPU EP fuses its subgraph, so op_name becomes the synthesized fusion name (<hash>_CoreML_<hash>_<n>,
+        // opaque to per-op-type aggregation) and node_index indexes the POST-PARTITION graph — never a stable
+        // model-authoring identity across EP sets. Strip the trailing _kernel_time to recover node identity.
         public Fin<(ArtifactIndexRow Row, ProfileArtifact Artifact)> Profile(SessionPolicy policy, UInt128 sourceKey, DataClassification classification, Instant at) =>
             !policy.Profiling
                 ? Fin.Fail<(ArtifactIndexRow, ProfileArtifact)>(new ComputeFault.ModelRejected("profiling-disabled"))
@@ -382,7 +396,7 @@ public sealed class BatchGate : IAsyncDisposable {
 - Law: reassembly is OVERLAP-ADD, never last-writer-wins. Each produced tile scatters through its taper weights into its product's accumulation plane, one shared weight plane accumulates the taper mass, and one divide per product closes the mosaic — so an overlap band carries the weighted mean of both estimates rather than a hard seam, and a blend row whose profile does not sum to unity still reconstructs exactly because the divide normalizes what accumulated instead of trusting the profile. `TilePlan.Accumulate` owns that weight plane as pure geometry — one taper mass per texel, free of layout and product — so it runs once per window whatever the roster's width.
 - Law: taper applies only where a tile MEETS a neighbour. Four per-axis ramps index by the window's edge mask, so a tile touching the plane border keeps unit weight there; tapering against that border divides the outermost texels by a weight no neighbour ever completes and fades the plane's own edge.
 - Entry: `public Fin<TileMosaic> InferTiled(RunOptions options, CancelScope scope, TilePlan plan, ReadOnlyMemory<float> source)` on `BoundFlow` — one entry for the whole mosaic, because a per-tile entrypoint pushes the grid, the padding, the taper, and the coverage proof onto every caller; `source` is `ReadOnlyMemory` rather than a span so the scatter closure the run bracket invokes holds the arenas it writes.
-- Auto: `TilePlan` derives grid, stride, output extent, bucket key, and the bound input and per-product output shapes from its own columns, so a caller states extents and a bucket and never a coordinate — and the binder that seats the flow reads the same shapes the fold runs. Admission rejects a nonpositive extent or channel count, an empty or name-duplicated product roster, an overlap at or past half the shorter bucket edge, and any product whose output element count passes `Array.MaxLength`. It does NOT restate which pad row is legal: the row family is the general tiling vocabulary and the frozen wire pins `reflect` at the boundary that carries it. Gathering stages each tile through the pad row, taking the contiguous row copy whenever the row lies wholly inside the plane and folding per texel only at an edge. Scattering accumulates through `TensorPrimitives.Multiply`/`Add`/`MultiplyAdd` over the per-row weight vector, so reassembly vectorizes rather than walking texels. Coverage proves from the MEASURED weight floor — `TensorPrimitives.Min` over the weight plane — and a floor at or below zero refuses rather than dividing a texel no tile reached.
+- Auto: `TilePlan` derives grid, stride, output extent, bucket key, and the bound input and per-product output shapes from its own columns, so a caller states extents and a bucket and never a coordinate — and the binder that seats the flow reads the same shapes the fold runs. Admission rejects a nonpositive extent or channel count, an empty or name-duplicated product roster, an overlap at or past half the shorter bucket edge, and any product whose output element count passes `Array.MaxLength`. It does NOT restate which pad row is legal: the row family is the general tiling vocabulary and the frozen wire pins `reflect` at `StageRequest.Admit`, the boundary that carries it. Gathering stages each tile through the pad row, taking the contiguous row copy whenever the row lies wholly inside the plane and folding per texel only at an edge. Scattering accumulates through `TensorPrimitives.Multiply`/`Add`/`MultiplyAdd` over the per-row weight vector, so reassembly vectorizes rather than walking texels. Coverage proves from the MEASURED weight floor — `TensorPrimitives.Min` over the weight plane — and a floor at or below zero refuses rather than dividing a texel no tile reached.
 - Receipt: a mosaic reports as one `ComputeReceipt.ModelRun` whose mode is the tiled key and whose `BatchSize` is `TileMosaic.Tiles`, the count inferred; per-tile and per-product receipt fan-out are the rejected forms for the same reason a `BatchGate` window emits one — the grid ran once.
 - Packages: Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new seam profile is one `TileBlend` row with its ramp; a new tensor layout is one `TileLayout` row carrying its own gather, scatter, and normalize kernels — never a layout flag branching inside the fold; a model emitting another plane is one more `TileProduct` row read off `InferenceSession.OutputNames`, and no surface moves at all; a stage that up-samples is the `Scale` column, which threads every product grid without a caller recomputing anything; a pad posture beyond reflection is one `PadMode` row whose `Fold` may answer a negative index for a texel no source covers, which the gather rows already clear.
@@ -410,6 +424,10 @@ public delegate void TileScatter(
     TilePlan plan, TileWindow window, int channels);
 
 public delegate void TileNormalize(Span<float> plane, ReadOnlySpan<float> weight, int channels);
+
+// Channel-axis stacking for a multi-input stage: one source plane lands at its channel offset inside the one bound
+// tensor, in the layout's own placement — a second bound value per input would drift from the warmed bucket shape.
+public delegate void TileStack(ReadOnlySpan<float> plane, Span<float> stacked, int channels, int offset, int total, int texels);
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -448,15 +466,23 @@ public sealed partial class TileBlend {
 public sealed partial class TileLayout {
     public static readonly TileLayout Planar = new(
         "nchw", static (channels, height, width) => [1L, channels, height, width],
-        PlanarGather, PlanarScatter, PlanarNormalize);
+        PlanarGather, PlanarScatter, PlanarNormalize, PlanarStack);
     public static readonly TileLayout Interleaved = new(
         "nhwc", static (channels, height, width) => [1L, height, width, channels],
-        InterleavedGather, InterleavedScatter, InterleavedNormalize);
+        InterleavedGather, InterleavedScatter, InterleavedNormalize, InterleavedStack);
+
+    // The estate's SmartEnum posture: non-key columns seat through the DECLARED private constructor chaining the
+    // generated key ctor, never an implicit shape the generator happens to accept.
+    private TileLayout(
+        string key, Func<int, int, int, long[]> shape,
+        TileGather gather, TileScatter scatter, TileNormalize normalize, TileStack stack) : this(key) =>
+        (Shape, Gather, Scatter, Normalize, Stack) = (shape, gather, scatter, normalize, stack);
 
     public Func<int, int, int, long[]> Shape { get; }
     public TileGather Gather { get; }
     public TileScatter Scatter { get; }
     public TileNormalize Normalize { get; }
+    public TileStack Stack { get; }
 
     static void PlanarGather(ReadOnlySpan<float> source, Span<float> tile, TilePlan plan, TileWindow window) {
         bool interior = window.SourceX >= 0 && window.SourceX + plan.TileWidth <= plan.SourceWidth;
@@ -549,6 +575,17 @@ public sealed partial class TileLayout {
         for (int texel = 0; texel < weight.Length; texel++) {
             Span<float> band = plane.Slice(texel * channels, channels);
             TensorPrimitives.Divide(band, weight[texel], band);
+        }
+    }
+
+    // Planar stacking is a whole-plane copy at the channel offset; the source plane is already channel-major.
+    static void PlanarStack(ReadOnlySpan<float> plane, Span<float> stacked, int channels, int offset, int total, int texels) =>
+        plane.CopyTo(stacked.Slice(offset * texels, channels * texels));
+
+    // Interleaved stacking seats each texel's channel run at its offset inside the widened texel stride.
+    static void InterleavedStack(ReadOnlySpan<float> plane, Span<float> stacked, int channels, int offset, int total, int texels) {
+        for (int texel = 0; texel < texels; texel++) {
+            plane.Slice(texel * channels, channels).CopyTo(stacked.Slice((texel * total) + offset, channels));
         }
     }
 }
@@ -653,7 +690,7 @@ public sealed partial class TilePlan {
         extent <= tile ? 1 : 1 + (int)Math.Ceiling((double)(extent - tile) / (tile - overlap));
 
     // Which pad row is legal is NOT settled here: this owner is the general tiling vocabulary, and the frozen stage
-    // wire pins `reflect` at the boundary carrying it, so restating the pin would make one law answerable twice.
+    // wire pins `reflect` at `StageRequest.Admit`, so restating the pin would make one law answerable twice.
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int sourceWidth, ref int sourceHeight, ref int channels, ref Seq<TileProduct> products,
@@ -671,8 +708,10 @@ public sealed partial class TilePlan {
             && slots > 0
             && roster.ForAll(static product => product.Name.Length > 0 && product.Channels > 0)
             && roster.Map(static product => product.Name).ToFrozenSet(StringComparer.Ordinal).Count == slots
-            && (tileWidth is 256 or 512) && tileHeight == tileWidth && scale > 0
-            && overlap is >= 8 and <= 32 && overlap * 2 < tileWidth
+            // Bucket edges come off the CARD's own roster — 256/512 the norm, 518 the DA-V2 row — and the axes
+            // decouple: the frozen wire constrains neither to square, so a 256x512 request is wire-legal here too.
+            && (tileWidth is 256 or 512 or 518) && (tileHeight is 256 or 512 or 518) && scale > 0
+            && overlap is >= 8 and <= 32 && overlap * 2 < Math.Min(tileWidth, tileHeight)
             && roster.ForAll(product =>
                 (long)extentX * extentY * factor * factor * product.Channels <= Array.MaxLength)
             ? null
@@ -779,22 +818,30 @@ public static partial class RunOps {
 ## [04]-[STAGE_EXECUTION]
 
 - Owner: `StageRun` folds a dependency-ordered request sequence into results; `StageRequest`/`StageInput`/`StageOutput`/`StageResult` transcribe the frozen wire records; `LicenseClass` enforces the grant vocabulary; `StagePorts` carries the plane read, plane write, output-description, and session-open legs the app root binds.
+- Law: EVERY input row binds or the request refuses. The frozen wire carries one `StageInput` row per consumed product in the card's own binding order, and the executor resolves them ALL — a chained row against its producer's held output, an empty-stage row against its blob key — then STACKS the planes along the channel axis in that order into the one bound tensor, the session's own `InputMetadata` channel width proving the sum. A head-take that silently drops `inputs[1..]` runs the `svbrdf` card without the photograph its estimator consumes, and nothing rails.
 - Law: Materials SPECIFIES and Compute EXECUTES. Stage, model-card, and role identities cross as OPAQUE KEYS and this end dispatches on none of them, so admitting a model, a stage, or an intermediate at the specifying end moves no surface here; a mirrored stage roster makes every new model a Compute edit and breaks the row-growth law the wire exists to hold.
+- Law: this end binds LOWERED PRIMITIVES alone. The specifying end authors the wire in its own types; the strata forbid naming one of them here, so every column lands as the value the codec wrote — an enum as its roster string resolved through the roster THIS package owns, a content address as its hex32 string, a correlation key as a string echoed verbatim, an extent as the `int` every tile derivation and span index downstream already runs in (the wire's `uint32` widens losslessly and a negative never crosses). Opaque-key erasure is the deliberate consumer shape: a resolution that fails REFUSES rather than degrading, so a licence spelling this roster cannot honour never runs under a typo, and re-minting a rich value from a key is the drift a second vocabulary would open.
+- Law: the SEED reaches a graph or the request REFUSES. `StageSession.SeedInput` names the model's own seed tensor — the lease reads it off `InferenceSession.InputMetadata`, the only surface knowing whether the graph is stochastic at all — and `Flow` takes the plan AND the seed, so a stochastic graph binds the draw the receipt claims replays it. A nonzero seed against a session declaring no seed input refuses: a replay column the executor silently drops publishes determinism nothing enforced, and the same plan re-pressed at the same seed would answer differently.
 - Law: ONNX output tensor names ARE the role keys. Requests carry no output roster, so the executor emits one product per `InferenceSession.OutputNames` entry under that name and the specifying end resolves it against its own channel and prior vocabularies — ordinal correspondence between model outputs and declared roles binds two independently versioned rosters by position.
 - Law: a tiling plan has ONE construction. `StageRequest.Plan` folds the request's own extent, bucket, overlap, pad, and derived scale columns into `TilePlan`, whose validator is the only place the fixed-bucket law is spelled, and that same value then seats the bound flow and drives the fold — so a plan built once cannot disagree with itself, and neither a request-side predicate restating the law nor a compare catching two spellings drift apart has anything left to do.
 - Law: `Scale` DERIVES from the extents, never a column. Wire records thread both extents while a stage publishes `inputWidth × scale`, so a carried scale only ever contradicts them; `StageRequest.Scale` answers `None` for a fractional or anisotropic ratio and admission refuses there rather than at a bind reporting a shape mismatch it cannot explain.
 - Law: providers are a PREFERENCE and the floor is guaranteed; PRECISION is neither. `ExecutionProvider.FromWire` degrades an unrostered or unloaded spelling to `Floor` and `ProviderUsed` reports what ran, so the substitution is visible in the result. Precision has no such report column, so `ModelPrecision.FromWire` refuses an unrostered spelling and the request never admits — an fp16 request silently running fp32 is the substitution the `CoreMl` `ModelFormat` pin exists to foreclose. `StagePorts.Lease` then TAKES the resolved precision: admitting a precision column and leasing without it is the same defect wearing an argument.
-- Law: parity measures the CANDIDATE against a FULL-precision floor. `GoldenDelta` runs the canary tile on the requested provider and on `Cpu` at `ModelPrecision.Full`, so the residual grades the whole acceleration decision — provider and precision together — rather than comparing two runs that already agreed to lower precision.
+- Law: parity measures the CANDIDATE against a FULL-precision floor, ONCE per acceleration decision, BEFORE the grid runs. `Assured` runs the canary tile on the requested provider and on `Cpu` at `ModelPrecision.Full`, so the residual grades the whole decision — provider and precision together — rather than comparing two runs that already agreed to lower precision. The residual is a property of `(model card, provider, precision)`: the canary grades the graph an EP compiled at a precision, and a card key names one model at one checksum, so the first request measures and every later request in the process reads that verdict beside the card's own ceiling. Measuring per request prices two extra leases, two extra flows, and two extra runs on every stage of every plan for a verdict that cannot move between them. Both probes run at the REQUEST'S seed — comparing two stochastic draws grades noise, not the provider.
+- Law: the residual GATES, never merely reports. The card's `ResidualCeiling` rides the lease onto `StageSession`, `Assured` compares the measured delta against it, and a breach DEMOTES the run to the floor at full precision — one demotion, `ProviderUsed` reporting the substitution, `GoldenDelta` keeping the measured breach — so an accelerated run outside its card's envelope never publishes as if it were inside. On the floor at full precision the delta is 0 by IDENTITY, not by measurement: `providerUsed == cpu` at `fp32` names the discrimination — every accelerated run carries a memoized measurement, the floor carries the identity, and no zero reads as an unmeasured observation.
 - Law: evidence publishes MEASURED or refuses. `PartitionCount` reads the per-bucket warm evidence the session capsule measured once, never a zero standing in for an unmeasured run; a request whose bucket carries no partition measurement refuses rather than minting a result whose evidence column reads as observed.
 - Entry: `public static Fin<Seq<StageResult>> Fold(Seq<StageRequest> plan, StagePorts ports, RunOptions options, CancelScope scope, TimeProvider time)` — one entry for the whole plan, because per-request entry pushes producer-output resolution onto the caller and re-opens the chained-stage defect where every stage reads the source photograph.
-- Auto: `Fold` threads a produced-plane map so a binding naming a producer resolves against results already held and only an empty producer key reads the intent's own plane. `Admit` refuses an ungranted license, an unrostered precision, a bucket spelling disagreeing with its own tile columns, a pad key no row claims, and a non-integral scale. `Execute` resolves the provider, leases once, builds the plan against the session's product roster, opens ONE bound flow at that plan, runs the grid once, writes every produced plane through the port, and folds elapsed time from the injected `TimeProvider`. `Warmup` injects measured partitions; the run asserts that count against the model-card cap before publication.
+- Auto: `Fold` threads a produced-OUTPUT map so a binding naming a producer resolves against results already held, and every chained input's EXTENT proves against its producer's published output extent AT RESOLUTION — before the blob read and before the lease — because a chained disagreement is a PLAN defect the frozen wire refuses at admit, never a shape mismatch a bound session reports three ports later. Only an empty producer key reads a source plane, whose declared extent the read-back guard then proves against the bytes. `Admit` refuses an unrostered or ungranted licence, an unrostered precision, a bucket spelling disagreeing with its own tile columns, a pad key off the frozen `reflect` pin, and a non-integral scale. `Execute` resolves the provider, resolves and reads EVERY input row, runs `Assured` (the memoized parity verdict deciding the effective provider and precision), leases once at that decision, proves the stacked channel sum against the session's own declared input width, builds the plan against the session's product roster, refuses a seed no graph can take, opens ONE bound flow at that plan and that seed, runs the grid once, writes every produced plane through the port, and folds elapsed time from the injected `TimeProvider`. `Warmup` injects measured partitions; the run asserts that count against the model-card cap before publication.
 - Receipt: each executed stage emits one `ComputeReceipt.ModelRun` with the tiled mode key and the mosaic's tile count as `BatchSize` — one grid ran, so one receipt mints whatever the roster's width; the stage-level evidence rides `StageResult` across the wire, never a second receipt case, because the specifying end owns the admission that reads it.
 - Packages: Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new grant posture is one `LicenseClass` row; a new wire column is one record field transcribed from the frozen roster at both ends in one change; a further execution backend is one `Model/providers#EP_AXIS` row declaring one `WireKey`, never a translation table here and never a second stage owner; a stage emitting more products is more `InferenceSession.OutputNames` entries the lease reports as `TileProduct` rows, with no surface move at all.
-- Boundary: `StagePorts` is the ONLY route to a plane. Compute holds no blob store, no codec, and no channel vocabulary — it reads and writes float planes through injected legs the app root binds against the Persistence object lane, exactly as `Model/sessions#SESSION_CAPSULE` binds its context-blob leg. Provider and precision spellings resolve at `Model/providers#EP_AXIS`, whose rows carry their own wire keys, so this record holds no translation table and a roster landing there crosses without an edit here. `StageSession` carries the model-derived facts a request cannot know — the product roster, the tensor layout, the blend profile, the warm evidence — and its `Flow` leg takes the built plan, so the bound shapes and the fold's shapes have one source. This wire mints no `tests/contracts/MANIFEST.md` entry — it never leaves the C# runtime.
+- Growth: a new grant posture is one `LicenseClass` row; a new wire column is one record field transcribed from the frozen roster at both ends in one change; a further execution backend is one `Model/providers#EP_AXIS` row declaring one `WireKey`, never a translation table here and never a second stage owner; a stage emitting more products is more `InferenceSession.OutputNames` entries the lease reports as `TileProduct` rows, and a stage CONSUMING more products is one more wire input row widening the channel stack — no surface move either way.
+- Boundary: `StagePorts` is the ONLY route to a plane. Compute holds no blob store, no codec, and no channel vocabulary — it reads and writes float planes through injected legs the app root binds against the Persistence object lane, exactly as `Model/sessions#SESSION_CAPSULE` binds its context-blob leg. Provider and precision spellings resolve at `Model/providers#EP_AXIS`, whose rows carry their own wire keys, so this record holds no translation table and a roster landing there crosses without an edit here. `StageSession` carries the model-derived facts a request cannot know — the product roster, the tensor layout, the blend profile, the warm evidence, the bound input's own channel width, the card's parity ceiling, and whether the graph declares a seed tensor at all — and its `Flow` leg takes the built plan and the request's seed, so the bound shapes, the bound draw, and the fold's shapes have one source. This wire mints no `tests/contracts/MANIFEST.md` entry — it never leaves the C# runtime.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
+// This roster and the Materials registry's licence table are BOTH transcriptions of the frozen [07.1][03] five-key
+// vocabulary — cross-branch equality tests the wire key, the strata forbid sharing the type, and each end carries
+// only the columns its own dispatch reads (a grant verdict here, an admission rank there); a merged shape would be
+// the strata reference the wire exists to avoid.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -807,7 +854,14 @@ public sealed partial class LicenseClass {
     // it because a grant enforced only where the request is built trusts the caller's word.
     public static readonly LicenseClass Blocked = new("blocked", grants: false);
 
+    private LicenseClass(string key, bool grants) : this(key) => Grants = grants;
+
     public bool Grants { get; }
+
+    // The wire carries the roster STRING and this roster owns the resolution, so a spelling no row claims REFUSES
+    // rather than degrading — unlike a provider, a grant has no report column a caller could read a substitution
+    // off, so a defaulted licence would run an unknown model under a typo.
+    public static Option<LicenseClass> FromWire(string wire) => TryGet(wire, out LicenseClass? row) ? Some(row!) : None;
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
@@ -818,19 +872,27 @@ public readonly record struct StageInput(string Stage, string Role, string Key);
 // One produced plane, named by the model's own output tensor.
 public readonly record struct StageOutput(string Role, string BlobKey, int Width, int Height, string Transfer, string Format);
 
+// Every column is the LOWERED primitive the codec wrote: the producer's own types name none of this record, the
+// vocabulary keys resolve through the rosters THIS package owns, and `Op` is a correlation string echoed verbatim
+// onto the result rather than a value re-minted from a key. Extents land `int` because every grid derivation and
+// span index downstream runs in that domain and the wire's `uint32` widens losslessly.
 public sealed record StageRequest(
-    string Stage, string ModelCardId, LicenseClass LicenseClass, Seq<StageInput> Inputs,
+    string Stage, string ModelCardId, string License, Seq<StageInput> Inputs,
     int InputWidth, int InputHeight, int OutputWidth, int OutputHeight,
     int TileWidth, int TileHeight, int Overlap, string Pad, string Bucket,
-    string Provider, string Precision, ulong Seed, Op Op) {
+    string Provider, string Precision, ulong Seed, string Op) {
 
     // Wire spellings resolve at the ROSTER that owns the rows, so this record holds no translation table and a
-    // provider or precision landing there crosses without an edit here. The asymmetry is deliberate: a substituted
-    // provider is reported on `ProviderUsed`, a substituted precision is reported nowhere, so one degrades and the
-    // other refuses.
+    // provider, precision, or licence landing there crosses without an edit here. The asymmetry is deliberate: a
+    // substituted provider is reported on `ProviderUsed`, a substituted precision or grant is reported nowhere, so
+    // one degrades and the other two refuse. The interior column shortens to `License` because a `LicenseClass`
+    // member would SHADOW the `LicenseClass` type inside this record exactly as `PadMode` would — the same
+    // interior-versus-wire split every other flat column takes, and the wire projection restores `licenseClass`.
     public ExecutionProvider SelectedProvider => ExecutionProvider.FromWire(Provider);
 
     public Option<ModelPrecision> SelectedPrecision => ModelPrecision.FromWire(Precision);
+
+    public Option<LicenseClass> SelectedLicense => LicenseClass.FromWire(License);
 
     // Scale is DERIVED from the extents the wire already threads: a stage publishes `inputWidth × scale`, so a
     // carried column could only ever contradict them, and a fractional or anisotropic ratio is a grid nothing builds.
@@ -865,30 +927,39 @@ public sealed record StageRequest(
     // request never reaches a session lease; the plan itself builds after the lease, because only the model names
     // its own products. `StageRun` re-proves the grant alone, the one column an executing end never takes on trust.
     public static Fin<StageRequest> Admit(StageRequest request) =>
-        !request.LicenseClass.Grants
-            ? Fin.Fail<StageRequest>(new ComputeFault.ModelRejected($"<stage-blocked:{request.ModelCardId}>"))
-            : request.SelectedPrecision.IsNone
-                ? Fin.Fail<StageRequest>(new ComputeFault.ModelRejected($"<stage-precision:{request.Precision}>"))
-                : request.Scale.IsNone
-                    || !StringComparer.Ordinal.Equals(request.Bucket, $"{request.TileWidth}x{request.TileHeight}")
-                    || !PadMode.TryGet(request.Pad, out PadMode? _)
-                    ? Fin.Fail<StageRequest>(new ComputeFault.ModelRejected($"<stage-shape:{request.Bucket}>"))
-                    : Fin.Succ(request);
+        request.SelectedLicense.Case is not LicenseClass licensed
+            ? Fin.Fail<StageRequest>(new ComputeFault.ModelRejected($"<stage-license:{request.License}>"))
+            : !licensed.Grants
+                ? Fin.Fail<StageRequest>(new ComputeFault.ModelRejected($"<stage-blocked:{request.ModelCardId}>"))
+                : request.SelectedPrecision.IsNone
+                    ? Fin.Fail<StageRequest>(new ComputeFault.ModelRejected($"<stage-precision:{request.Precision}>"))
+                    // The frozen wire PINS `padMode` at `reflect`; the PadMode family stays the general tiling
+                    // vocabulary, and this boundary — the one carrying the wire — is where the pin enforces.
+                    : !StringComparer.Ordinal.Equals(request.Pad, PadMode.Reflect.Key)
+                        ? Fin.Fail<StageRequest>(new ComputeFault.ModelRejected($"<stage-pad-pinned:{request.Pad}>"))
+                        : request.Scale.IsNone
+                            || !StringComparer.Ordinal.Equals(request.Bucket, $"{request.TileWidth}x{request.TileHeight}")
+                            ? Fin.Fail<StageRequest>(new ComputeFault.ModelRejected($"<stage-shape:{request.Bucket}>"))
+                            : Fin.Succ(request);
 }
 
 public sealed record StageResult(
     string Stage, string ModelCardId, Seq<StageOutput> Outputs, string ProviderUsed,
-    int PartitionCount, double ElapsedMs, double GoldenDelta, int TilesEmitted, Op Op);
+    int PartitionCount, double ElapsedMs, double GoldenDelta, int TilesEmitted, string Op);
 
 // --- [SERVICES] ----------------------------------------------------------------------------
 // Everything about a run that only the MODEL knows: its output roster with each product's component count, the
-// tensor layout its graph emits, the taper profile its class of estimator wants, and the partition count that
-// bucket's warm-up measured. `Flow` takes the BUILT plan and binds every value from it, so shapes the flow holds
-// and shapes the fold writes have one source. Holding the lease as this record's own disposable keeps its session
-// alive across the whole grid.
+// tensor layout its graph emits, the taper profile its class of estimator wants, the partition count that bucket's
+// warm-up measured, the bound input's own CHANNEL width (`InputMetadata` again — the gate the stacked input sum
+// proves against), the card's parity `ResidualCeiling`, and the seed tensor its graph declares — read off
+// `InferenceSession.InputMetadata`, `None` for a deterministic graph, which is what makes an unbindable seed
+// refusable rather than silently dropped. `Flow` takes the BUILT plan and the request's seed and binds every value
+// from them, so shapes the flow holds, the draw it runs, and shapes the fold writes have one source. Holding the
+// lease as this record's own disposable keeps its session alive across the whole grid.
 public sealed record StageSession(
     Seq<TileProduct> Products, TileLayout Layout, TileBlend Blend, Option<int> Partitions, int PartitionCap,
-    Func<TilePlan, Fin<BoundFlow>> Flow, IDisposable Hold);
+    int InputChannels, double ResidualCeiling,
+    Option<string> SeedInput, Func<TilePlan, ulong, Fin<BoundFlow>> Flow, IDisposable Hold);
 
 // Every plane crosses as a content address the host resolves; Compute holds no store, no codec, and no vocabulary.
 // `Lease` takes the resolved precision because a posture admitted at the wire and dropped before the session is a
@@ -901,10 +972,19 @@ public sealed record StagePorts(
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static class StageRun {
+    // The parity memo. A residual is a property of `(model card, provider, precision)`, never of a plane: the canary
+    // grades the graph an EP compiled at a precision, and a card key names one model at one checksum. The first
+    // request in the process measures, every later one reads. The gate mirrors the `Model/sessions#SESSION_CAPSULE`
+    // idiom — an immutable map behind one `Lock`, never a retry-capable swap over a fold that already ran native
+    // effects — and the map is bounded by the roster product, so nothing evicts.
+    static readonly Lock ParityGate = new();
+    static HashMap<(string Card, string Provider, string Precision), (double Delta, double Ceiling)> Parity =
+        HashMap<(string Card, string Provider, string Precision), (double Delta, double Ceiling)>();
+
     public static Fin<Seq<StageResult>> Fold(
         Seq<StageRequest> plan, StagePorts ports, RunOptions options, CancelScope scope, TimeProvider time) =>
         plan.Fold(
-            Fin.Succ((Results: Seq<StageResult>(), Produced: HashMap<(string Stage, string Role), string>())),
+            Fin.Succ((Results: Seq<StageResult>(), Produced: HashMap<(string Stage, string Role), StageOutput>())),
             (state, request) => state.Bind(carried =>
                 from admitted in StageRequest.Admit(request)
                 from result in Execute(admitted, carried.Produced, ports, options, scope, time)
@@ -912,45 +992,72 @@ public static class StageRun {
                     Results: carried.Results.Add(result),
                     Produced: result.Outputs.Fold(
                         carried.Produced,
-                        (map, output) => map.AddOrUpdate((request.Stage, output.Role), output.BlobKey)))))
+                        (map, output) => map.AddOrUpdate((request.Stage, output.Role), output)))))
             .Map(static carried => carried.Results);
 
     static Fin<StageResult> Execute(
-        StageRequest request, HashMap<(string Stage, string Role), string> produced, StagePorts ports,
+        StageRequest request, HashMap<(string Stage, string Role), StageOutput> produced, StagePorts ports,
         RunOptions options, CancelScope scope, TimeProvider time) {
         long mark = time.GetTimestamp();
-        ExecutionProvider selected = request.SelectedProvider;
         // Grants re-check HERE even when Admit already ran at decode: any host edge reaches this end, and a grant
-        // enforced only where the request is built trusts the caller's word.
-        return from _ in guard(
-                       request.LicenseClass.Grants,
+        // enforced only where the request is built trusts the caller's word — including the caller's SPELLING, so
+        // the roster resolution runs again rather than a resolved row riding in on the record.
+        return from licensed in request.SelectedLicense
+                       .ToFin(new ComputeFault.ModelRejected($"<stage-license:{request.License}>"))
+               from _ in guard(
+                       licensed.Grants,
                        (Error)new ComputeFault.ModelRejected($"<stage-blocked:{request.ModelCardId}>")).ToFin()
                from precision in request.SelectedPrecision
                        .ToFin(new ComputeFault.ModelRejected($"<stage-precision:{request.Precision}>"))
-               from key in Source(request, produced)
-               from source in ports.Read(key)
-               from __ in guard(
-                       source.Width == request.InputWidth
-                       && source.Height == request.InputHeight,
-                       (Error)new ComputeFault.ModelRejected(
-                           $"<stage-source-extent:{source.Width}x{source.Height}x{source.Channels}>")).ToFin()
-               from outputs in Run(request, ports, source, selected, precision, options, scope)
-               from golden in Golden(request, ports, source, selected, precision, options, scope)
+               from keys in Sources(request, produced)
+               from planes in keys
+                       .Traverse(key => ports.Read(key).ToValidation())
+                       .As()
+                       .ToFin()
+               // The chained rows already proved their extents against their PRODUCERS at resolution; this guard
+               // proves every plane's BYTES against the request's declaration — the whole gate for a source plane
+               // no stage made, and the congruence every stacked row must share.
+               from __ in planes
+                       .Traverse(plane => guard(
+                               plane.Width == request.InputWidth && plane.Height == request.InputHeight,
+                               (Error)new ComputeFault.ModelRejected(
+                                   $"<stage-source-extent:{plane.Width}x{plane.Height}x{plane.Channels}>"))
+                           .ToFin().ToValidation())
+                       .As()
+                       .ToFin()
+               // Parity decides BEFORE the grid: a breach demotes to the floor at full precision, once, and the
+               // result reports the demotion on ProviderUsed while GoldenDelta keeps the measured breach.
+               from verdict in Assured(request, ports, planes, request.SelectedProvider, precision, options, scope)
+               from outputs in Run(request, ports, planes, verdict.Provider, verdict.Precision, options, scope)
                select new StageResult(
-                   request.Stage, request.ModelCardId, outputs.Products, selected.ReportKey,
-                   outputs.Partitions, time.GetElapsedTime(mark).TotalMilliseconds, golden, outputs.Tiles,
+                   request.Stage, request.ModelCardId, outputs.Products, verdict.Provider.ReportKey,
+                   outputs.Partitions, time.GetElapsedTime(mark).TotalMilliseconds, verdict.Delta, outputs.Tiles,
                    request.Op);
     }
 
     // Chained stages NEVER carry the source plane: a binding naming a producer resolves against results already
-    // held, so a pipeline whose links never touch is unrepresentable rather than merely discouraged.
-    static Fin<string> Source(StageRequest request, HashMap<(string Stage, string Role), string> produced) =>
-        request.Inputs.Head
-            .ToFin(new ComputeFault.ModelRejected($"<stage-no-input:{request.Stage}>"))
-            .Bind(binding => binding.Stage.Length is 0
-                ? Fin.Succ(binding.Key)
-                : produced.Find((binding.Stage, binding.Role))
-                    .ToFin(new ComputeFault.ModelRejected($"<stage-unresolved:{binding.Stage}:{binding.Role}>")));
+    // held, so a pipeline whose links never touch is unrepresentable rather than merely discouraged. EVERY row
+    // resolves — the frozen wire carries one row per consumed product in the card's binding order, and that order
+    // is the channel-stack order the bound tensor takes. Each producer's PUBLISHED extent proves against this
+    // request's declared input extent HERE — before the blob read and before the lease — because the frozen wire
+    // refuses that disagreement at admit, and a plan defect caught by a bound session's shape mismatch names a
+    // port rather than the two stages that disagree.
+    static Fin<Seq<string>> Sources(StageRequest request, HashMap<(string Stage, string Role), StageOutput> produced) =>
+        request.Inputs.IsEmpty
+            ? Fin.Fail<Seq<string>>(new ComputeFault.ModelRejected($"<stage-no-input:{request.Stage}>"))
+            : request.Inputs
+                .Traverse(binding => (binding.Stage.Length is 0
+                        ? Fin.Succ(binding.Key)
+                        : produced.Find((binding.Stage, binding.Role))
+                            .ToFin(new ComputeFault.ModelRejected($"<stage-unresolved:{binding.Stage}:{binding.Role}>"))
+                            .Bind(upstream =>
+                                upstream.Width == request.InputWidth && upstream.Height == request.InputHeight
+                                    ? Fin.Succ(upstream.BlobKey)
+                                    : Fin.Fail<string>(new ComputeFault.ModelRejected(
+                                        $"<stage-extent-chain:{binding.Stage}:{binding.Role}:{upstream.Width}x{upstream.Height}:{request.InputWidth}x{request.InputHeight}>"))))
+                    .ToValidation())
+                .As()
+                .ToFin();
 
     // ONE lease, ONE plan, ONE grid. Leasing reports the model's products, the request folds them into a plan, that
     // plan seats the flow, and the grid runs once for every plane the model emits — a fold per output re-infers the
@@ -959,17 +1066,47 @@ public static class StageRun {
     // `ModelSessions.Warm(key, request.Bucket, shape)` before the first run, so an unmeasured bucket here names a
     // composition that skipped its registration, never a missing surface — the refusal is the seam's proof.
     static Fin<(Seq<StageOutput> Products, int Partitions, int Tiles)> Run(
-        StageRequest request, StagePorts ports, (ReadOnlyMemory<float> Plane, int Width, int Height, int Channels) source,
+        StageRequest request, StagePorts ports,
+        Seq<(ReadOnlyMemory<float> Plane, int Width, int Height, int Channels)> planes,
         ExecutionProvider selected, ModelPrecision precision, RunOptions options, CancelScope scope) =>
-        Leased(request, ports, selected, precision, source.Channels, (session, plan) =>
+        Leased(request, ports, selected, precision, planes.Sum(static plane => plane.Channels), (session, plan) =>
+            // The stacked channel sum proves against the width the MODEL's own InputMetadata declares — the one
+            // surface knowing how wide the bound tensor is — so a plan missing an input row or carrying a stray
+            // one refuses by arithmetic before any texel moves.
+            from _ in guard(
+                    plan.Channels == session.InputChannels,
+                    (Error)new ComputeFault.ModelRejected(
+                        $"<stage-input-channels:{plan.Channels}:{session.InputChannels}>")).ToFin()
             from partitions in session.Partitions
                 .ToFin(new ComputeFault.ModelRejected($"<stage-partitions-unmeasured:{request.Bucket}>"))
-            from _ in guard(
+            from __ in guard(
                     partitions <= session.PartitionCap,
                     (Error)new ComputeFault.ModelRejected(
                         $"<stage-partitions:{partitions}:{session.PartitionCap}>")).ToFin()
-            from emitted in Emit(request, ports, session, plan, source.Plane, options, scope)
+            // Only the leased session knows whether the graph takes a draw at all, so the seed gate sits here: a
+            // nonzero seed a deterministic graph cannot bind publishes a replay the receipt could never honour.
+            from ___ in guard(
+                    request.Seed is 0UL || session.SeedInput.IsSome,
+                    (Error)new ComputeFault.ModelRejected(
+                        $"<stage-seed-unbindable:{request.Stage}:{request.Seed}>")).ToFin()
+            from emitted in Emit(request, ports, session, plan, Stacked(planes, session.Layout, request), options, scope)
             select (emitted.Products, Partitions: partitions, emitted.Tiles));
+
+    // Multi-input stages bind ONE tensor: the wire's row order IS the channel-stack order, and the session's layout
+    // row owns the placement — planar appends whole channel planes, interleaved interleaves each texel's channel
+    // run — so a single-input stage crosses untouched and no second bound value exists to drift from the warm shape.
+    static ReadOnlyMemory<float> Stacked(
+        Seq<(ReadOnlyMemory<float> Plane, int Width, int Height, int Channels)> planes, TileLayout layout, StageRequest request) {
+        if (planes.Count is 1) { return planes[0].Plane; }
+        int total = planes.Sum(static plane => plane.Channels);
+        float[] stacked = new float[(long)total * request.InputWidth * request.InputHeight];
+        int offset = 0;
+        foreach ((ReadOnlyMemory<float> plane, int _, int __, int channels) in planes) {
+            layout.Stack(plane.Span, stacked, channels, offset, total, request.InputWidth * request.InputHeight);
+            offset += channels;
+        }
+        return stacked;
+    }
 
     // Lease and plan form ONE bracket: the hold releases inside the bind that took it, so a plan refusing never
     // strands a session and a fault never leaves a resident held.
@@ -986,7 +1123,7 @@ public static class StageRun {
     static Fin<(Seq<StageOutput> Products, int Tiles)> Emit(
         StageRequest request, StagePorts ports, StageSession session, TilePlan plan, ReadOnlyMemory<float> source,
         RunOptions options, CancelScope scope) =>
-        session.Flow(plan).Bind(flow => {
+        session.Flow(plan, request.Seed).Bind(flow => {
             using (flow) {
                 return flow.InferTiled(options, scope, plan, source).Bind(assembled => {
                     using (assembled) {
@@ -1008,23 +1145,44 @@ public static class StageRun {
 
     // Parity is measured on ONE canary tile against a FULL-PRECISION floor run — two runs whatever the mosaic's tile
     // count, and the residual then grades the whole acceleration decision rather than comparing two runs that had
-    // already agreed to lower precision. Floor answering itself is an identity rather than an unmeasured zero, so it
-    // reports without a second lease. Each lease releases inside the bind that took it.
-    static Fin<double> Golden(
-        StageRequest request, StagePorts ports, (ReadOnlyMemory<float> Plane, int Width, int Height, int Channels) source,
+    // already agreed to lower precision. Floor-at-full answering itself is an IDENTITY rather than an unmeasured
+    // zero (`providerUsed == cpu` at `fp32` is the discriminant a reader needs), so it reports without a second
+    // lease. Beyond that, the decision is `(card, provider, precision)` and the plane is not part of it, so the
+    // memo answers every later request in the process — delta AND ceiling together, because a memo hit must still
+    // gate — and the four extra leases a per-request measurement would take never happen. A delta past the card's
+    // ceiling DEMOTES the run to the floor at full precision, keeping the measured breach on the result. Each lease
+    // releases inside the bind that took it, and BOTH probes run at the request's own seed — two stochastic draws
+    // compared would grade noise.
+    static Fin<(double Delta, ExecutionProvider Provider, ModelPrecision Precision)> Assured(
+        StageRequest request, StagePorts ports,
+        Seq<(ReadOnlyMemory<float> Plane, int Width, int Height, int Channels)> planes,
         ExecutionProvider selected, ModelPrecision precision, RunOptions options, CancelScope scope) =>
         selected.IsFloor && ReferenceEquals(precision, ModelPrecision.Full)
-            ? Fin.Succ(0d)
-            : Leased(request, ports, selected, precision, source.Channels, (candidate, plan) =>
-                Leased(request, ports, ExecutionProvider.Floor, ModelPrecision.Full, source.Channels, (reference, truthPlan) =>
-                    from fast in Probe(candidate, plan, source.Plane, options, scope)
-                    from truth in Probe(reference, truthPlan, source.Plane, options, scope)
-                    from delta in Residual(fast, truth)
-                    select delta));
+            ? Fin.Succ((0d, selected, precision))
+            : ((request.ModelCardId, selected.ReportKey, precision.Key) switch {
+                var at when Remembered(at).Case is (double Delta, double Ceiling) held => Fin.Succ(held),
+                var at => Leased(request, ports, selected, precision, planes.Sum(static plane => plane.Channels), (candidate, plan) =>
+                        Leased(request, ports, ExecutionProvider.Floor, ModelPrecision.Full, planes.Sum(static plane => plane.Channels), (reference, truthPlan) =>
+                            from fast in Probe(candidate, plan, request.Seed, Stacked(planes, candidate.Layout, request), options, scope)
+                            from truth in Probe(reference, truthPlan, request.Seed, Stacked(planes, reference.Layout, request), options, scope)
+                            from delta in Residual(fast, truth)
+                            select Remember(at, (delta, candidate.ResidualCeiling))))
+            }).Map(held => held.Delta <= held.Ceiling
+                ? (held.Delta, selected, precision)
+                : (held.Delta, ExecutionProvider.Floor, ModelPrecision.Full));
+
+    static Option<(double Delta, double Ceiling)> Remembered((string Card, string Provider, string Precision) at) {
+        lock (ParityGate) { return Parity.Find(at); }
+    }
+
+    static (double Delta, double Ceiling) Remember((string Card, string Provider, string Precision) at, (double Delta, double Ceiling) verdict) {
+        lock (ParityGate) { Parity = Parity.AddOrUpdate(at, verdict); }
+        return verdict;
+    }
 
     static Fin<float[]> Probe(
-        StageSession session, TilePlan plan, ReadOnlyMemory<float> source, RunOptions options, CancelScope scope) =>
-        session.Flow(plan).Bind(flow => {
+        StageSession session, TilePlan plan, ulong seed, ReadOnlyMemory<float> source, RunOptions options, CancelScope scope) =>
+        session.Flow(plan, seed).Bind(flow => {
             using (flow) { return flow.Canary(options, scope, plan, source); }
         });
 
@@ -1146,6 +1304,4 @@ public static class CacheOps {
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [COMPLEX_VALUE_FACTORY]-[OPEN]: what signature does the Thinktecture generator emit for a `[ComplexValueObject]` admission returning its error — `Validate(<members>, out T?)` as `[04]-[STAGE_EXECUTION]` `StageRequest.Plan` spells it, or a form threading `IFormatProvider`; `libs/csharp/.api/api-thinktecture-runtime-extensions.md` spells the KEYED arity alone, so compile one multi-member declaration under `uv run python -m tools.assay static` and read the generated factory off the output.
-- [TRACE_SCHEMA]-[OPEN]: which keys does the ONNX Runtime chrome trace spell for a node event's category, argument bag, and assigned execution provider, and is the emitted document a bare event array or a `traceEvents`-wrapped object; run one profiled `InferenceSession` under the ORT host through `tools.assay bridge`, `EndProfiling`, and read the emitted file's first node event verbatim.
 - [CANCELLATION]-[OPEN]: `RunOptions.Terminate=true` aborts `Run`/`RunWithBinding` by throwing the native `OnnxRuntimeException [ErrorCode:Fail] Exiting due to terminate flag being set to true` that `Faulted` reclassifies by scope provenance — what is the latch-propagation latency and safe deadline-poll cadence for the `CoreMl`/`Cpu` rows inside the live plugin ALC; measure against a running `InferenceSession` under the ORT host.

@@ -4,12 +4,10 @@ The local-persistence plane and the one `idb-keyval` site in the branch: a close
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                              | [PUBLIC]        |
-| :-----: | :------------------ | :------------------------------------------------------------------ | :-------------- |
-|  [01]   | `DOMAIN_ROWS`       | the store-per-domain vocabulary and each domain's value schema      | `Kv` (types)    |
-|  [02]   | `LANE_SURFACE`      | the typed operation family, the codec seam, the atomic drain        | `Kv`, `KvFault` |
-|  [03]   | `STORAGE_RESIDENCY` | the grant, the estimate, the pressure-verdict vocabulary            | `Opfs`          |
-|  [04]   | `OVERLAY_AND_LANE`  | the EventLog browser backings, the sync row, the wasm-lane seam law | `Overlay`       |
+- [02]-[DOMAIN_ROWS]: the store-per-domain vocabulary and each domain's value schema; `Kv` (types).
+- [03]-[LANE_SURFACE]: the typed operation family, the codec seam, the atomic drain; `Kv`, `KvFault`.
+- [04]-[STORAGE_RESIDENCY]: the grant, the estimate, the pressure-verdict vocabulary; `Opfs`.
+- [05]-[OVERLAY_AND_LANE]: the EventLog browser backings, the sync row, the wasm-lane seam law; `Overlay`.
 
 ## [02]-[DOMAIN_ROWS]
 

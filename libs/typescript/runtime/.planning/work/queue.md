@@ -6,12 +6,10 @@ Decomposition is ruled: `@effect/cluster` and `@effect/workflow` natively own pe
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]     | [OWNS]                                                                        | [PUBLIC]   |
-| :-----: | :------------ | :---------------------------------------------------------------------------- | :--------- |
-|  [01]   | `JOB_FAMILY`  | the persisted job declaration law, dedup projection, class-priced workers     | `Job`      |
-|  [02]   | `THROTTLE`    | durable keyed quotas — algorithm rows, tenant keys, cost weights              | `Throttle` |
-|  [03]   | `LANE_POLICY` | claim lease, urgency order, batch geometry, claim admission, the verdict fold | `Lane`     |
-|  [04]   | `PARK_REPLAY` | dead-letter evidence, the park ceiling, poison short-circuit, operator replay | `Lane`     |
+- [02]-[JOB_FAMILY]: the persisted job declaration law, dedup projection, class-priced workers; `Job`.
+- [03]-[THROTTLE]: durable keyed quotas — algorithm rows, tenant keys, cost weights; `Throttle`.
+- [04]-[LANE_POLICY]: claim lease, urgency order, batch geometry, claim admission, the verdict fold; `Lane`.
+- [05]-[PARK_REPLAY]: dead-letter evidence, the park ceiling, poison short-circuit, operator replay; `Lane`.
 
 ## [02]-[JOB_FAMILY]
 

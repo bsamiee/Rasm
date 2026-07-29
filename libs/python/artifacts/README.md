@@ -114,7 +114,7 @@
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Domain-specific libraries admitted by this folder; versions centralize in the root `pyproject.toml` and corroborate against this folder's `.api/`. FLOOR-GATED marks a row whose `python_version` marker in that manifest no supported interpreter satisfies, so the module resolves nowhere and the arms composing it are unreachable until the marker retires — admission stands, reach does not, and the mark keeps a gated row from reading as a live provider. Cards naming host binaries carry no manifest row and state their provisioning lane instead.
+Domain-specific libraries admitted by this folder; versions centralize in the root `pyproject.toml` and corroborate against this folder's `.api/`. FLOOR-GATED marks a row whose `python_version` marker in that manifest no supported interpreter satisfies, so the module resolves nowhere and the arms composing it are unreachable until the marker retires — admission stands, reach does not, and the mark keeps a gated row from reading as a live provider. A Forge python-overlay row keeps its marker yet imports at the floor off the overlay `.pth`, so admission and reach diverge the other way. Cards naming host binaries carry no manifest row and state their provisioning lane instead.
 
 [DOCUMENTS]:
 - `reportlab`
@@ -176,8 +176,8 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `openexr` — named-channel, multi-part, and tiled EXR documents.
 - `pyktx` — in-process KTX2 container with Basis/ASTC encode and block transcode.
 
-[IMAGING_TOOLS]: Host binaries the texture producers spawn, carrying no pip distribution; the Forge scientific toolchain provisions them and a presence probe selects the leg.
-- `ktx` — unified KTX-Software CLI holding the KTX2 encode floor both language branches spawn.
+[IMAGING_TOOLS]: Host binaries the texture producers spawn.
+- `ktx` — unified KTX-Software CLI holding the KTX2 encode floor the python and C# branches spawn; TS consumes the produced bytes.
 
 [VECTOR_CAD]:
 - `svgelements` — pure-Python SVG geometry and parse.
@@ -228,9 +228,9 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `pysubs2` — subtitle parse/convert/retime/restyle.
 
 [SCENE]:
-- `pyvista`
-- `vtk` — FLOOR-GATED; the `scene/render#SCENE` engine and the `scene/stage#STAGE` USD export arm both refuse while the marker holds.
-- `usd-core` — FLOOR-GATED; `scene/stage#STAGE` authors no USD, USDA, or USDC stage while the marker holds.
+- `pyvista` — Forge python-overlay `.pth`; the `scene/render#SCENE` plotter surface imports it worker-side.
+- `vtk` — Forge python-overlay `.pth`; the `scene/render#SCENE` engine imports it worker-side.
+- `usd-core` — Forge python-overlay `.pth`; `scene/stage#STAGE` imports `pxr` worker-side.
 
 [COMPRESSION]:
 - `zstandard`

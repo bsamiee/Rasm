@@ -2,7 +2,7 @@
 
 `BimExport.Export` folds one TOTAL `InterchangeCodec.Switch` over the `ExportPayload` union — `Soup` the flat `ImportedGeometry` triangle carrier, `Scene` the per-element `ElementScene` (a content-keyed mesh pool with placed `ElementInstance` rows) — dispatching GLB through the SharpGLTF `SceneBuilder`/`MeshBuilder` path under Draco/meshopt encode, `.bim` through the `dotbim` instancing wire, FBX/Collada through `AssimpNetter` `AssimpContext.ExportToBlob`, OpenUSD through `UniversalSceneDescription` `UsdStage`, and the 3D-Tiles 1.1 `.subtree` availability bitstream through the `subtree` `SubtreeCreator`. Dispatch is the generated exhaustive `InterchangeCodec.Switch` mirroring `import#IMPORT_RAIL`, so a new codec row BREAKS this call site at compile time and a `==` ladder with a silent `export-codec-miss` tail is the deleted form. `BimExport.Author` mints the per-element glTF scene as a `GlbScene` — one `NodeBuilder` per element NAMED by its seam GlobalId, one logical mesh per distinct content key (N repeats travel as N nodes over ONE mesh, `EXT_mesh_gpu_instancing` a policy threshold) — so the `GlobalId`→`Node` index `TileMetadata` and `AnimateSchedule` bind against is MINTED HERE, never caller-walked. IFC STEP/XML/JSON never re-authors here: `ExportIfc` DELEGATES to the seam `Projection/egress#IFC_EGRESS` `SemanticProjector.Emit` (the ONE Bim-internal `ElementGraph`→`DatabaseIfc` re-author — `PredefinedType` egress gate [PREDEFINED_TOKEN_RULING], 1:1 `GlobalId` round-trip [H6], diff-derived `OwnerHistory` [H9], material/classification/relationship re-author), this rail OWNING only the artifact seal (`ExportArtifact` with the Compute content key) and reading serialization off the `format#FORMAT_AXIS` `InterchangeFormat.Serialization` column.
 
-Settled vocabulary arrives from the seam `Graph/element#ELEMENT_GRAPH` `ElementGraph`/`Element` (a consumer reads the baked `Element`, never a stored record), the `import#IMPORT_RAIL` `ImportedGeometry` carrier and `BimIo.ImportIfc` re-decode, the `format#FORMAT_AXIS` codec/extension rows, and the `Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity` content key; a sealed `ExportArtifact` feeds that Compute seam. Retired `BimModel`/`BimElement` carriers and a hand-rolled `IfcBuildingElementProxy` re-author — a lossy SECOND IFC-egress owner — are GONE, every emit HOST-LOCAL.
+Settled vocabulary arrives from the seam `Graph/element#ELEMENT_GRAPH` `ElementGraph`/`Element` (a consumer reads the baked `Element`, never a stored record), the seam `Rasm.Element/Projection/projection#INTERCHANGE_CARRIER` `ImportedGeometry` carrier the `import#IMPORT_RAIL` produces and `BimIo.ImportIfc` re-decode, the `format#FORMAT_AXIS` codec/extension rows, and the `Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity` content key; a sealed `ExportArtifact` feeds that Compute seam. Retired `BimModel`/`BimElement` carriers and a hand-rolled `IfcBuildingElementProxy` re-author — a lossy SECOND IFC-egress owner — are GONE, every emit HOST-LOCAL.
 
 ## [01]-[INDEX]
 
@@ -51,14 +51,28 @@ public sealed record InterchangePolicy(
     // Each policy roster declares a caller's write capability while the payload's own Obliges carries the truth; they
     // union at registration, so every rostered row must be a row this rail can FILL. Each Pbr row names a
     // GltfChannel the finish binds a map through or a factor Author writes. KHR_materials_volume, _dispersion,
-    // _ior, _emissive_strength and KHR_lights_punctual carry no row: the seam summary drops the refraction
-    // magnitude, the dispersion factor, and the volume thickness, the emissive binding writes unit strength, and
-    // this rail authors no light — declaring a capability nothing can exercise is a row that governs nothing.
-    // Each returns the moment a finish column or a scene arm carries its value.
+    // _ior, _emissive_strength and KHR_lights_punctual carry no row.
+    //
+    // VOLUME is settled at the PLANE altitude, not the factor one, because the corpus roster does carry a
+    // volume-shaped channel. KHR_materials_volume exposes exactly one texture, thicknessTexture, whose quantity is
+    // the DISTANCE THROUGH the shell — a per-geometry measure no channel in the closed roster carries, so
+    // KnownChannel.VolumeThickness has no canonical name to bind from. The one volume channel the roster does carry,
+    // `subsurface_radius`, is a three-band mean free path landing on attenuationColor and attenuationDistance, and
+    // the extension defines both as FACTORS with no texture at all — so a `subsurface_radius` GltfChannel row would
+    // be a row that can never bind a map, and the seam summary carries no radius column for Author to write either.
+    // Neither end of the extension has a filler, which is why it is absent rather than declared-and-dark. Dispersion,
+    // IOR and emissive strength are the plain factor cases — the seam summary drops the refraction magnitude and the
+    // dispersion factor, and the finish carries no luminance column: a bound emission map writes its unit RGB factor
+    // (core glTF, no extension) while SharpGLTF's own Emissive channel seeds EmissiveStrength at 1, so no
+    // KHR_materials_emissive_strength block ever serializes and the row is struck from Pbr — this rail authors no
+    // light. Declaring a capability nothing can exercise is a row that governs nothing; each returns the moment a
+    // finish column or a scene arm carries its value — a luminance column on MaterialFinish arms emissive strength,
+    // and a `volume_thickness` channel at the frozen roster is the whole arming condition for the volume row.
+
     public static readonly InterchangePolicy Pbr = Canonical with {
         Extensions = Seq(KhrExtension.MaterialsClearcoat, KhrExtension.MaterialsTransmission, KhrExtension.MaterialsSheen,
             KhrExtension.MaterialsIridescence, KhrExtension.MaterialsAnisotropy, KhrExtension.MaterialsSpecular,
-            KhrExtension.MaterialsDiffuseTransmission, KhrExtension.MaterialsEmissiveStrength),
+            KhrExtension.MaterialsDiffuseTransmission),
     };
 }
 
@@ -83,8 +97,17 @@ public sealed record ExportArtifact(
 //
 // Canonical channels glTF cannot express carry NO row, so ChannelImage.Of returns None at admission —
 // `geometry_opacity` rides base colour's alpha rather than a channel of its own, `height`/`curvature` are
-// authoring fields no glTF sampler reads, and the tangent frames are vertex attributes — so the composing
-// edge sees the refusal and records the unbound map instead of lighting a guessed slot.
+// authoring fields no glTF sampler reads, the tangent frames are vertex attributes, and `subsurface_radius` lands
+// on a KHR_materials_volume attenuation pair the extension defines as factors carrying no texture — so the
+// composing edge sees the refusal and records the unbound map instead of lighting a guessed slot.
+//
+// Units carries the FACTOR WRITES a binding performs, because a bound map MULTIPLIES its channel factor and the
+// KHR extension factors default to ZERO (SharpGLTF's own MaterialValue seeding, decompile-verified: ClearCoatFactor
+// 0, ClearCoatRoughness RoughnessFactor 0, TransmissionFactor 0, SheenColor RGB zero, SheenRoughness
+// RoughnessFactor 0, IridescenceFactor 0, AnisotropyStrength 0, DiffuseTransmission factor, Emissive RGB zero) — a
+// bound emission map on a zero factor renders black and a bound coat map has zero effect, silently. Each row spells
+// the (target, property, unit value) triples its binding writes as DATA, so Bind folds the column and a new
+// zero-default extension is one tuple on its row, never a finish arm.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -95,29 +118,42 @@ public sealed partial class GltfChannel {
     public static readonly GltfChannel Occlusion    = new("occlusion",            Seq(KnownChannel.Occlusion));
     public static readonly GltfChannel Orm          = new("orm",                  Seq(KnownChannel.Occlusion, KnownChannel.MetallicRoughness));
     public static readonly GltfChannel Normal       = new("geometry_normal",      Seq(KnownChannel.Normal));
-    public static readonly GltfChannel Emission     = new("emission_color",       Seq(KnownChannel.Emissive));
+    public static readonly GltfChannel Emission     = new("emission_color",       Seq(KnownChannel.Emissive), null,
+        Seq((KnownChannel.Emissive, KnownProperty.RGB, (object)Vector3.One)));
     public static readonly GltfChannel SpecularTint = new("specular_color",       Seq(KnownChannel.SpecularColor),            KhrExtension.MaterialsSpecular);
     public static readonly GltfChannel SpecularWeight = new("specular_weight",    Seq(KnownChannel.SpecularFactor),           KhrExtension.MaterialsSpecular);
-    public static readonly GltfChannel CoatWeight   = new("coat_weight",          Seq(KnownChannel.ClearCoat),                KhrExtension.MaterialsClearcoat);
-    public static readonly GltfChannel CoatRough    = new("coat_roughness",       Seq(KnownChannel.ClearCoatRoughness),       KhrExtension.MaterialsClearcoat);
+    public static readonly GltfChannel CoatWeight   = new("coat_weight",          Seq(KnownChannel.ClearCoat),                KhrExtension.MaterialsClearcoat,
+        Seq((KnownChannel.ClearCoat, KnownProperty.ClearCoatFactor, (object)1f)));
+    public static readonly GltfChannel CoatRough    = new("coat_roughness",       Seq(KnownChannel.ClearCoatRoughness),       KhrExtension.MaterialsClearcoat,
+        Seq((KnownChannel.ClearCoatRoughness, KnownProperty.RoughnessFactor, (object)1f)));
     public static readonly GltfChannel CoatNormal   = new("geometry_coat_normal", Seq(KnownChannel.ClearCoatNormal),          KhrExtension.MaterialsClearcoat);
-    public static readonly GltfChannel Transmission = new("transmission_weight",  Seq(KnownChannel.Transmission),             KhrExtension.MaterialsTransmission);
-    public static readonly GltfChannel Subsurface   = new("subsurface_weight",    Seq(KnownChannel.DiffuseTransmissionFactor), KhrExtension.MaterialsDiffuseTransmission);
-    public static readonly GltfChannel FuzzColor    = new("fuzz_color",           Seq(KnownChannel.SheenColor),               KhrExtension.MaterialsSheen);
-    public static readonly GltfChannel FuzzRough    = new("fuzz_roughness",       Seq(KnownChannel.SheenRoughness),           KhrExtension.MaterialsSheen);
-    public static readonly GltfChannel FilmWeight   = new("thin_film_weight",     Seq(KnownChannel.Iridescence),              KhrExtension.MaterialsIridescence);
+    public static readonly GltfChannel Transmission = new("transmission_weight",  Seq(KnownChannel.Transmission),             KhrExtension.MaterialsTransmission,
+        Seq((KnownChannel.Transmission, KnownProperty.TransmissionFactor, (object)1f)));
+    public static readonly GltfChannel Subsurface   = new("subsurface_weight",    Seq(KnownChannel.DiffuseTransmissionFactor), KhrExtension.MaterialsDiffuseTransmission,
+        Seq((KnownChannel.DiffuseTransmissionFactor, KnownProperty.DiffuseTransmissionFactor, (object)1f)));
+    public static readonly GltfChannel FuzzColor    = new("fuzz_color",           Seq(KnownChannel.SheenColor),               KhrExtension.MaterialsSheen,
+        Seq((KnownChannel.SheenColor, KnownProperty.RGB, (object)Vector3.One)));
+    public static readonly GltfChannel FuzzRough    = new("fuzz_roughness",       Seq(KnownChannel.SheenRoughness),           KhrExtension.MaterialsSheen,
+        Seq((KnownChannel.SheenRoughness, KnownProperty.RoughnessFactor, (object)1f)));
+    public static readonly GltfChannel FilmWeight   = new("thin_film_weight",     Seq(KnownChannel.Iridescence),              KhrExtension.MaterialsIridescence,
+        Seq((KnownChannel.Iridescence, KnownProperty.IridescenceFactor, (object)1f)));
     // KHR iridescence reads its thickness TEXTURE as a [0,1] factor lerping iridescenceThicknessMinimum..Maximum
-    // (both nanometres) — a THIRD thickness convention beside the frozen nm plane and the .mtlx micrometre input.
-    // The binder therefore writes Minimum=0 and Maximum=the set's declared thickness span and normalizes the nm
-    // plane against that span before binding; a raw nm plane bound as the factor is wrong by ~2.5 orders.
+    // (both nanometres, SharpGLTF defaults 100/400) — a THIRD thickness convention beside the frozen nm plane and
+    // the .mtlx micrometre input. The producer normalizes the nm plane against the set's declared span before
+    // sealing, and the binder writes Minimum=0 / Maximum=that span off the ChannelImage row's own ThicknessSpanNm
+    // column; a raw nm plane bound as the factor is wrong by ~2.5 orders.
     public static readonly GltfChannel FilmThick    = new("thin_film_thickness",  Seq(KnownChannel.IridescenceThickness),     KhrExtension.MaterialsIridescence);
-    public static readonly GltfChannel Anisotropy   = new("specular_roughness_anisotropy", Seq(KnownChannel.Anisotropy),      KhrExtension.MaterialsAnisotropy);
+    public static readonly GltfChannel Anisotropy   = new("specular_roughness_anisotropy", Seq(KnownChannel.Anisotropy),      KhrExtension.MaterialsAnisotropy,
+        Seq((KnownChannel.Anisotropy, KnownProperty.AnisotropyStrength, (object)1f)));
 
     public Seq<KnownChannel> Targets { get; }
     public Option<KhrExtension> Extension { get; }
+    public Seq<(KnownChannel Target, KnownProperty Property, object Value)> Units { get; }
 
-    private GltfChannel(string key, Seq<KnownChannel> targets, KhrExtension? extension = null) : this(key) =>
-        (Targets, Extension) = (targets, Optional(extension));
+    private GltfChannel(
+        string key, Seq<KnownChannel> targets, KhrExtension? extension = null,
+        Seq<(KnownChannel Target, KnownProperty Property, object Value)> units = default) : this(key) =>
+        (Targets, Extension, Units) = (targets, Optional(extension), units);
 
     // From reads the generated keyed lookup under the row comparer's own ordinal key: an unmatched canonical
     // name is None, never a nearest-channel guess, because a map bound to the wrong slot still renders and no
@@ -135,16 +171,18 @@ public sealed partial class GltfChannel {
 // here is the same unowned call-site correspondence the KnownChannel law above deletes, because a WebP payload
 // registered as basisu lights the wrong extension and nothing raises — and a transform-bearing row obliges
 // TextureTransform; the union of those rows with the channel's own registers before the write, so no
-// format#FORMAT_AXIS row serializes unregistered. A KTX2 payload additionally admits ONLY the Basis-transcodable
-// classes: the frozen wire-legality law makes a rawBcn KTX2 the file the estate's own viewer refuses, and this
-// egress is exactly the consumer edge that law protects, so the sniff reads the DFD's supercompression scheme and
-// refuses a raw-BCn container at admission.
+// format#FORMAT_AXIS row serializes unregistered. A KTX2 payload arrives already wire-legal: the frozen
+// wire-legality law refuses rawBcn and astc at the PRODUCING wire (TextureSetWire.Of guards every channel's
+// payload class before the document exists), so the bytes this binder receives carry a Basis-transcodable or
+// uncompressed payload by construction and the sniff here reads container magic alone — for extension
+// registration, never a second legality gate re-deciding what the producer already proved.
 public sealed record ChannelImage {
     private ChannelImage(
         GltfChannel channel, ReadOnlyMemory<byte> bytes, string name, int coordinateSet,
-        TextureWrapMode wrapS, TextureWrapMode wrapT, Option<UvTransform> transform, Option<KhrExtension> container) =>
-        (Channel, Bytes, Name, CoordinateSet, WrapS, WrapT, Transform, Container) =
-        (channel, bytes, name, coordinateSet, wrapS, wrapT, transform, container);
+        TextureWrapMode wrapS, TextureWrapMode wrapT, Option<UvTransform> transform, Option<KhrExtension> container,
+        Option<double> thicknessSpanNm) =>
+        (Channel, Bytes, Name, CoordinateSet, WrapS, WrapT, Transform, Container, ThicknessSpanNm) =
+        (channel, bytes, name, coordinateSet, wrapS, wrapT, transform, container, thicknessSpanNm);
 
     public GltfChannel Channel { get; }
     public ReadOnlyMemory<byte> Bytes { get; }
@@ -154,14 +192,18 @@ public sealed record ChannelImage {
     public TextureWrapMode WrapT { get; }
     public Option<UvTransform> Transform { get; }
     public Option<KhrExtension> Container { get; }
+    // The nm span the producer normalized the thin_film_thickness plane against — the wire's own heightScale-class
+    // evidence, threaded from the TextureSetWire the composing edge holds. Read by the FilmThick binding alone;
+    // inert on every other row, because only the iridescence-thickness lerp carries a min/max pair to fill.
+    public Option<double> ThicknessSpanNm { get; }
 
     // Admission takes the CANONICAL channel name and refuses at the boundary, so a map naming a channel glTF
     // has no slot for never reaches a MaterialFinish and the composing edge accounts for it once, here.
     public static Option<ChannelImage> Of(
         string channel, ReadOnlyMemory<byte> bytes, string name, int coordinateSet = 0,
         TextureWrapMode wrapS = TextureWrapMode.REPEAT, TextureWrapMode wrapT = TextureWrapMode.REPEAT,
-        Option<UvTransform> transform = default) =>
-        GltfChannel.From(channel).Map(row => new ChannelImage(row, bytes, name, coordinateSet, wrapS, wrapT, transform, Sniffed(bytes.Span)));
+        Option<UvTransform> transform = default, Option<double> thicknessSpanNm = default) =>
+        GltfChannel.From(channel).Map(row => new ChannelImage(row, bytes, name, coordinateSet, wrapS, wrapT, transform, Sniffed(bytes.Span), thicknessSpanNm));
 
     // The magic-byte correspondence, spelled once: KTX2 identifier, RIFF+WEBP, DDS fourcc; anything else is a
     // core PNG/JPG container obliging no extension row.
@@ -193,6 +235,15 @@ public sealed record ChannelImage {
                 .WithSampler(WrapS, WrapT);
             Transform.IfSome(uv => texture.WithTransform(uv.Offset, uv.Scale, (float)uv.Rotation));
         });
+        // The row's unit-factor writes: a bound map multiplies its channel factor, and the KHR factors default to
+        // ZERO, so the map is a no-op until its factor states unity — folded off the roster column, never an arm.
+        Channel.Units.Iter(unit => material.WithChannelParam(unit.Target, unit.Property, unit.Value));
+        // The iridescence-thickness lerp band: Minimum 0 / Maximum the producer's own normalization span, so the
+        // [0,1] plane decodes to the same nanometres the producer encoded — SharpGLTF's 100/400 defaults decode a
+        // normalized plane into a band the bytes never carried.
+        ThicknessSpanNm.IfSome(span => material
+            .WithChannelParam(KnownChannel.IridescenceThickness, KnownProperty.Minimum, 0f)
+            .WithChannelParam(KnownChannel.IridescenceThickness, KnownProperty.Maximum, (float)span));
         return material;
     }
 
@@ -328,7 +379,9 @@ public sealed record ElementScene(Map<UInt128, ImportedGeometry> Pool, Seq<Eleme
 
     // Each pool entry lands one MeshBlock, each ElementInstance one MeshInstance over its block ordinal — the
     // pooled ImportedGeometry carries the SAME sharing this scene does, so a consumer needing world-space
-    // geometry calls the one Bake owner and a consumer preserving instancing reads the overlay.
+    // geometry calls the one seam Bake owner and a consumer preserving instancing reads the overlay. The pool
+    // Uvs column materializes when any entry carries one (unmapped entries zero-fill their range), else stays
+    // the EMPTY typed absence.
     public ImportedGeometry Pooled() {
         var head = Pool.Values.HeadOrNone().IfNoneUnsafe(() => throw new InvalidDataException("<element-scene-empty>"));
         var keys = Pool.Keys.ToSeq();
@@ -336,19 +389,21 @@ public sealed record ElementScene(Map<UInt128, ImportedGeometry> Pool, Seq<Eleme
         int vertexTotal = Pool.Values.Sum(static m => m.VertexCount);
         int indexTotal = Pool.Values.Sum(static m => m.Indices.Length);
         var (vertices, normals, indices) = (new float[vertexTotal * 3], new float[vertexTotal * 3], new long[indexTotal]);
+        float[] uvs = Pool.Values.Exists(static m => !m.Uvs.IsEmpty) ? new float[vertexTotal * 2] : [];
         var blocks = new MeshBlock[keys.Count];
         var (vBase, iBase, slot) = (0, 0, 0);
         foreach (var key in keys) {
             var mesh = Pool[key];
             mesh.Vertices.Span.CopyTo(vertices.AsSpan(vBase * 3));
             mesh.Normals.Span.CopyTo(normals.AsSpan(vBase * 3));
+            if (uvs.Length > 0 && !mesh.Uvs.IsEmpty) { mesh.Uvs.Span.CopyTo(uvs.AsSpan(vBase * 2)); }
             var t = mesh.Indices.Span;
             for (int s = 0; s < t.Length; s++) { indices[iBase + s] = t[s] + vBase; }
             blocks[slot] = new MeshBlock(vBase, mesh.VertexCount, iBase, t.Length);
             (vBase, iBase, slot) = (vBase + mesh.VertexCount, iBase + t.Length, slot + 1);
         }
         var placed = Instances.Map(i => new MeshInstance(ordinals[i.MeshKey], i.Placement));
-        return new ImportedGeometry(head.Format, vertices, normals, indices, vertexTotal, indexTotal / 3, blocks.ToSeq(), placed, head.At);
+        return new ImportedGeometry(head.FormatKey, vertices, normals, uvs, indices, vertexTotal, indexTotal / 3, blocks.ToSeq(), placed, head.At);
     }
 }
 
@@ -602,8 +657,8 @@ public static partial class BimExport {
     // flat-soup rows use.
     static IMeshBuilder<MaterialBuilder> MeshOf(ImportedGeometry geometry, MaterialBuilder material, Option<int> feature) =>
         feature.Match<IMeshBuilder<MaterialBuilder>>(
-            Some: row => Filled(new MeshBuilder<MaterialBuilder, VertexPositionNormal, FeatureVertex, VertexEmpty>(geometry.Format.Key), geometry, material, _ => new FeatureVertex(row)),
-            None: () => Filled(new MeshBuilder<MaterialBuilder, VertexPositionNormal, VertexEmpty, VertexEmpty>(geometry.Format.Key), geometry, material, static _ => default));
+            Some: row => Filled(new MeshBuilder<MaterialBuilder, VertexPositionNormal, FeatureVertex, VertexEmpty>(geometry.FormatKey), geometry, material, _ => new FeatureVertex(row)),
+            None: () => Filled(new MeshBuilder<MaterialBuilder, VertexPositionNormal, VertexEmpty, VertexEmpty>(geometry.FormatKey), geometry, material, static _ => default));
 
     static MeshBuilder<MaterialBuilder, VertexPositionNormal, TvM, VertexEmpty> Filled<TvM>(
         MeshBuilder<MaterialBuilder, VertexPositionNormal, TvM, VertexEmpty> mesh, ImportedGeometry geometry, MaterialBuilder material, Func<int, TvM> slot)
@@ -814,7 +869,7 @@ public static class BimLod {
         nuint vertexStride = (nuint)(3 * sizeof(float));
         float scale;
         fixed (float* vPtr = verts) { scale = Meshopt.SimplifyScale(vPtr, vertexCount, vertexStride); }
-        return policy.LodRatios.Select((ratio, level) => Decimate(source, verts, vertexCount, vertexStride, scale, ratio, level, geometry.Format.Key, policy)).ToSeq();
+        return policy.LodRatios.Select((ratio, level) => Decimate(source, verts, vertexCount, vertexStride, scale, ratio, level, geometry.FormatKey, policy)).ToSeq();
     }
 
     // target_error is RELATIVE to mesh extents under SimplificationOptions.None (0.01 = 1% deformation);

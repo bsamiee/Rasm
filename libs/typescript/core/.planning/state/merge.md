@@ -4,15 +4,11 @@ The one lawful merge owner of the branch and its law surface in one module: ever
 
 ## [01]-[INDEX]
 
-The `[PUBLIC]` column drops the shared `Merge.` prefix; `Converge` and `Breach` spell whole.
-
-| [INDEX] | [CLUSTER]           | [OWNS]                          | [PUBLIC]                                                                        |
-| :-----: | :------------------ | :------------------------------ | :------------------------------------------------------------------------------ |
-|  [01]   | `INSTANCE_CONTRACT` | combine, posture, alike, empty  | `Posture`, `Instance`, `instance`                                               |
-|  [02]   | `INSTANCE_ROSTER`   | scalar, keyed, set, product     | `max/min/lattice/first/counter/flag/union/hashSet/hashMap/imap/optional/struct` |
-|  [03]   | `FOLD_ENTRY`        | fold, `Monoid` projection, gate | `fold`, `monoid`, `convergent`                                                  |
-|  [04]   | `LAW_SURFACE`       | obligations, witnesses, replay  | `Converge`, `Breach`                                                            |
-|  [05]   | `MERGE_CELLS`       | keyed transactional cell table  | `cell`                                                                          |
+- [02]-[INSTANCE_CONTRACT]: combine, posture, alike, empty; `Merge.Posture`, `Merge.Instance`, `Merge.instance`.
+- [03]-[INSTANCE_ROSTER]: scalar, keyed, set, and product constructor rows — `Merge.max` through `Merge.struct`.
+- [04]-[FOLD_ENTRY]: fold, `Monoid` projection, gate; `Merge.fold`, `Merge.monoid`, `Merge.convergent`.
+- [05]-[LAW_SURFACE]: obligations, witnesses, replay; `Converge`, `Breach`.
+- [06]-[MERGE_CELLS]: keyed transactional cell table; `Merge.cell`.
 
 ## [02]-[INSTANCE_CONTRACT]
 

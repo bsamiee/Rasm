@@ -22,7 +22,7 @@ ui/
 │       └── chart.ts           # Analytic charts: declarations, streams, and pivots over one Arrow plane
 └── viewer/
     └── src/                   # Spatial tier, a second Nx project
-        ├── scene.ts           # Content-keyed GLB residency behind the GlbViewport port
+        ├── scene.ts           # Content-keyed GLB residency and environment dome behind the GlbViewport port
         ├── geo.ts             # Geospatial surface: one shared WebGL context as a pure layer value tree
         ├── mark.ts            # GlobalId mark plane: one selection atom every pick pipeline folds into
         ├── panel.ts           # Wire materializer rendering the shell control vocabularies through the owners

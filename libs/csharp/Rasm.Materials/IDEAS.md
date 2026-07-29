@@ -86,6 +86,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Unlocks: component-accurate occlusion and curvature for the generated assemblies the projector already mints; the geometry half of the texture estate rather than the procedural half alone.
 - Anchors: the kernel `Processing/flatten` `ChartAtlas` and its `ToTextureMesh` UV atlas are the exact upstream a texture-space rasterizer needs; `Parametric/surface` `UvTessellation` carries the parameterization; `Processing/sample` `SampleKind` blue-noise supplies the hemisphere draws the occlusion sweep already uses in its height-field form.
 - Tension: a mesh-space bake makes the press a consumer of tessellated geometry, which the host-neutral boundary currently keeps entirely out of this folder — the subject must carry an already-flattened chart set as DATA rather than a host mesh, or the boundary moves.
+- Ripple: follows `[ATLAS_PACKER]` — an atlased bake target reads the transform rows that card produces.
 
 [TEXTILE_LEARNED_SCORER]-[BLOCKED]: Tileability grading gains a learned second opinion beside the deterministic spectral score.
 - Capability: the tile gate's verdict widens from one frequency-domain periodicity measure to a pair — the deterministic score and a learned perceptual one — so a field that is spectrally periodic yet visually repetitive, or spectrally imperfect yet visually continuous, is graded on the axis a viewer reads.

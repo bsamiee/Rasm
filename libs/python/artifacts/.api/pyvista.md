@@ -7,6 +7,7 @@
 [PACKAGE_SURFACE]: `pyvista`
 - package: `pyvista` (MIT)
 - module: `pyvista` (import as `pv`)
+- abi: pure python over the `vtk` native extension; the Forge python-overlay `.pth` supplies `pyvista` beside its engine at the interpreter floor, and the import stays worker-side under the `HOSTILE` process lane
 - rail: scene
 - depends: `trame` gates `Plotter.export_html`; the offscreen render, screenshot, and glTF/VRML/OBJ paths need none
 
@@ -60,7 +61,7 @@
 
 [ENTRYPOINT_SCOPE]: publication-quality render control, scene import, raw-vtk bridge
 
-`set_background`, the `enable_*` family, `add_axes`/`add_scalar_bar`/`add_text`, and the standard-view family tune the offscreen render. `import_gltf`/`import_obj`/`import_vrml` keep a re-render/re-export round-trip in-process. `render_window` exposes the raw `vtkRenderWindow` the source-build-gated `vtkUSDExporter` reads; the wheel-available USD path is the numpy buffer seam, not the render window.
+`set_background`, the `enable_*` family, `add_axes`/`add_scalar_bar`/`add_text`, and the standard-view family tune the offscreen render. `import_gltf`/`import_obj`/`import_vrml` keep a re-render/re-export round-trip in-process. `render_window` exposes the raw `vtkRenderWindow` the `vtkIOUSD`-gated `vtkUSDExporter` reads; the standing USD path is the numpy buffer seam, not the render window.
 
 | [INDEX] | [SURFACE]                                               | [CAPABILITY]                                                    |
 | :-----: | :------------------------------------------------------ | :-------------------------------------------------------------- |
@@ -69,7 +70,7 @@
 |  [03]   | `Plotter` quality-toggle family                         | depth-peeling/EDL/shadows/parallel-projection/hidden-line       |
 |  [04]   | `Plotter` scene-annotation family                       | background, axes widget, scalar legend, text                    |
 |  [05]   | `Plotter.import_gltf` / `import_obj` / `import_vrml`    | load a glTF/OBJ/VRML scene for a re-render/re-export round-trip |
-|  [06]   | `Plotter.render_window -> vtkRenderWindow`              | the raw window the source-gated `vtkUSDExporter` reads          |
+|  [06]   | `Plotter.render_window -> vtkRenderWindow`              | the raw window the `vtkIOUSD`-gated `vtkUSDExporter` reads      |
 |  [07]   | `Plotter.close(render=False)`                           | deterministic render-window/GL-context teardown                 |
 |  [08]   | `Plotter` standard-view family                          | plan/elevation/section/axonometric preset viewpoints            |
 |  [09]   | `Plotter.add_silhouette(mesh, feature_angle=) -> Actor` | view-dependent silhouette linework (`vtkPolyDataSilhouette`)    |
@@ -132,10 +133,10 @@ Filter methods return a NEW dataset, mutating the source only under `inplace=Tru
 - numpy geometry seam: `.points` `(N,3)` coordinates, `.regular_faces` `(M,k)` connectivity (valid `(M,3)` after `triangulate`, `ValueError` on irregular faces), and computed `.point_normals` are the buffers the USD author path consumes.
 
 [STACKING]:
-- `vtk`(`.api/vtk.md`): `pyvista` wraps the demand-driven pipeline, dataset hierarchy, and render stack into a numpy-native API; it drops to raw `vtk` only through `Plotter.render_window` for the source-gated `vtkUSDExporter`, never re-deriving a `vtkRenderWindow`/`vtkRenderer` pipeline `pyvista` already owns.
+- `vtk`(`.api/vtk.md`): `pyvista` wraps the demand-driven pipeline, dataset hierarchy, and render stack into a numpy-native API; it drops to raw `vtk` only through `Plotter.render_window` for the `vtkIOUSD`-gated `vtkUSDExporter`, never re-deriving a `vtkRenderWindow`/`vtkRenderer` pipeline `pyvista` already owns.
 - `numpy`(`libs/python/.api/numpy.md`): `wrap` admits a vertex/scalar buffer zero-copy, `screenshot(return_img=True)` returns an rgb(a) raster, and `.points`/`.regular_faces`/`.point_normals` are numpy views, so one buffer becomes mesh points, a scalar field, a captured frame, or a USD source in one hop.
-- `usd-core`(`.api/usd-core.md`): triangulated `.points`/`.regular_faces`/`.point_normals` cross to `Vt.<Type>Array.FromNumpy`; the `vtkUSDExporter` over `Plotter.render_window` stays source-build-gated.
-- `anyio`(`libs/python/.api/anyio.md`): every offloaded arm crosses as a `KernelTrait.HOSTILE` kernel on the warm process pool, keeping the sub-3.15 `pyvista`/`vtk`/`pxr` imports worker-local.
+- `usd-core`(`.api/usd-core.md`): triangulated `.points`/`.regular_faces`/`.point_normals` cross to `Vt.<Type>Array.FromNumpy`; the `vtkUSDExporter` over `Plotter.render_window` stays `vtkIOUSD`-gated.
+- `anyio`(`libs/python/.api/anyio.md`): every offloaded arm crosses as a `KernelTrait.HOSTILE` kernel on the warm process pool, keeping the `pyvista`/`vtk`/`pxr` imports worker-local.
 - within-lib `scene`: the `scene/render` `Scene3d` owner composes `wrap`, `add_mesh`/`add_volume`/`add_points`, the filter family, the `enable_*` render controls, and `export_*`; `screenshot(return_img=True)` rasters pass to `media` `VideoFrame.from_ndarray(format="rgb24")` with no PNG intermediary, and `scene/stage` reads the numpy buffer seam.
 
 [LOCAL_ADMISSION]:
@@ -147,5 +148,5 @@ Filter methods return a NEW dataset, mutating the source only under `inplace=Tru
 [RAIL_LAW]:
 - Package: `pyvista`
 - Owns: VTK-backed 3D mesh visualization, `read`/`wrap` ingest, headless render, scalar/PBR styling, filters, mesh repair, CSG, geometric sources, render controls, screenshots, numpy mesh views, mesh-file write, and scene export
-- Accept: qualified-name process offload; `wrap` for native in-memory adapters; composed filter chains; screenshot rasters and glTF/VRML/OBJ/HTML export; the USD numpy-buffer seam and source-built `render_window`
+- Accept: qualified-name process offload; `wrap` for native in-memory adapters; composed filter chains; screenshot rasters and glTF/VRML/OBJ/HTML export; the USD numpy-buffer seam and the `vtkIOUSD`-gated `render_window`
 - Reject: a re-derived `vtkRenderWindow`/`vtkRenderer` pipeline, a per-filter mesh wrapper type, an interactive event loop in a headless path, and a per-element buffer copy where the numpy seam is zero-copy

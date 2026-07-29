@@ -147,10 +147,10 @@ flowchart LR
     Persistence[(Rasm.Persistence)]
     Compute -->|"[PROJECTION]: ResidencyPayload"| Render
     Render <-->|"[SHAPE]: WgpuDevice"| Compute
-    Compute -->|"[SHAPE]: SolarPosition"| Render
     Fabrication -->|"[RECEIPT]: HiddenLineResult"| Render
     Materials -->|"[BOUNDARY]: LayeredBsdf + SurfaceShade + EnvironmentLight + TextureSet"| Render
     Rasm -->|"[CONTENT_KEY]: ContentHash"| Render
+    Rasm -->|"[SHAPE]: SolarPosition"| Render
     Bim -->|"[SHAPE]: GeoTiles"| Charts
     Bim -->|"[RECEIPT]: CostSchedule"| Charts
     Persistence -->|"[PROJECTION]: telemetry measure series"| Charts
@@ -242,6 +242,6 @@ flowchart LR
 - `RevertibleOp` folds forward and inverse deltas across the recorder and the durable inverse stream.
 - `Rasm.Bim` owns openBIM and coordination semantics; AppUi keeps the `Viewpoint` board projection alone.
 - Every AppUi content hash composes the one kernel `ContentHash.Of` seed-zero entry, the branch's frozen content-key entry.
-- Bim, Compute, and the AppHost `RecomputeGraph` own geodesy, solar position, clustering, and recompute.
+- Bim, the `Rasm` kernel, and the AppHost `RecomputeGraph` own geodesy, solar position, clustering, and recompute.
 - `Rasm.Materials` owns appearance whole — the channel roster, plane storage and its decode ladder, sampler reconstruction, set admission, and the prefiltered environment — so a Render-side channel vocabulary, texture sampler, transfer curve, mip fold, SH reconstruction, or prefilter integral has no seam to enter; Render binds the values and holds the device.
 - Texture-plane VRAM is budgeted at `Render/shading` under the byte-ceiling and least-recently-touched law `Render/meshlets` `ResidencyBudget` holds for geometry VRAM; an unbounded native-handle cache is the rejected form on either plane.

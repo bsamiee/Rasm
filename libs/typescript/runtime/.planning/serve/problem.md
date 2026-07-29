@@ -4,12 +4,10 @@ The outbound-fault law of the front door: every fault leaving the branch over HT
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                                      | [PUBLIC]  |
-| :-----: | :------------------ | :-------------------------------------------------------------------------- | :-------- |
-|  [01]   | `STATUS_RECORD`     | the class-to-status governed record, type-slug derivation, grace resolution | interior  |
-|  [02]   | `REDACTION_ROWS`    | blame-derived exposure, the structural extension band, the redact fold      | interior  |
-|  [03]   | `UPSTREAM_ROWS`     | the wire-fault projection over structural `retryable`/`terminal` facts      | interior  |
-|  [04]   | `RESPONDABLE_OWNER` | the RFC 9457 owner, the symbol implementation, the total fold, the seam net | `Problem` |
+- [02]-[STATUS_RECORD]: the class-to-status governed record, type-slug derivation, grace resolution; interior.
+- [03]-[REDACTION_ROWS]: blame-derived exposure, the structural extension band, the redact fold; interior.
+- [04]-[UPSTREAM_ROWS]: the wire-fault projection over structural `retryable`/`terminal` facts; interior.
+- [05]-[RESPONDABLE_OWNER]: the RFC 9457 owner, the symbol implementation, the total fold, the seam net; `Problem`.
 
 ## [02]-[STATUS_RECORD]
 

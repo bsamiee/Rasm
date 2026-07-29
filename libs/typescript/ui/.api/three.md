@@ -34,6 +34,7 @@
 |  [05]   | `ACESFilmicToneMapping` / `AgXToneMapping` / `NeutralToneMapping`          | tone map enum | `viewer/scene/glb` — tone-map; AgX/Neutral  |
 |  [06]   | `DirectionalLight` / `AmbientLight` / `HemisphereLight` / `RectAreaLight`  | light         | `viewer/scene/glb` — analytic lights        |
 |  [07]   | `LightProbe`                                                               | light probe   | `viewer/scene/glb` — irradiance probe       |
+|  [08]   | `SphericalHarmonics3`                                                      | irradiance SH | `viewer/scene/glb` — 9-band dome irradiance |
 
 [PUBLIC_TYPE_SCOPE]: WebGPU backend, node materials, and compute (`three/webgpu`)
 
@@ -56,6 +57,8 @@ Every row is consumed by `viewer/scene/glb`.
 |  [02]   | `GLTFLoader` (`three/addons`) / `GLTF` result                    | GLB loader    | parses to `{ scene, animations, cameras, asset }`     |
 |  [03]   | `PMREMGenerator` / `WebGLCubeRenderTarget`                       | IBL prefilter | prefilters equirect/scene into the IBL mip-chain      |
 |  [04]   | `AnimationMixer` / `AnimationClip` / `AnimationAction` / `Clock` | animation     | GLB tracks on a per-frame mixer + `Clock`             |
+|  [05]   | `HDRLoader` / `EXRLoader` (`three/addons`)                       | HDR ingest    | `viewer/scene` — in-memory equirect decode            |
+|  [06]   | `RoomEnvironment` (`three/addons`)                               | env floor     | `viewer/scene` — analytic dome floor, `dispose()`     |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -81,30 +84,38 @@ Every row is consumed by `viewer/scene/glb`.
 | :-----: | :-------------------------------------------------------------------------------------------- | :------------- | :--------------------- |
 |  [01]   | `new GLTFLoader(manager).setDRACOLoader(d).setKTX2Loader(k).setMeshoptDecoder(m)`             | codec setup    | injection, [01]        |
 |  [02]   | `loader.register((parser) => plugin)` / `loader.parseAsync(buffer, path)` / `.loadAsync(url)` | parse          | buffer `parseAsync`    |
-|  [03]   | `new DRACOLoader().setDecoderPath(p).setDecoderConfig({ type })` / `.preload()`               | draco codec    | geometry codec         |
-|  [04]   | `new KTX2Loader().setTranscoderPath(p).detectSupport(renderer)`                               | basis codec    | transcode target, [04] |
-|  [05]   | `KTX2Loader` / `RGBELoader` / `TextureLoader` → `renderer.initTexture(tex)`                   | texture ingest | eager `initTexture`    |
+|  [03]   | `new DRACOLoader().setDecoderPath(p)` / `.preload()` — `setDecoderConfig` deprecated          | draco codec    | geometry codec         |
+|  [04]   | `new KTX2Loader().setTranscoderPath(p).detectSupport(renderer)` / `.parse(buffer, ok, no)`    | basis codec    | transcode target, [04] |
+|  [05]   | `KTX2Loader` / `HDRLoader` / `EXRLoader` → `renderer.initTexture(tex)`                        | texture ingest | eager `initTexture`    |
+|  [06]   | `new HDRLoader().setDataType(t).createDataTexture(buffer)` / `EXRLoader` same pair            | HDR decode     | in-memory equirect     |
 
-- [01]-[MESHOPT_GATE]: `MeshoptDecoder` wires only when the asset flags `EXT_meshopt_compression`.
+- [01]-[MESHOPT_GATE]: `MeshoptDecoder` wires only when the served roster carries it. `loader.register(cb)` seats the gate: its `beforeRoot` runs after the JSON chunk parses and before any buffer view decodes, and row [02]'s `GLTFParser.json` is an untyped platform value, so a consumer decodes `extensionsRequired` through a schema and refuses an `EXT_meshopt_compression` asset ahead of three's decompression arm rather than inside it.
+- [03]-[DIRECTORY_FORM]: `setDecoderPath` and row [04]'s `setTranscoderPath` take a FOLDER address — each loader joins its own leaf names (`basis_transcoder.js` beside its wasm) onto the handed directory, so the trailing slash is part of the spelling.
 - [04]-[TRANSCODE_TARGET]: `detectSupport(renderer)` reads the renderer's compressed-format capabilities through `renderer.hasFeature` — `GPUDevice.features` for the `texture-compression-bc`/`-etc2`/`-astc` `GPUFeatureName` members on WebGPU, `WEBGL_compressed_texture_*` extensions on WebGL — and selects the KTX2/Basis transcode target once per asset.
+- [04]-[STANDALONE_KTX2]: `parse(buffer, onLoad, onError)` decodes a `.ktx2` file outside any glTF and carries four traps. It THROWS synchronously while `workerConfig` is null, so only a `detectSupport`-initialized instance may be handed a buffer; the instance owns a `WorkerPool`, so a second one doubles the transcoder wasm fetch and the worker set rather than sharing them. `onLoad` declares `CompressedTexture`, but a file whose `vkFormat` is set — the uncompressed deep store — yields a `DataTexture`, so a consumer binds the `Texture` base and never the declared subtype. Transcoding (`vkFormat` undefined) TRANSFERS the input buffer to its worker and detaches it; the uncompressed branch neither transfers nor caches.
+- [06]-[HDR_INGEST]: `HDRLoader` is the live spelling — `RGBELoader` ships as its deprecated alias and is never authored; both loaders inherit `DataTextureLoader.createDataTexture(buffer)`, which parses in-memory bytes to a `DataTexture` without a network load, and both default `HalfFloatType`.
 
 [ENTRYPOINT_SCOPE]: OpenPBR appearance binding on `MeshPhysicalMaterial`
 - Every row binds `MeshPhysicalMaterial`/`MeshPhysicalNodeMaterial` fields decoded from `wire#vocab`; consumer `viewer/scene/appearance` unless noted.
 
-| [INDEX] | [SURFACE]                                                                              | [ENTRY_FAMILY]      | [CONSUMER]             |
-| :-----: | :------------------------------------------------------------------------------------- | :------------------ | :--------------------- |
-|  [01]   | `material.clearcoat` / `.clearcoatRoughness` / `.clearcoatMap` / `.clearcoatNormalMap` | coat lobe           | coat weight/rough/maps |
-|  [02]   | `.sheen` / `.sheenColor` / `.sheenRoughness`                                           | sheen lobe          | fuzz layer             |
-|  [03]   | `.transmission` / `.thickness` / `.attenuationColor` / `.attenuationDistance` / `.ior` | transmission        | refraction; glass      |
-|  [04]   | `.iridescence` / `.iridescenceIOR` / `.iridescenceThicknessRange`                      | thin-film           | interference + maps    |
-|  [05]   | `.anisotropy` / `.anisotropyRotation`                                                  | anisotropy          | aniso highlight + maps |
-|  [06]   | `.specularIntensity` / `.specularColor`                                                | specular            | specular tint          |
-|  [07]   | `.metalness` / `.roughness` / `.envMapIntensity`                                       | metallic base + IBL | MR base + IBL scale    |
-|  [08]   | `.emissive` / `.emissiveIntensity` / `.opacity` / `.transparent` / `.side`             | emission + geometry | emission, [08]         |
-|  [09]   | `pmrem.fromScene(env, 0.04)` / `.fromEquirectangular(hdr)` → `scene.environment`       | IBL bind            | `viewer/scene/glb` env |
+| [INDEX] | [SURFACE]                                                                                 | [ENTRY_FAMILY]      | [CONSUMER]             |
+| :-----: | :---------------------------------------------------------------------------------------- | :------------------ | :--------------------- |
+|  [01]   | `material.clearcoat` / `.clearcoatRoughness` / `.clearcoatMap` / `.clearcoatNormalMap`    | coat lobe           | coat weight/rough/maps |
+|  [02]   | `.sheen` / `.sheenColor` / `.sheenRoughness`                                              | sheen lobe          | fuzz layer             |
+|  [03]   | `.transmission` / `.thickness` / `.attenuationColor` / `.attenuationDistance` / `.ior`    | transmission        | refraction; glass      |
+|  [04]   | `.iridescence` / `.iridescenceIOR` / `.iridescenceThicknessRange`                         | thin-film           | interference + maps    |
+|  [05]   | `.anisotropy` / `.anisotropyRotation`                                                     | anisotropy          | aniso highlight + maps |
+|  [06]   | `.specularIntensity` / `.specularColor`                                                   | specular            | specular tint          |
+|  [07]   | `.metalness` / `.roughness` / `.envMapIntensity`                                          | metallic base + IBL | MR base + IBL scale    |
+|  [08]   | `.emissive` / `.emissiveIntensity` / `.opacity` / `.transparent` / `.side`                | emission + geometry | emission, [08]         |
+|  [09]   | `pmrem.fromScene(env, s)` / `.fromEquirectangular(t)` / `.compileEquirectangularShader()` | IBL bind            | `viewer/scene/glb` env |
+|  [10]   | `scene.environmentIntensity` / `.environmentRotation` / the `.background*` quad           | env read policy     | intensity + rotation   |
+|  [11]   | `sh.fromArray(v27)` / `sh.getIrradianceAt(n, out)` / `new LightProbe(sh, i)`              | irradiance SH       | `viewer/scene/glb` SH  |
 
 - [08]-[SIDE]: `.side` takes `FrontSide`/`DoubleSide`; `dispersion` rides the [03] glass rows.
-- [09]-[IBL_DEFAULT]: `RoomEnvironment()` is the neutral studio default the prefilter bakes; every `MeshPhysicalMaterial` samples the result.
+- [09]-[IBL_DEFAULT]: `RoomEnvironment()` is the neutral studio default the prefilter bakes at the canonical `0.04` sigma; every `MeshPhysicalMaterial` samples the result. TWO `PMREMGenerator` classes carry one concept — core `three` over `WebGLRenderer`, `three/webgpu` over the unified `Renderer` — sharing `fromScene`/`fromEquirectangular`/`fromCubemap`/`dispose`, selected at the backend construction site. They DIVERGE on the two precompile members: `compileCubemapShader`/`compileEquirectangularShader` return `void` on the core class and `Promise<void>` on the unified one, so a structural seam declares the union and its caller awaits. `fromScene` on the unified class throws until `renderer.init()` resolves. Each entry compiles its own shader path, so a scene bake leaves the equirect path cold and the first equirect fold pays that compile unless the warm ran.
+- [10]-[READ_POLICY]: `environmentIntensity`/`environmentRotation` (an `Euler`) and the `background`/`backgroundIntensity`/`backgroundRotation`/`backgroundBlurriness` mirror apply exposure, orientation, and backdrop blur at the read — a re-orientation re-runs no prefilter. `backgroundBlurriness` influences an environment map on `background` alone.
+- [11]-[SH_LAYOUT]: `SphericalHarmonics3` holds nine `Vector3` coefficients and `fromArray(v, offset)` reads three floats per band at stride `i*3` from any `ArrayLike<number>`, so a band-major RGB-interleaved 27-value carrier transcribes with neither a permutation nor a defensive copy. `getIrradianceAt(normal, target)` reconstructs under the `π`, `2π/3`, `π/4` convolution constants against a `+Y`-up direction, so a `+Z`-up producer un-rotates its query normal at the read rather than rotating the coefficients; it reads `normal.x/y/z` into locals before its first write to `target`, so passing one vector as both arguments is exact. `LightProbe` evaluates the same set on the GPU and ADDS to `scene.environment` irradiance, never replacing it.
 
 [ENTRYPOINT_SCOPE]: TSL node-shader and GPU-compute authoring (`three/tsl`)
 - `Fn(cb)` builds a node function; `Fn(cb)().compute(count)` yields a compute node the unified `Renderer` dispatches through `renderer.compute(node)`. Node-material fields (`material.colorNode`/`.roughnessNode`/`.positionNode`) bind TSL graphs onto `MeshStandardNodeMaterial`/`MeshPhysicalNodeMaterial`/`PointsNodeMaterial`.
@@ -158,7 +169,7 @@ Every row is consumed by `viewer/scene/glb`.
 - Two renderer backends satisfy one usage contract: `WebGLRenderer` (synchronous construct) and `WebGPURenderer` (async `.init()`). `viewer/scene/glb` probes `navigator.gpu` + `renderer.hasFeature` (post-`init()`), selects the backend once at boot, and codes the scene/camera/loop identically after — the WebGPU upgrade is a construction-site swap, never a scene rewrite.
 - GLB decode is dependency injection: `GLTFLoader` holds a DRACO codec, a KTX2 codec, and a Meshopt decoder as *attached* collaborators, and `viewer/scene/glb` wires each codec's wasm transcoder into the `browser` decode-worker (`DRACOLoader.setWorkerLimit`, the `KTX2Loader` worker pool, `MeshoptDecoder`), so heavy transcode never blocks the render thread; `MeshoptDecoder` attaches only when the asset declares `EXT_meshopt_compression`.
 - `MeshPhysicalMaterial` is the single OpenPBR bind target: its coat/sheen/transmission/iridescence/anisotropy/specular fields are a superset of the glTF PBR extensions and map field-for-field onto the C# OpenPBR algebra projected through `wire#vocab` appearance. `MeshPhysicalNodeMaterial` swaps in on the WebGPU path (same lobes as TSL node graphs) with no change to the appearance-decode row.
-- Image-based lighting is a prefilter step: `PMREMGenerator.fromScene`/`fromEquirectangular` bakes the environment into a roughness-mip cube once, and `scene.environment` then serves every physical material's IBL sample, so the render loop stays a pure `setAnimationLoop(() => renderer.render(scene, camera))`.
+- Image-based lighting is a prefilter step: `PMREMGenerator.fromScene`/`fromEquirectangular` bakes the environment into a roughness-mip cube once, and `scene.environment` then serves every physical material's IBL sample, so the render loop stays a pure `setAnimationLoop(() => renderer.render(scene, camera))`. Equirect bytes arrive in memory and decode through `HDRLoader`/`EXRLoader` `createDataTexture`; exposure and orientation ride the scene's environment read-policy fields, never the plane.
 
 [STACKING]:
 - `effect` (`libs/typescript/.api/effect.md`): `Effect.acquireRelease`/`Scope` wraps every GPU-resource owner — renderer, controls, loaders, geometries, prefilter targets — its finalizer calling `.dispose()`, so a viewport unmount releases every GPU handle deterministically. `viewer/scene/glb` drives the frame loop on an interruptible `Effect` fiber, paused when `<Activity>` marks the viewport hidden. `Match`/`Schema` classify the decoded `wire` appearance before it reaches `MeshPhysicalMaterial`.
@@ -173,11 +184,12 @@ Every row is consumed by `viewer/scene/glb`.
 - Attach codecs to `GLTFLoader` by injection (`setDRACOLoader`/`setKTX2Loader`/`setMeshoptDecoder`); the codec wasm belongs in the `browser` decode-worker behind the port, never a per-codec loader fork or hand-rolled DRACO/KTX2/Meshopt decode.
 - Bind OpenPBR appearance onto `MeshPhysicalMaterial`/`MeshPhysicalNodeMaterial` fields decoded from `wire#vocab`; the OpenPBR→glTF-PBR algebra is owned in C# and mirrored once at `wire`, never re-derived in `ui`.
 - Acquire every renderer/geometry/material/texture/control/prefilter under an Effect `Scope` and dispose in the finalizer — three has no GC for GPU memory, so a GPU-resource owner outliving its viewport leaks the handle.
-- Prefilter environments with `PMREMGenerator` once and serve via `scene.environment`, never a raw per-fragment equirect sample or a per-frame IBL-mip rebuild.
+- Prefilter environments with `PMREMGenerator` once and serve via `scene.environment`, never a raw per-fragment equirect sample or a per-frame IBL-mip rebuild; exposure and orientation land on `environmentIntensity`/`environmentRotation`, never in re-encoded planes.
+- Decode HDR environments through `HDRLoader` — `RGBELoader` is its deprecated alias and is never authored; EXR through `EXRLoader`; in-memory bytes take `createDataTexture(buffer)`, never a blob-URL round-trip through `load`.
 - Verify three member existence against the shipped runtime exports (`three.module.js`/`three.webgpu.js`/`three.tsl.js`) and the `examples/jsm/**` addon source; `@types/three` compiles the code but drifts from the shipped surface, so runtime exports decide member truth.
 
 [RAIL_LAW]:
 - Package: `three` (`scope:viewer` project-local)
-- Owns: the WebGL2/WebGPU renderer backends, the `Scene`/`Object3D`/`Mesh` residency graph, the material family (`MeshPhysicalMaterial` OpenPBR lobes + node-material mirror), the loader family (`GLTFLoader` + injected DRACO/KTX2/Meshopt codecs), IBL prefilter (`PMREMGenerator`), animation, camera controls, TSL node-shader authoring, and GPU compute
+- Owns: the WebGL2/WebGPU renderer backends, the `Scene`/`Object3D`/`Mesh` residency graph, the material family (`MeshPhysicalMaterial` OpenPBR lobes + node-material mirror), the loader family (`GLTFLoader` + injected DRACO/KTX2/Meshopt codecs), HDR/EXR environment ingest (`HDRLoader`/`EXRLoader`), IBL prefilter (`PMREMGenerator`, both backend classes) with the scene read-policy fields, animation, camera controls, TSL node-shader authoring, and GPU compute
 - Accept: one `Scene` residency root keyed by content-key, backend selection at boot behind one usage contract, codec injection into `GLTFLoader`, OpenPBR bind onto `MeshPhysicalMaterial` from `wire#vocab`, `Scope`-scoped GPU-resource disposal, `PMREMGenerator` IBL prefilter, codec transcode behind the `browser` decode-worker port
-- Reject: `@types/three` as the member-truth source, per-codec loader forks or hand-rolled DRACO/KTX2/Meshopt decode, OpenPBR-mapping re-mint in `ui`, GPU-resource owners outliving their viewport, per-frame IBL rebuild, deep raw `examples/jsm/...` imports where `three/addons/*` resolves, render-thread codec transcode
+- Reject: `@types/three` as the member-truth source, per-codec loader forks or hand-rolled DRACO/KTX2/Meshopt decode, OpenPBR-mapping re-mint in `ui`, GPU-resource owners outliving their viewport, per-frame IBL rebuild, deep raw `examples/jsm/...` imports where `three/addons/*` resolves, render-thread codec transcode, the deprecated `RGBELoader` alias, exposure or orientation baked into environment planes

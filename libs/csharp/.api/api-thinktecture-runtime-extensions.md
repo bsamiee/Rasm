@@ -164,6 +164,8 @@
 
 - `Owner.Get`: returns `null` for a null key and throws `UnknownSmartEnumIdentifierException` for an unknown non-null key.
 - `Owner.Create`: throws on a validation error, so a boundary value enters through `TryCreate` or `Validate`.
+- `[ComplexValueObject]` admission: `Validate(<members in declaration order>, out Owner?)` returning `ValidationError?` — no `IFormatProvider` parameter; `Create`/`TryCreate` share the member-ordered arity (probe-proven on the live generator).
+- `[SmartEnum<TKey>]` ctor: the generator emits the private ctor itself — `(key, <plain non-key columns in declaration order>, <delegate>)` with each `[UseDelegateFromConstructor]` delegate LAST, named for its partial method, and no parameter defaults; `ValidateConstructorArguments` covers key plus columns, never the delegate; a hand-declared chaining ctor overload beside the generated one is admitted (probe-proven on the live generator).
 - `Owner.Create`, `Owner.TryCreate`, and `Owner.Empty`: named by `CreateFactoryMethodName`, `TryCreateFactoryMethodName`, and `DefaultInstancePropertyName`.
 - `ValidateFactoryArguments`: takes each argument by `ref`, so normalization lands before construction and a trimmed or clamped value reaches the generated ctor.
 - `Owner.Switch` and `Owner.Map`: `SwitchMapStateParameterName` threads caller state into every arm, so an arm lambda closes over nothing; `DefaultWithPartialOverloads` adds the overload that handles a subset.

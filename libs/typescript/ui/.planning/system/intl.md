@@ -4,13 +4,11 @@ The localization plane with zero i18n package: one locale spine (react-aria's `I
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                           | [PUBLIC]  |
-| :-----: | :--------------- | :------------------------------------------------------------------------------- | :-------- |
-|  [01]   | `LOCALE_SPINE`   | the `I18nProvider`/`useLocale` ambient-locale law over the kernel brand          | —         |
-|  [02]   | `NATIVE_CACHE`   | the one per-locale `Intl` instance cache behind every self-constructed formatter | —         |
-|  [03]   | `FORMAT_ROWS`    | `Format` — option-row vocabulary, epoch seam, relative ladder, collation, filter | `Format`  |
-|  [04]   | `MESSAGE_FAMILY` | the `MessageSpec` closed family and the `Catalog` decode owner                   | `Message` |
-|  [05]   | `MESSAGE_FOLD`   | the total format fold and the locale fallback chain                              | `Message` |
+- [02]-[LOCALE_SPINE]: the `I18nProvider`/`useLocale` ambient-locale law over the kernel brand; —.
+- [03]-[NATIVE_CACHE]: the one per-locale `Intl` instance cache behind every self-constructed formatter; —.
+- [04]-[FORMAT_ROWS]: `Format` — option-row vocabulary, epoch seam, relative ladder, collation, filter; `Format`.
+- [05]-[MESSAGE_FAMILY]: the `MessageSpec` closed family and the `Catalog` decode owner; `Message`.
+- [06]-[MESSAGE_FOLD]: the total format fold and the locale fallback chain; `Message`.
 
 ## [02]-[LOCALE_SPINE]
 

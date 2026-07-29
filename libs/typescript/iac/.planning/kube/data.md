@@ -4,12 +4,10 @@
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                                      | [PUBLIC]      |
-| :-----: | :------------- | :-------------------------------------------------------------------------- | :------------ |
-|  [01]   | `OBJECT_STORE` | the conforming-engine vocabulary and the chart-realized store + credentials | `ObjectStore` |
-|  [02]   | `FANOUT_STORE` | the NATS JetStream server row: websocket, fsync hardening, quorum           | `Nats`        |
-|  [03]   | `CNPG_CLUSTER` | the admission rail, operator charts, per-scope custody, pooler, backups     | `Postgres`    |
-|  [04]   | `APP_FINALIZE` | tenancy escalation, empty Database targets, and the replication seam        | `Postgres`    |
+- [02]-[OBJECT_STORE]: the conforming-engine vocabulary and the chart-realized store + credentials; `ObjectStore`.
+- [03]-[FANOUT_STORE]: the NATS JetStream server row: websocket, fsync hardening, quorum; `Nats`.
+- [04]-[CNPG_CLUSTER]: the admission rail, operator charts, per-scope custody, pooler, backups; `Postgres`.
+- [05]-[APP_FINALIZE]: tenancy escalation, empty Database targets, and the replication seam; `Postgres`.
 
 ## [02]-[OBJECT_STORE]
 

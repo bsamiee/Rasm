@@ -4,12 +4,10 @@ The decoded evidence vocabularies as one bounded family: `Receipt`/`ReceiptEnvel
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]              | [OWNS]                                                               | [PUBLIC]                   |
-| :-----: | :--------------------- | :------------------------------------------------------------------- | :------------------------- |
-|  [01]   | `RECEIPT_FAMILY`       | the closed outcome union and its lifecycle rank vocabulary           | `Receipt`                  |
-|  [02]   | `ENVELOPE_OWNER`       | the decoded envelope, its orders, the LWW instance, the fold plan    | `ReceiptEnvelope`          |
-|  [03]   | `PROGRESS_FOLD`        | the decoded mark, the state product, read-time verdicts, the roll-up | `ProgressMark`, `Progress` |
-|  [04]   | `AVAILABILITY_LATTICE` | level rows, verdict family, worst-wins snapshot merge, the gate read | `Availability`             |
+- [02]-[RECEIPT_FAMILY]: the closed outcome union and its lifecycle rank vocabulary; `Receipt`.
+- [03]-[ENVELOPE_OWNER]: the decoded envelope, its orders, the LWW instance, the fold plan; `ReceiptEnvelope`.
+- [04]-[PROGRESS_FOLD]: the decoded mark, the state product, read-time verdicts, the roll-up; `ProgressMark`, `Progress`.
+- [05]-[AVAILABILITY_LATTICE]: level rows, verdict family, worst-wins snapshot merge, the gate read; `Availability`.
 
 ## [02]-[RECEIPT_FAMILY]
 

@@ -33,17 +33,17 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `provider.md` byte-identical `entries` blocks (`DB_ADMIN_PASSWORD`/`DB_PASSWORD`/`DB_ANALYST_PASSWORD`/`OBJECT_USER`/`OBJECT_PASSWORD`/`GRAFANA_PASSWORD`) at the two arms.
 - Atomic: one hoist, two compositions.
 
+[SITE_DECODER_ROWS]-[QUEUED]: Converging arms hand their decoder identities to the distribution they publish.
+- Capability: every arm converging a folder publishes the viewer's decoder leaves under the same digest-directory law its app artifacts already ride, so the ui codec gate resolves `draco`, `ktx2`, and `meshopt` off the served plane instead of refusing `codec-absent` against addresses nothing published.
+- Shape: `program/provider.md` — `Dispatch.Pins.site.assets` gains the `siblings` column so a multi-leaf identity survives the pin, and the aws and gcp `Source.distribute` calls pass the site roster carrying `Source.decoder(slug, digest)` rows the composing root minted beside the app's own artifacts.
+- Unlocks: the `_DECODERS` roster reaches a published address; today `Source.decoder` has no caller on disk and the three decoder directories exist only as a table.
+- Anchors: `program/source.md` `_DECODERS`/`Source.decoder`/`_assetsUnder`; `program/provider.md` `Pins.site.assets` and the two `Source.distribute` call sites; `libs/typescript/ui/.planning/viewer/scene.md` `Glb.AssetRoster` reading the same three slugs.
+
 [LEASE_CUSTODY_CELLS]-[QUEUED]: Lease custody cells decode from the security-encoded `LeaseSpec`.
 - Capability: the app-root fold realizes each lease as a Doppler token and namespace custody cell; drives from IDEAS `[LEASE_REALIZATION]`.
 - Shape: the custody-cell fold on `operate/secret.md`'s `Secrets` custodian, decoding the security-owned `LeaseSpec` into a keys-only Doppler config, a read-only config-scoped service token, and one namespace secret keyed by `scope + epoch`.
 - Unlocks: IDEAS.md [LEASE_REALIZATION] — lease-bounded credential custody across workloads.
 - Anchors: `libs/typescript/security/.planning/crypt/secret.md` `LeaseSpec` and its `SECURITY_LEASE_SPEC` fold; `operate/secret.md` `Secrets` custodian; `kube/workload.md` `Workload.Args`.
-
-[UI_ASSET_IDENTITY_TYPES]-[QUEUED]: `Source.distribute` consumes typed UI asset identity.
-- Capability: `Source.AssetRow` is replaced by the UI-owned encoded roster type, so `Source.distribute` and `_addressed` — already standing — serve typed identity; drives from IDEAS `[UI_ASSET_ROSTER_SEAM]`.
-- Shape: the typed-identity swap on `program/source.md` — `Source.AssetRow` becomes `ui:viewer/scene#RESIDENCY_GRAFT`'s `Glb.AssetIdentity`, and `_addressed` keeps deriving the one address both ends compute.
-- Unlocks: IDEAS.md [UI_ASSET_ROSTER_SEAM] — caller-typed asset serving end to end.
-- Anchors: `program/source.md` `Source.distribute`/`_addressed`; `ui:viewer/scene#RESIDENCY_GRAFT` `Glb.AssetIdentity`/`Glb.assetPath`.
 
 ## [02]-[CLOSED]
 
@@ -51,6 +51,10 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[EDGE_POSTURE_ROWS]-[COMPLETE]: every provider arm now consumes the one header roster in its own dialect — `_EDGED` on `program/provider.md` renders `pattern`/`header`/`value` rows with no literal: the aws arm folds `Source.distribute(...).edge` into a CloudFront front (`OriginAccessControl` origin, one owned `CachePolicy`, one `ResponseHeadersPolicy` per posture on ordered behaviors), the gcp arm folds the same return into a CDN-enabled `BackendBucket` behind a `URLMap` whose route rules carry `headerAction.responseHeadersToAdds` (`prefixMatch`/`pathTemplateMatch` split by pattern shape), and the cloudflare arm folds `Source.edge` into one `http_response_headers_transform` `Ruleset` over its Pages origin; `_postures` folds covering rows narrow-to-wide for the first-match engines while cloudflare renders rows verbatim because its engine applies every match.
+[UI_ASSET_IDENTITY_TYPES]-[DROPPED]: dropped with its idea — the typed swap demands an iac-to-ui import the branch strata never carry, and the landed `_Asset.siblings`/`_addressedAll` publish beside the ui `Glb.assetDir` read closes the seam as two independent derivations under the branch ruling.
+[DECODER_DIRECTORY_ROWS]-[COMPLETE]: multi-file served identity landed on `program/source.md` — `_Asset.siblings` with derived-entry admission, `_addressedAll` three-key publish under one digest directory, `Source.decoder` over `_DECODERS` (draco wrapper/wasm/js fallback, ktx2 transcoder js/wasm, meshopt UMD under a `.js` leaf per the classic-script + provider-MIME law; `msc_basis_transcoder` refused as deleted vocabulary), and `_EDGE_RULES` — the immutable-cache row beside the `hdr`/`jxl` content-type repairs — published on `Distributed` and on `Source.edge` for the arms that converge no folder.
+[SERVED_ADDRESS_GROUNDING]-[COMPLETE]: the publish plane stopped inventing addresses — `_segments` owns the coordinate once (joined on `/` it spells the served address, spread into the host join it spells the built-directory location, and no dialect carries a key prefix separating them), `_assetsUnder` refuses at graph construction naming every declared leaf the build never copied, and `Source.Distribution.assets` took the ENCODED row so `siblings` enters optional; the retired claim that per-object sync drift proved a sibling shipped was false — the sync manages only files it finds, so an absent artifact minted no object and raised nothing.
 [PACK_DESCRIPTOR_INGEST]-[COMPLETE]: the unrostered producers earned their seats in one structural move — `BoardPack` gained its `Wire` column at the kernel, the three port-published packs (`apphost.instrument`, `compute.receipt`, `grasshopper.fan`) mint their keys beside the three that already did, the standalone `Wire` constants collapsed into the pack they name, and `_PACKS` closed at eight rows.
 [STORE_TRANSLATION_REPROOF]-[COMPLETE]: re-proved on the landed rule — core's `Convention.translated` renders every selector through the store row's own `translation` value, so the prometheus and mimir suffixing dialects and the victoriametrics identity transform each read their own series off one unchanged query target with no per-row re-derivation owed.
 [SECURITY_PACK_ROW]-[COMPLETE]: the `security.audit` seat stands again on a landed producer — `Audit.pack` seals the folder board beside `Audit.alerts` under `Audit.wire`, and the ingest arm tags the compiled board and folds the burn rows exactly as it does for every sibling seat.

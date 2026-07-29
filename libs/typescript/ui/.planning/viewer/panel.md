@@ -4,12 +4,10 @@ Panel materializes three shell vocabularies the AppUi shell produces: livewire e
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                                            | [PUBLIC] |
-| :-----: | :-------------- | :-------------------------------------------------------------------------------- | :------- |
-|  [01]   | `EVENT_FOLD`    | the keyed livewire fold and the receipt-reconciled optimistic round trip          | `Panel`  |
-|  [02]   | `PHASE_RENDER`  | the phase tone vocabulary, the coercion diff, the stamp and value-presenter rows  | `Panel`  |
-|  [03]   | `CONTROL_SINKS` | the union-derived handler record, exhaustive routing, intent egress, availability | `Panel`  |
-|  [04]   | `LAYOUT_SOLVE`  | the wire-order kiwi fold, edit-variable drag, the four-axis determinism law       | `Panel`  |
+- [02]-[EVENT_FOLD]: the keyed livewire fold and the receipt-reconciled optimistic round trip; `Panel`.
+- [03]-[PHASE_RENDER]: the phase tone vocabulary, the coercion diff, the stamp and value-presenter rows; `Panel`.
+- [04]-[CONTROL_SINKS]: the union-derived handler record, exhaustive routing, intent egress, availability; `Panel`.
+- [05]-[LAYOUT_SOLVE]: the wire-order kiwi fold, edit-variable drag, the four-axis determinism law; `Panel`.
 
 ## [02]-[EVENT_FOLD]
 

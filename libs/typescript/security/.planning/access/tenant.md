@@ -4,10 +4,8 @@ Tenancy contract: the ambient reference the request's active `TenantContext` rid
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                                            | [PUBLIC]                          |
-| :-----: | :-------------- | :-------------------------------------------------------------------------------- | :-------------------------------- |
-|  [01]   | `SCOPE_BINDING` | the ambient tenancy reference, its request-scope provision, the metric tag aspect | `TenantScope`                     |
-|  [02]   | `RLS_CONTRACT`  | the session-coordinate GUC vocabulary and the per-row projection                  | `SessionCoordinate`, `TENANT_GUC` |
+- [02]-[SCOPE_BINDING]: the ambient tenancy reference, its request-scope provision, the metric tag aspect; `TenantScope`.
+- [03]-[RLS_CONTRACT]: the session-coordinate GUC vocabulary and the per-row projection; `SessionCoordinate`, `TENANT_GUC`.
 
 ## [02]-[SCOPE_BINDING]
 

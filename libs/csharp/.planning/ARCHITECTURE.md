@@ -98,7 +98,7 @@ flowchart TB
     AppUi -->|"[IMPORT]: ContentHash"| Rasm
     AppUi -->|"[IMPORT]: DeterminismContext"| AppHost
     AppUi -->|"[IMPORT]: ResidencyPayload"| Compute
-    AppUi -->|"[IMPORT]: LayeredBsdf"| Materials
+    AppUi -->|"[IMPORT]: LayeredBsdf/EnvironmentLight/TextureSet"| Materials
     AppUi -->|"[IMPORT]: DuckProfileReceipt"| Persistence
     Rasm -->|"forbidden: host-neutral upward"| HOST
 ```

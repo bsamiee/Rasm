@@ -4,11 +4,9 @@ Framed stream transport is the second half of the branch net plane: where `clien
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]    | [OWNS]                                                                            | [PUBLIC] |
-| :-----: | :----------- | :-------------------------------------------------------------------------------- | :------- |
-|  [01]   | `FRAME_ROWS` | the duplex frame vocabulary — `ndjson \| msgpack` rows fused with one schema seam | `Duplex` |
-|  [02]   | `FEED_SEAM`  | the SSE session — codec, cursor fold, Retry-driven reconnect, silence ladder      | `Feed`   |
-|  [03]   | `MQTT_SEAM`  | MQTT v5 scoped clients, carrier properties, typed refusal                         | `Mqtt`   |
+- [02]-[FRAME_ROWS]: the duplex frame vocabulary — `ndjson | msgpack` rows fused with one schema seam; `Duplex`.
+- [03]-[FEED_SEAM]: the SSE session — codec, cursor fold, Retry-driven reconnect, silence ladder; `Feed`.
+- [04]-[MQTT_SEAM]: MQTT v5 scoped clients, carrier properties, typed refusal; `Mqtt`.
 
 ## [02]-[FRAME_ROWS]
 

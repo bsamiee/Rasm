@@ -1,15 +1,15 @@
 # [DATA_FILE]
 
-Filesystem and derivative-codec planes share one content identity. Platform `FileSystem` streams intake through digest and conditional put, scopes temp staging, and exposes watched admissions. Image fan-out decodes once, clones per roster row, dispatches `toFormat`, mints each derivative `ContentKey`, conditionally re-puts, and returns grants. Gates bound hostile input before native sharp decode. A rendition is a roster row; an intake source is a lift; no per-format ladder or second address exists.
+Filesystem and derivative planes share one content identity. Platform `FileSystem` streams intake through digest and conditional put, scopes temp staging, and watches drop directories. ONE derivative spine opens a verified source once, admits rows against its facts, emits per row, mints each product's `ContentKey`, conditionally re-puts, and grants — the engine is a `Derive.Plane` row, so the raster engine here and the engines at `object/asset.md` share the fold.
+
+Gates bound hostile input before any native decode. Renditions are roster rows, engines are plane rows, intake sources are lifts — no per-format ladder, second fan-out, or second address exists.
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                  |
-| :-----: | :---------------- | :---------------------------------------------------------------------- |
-|  [01]   | `FILE_PLANE`      | content-addressed intake, scoped temp staging, the watch stream, egress |
-|  [02]   | `CODEC_GATE`      | the untrusted-input posture and the module governance rows              |
-|  [03]   | `DERIVATIVE_ROWS` | the spec roster, decode-once/clone-N, the `toFormat` dispatch, receipts |
-|  [04]   | `FANOUT`          | the fetch → gate → encode → mint → conditional re-put → grant fold      |
+- [02]-[FILE_PLANE]: content-addressed intake, scoped temp staging, the watch stream, egress.
+- [03]-[CODEC_GATE]: the untrusted-input posture and the module governance rows.
+- [04]-[DERIVATIVE_ROWS]: the plane contract, the raster spec roster, the per-row receipt.
+- [05]-[FANOUT]: the bind → open → facts → admit → emit → mint → re-put → grant spine.
 
 ## [02]-[FILE_PLANE]
 
@@ -150,7 +150,7 @@ const _governed = (
 
 ## [04]-[DERIVATIVE_ROWS]
 
-- Owner: `Derive.Spec` and its receipt — rendition policy is one row, `toFormat` is the codec dispatch, tile is the alternate terminal, and `OutputInfo` with optional dominant color is evidence.
+- Owner: the plane contract and the raster row family — `Derive.Plane` is the engine row `{ name, open, admit, emit }` the spine folds (raster here, container and `ktx` at `object/asset.md`), `Derive.Row` the envelope every engine's rows share (`name`, `retention`, `grant`), `Derive.Spec` the raster row over it — rendition policy is one row, `toFormat` is the codec dispatch, tile is the alternate terminal, and `OutputInfo` with optional dominant color is evidence.
 - Packages: `sharp` (`clone`, `resize`, `composite`, `toFormat`, `tile`, `toBuffer({ resolveWithObject: true })`, `toFile`, `metadata`, `stats`, `keepIccProfile`, `keepMetadata`, `FormatEnum`, `Metadata`, `OverlayOptions`, `TileOptions`, `ResizeOptions`, `OutputOptions`, `OutputInfo`).
 - Entry: an app declares its rendition roster once (`thumbnail`/`preview`/`master`/`deepzoom` rows) and hands it to the fan-out; format capability gates through `_governed`'s `sharp.format` read at construction so an unbuildable row refuses at boot, never per request.
 - Receipt: `Derive.Receipt` — `{ name, key, grant, info, dominant }` — the row name, the derivative's own content key, its presigned `ObjectStore.Grant`, the codec provenance, and the optional placeholder color seeded from `stats().dominant`.
@@ -165,8 +165,21 @@ import type { FormatEnum, Metadata, OutputInfo, OutputOptions, OverlayOptions, R
 import { DateTime, Option } from "effect"
 
 declare namespace Derive {
-  type Spec = {
+  type Row = { readonly name: string; readonly retention: Retain.Class; readonly grant?: ObjectStore.GrantPolicy }
+  type Product<R extends Row, I> = { readonly row: R; readonly key: ContentKey; readonly evidence: I }
+  type Plane<R extends Row, Facts, Handle, Evidence, E, Env> = {
     readonly name: string
+    readonly open: (bytes: Uint8Array, source: ContentKey) => Effect.Effect<{ readonly facts: Facts; readonly handle: Handle }, E, Env>
+    readonly admit: (row: R, facts: Facts) => boolean
+    readonly emit: (
+      handle: Handle,
+      rows: ReadonlyArray<R>,
+      facts: Facts,
+      source: ContentKey,
+    ) => Effect.Effect<ReadonlyArray<Product<R, Evidence>>, E, Env> // emit persists its own products: the engine owns codec work AND the put, the spine owns fetch, admission, reference, grant
+  }
+  type Rgb = { readonly r: number; readonly g: number; readonly b: number }
+  type Spec = Row & {
     readonly resize: ResizeOptions
     readonly format: keyof FormatEnum
     readonly options?: OutputOptions
@@ -175,29 +188,26 @@ declare namespace Derive {
     readonly terminal?: { readonly tile: TileOptions }
     readonly keep?: "icc" | "all"
     readonly placeholder?: boolean
-    readonly retention: Retain.Class
-    readonly grant?: ObjectStore.GrantPolicy
   }
-  type Receipt = {
+  type Receipt<I = { readonly info: OutputInfo; readonly dominant: Option.Option<Derive.Rgb> }> = {
     readonly name: string
     readonly key: ContentKey
     readonly grant: ObjectStore.Grant
-    readonly info: OutputInfo
-    readonly dominant: Option.Option<{ readonly r: number; readonly g: number; readonly b: number }>
-  }
+  } & I
 }
 ```
 
 ## [05]-[FANOUT]
 
-- Owner: `Derive.fanout(sourceKey, specs)` — verified fetch, gated decode, row-cloned encode, derivative mint, conditional re-put, source-owned reference, grant, and stage-discriminated `DeriveFault`.
+- Owner: `Derive.fanout(plane, sourceKey, rows)` — the ONE spine: verified fetch, plane-owned open and facts, row admission, plane-owned emit, then per-product source-owned reference and grant; `Derive.raster` is this page's engine row, packaging gated decode, row-cloned encode, derivative mint, and conditional re-put behind the plane contract with stage-discriminated `DeriveFault`.
 - Packages: `sharp`; `object/store.md` (`ObjectStore.get`/`put`/`grant`, the reference verbs); `@rasm/ts/core` (`ContentKey` — every derivative is itself content-addressed).
-- Entry: `Derive.fanout(sourceKey, roster)` after an image lands (an intake receipt, an upload finalize); re-running is a proven noop end to end because every re-put lands 412 and every grant re-mints against the same keys.
+- Entry: `Derive.fanout(Derive.raster, sourceKey, roster)` after an image lands (an intake receipt, an upload finalize); re-running is a proven noop end to end because every re-put lands 412 and every grant re-mints against the same keys.
 - Receipt: one `Derive.Receipt` per row; the batch's span carries source key, row count, and total encode span.
 - Growth: watermarking is a `composite` step on the row's chain read from the spec; a tile-pyramid rendition is a row whose terminal is `tile` — both land inside the fold as row-driven steps.
+- Law: the engine is a plane row, never a fork of the spine — `open` yields the engine's facts and handle, `admit` votes rows against those facts, `emit` encodes and persists its products; the reference-and-grant tail is engine-blind, so a container pipeline and a spawned encoder inherit idempotency, cascade, and grant posture by construction and a second fanout is unrepresentable.
 - Law: decode once, clone N — the verified source bytes buffer once (`get` already re-minted identity), `metadata()` lifts once and vetoes rows through their `admit` predicates, `sharp(buffer, _GATE)` decodes once, and `clone()` snapshots the decoded pipeline per row; a re-decode, a re-piped stream, or a per-row metadata read is the named waste.
 - Law: derivative identity is the core mint over the ENCODED bytes — each derivative is a first-class object with its own key, its own reference row owned by the source key (so source release cascades), and its own grant; the tile arm stages its pyramid container to a scoped temp path and lands it through the same content-addressed intake; sharp owns codec work only, never addressing or idempotency.
-- Law: the fold is total over `DeriveFault` — stages `gate | fetch | decode | encode | persist | grant` carry the failing coordinate, and every `ObjectFault` crosses through `DeriveFault.at` at its owning stage; a single row's failure aborts this entrypoint, while an accumulating caller composes `Effect.validate` or `Effect.partition` explicitly.
+- Law: the fold is total over `DeriveFault` — stages `gate | fetch | decode | encode | persist | grant` carry the failing coordinate, and every `ObjectFault` crosses through `DeriveFault.at` at its owning stage; a foreign engine's own family rides the spine's `E` channel beside it, a single row's failure aborts this entrypoint, and an accumulating caller composes `Effect.validate` or `Effect.partition` explicitly.
 - Law: `Derive.pressure` is the plane's saturation read — `sharp.counters()` as one typed effect (`{ queue, process }` in-flight telemetry) the maintenance and doctor surfaces sample, because the derivative fan-out is the process's native-saturation hotspot; its series names ride the core observability convention rows, so the emit plane exports them like every other metric.
 
 ```typescript signature
@@ -247,48 +257,79 @@ const _encodeTile = (decoded: Sharp, spec: Derive.Spec & { readonly terminal: { 
     return { key: landed.key, info }
   })
 
-const _fanout = (sourceKey: ContentKey, specs: ReadonlyArray<Derive.Spec>) =>
+const _RASTER: Derive.Plane<
+  Derive.Spec,
+  Metadata,
+  Sharp,
+  { readonly info: OutputInfo; readonly dominant: Option.Option<Derive.Rgb> },
+  DeriveFault,
+  ObjectStore | FileSystem.FileSystem | Path.Path
+> = {
+  name: "raster",
+  open: (bytes, source) =>
+    Effect.gen(function* () {
+      const handle = yield* Effect.try({
+        try: () => sharp(Buffer.from(bytes), _GATE).timeout(_DEADLINE),
+        catch: (defect) => new DeriveFault({ stage: "decode", key: source, detail: String(defect) }),
+      })
+      const facts = yield* Effect.tryPromise({
+        try: () => handle.metadata(),
+        catch: (defect) => new DeriveFault({ stage: "decode", key: source, detail: String(defect) }),
+      })
+      return { facts, handle }
+    }),
+  admit: (spec, facts) => spec.admit === undefined || spec.admit(facts),
+  emit: (decoded, specs, _facts, source) =>
+    Effect.gen(function* () {
+      const dominant = Array.some(specs, (spec) => spec.placeholder === true)
+        ? Option.some((yield* Effect.tryPromise({
+            // one pixel analysis serves every asking row: stats lifts once per fan-out, exactly like metadata
+            try: () => decoded.clone().stats(),
+            catch: (defect) => new DeriveFault({ stage: "decode", key: source, detail: String(defect) }),
+          })).dominant)
+        : Option.none<Derive.Rgb>()
+      return yield* Effect.forEach(specs, (spec) =>
+        Effect.map(
+          spec.terminal === undefined
+            ? _encodeBuffer(decoded, spec, source)
+            : Effect.scoped(_encodeTile(decoded, { ...spec, terminal: spec.terminal }, source)),
+          (encoded) => ({
+            row: spec,
+            key: encoded.key,
+            evidence: { info: encoded.info, dominant: spec.placeholder === true ? dominant : Option.none<Derive.Rgb>() },
+          }),
+        ), { concurrency: _FAN.flight })
+    }),
+}
+
+const _fanout = <R extends Derive.Row, F, H, I, E, Env>(
+  plane: Derive.Plane<R, F, H, I, E, Env>,
+  sourceKey: ContentKey,
+  rows: ReadonlyArray<R>,
+): Effect.Effect<ReadonlyArray<Derive.Receipt<I>>, DeriveFault | E, Env | ObjectStore> =>
   Effect.gen(function* () {
     const store = yield* ObjectStore
     const bytes = yield* Effect.mapError(store.get(sourceKey), DeriveFault.at("fetch", sourceKey))
-    const decoded = yield* Effect.try({
-      try: () => sharp(Buffer.from(bytes), _GATE).timeout(_DEADLINE),
-      catch: (defect) => new DeriveFault({ stage: "decode", key: sourceKey, detail: String(defect) }),
-    })
-    const source = yield* Effect.tryPromise({
-      try: () => decoded.metadata(),
-      catch: (defect) => new DeriveFault({ stage: "decode", key: sourceKey, detail: String(defect) }),
-    })
-    const admitted = Array.filter(specs, (spec) => spec.admit === undefined || spec.admit(source))
-    const dominant = Array.some(admitted, (spec) => spec.placeholder === true)
-      ? Option.some((yield* Effect.tryPromise({
-          // one pixel analysis serves every asking row: stats lifts once per fan-out, exactly like metadata
-          try: () => decoded.clone().stats(),
-          catch: (defect) => new DeriveFault({ stage: "decode", key: sourceKey, detail: String(defect) }),
-        })).dominant)
-      : Option.none<{ readonly r: number; readonly g: number; readonly b: number }>()
-    return yield* Effect.forEach(admitted, (spec) =>
+    const opened = yield* plane.open(bytes, sourceKey)
+    const products = yield* plane.emit(
+      opened.handle,
+      Array.filter(rows, (row) => plane.admit(row, opened.facts)),
+      opened.facts,
+      sourceKey,
+    )
+    return yield* Effect.forEach(products, (product) =>
       Effect.gen(function* () {
-        const encoded = spec.terminal === undefined
-          ? yield* _encodeBuffer(decoded, spec, sourceKey)
-          : yield* Effect.scoped(_encodeTile(decoded, { ...spec, terminal: spec.terminal }, sourceKey))
         yield* Effect.mapError(
-          store.refer(encoded.key, `derivative:${sourceKey}`, spec.retention),
-          DeriveFault.at("persist", encoded.key),
+          store.refer(product.key, `derivative:${sourceKey}`, product.row.retention),
+          DeriveFault.at("persist", product.key),
         )
         const grant = yield* Effect.mapError(
-          store.grant(encoded.key, new GetObjectCommand({ Bucket: store.bucket, Key: encoded.key }), spec.grant),
-          DeriveFault.at("grant", encoded.key),
+          store.grant(product.key, new GetObjectCommand({ Bucket: store.bucket, Key: product.key }), product.row.grant),
+          DeriveFault.at("grant", product.key),
         )
-        return {
-          name: spec.name,
-          key: encoded.key,
-          grant,
-          info: encoded.info,
-          dominant: spec.placeholder === true ? dominant : Option.none(),
-        } satisfies Derive.Receipt
+        return { name: product.row.name, key: product.key, grant, ...product.evidence }
       }), { concurrency: _FAN.flight })
-  }).pipe(Effect.withSpan("data.fanout", { attributes: { source: sourceKey } }))
+  }).pipe(Effect.withSpan("data.fanout", { attributes: { source: sourceKey, plane: plane.name } }))
 
 const _pressure = Effect.sync(() => sharp.counters())
 
@@ -302,6 +343,7 @@ const Disk = {
 const Derive = {
   gate: _GATE,
   governed: _governed,
+  raster: _RASTER,
   fanout: _fanout,
   pressure: _pressure,
 } as const

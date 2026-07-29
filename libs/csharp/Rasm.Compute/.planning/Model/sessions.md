@@ -457,8 +457,11 @@ public static class ModelSessions {
             options.GraphOptimizationLevel = policy.Optimization;
             options.ExecutionMode = policy.Execution;
             options.EnableMemoryPattern = policy.MemoryPattern;
-            options.EnableProfiling = policy.Profiling;
+            // ORDER IS LOAD-BEARING (measured at the pin): the EnableProfiling setter READS the prefix at the
+            // moment it flips true — a prefix assigned after it is silently discarded and the trace lands at the
+            // default onnxruntime_profile__<timestamp>.json in the process CWD, so the prefix sets FIRST.
             options.ProfileOutputPathPrefix = Path.Combine(artifactDir, "onnx-profile");
+            options.EnableProfiling = policy.Profiling;
             options.DisablePerSessionThreads();
             policy.FreeDims.Iter(dim => options.AddFreeDimensionOverrideByName(dim.Dim, dim.Value));
             policy.Initializers.Iter(slot => options.AddInitializer(slot.Name, slot.Value));

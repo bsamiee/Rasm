@@ -9,21 +9,23 @@ Estates couple through defined contracts alone — no estate imports a peer, and
 Stratification is the law every branch answers: ranks run `S0` upward, the dependency edge runs strictly upward, the graph stays acyclic, and shared machinery seats at the lowest stratum every consumer reaches — seating above a consumer's reach manufactures per-folder twins. Each branch orders its own packages under that law at its `[02]-[STRATA]`, and that table is the roster a reader resolves.
 
 - Strata is the only rank vocabulary; wave, band, and tier never name a rank.
-- Dependency edges stay abstract: a branch spells one as a project reference, module import, composed layer, or port bound at the composition root, and the upward law binds every spelling.
+- Dependency edges stay abstract — project reference, module import, composed layer, or root-bound port — and the upward law binds every spelling.
 - Cross-package coupling reaches a published boundary or a content-keyed wire, never a peer's interior.
-- Peers at one rank never reference each other; alignment travels the seam contracts and the content-keyed wire, so each package stays usable in isolation.
-- Counter-edges carry a value the lower stratum consumes, never an owner it imports; the type graph stays acyclic, and member-seating rows state that qualifier.
+- Peers at one rank never reference each other; alignment travels seam contracts and the content-keyed wire, so each package stays usable alone.
+- Counter-edges carry a value the lower stratum consumes, never an owner it imports, and member-seating rows state that qualifier.
 - Plane-distinct members seat at a rank yet stay outside the runtime graph, carrying the same upward law.
 - Higher strata consume lower-stratum capability and re-own none of it.
-- Composition roots are the leaf: host binding, port satisfaction, and cross-branch composition happen there, nowhere below. Product shells compose a branch's top strata as consumers of the estate, never as a stratum of it.
+- Composition roots take host binding, port satisfaction, and cross-branch composition as the leaf, nowhere below.
+- Product shells compose a branch's top strata as consumers of the estate, never as a stratum of it.
 
 ## [02]-[DEPENDENCY_DIRECTION]
 
 Direction inside a branch is the branch's own `[02]-[STRATA]` to state per owner. Across branches direction dissolves: no branch is a dependency edge, producer, or prerequisite of another.
 
 - Cross-branch relations are contracts, never dependencies: each carries data, obligates no build order, and admits no reference in either direction.
-- Single-language applications resolve their branch's whole graph with no peer present; branch contributions meet only at the composition root, merged by artifact key under the `[09]-[SCHEMA_STATE]` order.
-- Each branch proves its own direction with its own gate, and that gate parses the owning branch's strata table live rather than carrying a transcribed copy.
+- Single-language applications resolve their branch's whole graph with no peer present.
+- Branch contributions meet at the composition root alone, merged by artifact key under the `[09]-[SCHEMA_STATE]` order.
+- Each branch proves its own direction with its own gate, and that gate parses the owning strata table live, never a transcribed copy.
 
 ## [03]-[UNIVERSAL_VS_CAPTURE]
 
@@ -31,7 +33,7 @@ Direction inside a branch is the branch's own `[02]-[STRATA]` to state per owner
 
 - Universal owners exist only for corpus-defined contracts; `[07]-[CROSS_LANGUAGE_WIRE]` splits them into the infrastructure and domain classes.
 - Branch-local owners retain host, toolchain, and native capability no contract carries, at full richness.
-- Host-boundary packages own their host's native surface whole — exchange, drafting, sheet layout, native file IO stay rich host features and thin toward no contract.
+- Host-boundary packages own their host's native surface whole — exchange, drafting, sheet layout, and file IO stay rich and thin toward no contract.
 - One semantic implementation per runtime conforms to a portable domain contract, and neither implementation reads the other.
 - Branch adapters project a native surface into a corpus contract at the seam that contract declares, never earlier.
 
@@ -39,8 +41,9 @@ Direction inside a branch is the branch's own `[02]-[STRATA]` to state per owner
 
 Geometry, meshing, and semantic exchange each carry exactly one owner per runtime; the runtimes meet only at the contract. No concern is owned twice within a runtime, and no runtime re-implements a peer's kernel.
 
-- Each runtime carries one geometry owner, one meshing owner, and one semantic-exchange implementation; a second owner inside one runtime is the duplication defect.
-- Runtimes meet at content identity, the tessellation rail, and the appearance rail the manifest's appearance entries define; a decoder at either rail composes the payload rather than re-deriving it.
+- Each runtime carries one geometry owner, one meshing owner, and one semantic-exchange implementation; a second is the duplication defect.
+- Runtimes meet at content identity, the tessellation rail, and the appearance rail the manifest's appearance entries define.
+- Decoders at the tessellation and appearance rails compose the payload rather than re-deriving it.
 - Independent peer producers stay independent: a host-free geometry owner produces for its own domain rather than consuming a peer's kernel.
 - Each runtime's owners are its branch `ARCHITECTURE.md` to name.
 
@@ -55,7 +58,7 @@ Geometry, meshing, and semantic exchange each carry exactly one owner per runtim
 - Mature folders with real code carry NO `.planning/`; the co-located source architecture note is the only design surface.
 - Mature folders route open split, cleanup, and re-architect work to task cards in the branch `TASKLOG.md`.
 - One exception stands: a genuinely new unbuilt sub-domain inside a mature package keeps its scaffold in that sub-domain folder.
-- Host-boundary planning folders carry a folder `.api/` tier over their host assemblies, and their rows stay outside the branch build root under the host-boundary gate.
+- Host-boundary planning folders carry a folder `.api/` tier over host assemblies, its rows outside the branch build root under the host gate.
 
 ## [06]-[PER_LANGUAGE_ROLES]
 
@@ -111,12 +114,12 @@ Transcription SPELLS the rows per branch and `tests/contracts/` `TELEMETRY_CONVE
 - Metrics-store OTLP receiver pins `NoUTF8EscapingWithSuffixes`, so dotted names survive byte-identical from every runtime.
 - Scope: the emitting package id, version-stamped, one semconv coordinate on tracer, meter, and logger; a branch spells it once, all bump together.
 - Egress: OTLP over HTTP+protobuf, one collector base endpoint fanned per signal on `/v1/<signal>`.
-- Compression pins gzip on every sender whose transport exposes an encoding knob, bound as a composition VALUE, never as an unpublished environment key.
-- Senders exposing none carry the uncompressed leg as a declared parity column at their branch minter, so an unset knob is a stated column rather than a silent hole.
+- Compression pins gzip on every sender whose transport exposes an encoding knob, bound as a composition VALUE, never an unpublished environment key.
+- Senders exposing none declare the uncompressed leg a parity column at their branch minter, so an unset knob states a column, never a silent hole.
 - `typescript:iac/program/spec` `StackOutputs.otlp` feeds the endpoint into the workload env — deploy-plane data, never an in-code literal.
 - Buffering: each signal exports through a bounded batch leg whose queue, batch, delay, and timeout bounds are branch governance policy values.
 - Export loss is accounted evidence — a dropped batch, rejected export, or wedged flush lands on the branch's own diagnostic floor, never silent.
-- Durability past the process rides the gateway's persistent queue; a branch-side durable OTLP queue is a policy row an application arms, never a default.
+- Durability past the process rides the gateway's persistent queue; a branch-side durable OTLP queue arms as a policy row, never a default.
 - Lifecycle: one ranked drain per composition flushes and shuts every provider inside a bounded window, and a wedged flush parks as evidence there.
 - Propagation: one W3C composite — trace-context beside baggage — registers as the global propagator in every runtime.
 - Ingress adopts an inbound parent whole — trace id continued, span id parented — so parent-based sampling never fractures a trace across runtimes.
@@ -124,7 +127,7 @@ Transcription SPELLS the rows per branch and `tests/contracts/` `TELEMETRY_CONVE
 - Planes reaching no seat declare that as a parity column at their branch minter and click through the gateway's span-derived series instead.
 - Metric-to-trace click-through gates on the selected store row's exemplar column at `typescript:iac/operate/observe`.
 - Histograms: base2 exponential is the wire default on every provider-aggregated plane; a view row re-arms the explicit-bucket fallback there.
-- Producer-collected distributions fix their explicit boundary ladders at the mint row — finished buckets reach the exporter and no view recomputes them.
+- Producer-collected distributions fix their boundary ladders at the mint row — finished buckets reach the exporter and no view recomputes them.
 - Counters: DELTA temporality is the wire default in every branch; cumulative is the monotonic-totals alternative a policy row selects.
 - Tenant: `rasm.tenant` is the one dimension — baggage promoted onto spans and logs by allowlisted processors, folded onto metrics under view caps.
 - Absent tenant entries read as single-tenant, never as a sentinel value.
@@ -182,12 +185,14 @@ Every `libs/` package is an independently versioned library an unrelated applica
 
 - Closed axes fix their value vocabulary here; an open axis fixes the descriptor shape alone, and each of its rows is capability one branch supplies.
 - Host integration lands as one descriptor row on the `host` axis, supplied by the branch whose runtime reaches that host.
-- Enumerating an open axis's instances here re-anchors the roster to the instance set that happens to exist — the anchoring defect the open form forecloses.
+- Enumerating an open axis's instances here re-anchors the roster to whatever set exists — the anchoring defect the open form forecloses.
 - Each branch spells the roster in its own types, and `tests/contracts/` `CONSUMPTION_PROFILE` proves parity like any other infrastructure contract.
-- Growth is one Tier-0 row beside one row per branch for a new axis, one case on its owning closed axis for new values; open axes grow at their supplying branch alone.
-- Axis values stay data: a compile-time assumption, ambient global, build flag, or package branching on which product hosts it re-mints the assumed consumer roster the roster forecloses.
-- Packages unable to serve an axis value refuse at admission with typed evidence naming the axis; silent degradation and narrowed public surface are the two failed forms.
-- Sibling presence is an axis value — a package composes a sibling through a declared port the composition root binds, and an unbound port is a refused capability, never a crash.
+- Growth lands one Tier-0 row beside one row per branch for a new axis, one case on its owning closed axis for a new value.
+- Open axes grow at their supplying branch alone.
+- Axis values stay data — a compile-time assumption, ambient global, build flag, or a branch on the host re-mints the assumed consumer roster.
+- Packages unable to serve an axis value refuse at admission with typed evidence naming the axis, never degrading or narrowing their surface.
+- Sibling presence rides an axis value — a package composes a sibling through a declared port the composition root binds.
+- Unbound ports read as a refused capability, never a crash.
 
 ## [11]-[DESIGN_LANGUAGE]
 
@@ -222,9 +227,34 @@ New capability enters at the narrowest rung that holds it, and each rung above i
 |  [07]   | branch                | A target runtime no existing branch reaches.                                                                   |
 
 - Packages name concepts: a host name, a provider name, a verb, or a size-driven split each names something other than a bounded context.
-- Hosts enter as one host-boundary package beside descriptor rows and cases on the domain owners their demands prove; domain packages never name a host.
+- Hosts enter as one host-boundary package beside descriptor rows and cases on the owners their demands prove; domain packages never name a host.
 - Host vocabulary translates at the boundary adapter, and the domain keeps its own nouns whole.
-- Generalization pressure arrives with each new host: its demands widen the owners already holding the concept, and a concept only that host reveals lands as a bounded context named for the concept.
+- Generalization pressure arrives with each new host, its demands widening the owners already holding the concept.
+- Concepts only one host reveals land as a bounded context named for the concept.
 - Hosts scripted in a branch's own language earn no branch; that runtime is already reached.
 - Ecosystem preference earns no branch — a branch answers reach, and a capability an existing branch reaches lands as a package there.
-- Every rung lands its counterpart obligations in the same pass: `[02]-[STRATA]` rank, manifest row, `.api/` tier, and router entry under `docs/laws/topology.md`.
+- Every rung lands its counterparts in the same pass — `[02]-[STRATA]` rank, manifest row, `.api/` tier, router entry — per `docs/laws/topology.md`.
+
+## [13]-[APPEARANCE]
+
+Surface appearance crosses the runtimes as TWO domain documents under ONE frozen vocabulary. `tests/contracts/appearance-vocabulary.schema.json` is the definition: the channel roster with its per-channel transfer, neutral, unit, and mip fold, the ingest alias table, the transfer and normal-convention and alpha-mode and container and pack and storage-format and payload vocabularies, the three key spellings, the level-ordered plane address, the egress grammar, and the harmonic band order with its golden vectors. Each branch TRANSCRIBES that definition in its own casing law and validates its own projection against it; the two corpus entries reference it and neither restates a row.
+
+| [INDEX] | [OWNER]                              | [MINTS]                                     | [BOUNDARY]                               |
+| :-----: | :----------------------------------- | :------------------------------------------ | :--------------------------------------- |
+|  [01]   | `csharp:Rasm.Materials/Raster`       | the baked set behind the appearance key     | carries no environment kind              |
+|  [02]   | `csharp:Rasm.Materials/Appearance`   | the environment light and stage vocabulary  | branch-interior; takes no corpus entry   |
+|  [03]   | `python:artifacts/graphic/texture`   | the ingest and environment set manifest     | presses no graph, holds no bake key      |
+|  [04]   | `typescript:core/interchange`        | nothing; it lands both documents            | derives no field a producer carries      |
+|  [05]   | `typescript:data` + `typescript:ui`  | the transform, serve, and bind pipeline     | reads addresses, constructs none         |
+|  [06]   | `csharp:Rasm`                        | the analytic and raster atoms both compose  | holds no channel vocabulary              |
+
+- Two documents, two producers, one vocabulary: each producer owns its own document and `domain` entry, and routes a kind it lacks to the peer entry.
+- Capability overlaps freely and DOCUMENTS do not — both producers derive geometric channels and both encode containers.
+- Producers emitting the peer's document class commit the second-producer defect the `domain` class forecloses.
+- Consumption is never production, and a branch decoding both documents mints neither.
+- Deriving one appearance field from another at a consumer forks the semantic model its producer owns.
+- Appearance identity rides content addressing whole: every plane of one set publishes under that set's key, so one directory carries the whole set.
+- Persisted appearance bytes mint on the deterministic lane alone, since a second lane keying one preimage forks the address.
+- Accelerator lanes produce preview products that carry no key.
+- Ingest CLASSIFIES and never infers, so an unclaimed name accumulates as recorded residue.
+- Defaulted conventions commit the silent-inversion defect the frozen alias table forecloses.

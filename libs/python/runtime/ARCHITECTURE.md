@@ -147,6 +147,7 @@ flowchart LR
     Materials([Rasm.Materials])
     Materials e10@-->|"[WIRE]: MaterialWire"| Transport
     Materials e29@-->|"[WIRE]: TextureSetWire"| Transport
+    Materials e30@-->|"[WIRE]: AppearanceSummaryWire"| Transport
     Evidence e1@<-->|"[CONTENT_KEY]: XxHash128"| Rasm
     Evidence e2@<-->|"[CONTENT_KEY]: ContentAddress"| Element
     Compute e3@-->|"[WIRE]: XxHash128"| Evidence

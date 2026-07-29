@@ -52,7 +52,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@gltf-transform/core` — glTF 2.0 as a property graph behind one `PlatformIO` read/write surface; indices re-derive at write.
 - `@gltf-transform/extensions` — glTF extension vocabulary as typed properties, admitted through an explicit IO roster.
 - `@gltf-transform/functions` — transform rows folded through one `document.transform(...)`; every codec injected, never imported.
-- `ktx-parse` — KTX2 container read and write as plain data; payload class, transfer, and alpha classify without a transcoder.
+- `ktx-parse` — KTX2 container read as plain data; payload class, transfer, primaries, alpha, and layer shape classify without a transcoder.
 - `meshoptimizer` — wasm mesh kernel: vertex and index codec, reordering, simplification, clustering, tangents.
 
 [INTERCHANGE]:

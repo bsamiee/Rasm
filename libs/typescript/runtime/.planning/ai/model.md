@@ -4,12 +4,10 @@ The intelligence spine: five provider families fold onto one capability-asymmetr
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                                          | [PUBLIC]    |
-| :-----: | :-------------- | :------------------------------------------------------------------------------ | :---------- |
-|  [01]   | `PROVIDER_ROWS` | the asymmetry table, client construction, the one transport requirement         | `Providers` |
-|  [02]   | `LADDER`        | tier routing and fault-gated failover on the core execution-plan engine         | `Ladder`    |
-|  [03]   | `GATE`          | the one guardrail — screen, admit, sweep (all three modalities), refusal, spend | `Guardrail` |
-|  [04]   | `TOKENS`        | meter-relative budgets, truncation enforcement, the measured context weave      | `Tokens`    |
+- [02]-[PROVIDER_ROWS]: the asymmetry table, client construction, the one transport requirement; `Providers`.
+- [03]-[LADDER]: tier routing and fault-gated failover on the core execution-plan engine; `Ladder`.
+- [04]-[GATE]: the one guardrail — screen, admit, sweep (all three modalities), refusal, spend; `Guardrail`.
+- [05]-[TOKENS]: meter-relative budgets, truncation enforcement, the measured context weave; `Tokens`.
 
 ## [02]-[PROVIDER_ROWS]
 

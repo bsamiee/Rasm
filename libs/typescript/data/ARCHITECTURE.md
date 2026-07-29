@@ -22,7 +22,8 @@ data/
     ├── object/           # Content-addressed object plane over the one ContentKey
     │   ├── store.ts      # S3-conditional content-addressed object store
     │   ├── stream.ts     # Resumable rail: BYOB ingress, checkpointed identity fold, tus server
-    │   ├── file.ts       # Filesystem plane: gated content-addressed intake and derivative codec
+    │   ├── file.ts       # Filesystem plane: gated content-addressed intake and the derivative spine
+    │   ├── asset.ts      # category-general asset plane: category-gated admission, transform rows, container + ktx rows
     │   └── remote.ts     # Remote-origin plane: scheme-dispatched non-local sources
     └── read/             # Read side: typed queries, batching, projections, reactivity, retrieval
         ├── query.ts      # Typed CRUD with arity as combinator over Model codec pairs
@@ -58,7 +59,7 @@ flowchart TB
         Read["query · batch · search · fold"]
     end
     subgraph S3["S3 OBJECT"]
-        Object["store · stream · file"]
+        Object["store · stream · file · asset"]
         Remote[remote]
     end
     subgraph S2["S2 JOURNAL"]
@@ -124,6 +125,7 @@ flowchart LR
         Batch[Request batching]
         Cache[Cache lane]
         Olap[Analytical lane]
+        Asset[Asset pipeline]
     end
     Core{{core}}
     Security{{security}}
@@ -164,6 +166,7 @@ flowchart LR
     Olap e31@-->|"[SHAPE]: Query.Target"| Core
     Core e33@-->|"[PROJECTION]: DashboardModel.Signal"| Olap
     Iac e34@-->|"[PORT]: analytics residence"| Olap
+    Core e35@-->|"[SHAPE]: Convention"| Asset
 ```
 
 ## [04]-[INTERNAL]

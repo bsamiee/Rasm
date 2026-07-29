@@ -28,7 +28,7 @@ Every heavy codec is injected, never imported: `meshopt` and `reorder` take a `M
 |  [06]   | `ColorSpaceOptions`      | `inputColorSpace` | `srgb` or `srgb-linear`                              |
 |  [07]   | `TextureCompressOptions` | none              | `encoder` is OPTIONAL; see the codec caveat below    |
 
-`[PRUNE_FIELD]: `propertyTypes` `keepLeaves` `keepAttributes` `keepIndices` `keepSolidTextures` `keepExtras``
+`[PRUNE_FIELD]: `propertyTypes` `keepLeaves` `keepAttributes` `keepIndices` `keepSolidTextures` `keepExtras`` — the exported option type is `PruneOptions`; every row's option record exports under `<Row>Options` (`DedupOptions`, `QuantizeOptions`, …), so a table typing its rows imports the symbol, never a hand-mirrored shape.
 
 `[DEDUP_FIELD]: `propertyTypes` `keepUniqueNames``
 

@@ -4,11 +4,9 @@ Off-thread compute is one closed protocol and one pool — no wrapper, the platf
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                      | [PUBLIC]         |
-| :-----: | :---------------- | :-------------------------------------------------------------------------- | :--------------- |
-|  [01]   | `PROTOCOL_FAMILY` | the tagged-request union, transfer declarations, the cross-thread fault law | request classes  |
-|  [02]   | `POOL_ROWS`       | sizing policy rows, the execution modalities, the backpressure law          | pool Tag + Layer |
-|  [03]   | `RUNNER_BOOT`     | the handler record, the worker boot module, the spawn seam                  | runner Layer     |
+- [02]-[PROTOCOL_FAMILY]: the tagged-request union, transfer declarations, the cross-thread fault law; request classes.
+- [03]-[POOL_ROWS]: sizing policy rows, the execution modalities, the backpressure law; pool Tag + Layer.
+- [04]-[RUNNER_BOOT]: the handler record, the worker boot module, the spawn seam; runner Layer.
 
 ## [02]-[PROTOCOL_FAMILY]
 

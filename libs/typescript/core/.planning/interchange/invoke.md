@@ -4,12 +4,10 @@ Interchange capability owns both directions of the command contract. Outbound `C
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                           | [PUBLIC]                   |
-| :-----: | :---------------- | :------------------------------------------------------------------------------- | :------------------------- |
-|  [01]   | `TRANSPORT_FAULT` | the total `ConnectError` fold into the codec fault vocabulary                    | `Transport`                |
-|  [02]   | `DIAL_AXIS`       | Config policy record, three-lane table, failover plan, ambient context, lifts    | `Dial`                     |
-|  [03]   | `CAPABILITY_BIND` | descriptor admission, kind-total SDK derivation, budget geometry, telemetry seam | `Capability`               |
-|  [04]   | `COMMAND_GATEWAY` | the verb-row contract, the availability gate, support capture, the duplex        | `Gateway`, `SupportIntake` |
+- [02]-[TRANSPORT_FAULT]: the total `ConnectError` fold into the codec fault vocabulary; `Transport`.
+- [03]-[DIAL_AXIS]: Config policy record, three-lane table, failover plan, ambient context, lifts; `Dial`.
+- [04]-[CAPABILITY_BIND]: descriptor admission, kind-total SDK derivation, budget geometry, telemetry seam; `Capability`.
+- [05]-[COMMAND_GATEWAY]: the verb-row contract, the availability gate, support capture, the duplex; `Gateway`, `SupportIntake`.
 
 ## [02]-[TRANSPORT_FAULT]
 

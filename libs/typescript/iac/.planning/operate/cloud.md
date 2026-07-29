@@ -4,10 +4,8 @@
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                             | [PUBLIC]       |
-| :-----: | :------------------ | :----------------------------------------------------------------- | :------------- |
-|  [01]   | `CONTROL_PLANE`     | deployment settings, schedules, drift webhook, RBAC, environment   | `CloudPlane`   |
-|  [02]   | `ENVIRONMENT_PLANE` | the EscApi Effect rail: open/read, check-gated writes, tag pinning | `Environments` |
+- [02]-[CONTROL_PLANE]: deployment settings, schedules, drift webhook, RBAC, environment; `CloudPlane`.
+- [03]-[ENVIRONMENT_PLANE]: the EscApi Effect rail: open/read, check-gated writes, tag pinning; `Environments`.
 
 ## [02]-[CONTROL_PLANE]
 

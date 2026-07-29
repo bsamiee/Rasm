@@ -7,6 +7,7 @@
 [PACKAGE_SURFACE]: `vtk`
 - package: `vtk` (BSD-3-Clause)
 - module: `vtk` (aggregates `vtkmodules.*`)
+- abi: C++ native extension per `vtkmodules.<Module>`; the Forge python-overlay `.pth` supplies `vtk` at the interpreter floor, and the import stays worker-side under the `HOSTILE` process lane
 - rail: scene
 
 ## [02]-[PUBLIC_TYPES]
@@ -153,7 +154,7 @@
 [STACKING]:
 - `pyvista`(`.api/pyvista.md`): wraps the demand-driven pipeline, dataset hierarchy, and render stack numpy-native; `pyvista.wrap` adopts a `vtkPolyData`/`vtkImageData` and a `pyvista.PolyData` exposes its underlying `vtkPolyData`. Stay on the pyvista surface for plotting, camera, and export; drop to raw `vtk` only for a filter or mapper pyvista lacks, then re-wrap.
 - `numpy`(`libs/python/.api/numpy.md`): `vtkmodules.util.numpy_support.numpy_to_vtk`/`vtk_to_numpy` is the zero-copy bridge — a NumPy buffer becomes point coordinates (`numpy_to_vtk` -> `vtkPoints.SetData`) or a named scalar field in one call, never a per-element `InsertNextValue` loop over a large dataset.
-- `usd-core`(`.api/usd-core.md`): the wheel ships the `vtkIOExport` scene exporters (`vtkGLTFExporter`/`vtkOBJExporter`/`vtkVRMLExporter`/`vtkX3DExporter`) but no `vtkmodules.vtkIOUSD` — VTK USD I/O needs a source build against OpenUSD, so USD/USDZ authoring belongs to `usd-core` (`pxr`) across the numpy buffer seam.
+- `usd-core`(`.api/usd-core.md`): the resident build ships the `vtkIOExport` scene exporters (`vtkGLTFExporter`/`vtkOBJExporter`/`vtkVRMLExporter`/`vtkX3DExporter`) but no `vtkmodules.vtkIOUSD` — VTK USD I/O needs that module enabled against OpenUSD, so USD/USDZ authoring belongs to `usd-core` (`pxr`) across the numpy buffer seam.
 - within-lib `scene` crease linework: `vtkFeatureEdges` extracts crease/outline edges — `SetBoundaryEdges`/`SetFeatureEdges`/`SetNonManifoldEdges`/`SetManifoldEdges` gate the edge classes, `SetFeatureAngle(deg)` sets the crease threshold — emitting line `vtkPolyData` that `vtk_to_numpy`/`pyvista.wrap` hands the drawing egress as extracted vectors.
 - within-lib `scene` silhouette linework: `vtkPolyDataSilhouette` extracts the view-dependent occluding contour — `SetCamera` binds the viewpoint, `SetDirectionToCameraOrigin` selects camera-vs-origin, `SetEnableFeatureAngle`/`SetFeatureAngle` add creases, `SetBorderEdges` adds open borders — emitting the same line `vtkPolyData`.
 - within-lib `scene` vector export: `vtkGL2PSExporter` (`vtkmodules.vtkIOExportGL2PS`, over `Plotter.render_window`) writes a rendered scene to real vector formats — `SetRenderWindow(win)`, `SetFileFormatToPS`/`ToEPS`/`ToPDF`/`ToSVG`/`ToTeX`, `SetFilePrefix(path)`, `SetSortToBSP`/`ToSimple` depth ordering, `SetCompress`, `Write` — the path where a raster framebuffer loses the linework.

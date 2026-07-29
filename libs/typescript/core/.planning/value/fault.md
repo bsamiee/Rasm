@@ -6,12 +6,10 @@ Taxonomy, evidence, retry, and degradation remain clusters of one recovery-polic
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                          | [PUBLIC]                        |
-| :-----: | :------------------ | :-------------------------------------------------------------- | :------------------------------ |
-|  [01]   | `CLASS_VOCABULARY`  | the ten-class table, classification fold, dominance lattice     | `FaultClass`                    |
-|  [02]   | `ENRICHER_CONTRACT` | the capture evidence model and the enrichment port              | `FaultCapture`, `FaultEnricher` |
-|  [03]   | `RETRY_BUDGET`      | the budget rows and their compiled gate-modal `Schedule` values | `Budget`                        |
-|  [04]   | `DEGRADE_LADDER`    | the silence-threshold ladder and its parameterized level fold   | `Degrade`                       |
+- [02]-[CLASS_VOCABULARY]: the ten-class table, classification fold, dominance lattice; `FaultClass`.
+- [03]-[ENRICHER_CONTRACT]: the capture evidence model and the enrichment port; `FaultCapture`, `FaultEnricher`.
+- [04]-[RETRY_BUDGET]: the budget rows and their compiled gate-modal `Schedule` values; `Budget`.
+- [05]-[DEGRADE_LADDER]: the silence-threshold ladder and its parameterized level fold; `Degrade`.
 
 ## [02]-[CLASS_VOCABULARY]
 

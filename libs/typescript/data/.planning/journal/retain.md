@@ -4,11 +4,9 @@ Aging stays lawful without rewriting: the log is append-only forever, so this pa
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                          |
-| :-----: | :--------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `RETENTION_ROWS` | the retention-class vocabulary, window policy, frontier handoff, partition rows |
-|  [02]   | `SHREDDER`       | the wrapped-key ledger, seal/open folds, erasure as key destruction             |
-|  [03]   | `DSAR_EXPORT`    | the per-subject portability fold over journal plus object rows                  |
+- [02]-[RETENTION_ROWS]: the retention-class vocabulary, window policy, frontier handoff, partition rows.
+- [03]-[SHREDDER]: the wrapped-key ledger, seal/open folds, erasure as key destruction.
+- [04]-[DSAR_EXPORT]: the per-subject portability fold over journal plus object rows.
 
 ## [02]-[RETENTION_ROWS]
 

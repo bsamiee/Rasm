@@ -4,14 +4,12 @@ Browser byte transport and the folder's kernel-delegating mint site: the browser
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                     | [PUBLIC]              |
-| :-----: | :---------------- | :------------------------------------------------------------------------- | :-------------------- |
-|  [01]   | `BINDING_ROWS`    | the browser runtime rows — XHR client, socket constructor, spawner         | `Web`                 |
-|  [02]   | `FLOW_ROWS`       | the per-class buffer, ceiling, and rate policy rows                        | `Fetch` (types)       |
-|  [03]   | `DIAL_SURFACE`    | the decorated dial, the offline gate, the streaming and decoded modalities | `Fetch`, `FetchFault` |
-|  [04]   | `WIRE_PROTOCOL`   | the request family, the serialized fault, the pool Tag and layer           | `Pool`, `PoolFault`   |
-|  [05]   | `DEPOT_SCHEDULER` | the residency ledger, the degree rows, the budget-bounded haul             | `Depot`               |
-|  [06]   | `RUNNER_ENTRY`    | the worker-side boot module and its handler record                         | none                  |
+- [02]-[BINDING_ROWS]: the browser runtime rows — XHR client, socket constructor, spawner; `Web`.
+- [03]-[FLOW_ROWS]: the per-class buffer, ceiling, and rate policy rows; `Fetch` (types).
+- [04]-[DIAL_SURFACE]: the decorated dial, the offline gate, the streaming and decoded modalities; `Fetch`, `FetchFault`.
+- [05]-[WIRE_PROTOCOL]: the request family, the serialized fault, the pool Tag and layer; `Pool`, `PoolFault`.
+- [06]-[DEPOT_SCHEDULER]: the residency ledger, the degree rows, the budget-bounded haul; `Depot`.
+- [07]-[RUNNER_ENTRY]: the worker-side boot module and its handler record; none.
 
 ## [02]-[BINDING_ROWS]
 

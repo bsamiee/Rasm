@@ -8,30 +8,36 @@ Content-addressed identity binds every branch that hashes, keys, or wires a valu
 
 [CONTENT_KEY]:
 - Binds: C#, Python, TypeScript, tooling.
-- Law: Derived artifact keys on the content hash of its source, cache validity is key equality, never path or mtime.
-- Law: Content identity federates through one frozen-name entry per branch — seed-zero `XxHash128` over caller-canonical bytes, each branch minting that entry in its own types and parity proven at the `tests/contracts/` `CANONICAL_BYTE_IDENTITY` fixture; a runtime-local hasher, a digest minted under the reserved name, or a one-branch algorithm swap forks every cross-runtime join, so a new hashing need composes the owning entry and re-keying is a coordinated estate migration, never a branch decision.
-- Law: Keys persist and wire as 16 big-endian bytes — `:x32` is that big-endian hex — while `XxHash128` fills its hash-input buffer little-endian; peers normalize byte order exactly once at decode, and a raw-buffer parity check reversing neither side or both forks the key at the cross-runtime join.
-- Law: An evidence record's identity slot carries the pre-run source key the hit test compares; a produced output's content address is a separate derived fact, and minting it into the slot silently defeats keyed elision.
-- Law: A source with no canonical byte form — a live handle, a callable, a non-deterministic serialization — joins the key as environment-scoped identity and demotes admission to forced-live, never trusted to elide.
-- Boundary: A security identity — a credential fingerprint, trust material — rides a cryptographic digest, and the speed hash keys caches and elision, never trust.
+- Law: Derived artifacts key on the content hash of their source, so cache validity is key equality, never path or mtime.
+- Law: Content identity federates through one frozen-name entry per branch, seed-zero `XxHash128` over caller-canonical bytes.
+- Law: `tests/contracts/` `CANONICAL_BYTE_IDENTITY` proves that entry's parity, so a new hashing need composes it and re-keying spans the estate.
+- Law: Keys persist and wire as 16 big-endian bytes, `:x32` their hex, while `XxHash128` fills its hash-input buffer little-endian.
+- Law: Peers normalize byte order exactly once at decode, and a parity check reversing neither side or both forks the key at the join.
+- Law: Evidence records carry the pre-run source key in their identity slot, the key a hit test compares.
+- Law: Produced-output content addresses stay a separate derived fact, and minting one into the identity slot defeats keyed elision.
+- Law: Sources with no canonical byte form — a live handle, a callable, a nondeterministic serialization — join as environment-scoped identity.
+- Law: Environment-scoped identity demotes admission to forced-live and never elides.
+- Boundary: Security identities ride a cryptographic digest — credential fingerprints, trust material — and the speed hash keys caches, never trust.
 
 [WIRE_TOKEN]:
 - Binds: All branches.
-- Law: A wire token admits only the emitting owner's exact spelling, compared byte-wise at every peer; a tolerant parse re-emitting a normalized form forks the key.
+- Law: Wire tokens admit the emitting owner's exact spelling alone, compared byte-wise at every peer, and a tolerant re-emit forks the key.
 
 [PREIMAGE_FRAMING]:
 - Binds: All branches.
-- Law: A multi-field hash preimage length-frames every variable-width field and count-frames every adjacent collection.
-- Law: Separator-joined concatenation is rejected — a separator character inside one value shifts two field splits onto one digest, and fixed-width elements never mark a collection boundary; a spine of fixed-width digests concatenates injectively and needs no framing.
-- Law: A composite identity rides a canonical codec — framed canonical bytes or canonical JSON — never a hand-rolled join or quote scheme injective on one ambiguity axis; an array-bearing key frames shape beside canonicalized dtype and layout bytes.
+- Law: Multi-field hash preimages length-frame every variable-width field and count-frame every adjacent collection.
+- Law: Preimages reject separator-joined concatenation — a separator inside one value shifts two field splits onto one digest.
+- Law: Fixed-width digest spines concatenate injectively and need no framing, while fixed-width elements never mark a collection boundary.
+- Law: Composite identities ride a canonical codec — framed canonical bytes or canonical JSON — never a hand-rolled join or quote scheme.
+- Law: Array-bearing keys frame shape beside canonicalized dtype and layout bytes.
 
 [PREIMAGE_COVERAGE]:
 - Binds: All branches.
-- Law: A content key's preimage covers every identity-bearing member, and a member outside it is declared derived on site.
-- Law: A stored member the preimage omits is a split-brain whose stated re-word or re-order semantics is false unless the declaration names it derived-or-annotation.
-- Law: Any input whose value shifts the produced output — a toolchain generation, a credential's content, a consumed template's digest — is identity-bearing wherever it lives and joins the preimage, never only the record's stored fields.
-- Boundary: An input that cannot shift a produced success's bytes — an execution policy, a timeout, a retry budget — stays outside the content preimage, because policy keys when work fails, never what a success produces, and admitting it forks one content identity across policy motion.
-- Boundary: A human-facing label cannot shift a success's bytes, so admitting it forks one content identity across renames.
+- Law: Content-key preimages cover every identity-bearing member, and a member outside one is declared derived on site.
+- Law: Stored members outside the preimage read as split-brain, falsifying any re-word or re-order claim unless declared derived-or-annotation.
+- Law: Inputs shifting the produced output join the preimage wherever they live — a toolchain generation, a credential, a consumed template's digest.
+- Boundary: Inputs that cannot shift a success's bytes — an execution policy, a timeout, a retry budget — stay outside the content preimage.
+- Boundary: Human-facing labels shift no success bytes, so admitting one forks content identity across renames.
 
 ## [02]-[PORTABILITY]
 
@@ -43,11 +49,11 @@ Portable operational behavior binds every branch a rail crosses.
 
 [TYPED_ENVELOPE]:
 - Binds: All branches.
-- Law: An operational rail returns one typed envelope, and failure rides the envelope, never sentinel values in data rows.
+- Law: Operational rails return one typed envelope, and failure rides that envelope, never a sentinel in a data row.
 
 [EMPTY_FOLD]:
 - Binds: All branches.
-- Law: Pass and compliance verdicts quantified over a required evidence stream gate non-emptiness before the fold — universal quantification over an empty sequence passes vacuously — so empty required input fails closed, never reads as compliance.
+- Law: Pass and compliance verdicts gate non-emptiness before the fold, since quantification over an empty evidence stream passes vacuously.
 
 ## [03]-[TENANCY]
 
@@ -55,5 +61,6 @@ Tenant isolation binds every branch that pins or reads shared database session s
 
 [SESSION_GUC]:
 - Binds: C#, TypeScript.
-- Law: RLS session GUCs carry one namespace spelling shared by every branch that sets or reads them — a `SET`-side namespace and an RLS-predicate namespace that disagree read zero rows under a fail-closed policy, a defect no type or test at either end catches.
-- Law: The namespace is `rasm.*` — `rasm.tenant`, `rasm.scope`, `rasm.subject` — minted once at the security custodian's `SessionCoordinate` catalog and read verbatim by every RLS predicate; `rasm.tenant` doubles as the telemetry tenant dimension, one vocabulary.
+- Law: RLS session GUCs carry one namespace spelling every branch shares, since disagreeing `SET` and predicate spellings read zero rows fail-closed.
+- Law: `SessionCoordinate` mints the one `rasm.*` namespace — `rasm.tenant`, `rasm.scope`, `rasm.subject` — every RLS predicate reads verbatim.
+- Law: `rasm.tenant` doubles as the telemetry tenant dimension, one vocabulary across both planes.

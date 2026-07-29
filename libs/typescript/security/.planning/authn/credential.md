@@ -4,11 +4,9 @@ One digest-at-rest credential owner: second-factor OTP, recovery codes, and mach
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]       | [PUBLIC]                                                                               |
-| :-----: | :-------------- | :------------------------------------------------------------------------------------- |
-|  [01]   | `DIGEST_IDIOM`  | `Digest`, `CredentialFault`                                                            |
-|  [02]   | `SECOND_FACTOR` | `Otp`, `OtpVerdict`, `RecoverySet`                                                     |
-|  [03]   | `MACHINE_KEY`   | `ApiKey`, `ApiKeyRecord`, `MintReceipt`, `ApiKeyStore`, `ApiKeyGuard`, `CurrentApiKey` |
+- [02]-[DIGEST_IDIOM]: `Digest`, `CredentialFault`.
+- [03]-[SECOND_FACTOR]: `Otp`, `OtpVerdict`, `RecoverySet`.
+- [04]-[MACHINE_KEY]: `ApiKey`, `ApiKeyRecord`, `MintReceipt`, `ApiKeyStore`, `ApiKeyGuard`, `CurrentApiKey`.
 
 ## [02]-[DIGEST_IDIOM]
 

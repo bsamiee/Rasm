@@ -216,7 +216,7 @@ public sealed record WgpuFrameEvidence(Func<Fin<Duration>> Measure);
 public abstract partial record RenderPass(string Key) {
     public sealed record Cull(string Key, Func<RenderTarget, MeshletCluster, ViewCamera, Fin<(MeshletCluster Cluster, CullResult Result)>> Visible) : RenderPass(Key);
     public sealed record Geometry(string Key, Func<RenderTarget, MeshletCluster, int, Fin<int>> Draw) : RenderPass(Key);
-    public sealed record PathTrace(string Key, PathTracePass Pass, Atom<AccumulationTarget> Film, LightRig Rig, int SampleBudget, long Seed) : RenderPass(Key);
+    public sealed record PathTrace(string Key, PathTracePass Pass, Atom<AccumulationTarget> Film, LightRig Rig, int SampleBudget, long Seed, CancelScope Scope) : RenderPass(Key);
     public sealed record Sim(string Key, Func<RenderTarget, Fin<int>> Draw) : RenderPass(Key);
     public sealed record Composite(string Key, Func<SKCanvas, ResolveState, Fin<Unit>> Raster) : RenderPass(Key);
     public sealed record Overlay(string Key, Func<SKCanvas, Fin<Unit>> Draw) : RenderPass(Key);
@@ -392,7 +392,7 @@ public sealed record RenderGraph(
                             .Map(next => (ctx.ClusterCell.Swap(_ => next.Cluster), next.Result.Draw.Count).Item2),
                         geometry: static (ctx, g) => g.Draw(ctx.Target, ctx.Cluster, ctx.Cluster.Clusters.Count),
                         pathTrace: static (ctx, p) => (ctx.Moved ? p.Film.Swap(static film => film.Reset()) : p.Film.Value) switch {
-                            var film => p.Pass.Accumulate(film, ctx.Camera, p.Rig, p.SampleBudget, p.Seed)
+                            var film => p.Pass.Accumulate(film, ctx.Camera, p.Rig, p.SampleBudget, p.Seed, p.Scope)
                                 .Map(advanced => (p.Film.Swap(_ => advanced), 0).Item2),
                         },
                         sim: static (ctx, s) => s.Draw(ctx.Target),

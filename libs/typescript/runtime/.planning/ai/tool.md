@@ -4,13 +4,11 @@ The tool vocabulary and both MCP lanes in one owner: tools are `Schema`-typed da
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]  | [OWNS]                                                                               | [PUBLIC]  |
-| :-----: | :--------- | :----------------------------------------------------------------------------------- | :-------- |
-|  [01]   | `TOOL_LAW` | the declaration and assembly law — schemas, failure routing, annotations as hints    | —         |
-|  [02]   | `SAFETY`   | blast-radius classes, posture modes, hint admission, the fail-closed partition       | `Safety`  |
-|  [03]   | `ARSENAL`  | the provider-defined tool ledger — four package rosters as one graded table          | `Arsenal` |
-|  [04]   | `HOST`     | native MCP hosting — toolkit projection, resources, prompts, elicitation, transports | `Host`    |
-|  [05]   | `REMOTE`   | the SDK client lane — one scoped session owner, declared rows, decoded capabilities  | `Remote`  |
+- [02]-[TOOL_LAW]: the declaration and assembly law — schemas, failure routing, annotations as hints; —.
+- [03]-[SAFETY]: blast-radius classes, posture modes, hint admission, the fail-closed partition; `Safety`.
+- [04]-[ARSENAL]: the provider-defined tool ledger — four package rosters as one graded table; `Arsenal`.
+- [05]-[HOST]: native MCP hosting — toolkit projection, resources, prompts, elicitation, transports; `Host`.
+- [06]-[REMOTE]: the SDK client lane — one scoped session owner, declared rows, decoded capabilities; `Remote`.
 
 ## [02]-[TOOL_LAW]
 

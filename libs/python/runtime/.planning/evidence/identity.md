@@ -12,7 +12,7 @@ One span-fold core serves both entries — `_derive_span` the sole `content.deri
 
 - Owner: `IdentityPolicy.spec` IS the canonical-seed field contract — every field it renders enters the seed bytes — and the policy is a GENERIC carrier: a domain knob such as geometry's tessellation deflection/angle rides a consumer-owned policy folded into the canonical seed bytes, never a new `IdentityPolicy` field per domain. Key equality is bytes-law — `of(fmt, source)` under the default and under an explicit `CANONICAL_POLICY` mint the same key, the compute design-key resume cache the demanding proof. `IdentitySource` owns its own `lift` and `fold`, so dispatch is total and the digest algebra rides the union, never an external dispatcher or a second entrypoint.
 - Entry: `of` is the one polymorphic derivation over input shape and output projection — no per-render method and no parallel `of_canonical`; `key` is the bare synchronous accessor beside it, the one fallibility split, never a `rail: bool` knob. An empty or mixed tuple falls through to `stream`, whose seed-only fold is a deterministic degenerate key. `seed` is the `Option[U64]` override: `Nothing` the policy-folded settings seed, `Some(0)` the bare C# `XxHash128.HashToUInt128(span)` seed-zero path the `GeometryHash`/`NamingHashOps` boundary mints — geometry `mesh/daemon` keys GLB wire bytes under this seed-zero `RepresentationContentHash` parity contract — so the seed origin is one parameter, never a fake policy. Identity is recovered from the value shape, never a path, name suffix, or mode flag.
-- Auto: the `merkle` child transcription reproduces the C# `BinaryPrimitives.WriteUInt128LittleEndian` canonical span the `csharp:Rasm.Persistence/Version/commits#COMMIT_DAG` `CommitGraph.Of`/`MerkleRange.Of` and `#CRDT_WIRE` `CrdtWire.ContentKey` fold before `XxHash128.HashToUInt128`, so a parent key is order-sensitive over its parts. `lift`'s payload modalities are exported branch law — data keys operation bytes and derived-snapshot Merkle keys, compute keys buffer/stream payloads for its resume cache, geometry keys GLB bytes — so narrowing any modality is a cross-folder break. `project("hex")` renders `{value:032x}:{fmt}` so a companion GLB result keys byte-identically to the C# `InterchangeIdentity.Key`.
+- Auto: the `merkle` child transcription reproduces the C# `BinaryPrimitives.WriteUInt128LittleEndian` canonical span the `csharp:Rasm.Persistence/Version/commits#COMMIT_DAG` `CommitGraph.Of`/`MerkleRange.Of` and `#CRDT_WIRE` `CrdtWire.ContentKey` fold before `XxHash128.HashToUInt128`, so a parent key is order-sensitive over its parts. `lift`'s payload modalities are exported branch law — data keys operation bytes and derived-snapshot Merkle keys, compute keys buffer/stream payloads for its resume cache, geometry keys GLB bytes — so narrowing any modality is a cross-folder break. `project("hex")` renders `{value:032x}:{fmt}` so a companion GLB result keys byte-identically to the C# `InterchangeIdentity.Key`; `project("wire")` renders the bare 32-lowercase-hex form every wire digest and manifest key field carries — the python peer of `ContentAddress.ToValue()`, the ONE lowering site the key-spelling carve demands.
 - Growth: a new evaluation parameter is one `Tolerance` field on `IdentityPolicy.spec`; a new output render one `KeyView` member with one `project` arm; a new input modality one `IdentitySource` case, one `lift` shape, and one `fold` arm; a distinct seed origin one `Some(value)` through the existing override; a new span attribute one line in the span-fold core reaching both entries.
 - Boundary: artifact identity is XxHash128 over canonical bytes — the suite hash law — and the C# `InterchangeIdentity` is the cross-boundary mechanics owner this seed reproduces. Consumers ride the unbroken `of`/`key`/`ContentKey`/`hex` surface. Its span scopes exactly the derivation: the downstream `execution/lanes#LANE` cache hit/miss the returned key drives is the lane owner's span, never folded into `content.derive`. This owner mints the branch's `CANONICAL_BYTE_IDENTITY` instance under the `docs/laws/patterns.md` `[PREIMAGE_FRAMING]` law at seed zero; parity across the three independent mints IS the conformance, and the payload a branch frames sits outside that entry.
 
@@ -39,7 +39,7 @@ from rasm.runtime.faults import SCOPES, RuntimeRail, Scope, boundary, scoped
 type U128 = Annotated[int, Meta(ge=0)]
 type U64 = Annotated[int, Meta(ge=0)]
 type Tolerance = Annotated[float, Meta(gt=0.0)]
-type KeyView = Literal["value", "hex", "memory", "digest"]
+type KeyView = Literal["value", "hex", "wire", "memory", "digest"]
 type KeyRender = ContentKey | str | bytes | int
 type Source = Buffer | Iterable[bytes] | tuple[ContentKey, ...] | Struct
 
@@ -58,6 +58,8 @@ class ContentKey(Struct, frozen=True, order=True, gc=False):
     @overload
     def project(self, view: Literal["hex"], /) -> str: ...
     @overload
+    def project(self, view: Literal["wire"], /) -> str: ...
+    @overload
     def project(self, view: Literal["memory"], /) -> bytes: ...
     @overload
     def project(self, view: Literal["digest"], /) -> int: ...
@@ -65,6 +67,11 @@ class ContentKey(Struct, frozen=True, order=True, gc=False):
         match view:
             case "hex":
                 return f"{self.value:032x}:{self.fmt}"
+            case "wire":
+                # the bare 32-lowercase-hex wire spelling — the appearance-vocabulary fragment's `wireLower`
+                # pattern rejects the `hex` view's `:{fmt}` tail, and this arm is the ONE python lowering site,
+                # so a manifest producer never hand-formats `{value:032x}` inline and forks the address
+                return f"{self.value:032x}"
             case "memory":
                 return self.memory
             case "digest":

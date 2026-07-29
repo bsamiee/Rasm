@@ -4,13 +4,11 @@ Durable execution as suspend-and-replay: a `Workflow` is a Schema-typed, idempot
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]     | [OWNS]                                                                          | [PUBLIC] |
-| :-----: | :------------ | :------------------------------------------------------------------------------ | :------- |
-|  [01]   | `STEP_MINT`   | the budgeted activity mint — deadline geometry, class-gated retry, run evidence | `Step`   |
-|  [02]   | `FLOW_LAW`    | definition, execution identity, the engine Tag, drive members, the result fold  | `Flow`   |
-|  [03]   | `SAGA_FOLD`   | top-level compensation registration and the rollback law                        | `Flow`   |
-|  [04]   | `SIGNAL_GATE` | the token-addressed external signal and the one durable timer                   | `Signal` |
-|  [05]   | `WIRE_PROXY`  | workflow sets as serving-plane contribution pairings                            | `Flow`   |
+- [02]-[STEP_MINT]: the budgeted activity mint — deadline geometry, class-gated retry, run evidence; `Step`.
+- [03]-[FLOW_LAW]: definition, execution identity, the engine Tag, drive members, the result fold; `Flow`.
+- [04]-[SAGA_FOLD]: top-level compensation registration and the rollback law; `Flow`.
+- [05]-[SIGNAL_GATE]: the token-addressed external signal and the one durable timer; `Signal`.
+- [06]-[WIRE_PROXY]: workflow sets as serving-plane contribution pairings; `Flow`.
 
 ## [02]-[STEP_MINT]
 

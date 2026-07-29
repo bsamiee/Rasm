@@ -6,12 +6,10 @@ Each arm is a total function from spec, host material, and pins to a `PulumiFn`:
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                                | [PUBLIC]    |
-| :-----: | :------------------ | :-------------------------------------------------------------------- | :---------- |
-|  [01]   | `EQUIVALENCE_MAP`   | the capability-by-arm table and its `Option`-lifted projections       | `Dispatch`  |
-|  [02]   | `ARM_CONTRACT`      | the material read, pins, the coordinate proofs, the exhaustive record | `Dispatch`  |
-|  [03]   | `CLUSTER_BOOTSTRAP` | first boot, staging, install, connection hardening, kubeconfig egress | `Bootstrap` |
-|  [04]   | `ARM_PROGRAMS`      | the shared k8s estate builder and the five arm bodies                 | `Dispatch`  |
+- [02]-[EQUIVALENCE_MAP]: the capability-by-arm table and its `Option`-lifted projections; `Dispatch`.
+- [03]-[ARM_CONTRACT]: the material read, pins, the coordinate proofs, the exhaustive record; `Dispatch`.
+- [04]-[CLUSTER_BOOTSTRAP]: first boot, staging, install, connection hardening, kubeconfig egress; `Bootstrap`.
+- [05]-[ARM_PROGRAMS]: the shared k8s estate builder and the five arm bodies; `Dispatch`.
 
 ## [02]-[EQUIVALENCE_MAP]
 
@@ -27,7 +25,7 @@ Each arm is a total function from spec, host material, and pins to a `PulumiFn`:
 - Packages: `effect` (`Array`, `Option`, `Record`); `./spec.ts` (`StackSpec`).
 
 ```typescript signature
-import { Array, Option, Record } from "effect"
+import { Array, Option, Order, Record } from "effect"
 import type { StackSpec } from "./spec.ts"
 
 const _capabilities = [
@@ -111,9 +109,9 @@ const _map = {
     aws: "kube tenant tier over the EKS estate (compute: cluster)",
   },
   distribution: {
-    aws: "synced-folder.S3BucketFolder over aws.s3.BucketV2 (compute: serverless)",
-    gcp: "synced-folder.GoogleCloudFolder over gcp.storage.Bucket",
-    cloudflare: "cloudflare.PagesProject origin (uploads out of graph)",
+    aws: "synced-folder.S3BucketFolder over aws.s3.BucketV2 + cloudfront front rendering Source.edge (compute: serverless)",
+    gcp: "synced-folder.GoogleCloudFolder over gcp.storage.Bucket + compute.URLMap front rendering Source.edge",
+    cloudflare: "cloudflare.PagesProject origin (uploads out of graph) + Ruleset rendering Source.edge",
   },
 } as const
 
@@ -195,7 +193,14 @@ declare namespace Dispatch {
     }
     readonly site?: {
       readonly path: string // the built static-frontend directory; app data, never a lib literal
-      readonly assets: ReadonlyArray<{ readonly slug: string; readonly digest: string; readonly file: string }>
+      // the ENCODED source rows verbatim — `siblings` optional so a single-leaf artifact spells three fields
+      // while a multi-leaf decoder row (Source.decoder fills all four) survives the pin unnarrowed
+      readonly assets: ReadonlyArray<{
+        readonly slug: string
+        readonly digest: string
+        readonly file: string
+        readonly siblings?: ReadonlyArray<string>
+      }>
     }
     readonly boards: ReadonlyArray<typeof DashboardModel.Encoded>
     readonly alerts: ReadonlyArray<Alert.Spec>
@@ -351,6 +356,8 @@ class Bootstrap extends Tier {
 - Law: the aws arm dispatches its compute posture as data — `_AWS` is a handler record keyed by `StackSpec.Profile["compute"]`: the `serverless` row realizes VPC → ECR build → Fargate behind an ALB with the S3 object cell; the `cluster` row escalates to `eks.Cluster` (`authenticationMode: "API"`, `createOidcProvider: true` for IRSA, `skipDefaultNodeGroup: true`) with one `ManagedNodeGroup` sized from `pins.nodes`, binds `kubeconfigJson` into the arm's one `k8s.Provider` seam, and reuses `_estate` whole — the managed twin of `Bootstrap.kubeconfig`, one seam swap and zero tier edits.
 - Law: the gcp arm binds `credentials` from the `GCP_CREDENTIALS` fan-in read, realizes the versioned `gcp.storage.Bucket` object cell and the `gcp.sql.DatabaseInstance` + `Database` + `User` data cell, and returns only those planes with optional served assets; the cloudflare arm binds `apiToken` from the fan-in, realizes the `R2Bucket` object cell with its `R2BucketLifecycle` aging row and the `PagesProject` static origin, and lands the dns cell as the CNAME onto the project's `pages.dev` subdomain — each returns exactly the planes it realizes.
 - Law: the distribution cells construct what the map advertises — the aws and gcp arms converge the built frontend through `Source.distribute` over their own object cells when `pins.site` arrives (the versioned `BucketV2` behind one `BucketVersioningV2` row on aws, the versioned bucket on gcp), each returning the caller-owned `served` slug-to-path record as an output plane; the cloudflare arm's static origin stays its `PagesProject` rows, whose build product uploads out of graph.
+- Law: every arm fronting served bytes folds the ONE header roster into its own dialect — the aws and gcp arms read `Source.distribute(...).edge`, the cloudflare arm reads `Source.edge` because it converges no folder, and `_EDGED` renders each row's `pattern`/`header`/`value` with no literal of its own: aws mints one `cloudfront.ResponseHeadersPolicy` per posture bound through the distribution's ordered behaviors over the site bucket's `OriginAccessControl` origin, gcp renders route rules carrying `headerAction.responseHeadersToAdds` on the `URLMap` fronting its CDN-enabled `BackendBucket` (`prefixMatch` for the bare-star pattern, `pathTemplateMatch` `/**.{ext}` for a suffix pattern — `regexMatch` is unspellable on the external managed scheme), and cloudflare rewrites through one `http_response_headers_transform` `Ruleset` over its Pages origin.
+- Law: dialect match semantics decide the fold shape — aws and gcp bind the FIRST matching behavior per request, so `_postures` folds each pattern's covering rows into one header set and orders patterns narrow to wide (under the two-shape grammar a covered pattern always spells longer than its coverer); the cloudflare rules engine applies EVERY matching header-transform rule, so its arm renders the roster rows verbatim, one rule per row in roster order.
 - Law: every arm funds the boards — the encoded models and alert specs enter as pins where the arm realizes an observe cell; an arm without the observe cell returns no `grafana` plane and drops nothing silently.
 - Growth: realizing an arm is one realizer body or one `_AWS`-style posture row; a new cloud is one record row and one map column; a new tier admission fault is one member of `Dispatch.EstateFault`.
 - Boundary: tier mechanics live on the tier pages; the credential vocabulary is `operate/secret.md`'s and the scope roster `kube/data.md`'s; the declared realizers' argument catalogues are the standing research items on the provider `.api` files.
@@ -550,6 +557,141 @@ const _estate = (
 // here and a refused estate surfaces as a rejected program promise, never a throw inside a tier.
 const _bodied = <A>(program: Effect.Effect<A, Dispatch.EstateFault>): Promise<A> => Effect.runPromise(program)
 
+// the served-header grammar has two pattern shapes — a prefix star, and a prefix star with a suffix — so
+// coverage and specificity both derive from one split and no dialect re-parses a pattern it renders
+const _split = (pattern: string) => {
+  const star = pattern.indexOf("*")
+  return { prefix: pattern.slice(0, star), suffix: pattern.slice(star + 1) }
+}
+
+const _covers = (general: string, specific: string): boolean => {
+  const wide = _split(general)
+  const narrow = _split(specific)
+  return narrow.prefix.startsWith(wide.prefix) && (wide.suffix === "" || wide.suffix === narrow.suffix)
+}
+
+// first-match engines answer ONE behavior per request: each pattern folds the union of every covering
+// roster row, ordered narrow to wide — under the two-shape grammar a covered pattern spells longer
+const _postures = (rules: Source.Distributed["edge"]) =>
+  Array.map(
+    Array.sort(
+      Array.dedupe(Array.map(rules, (rule) => rule.pattern)),
+      Order.mapInput(Order.reverse(Order.number), (pattern: string) => pattern.length),
+    ),
+    (pattern) => ({
+      pattern,
+      headers: Array.map(
+        Array.filter(rules, (rule) => _covers(rule.pattern, pattern)),
+        (rule) => ({ header: rule.header, value: rule.value }),
+      ),
+    }),
+  )
+
+// each arm renders the ONE header roster in its own dialect — pattern/header/value rows in, the arm's own
+// fronting resources out, no roster literal anywhere in an arm body
+const _EDGED = {
+  // aws: the response headers policy is the only per-path header surface an S3 origin admits, so the
+  // CloudFront front IS the fold's product — one policy per posture, one ordered behavior per pattern,
+  // the OAC origin and one owned cache policy carrying no roster literal
+  aws: (name: string, rules: Source.Distributed["edge"], site: { readonly bucket: aws.s3.BucketV2 }, opts: { readonly provider: aws.Provider }) => {
+    const access = new aws.cloudfront.OriginAccessControl(`${name}-access`, {
+      originAccessControlOriginType: "s3",
+      signingBehavior: "always",
+      signingProtocol: "sigv4",
+    }, opts)
+    const cache = new aws.cloudfront.CachePolicy(`${name}-cache`, {
+      minTtl: 0,
+      defaultTtl: 86400,
+      maxTtl: 31536000,
+      parametersInCacheKeyAndForwardedToOrigin: {
+        cookiesConfig: { cookieBehavior: "none" },
+        headersConfig: { headerBehavior: "none" },
+        queryStringsConfig: { queryStringBehavior: "none" },
+        enableAcceptEncodingBrotli: true,
+        enableAcceptEncodingGzip: true,
+      },
+    }, opts)
+    const _behavior = (cachePolicyId: pulumi.Input<string>) => ({
+      targetOriginId: "site",
+      cachePolicyId,
+      viewerProtocolPolicy: "redirect-to-https",
+      allowedMethods: ["GET", "HEAD", "OPTIONS"],
+      cachedMethods: ["GET", "HEAD"],
+    })
+    return new aws.cloudfront.Distribution(`${name}-front`, {
+      enabled: true,
+      defaultRootObject: "index.html",
+      origins: [{ originId: "site", domainName: site.bucket.bucketRegionalDomainName, originAccessControlId: access.id }],
+      defaultCacheBehavior: _behavior(cache.id),
+      orderedCacheBehaviors: Array.map(_postures(rules), (posture, rank) => ({
+        ..._behavior(cache.id),
+        pathPattern: posture.pattern,
+        responseHeadersPolicyId: new aws.cloudfront.ResponseHeadersPolicy(`${name}-posture-${rank}`, {
+          customHeadersConfig: {
+            items: Array.map(posture.headers, (row) => ({ header: row.header, value: row.value, override: true })),
+          },
+        }, opts).id,
+      })),
+      restrictions: { geoRestriction: { restrictionType: "none" } },
+      viewerCertificate: { cloudfrontDefaultCertificate: true },
+    }, opts)
+  },
+  // gcp: route rules carry the headers — prefixMatch for the bare-star pattern, pathTemplateMatch
+  // `/<prefix>**<suffix>` for a suffix pattern (regexMatch is unspellable on the external managed
+  // scheme) — over one CDN-enabled backend bucket behind the URL map, proxy, and door the arm owns
+  gcp: (name: string, rules: Source.Distributed["edge"], site: { readonly bucket: gcp.storage.Bucket }, opts: { readonly provider: gcp.Provider }) => {
+    const backend = new gcp.compute.BackendBucket(`${name}-origin`, { bucketName: site.bucket.name, enableCdn: true }, opts)
+    const routes = new gcp.compute.URLMap(`${name}-routes`, {
+      defaultService: backend.id,
+      hostRules: [{ hosts: ["*"], pathMatcher: "served" }],
+      pathMatchers: [{
+        name: "served",
+        defaultService: backend.id,
+        routeRules: Array.map(_postures(rules), (posture, rank) => {
+          const shape = _split(posture.pattern)
+          return {
+            priority: rank + 1, // ascending evaluation: the narrow-to-wide posture order IS the rule order
+            service: backend.id,
+            matchRules: [
+              shape.suffix === ""
+                ? { prefixMatch: `/${shape.prefix}` }
+                : { pathTemplateMatch: `/${shape.prefix}**${shape.suffix}` },
+            ],
+            headerAction: {
+              responseHeadersToAdds: Array.map(posture.headers, (row) => ({ headerName: row.header, headerValue: row.value, replace: true })),
+            },
+          }
+        }),
+      }],
+    }, opts)
+    const proxy = new gcp.compute.TargetHttpProxy(`${name}-proxy`, { urlMap: routes.id }, opts)
+    return new gcp.compute.GlobalForwardingRule(`${name}-door`, {
+      target: proxy.id,
+      portRange: "80",
+      loadBalancingScheme: "EXTERNAL_MANAGED",
+    }, opts)
+  },
+  // cloudflare: the rules engine applies EVERY matching header-transform rule, so the roster rows render
+  // verbatim — one rewrite rule per row, the pattern lowered into the zone's own path predicates
+  cloudflare: (name: string, rules: Source.Distributed["edge"], site: { readonly zone: pulumi.Input<string>; readonly app: string }, opts: { readonly provider: cloudflare.Provider }) =>
+    new cloudflare.Ruleset(`${name}-headers`, {
+      zoneId: site.zone,
+      name: `${site.app}-served-headers`,
+      kind: "zone",
+      phase: "http_response_headers_transform",
+      rules: Array.map(rules, (rule) => {
+        const shape = _split(rule.pattern)
+        return {
+          expression: shape.suffix === ""
+            ? `starts_with(http.request.uri.path, "/${shape.prefix}")`
+            : `starts_with(http.request.uri.path, "/${shape.prefix}") and ends_with(http.request.uri.path, "${shape.suffix}")`,
+          action: "rewrite",
+          actionParameters: { headers: { [rule.header]: { operation: "set", value: rule.value } } },
+        }
+      }),
+    }, opts),
+} as const
+
 const _AWS: {
   readonly [K in StackSpec.Profile["compute"]]: (
     spec: StackSpec,
@@ -573,20 +715,21 @@ const _AWS: {
     }, opts)
     const bucket = new aws.s3.BucketV2("objects", {}, opts)
     new aws.s3.BucketVersioningV2("objects-versioning", { bucket: bucket.id, versioningConfiguration: { status: "Enabled" } }, opts)
-    const served = pins.site === undefined
-      ? {}
-      : {
-          served: Source.distribute("frontend", {
-            arm: "aws",
-            path: pins.site.path,
-            bucket: bucket.bucket,
-            assets: pins.site.assets,
-          }, { providers: [opts.provider] }).served, // the distribution cell the map advertises: the served plane arms the ui codec gate
-        }
+    // the distribution cell the map advertises: the served plane arms the ui codec gate, and the edge
+    // fold renders the same call's header roster onto the CloudFront front — one distribute, both ends
+    const site = pins.site === undefined
+      ? Option.none<Source.Distributed>()
+      : Option.some(Source.distribute("frontend", {
+          arm: "aws",
+          path: pins.site.path,
+          bucket: bucket.bucket,
+          assets: pins.site.assets,
+        }, { providers: [opts.provider] }))
+    Option.map(site, (held) => _EDGED.aws("frontend", held.edge, { bucket }, opts))
     return {
       object: { endpoint: bucket.bucketRegionalDomainName, bucket: bucket.bucket },
       ingress: { hostname: alb.loadBalancer.dnsName },
-      ...served,
+      ...Option.match(site, { onNone: () => ({}), onSome: (held) => ({ served: held.served }) }),
     }
   }),
   cluster: (spec, pins, app, opts) => Effect.suspend(() => {
@@ -809,20 +952,21 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
         }, opts)
         new gcp.sql.Database("app", { instance: sql.name, name: spec.app }, opts)
         new gcp.sql.User("app-role", { instance: sql.name, name: `${spec.app}_app`, password: secrets.read(_scoped("DB_PASSWORD", "data")) }, opts)
-        const served = pins.site === undefined
-          ? {}
-          : {
-              served: Source.distribute("frontend", {
-                arm: "gcp",
-                path: pins.site.path,
-                bucket: bucket.name,
-                assets: pins.site.assets,
-              }, { providers: [provider] }).served,
-            }
+        // one distribute serves both ends: the served plane exits, the edge roster renders onto the
+        // CDN-enabled front the fold mints
+        const site = pins.site === undefined
+          ? Option.none<Source.Distributed>()
+          : Option.some(Source.distribute("frontend", {
+              arm: "gcp",
+              path: pins.site.path,
+              bucket: bucket.name,
+              assets: pins.site.assets,
+            }, { providers: [provider] }))
+        Option.map(site, (held) => _EDGED.gcp("frontend", held.edge, { bucket }, opts))
         return {
           object: { endpoint: bucket.url, bucket: bucket.name },
           data: { host: sql.publicIpAddress, port: 5432, database: spec.app, role: `${spec.app}_app` },
-          ...served,
+          ...Option.match(site, { onNone: () => ({}), onSome: (held) => ({ served: held.served }) }),
         }
       },
     ),
@@ -860,6 +1004,9 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
           proxied: true,
           ttl: 1,
         }, { provider })
+        // the static origin uploads out of graph and converges no folder, so the arm reads Source.edge
+        // directly and its proxied zone answers the same roster every converging arm serves
+        _EDGED.cloudflare("site", Source.edge, { zone, app: spec.app }, { provider })
         return {
           object: { endpoint: pulumi.interpolate`https://${account}.r2.cloudflarestorage.com/${store.name}`, bucket: store.name },
           ingress: { hostname: `${spec.app}.${domain}` },

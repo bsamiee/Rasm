@@ -11,7 +11,7 @@ Structural vocabulary binds the whole repo: a rank, boundary, unit, or corpus-su
 - `package`: closes one bounded context — own nouns, own invariants, and a published boundary an unrelated application adopts alone.
 - `bounded context`: fences one model whose nouns and invariants hold inside it and translate at its boundary.
     - [NOT]: Evans' team-and-subsystem reading; only the package boundary fences a model here.
-- `cross-cutting concern`: names a concern every owner needs and no owner holds — identity, telemetry, faults, policy — attached at a definition or composition seam.
+- `cross-cutting concern`: names what all owners need and none owns — identity, telemetry, faults, policy — woven at definition or composition time.
     - [NOT]: aspect weaving, which each branch doctrine owns as an attachment mechanism.
 - `capability`: names what an owner does for a consumer, stated as present-tense owned fact and never gated on consumer arrival.
 - `tier`: ranks one level of ownership breadth — cross-libs core, branch, folder, page — and the narrowest tier holding a fact owns it.
@@ -36,6 +36,8 @@ Structural vocabulary binds the whole repo: a rank, boundary, unit, or corpus-su
 - `seam`: declares one crossing between two owners, recorded at both endpoint folders under identical kind and direction.
     - [NOT]: Feathers' test seam, an incision cut into legacy code for substitution; a published contract is the crossing here.
 - `wire`: fixes the byte-level shape crossing a boundary, spelled once at its codec owner and compared byte-wise at every peer.
+- `asset address`: locates each file of one content-keyed product under that product's own key, so publisher and reader join on it, deriving no path.
+    - [NOT]: per-file digest paths, which re-key each leaf and fork one product's identity across its own members.
 - `contract`: defines one shape both ends conform to independently, carrying data and obligating no build order in either direction.
 - `coupling`: binds an edit obligation between two surfaces, so touching one obligates its counterpart in the same change.
 - `drift`: measures the gap between a surface and its declared truth after one end moves alone.

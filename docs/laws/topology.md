@@ -47,6 +47,10 @@ Consumers walk this table and resolve each row live. Transcribing rows into a se
 |  [37]   | backend-row arming column a spec value flips | that plane's `_SOURCES` row `present` half | an unarmed plane provisions no read door     |
 |  [38]   | tier backend selection projecting a target   | every pack rendering against that plane    | one selection, one rendered series grammar   |
 |  [39]   | branch backend-free instrument read plane    | its diagnostic-archive collector row       | a read plane no capture folds answers nobody |
+|  [40]   | shared corpus-definition vocabulary row      | every branch transcribing that row         | one frozen vocabulary, three transcriptions  |
+|  [41]   | wire family row on an interchange census     | its landing class + each consuming arm     | a decoded family with no arm lands nothing   |
+|  [42]   | deploy-plane served decoder artifact row     | the consuming roster row + absence gate    | a decoder serves where its address publishes |
+|  [43]   | native-lineage pin on either peer manifest   | the peer manifest's lineage floor comment  | one native lineage, two package rails        |
 
 ## [02]-[CONDITIONED]
 
@@ -58,47 +62,63 @@ Consumers walk this table and resolve each row live. Transcribing rows into a se
 [CATALOG_MEMBER]:
 - Surface: Folder `.api/` catalog members.
 - Obligates: Every planning fence and `docs/stacks/` exemplar fence citing the member, because fences prove spelling, accessibility, and arity.
-- Law: catalog rows bind both directions — consumer and stacking anchors name only landed planning-page anchors, the pass landing or moving a consumer repairs the catalog row, and a catalog anchor naming an unlanded consumer is aspiration wearing verification's clothes.
-- Law: Claimed absence — a missing member, parameter, or capability — proves only by a failed live resolve against the installed distribution; catalog silence never suffices, and every member that verifies lands as a catalog row in the same pass.
+- Law: Catalog rows bind both directions: consumer and stacking anchors name landed anchors alone, and the pass moving a consumer repairs the row.
+- Law: Anchors naming an unlanded consumer read as aspiration wearing verification's clothes.
+- Law: Claimed absence proves by a failed live resolve against the installed distribution alone, and catalog silence never suffices.
+- Law: Members that verify land as a catalog row in the same pass.
 - Law: Catalog rows contradicting a doctrine page stay unverified until live reflection decides, and the losing surface repairs in the same change.
 
 [FENCE_SEAM]:
 - Surface: Planning-fence seam members.
 - Obligates: Every foreign fence composing the member, because no compiler exists and the sweep is the build.
-- Law: Composing fences bind the seam member's current landed declaration — spelling, accessibility, arity, rail shape, and owning namespace with its prelude `using` — never name presence, so a member edit on any axis sweeps every composing fence repo-wide in the same change.
-- Law: Recorded behavioral traps — a fault on the estate's canonical input type, a lane or modality restriction, a declared member type its own runtime contradicts, a declared knob the distribution reads nowhere, an exported failure class it throws nowhere, a member consuming an argument whose type still publishes a release verb — bind every composing fence to a structural close, never a prose acknowledgment; a fence binding the declaration alone conforms to the letter and ships the defect.
+- Law: Composing fences bind the landed declaration — spelling, accessibility, arity, rail shape, namespace, prelude — never name presence.
+- Law: Member edits on any axis sweep every composing fence repo-wide in the same change.
+- Law: Recorded behavioral traps bind every composing fence to a structural close, and a fence binding the declaration alone ships the trap.
+- Law: Traps span a fault on the canonical input type, a lane or modality restriction, a dead knob, and a declared type its own runtime contradicts.
 - Law: Code-generated bindings record their own field types, optionality, and collection cardinality as generated, never the source schema's.
-- Law: Surfaces PROJECTING a closed family under a renamed vocabulary — a frozen wire union, a decode literal set, a dialect token column — are composing ends carrying the whole family: one arm per case beside each case's full field set, discriminant columns included. Identifier greps prove nothing here because the projection shares no spelling with the owner, so the sweep enumerates the family's ARMS across every projecting surface; a lagging arm refuses a whole producer at the typed boundary and a dropped discriminant column compiles the inverse comparison.
+- Law: Surfaces projecting a closed family under renamed vocabulary — a wire union, a decode literal set, a dialect token column — carry it whole.
+- Law: Sweeps enumerate arms per projecting surface — one arm per case, its full field set, discriminants included — never an identifier grep.
 
 [GRADUATION_WIRE_MIRROR]:
-- Surface: Geometry's `GeometrySubject` union and `GeometryHandoff.wire()` field shape (`libs/python/geometry/.planning/graduation.md`).
-- Obligates: Compute's `GEOMETRY_SUBJECTS` frozenset, the `_GeometryWire` decode struct, and the `rasm.link.kind` trace fold (`libs/python/compute/.planning/graduation/handoff.md`).
-- Law: Compute mirrors the wire as a deliberate non-import hand-copy — a subject add, rename, or removal, a `wire()` field change, or a trace-carrier reshape lands its compute ripple in the same change, and the set-equality gate against geometry's `SUBJECTS` export re-proves the mirror, never substituting for the edit.
+- Surface: Geometry's `GeometrySubject` union and `GeometryHandoff.wire()` field shape at `python:geometry/graduation`.
+- Obligates: Compute's `GEOMETRY_SUBJECTS` frozenset, `_GeometryWire` struct, and `rasm.link.kind` trace fold at `python:compute/graduation/handoff`.
+- Law: Compute hand-copies the wire as a deliberate non-import mirror, so a subject, `wire()`, or carrier change lands its ripple in that change.
+- Law: Set-equality against geometry's `SUBJECTS` export re-proves the mirror, never substituting for the edit.
 
 [BACKEND_ROW_COLUMN]:
 - Surface: Columns on a closed backend-row family — a metrics store, object engine, or fanout engine row set where one spec literal selects the row.
 - Obligates: Every sibling row's values body, because a column the family declares and one row answers is a coordinate the other rows silently drop.
-- Law: Each row answers its whole values block in one body — per-concern projections spread as sibling objects lose every key sharing a top-level parent, and a column added to the family fails to compile until each row answers it.
-- Law: Columns carrying an estate-wide pin state the invariant once and each row spells it in its own dialect; a row whose dialect cannot express the pin records the divergence on its degradation column rather than omitting the coordinate.
-- Law: Selection publishes RENDER coordinates beside addresses — a family whose rows differ in query dialect, name translation, or value representation hands the selected row's answers outward with its endpoints, because a reader given only an address re-derives the dialect from the family default and renders expressions the realized row never wrote; that divergence raises nothing, since a mismatched selector matches nothing.
-- Law: Arming a row is a per-row column both its install and its READ door answer — a plane a spec value can disarm publishes an empty address, so provisioning a read door off the declared roster instead of the armed set aims a driver at nothing, and admission of a consumer naming that plane reads the armed set rather than the roster.
-- Law: Arming and address answer on ONE column — a row whose address resolves to absence has already answered arming, so a boolean beside it is a second value two folds read differently and a plane lands provisioned in one and empty in the next; realization is what the address projection returns, and the empty spelling publishes once at the projection seam rather than per row.
-- Law: Consuming tiers read the PRODUCING tier's realized projection, never the selection behind it — two producers answering one selection realize different planes, so an arm whose bundled runtime holds no plane the selection named and runs one it disarmed answers both facts itself, and a consumer re-deriving realization from that selection provisions a driver against the address the other producer published empty. Realization crosses as the producer's own value beside the address, driver identity, query dialect, and dialed coordinates included, because a consumer holding an address and re-deriving everything else is the hand-written endpoint wearing a different type.
+- Law: Rows answer their whole values block in one body, since sibling-object projections lose every key sharing a top-level parent.
+- Law: Columns added to the family fail to compile until each row answers them.
+- Law: Columns carrying an estate-wide pin state the invariant once, and each row spells it in its own dialect.
+- Law: Rows whose dialect cannot express a pin record the divergence on their degradation column, never omitting the coordinate.
+- Law: Selection publishes render coordinates beside addresses — query dialect, name translation, value representation — with the row's endpoints.
+- Law: Readers given an address alone re-derive the dialect from the family default and render expressions the realized row never wrote.
+- Law: Arming answers on a per-row column the install and the read door both consult, and a plane a spec value disarms publishes an empty address.
+- Law: Read doors and consumer admission provision off the armed set, never the declared roster.
+- Law: Arming and address answer on ONE column, since a row whose address resolves to absence has already answered arming.
+- Law: Address projection returns realization, and its empty spelling publishes once at the projection seam, never per row.
+- Law: Consuming tiers read the producing tier's realized projection, never the selection two producers realize differently.
+- Law: Realization crosses as the producer's own value beside the address, driver identity, query dialect, and dialed coordinates.
 
 [SLO_VOCABULARY]:
 - Surface: Reliability-indicator vocabulary — an `Sli` case, a level-breach polarity row, a burn row, a severity row, or a panel kind.
-- Obligates: Both branch spellings — the C# kernel signal capsule and the typescript core observe owner — beside the breach and indicator query folds at `typescript:core/observe/board` and the rule and objective compile legs at `typescript:iac/operate/observe`.
-- Law: no compiler spans the two spellings, so a case landing in one branch alone declares a target one runtime alerts on and the other cannot render; the change lands both spellings and every fold dispatching on the family.
-- Law: series selection stays branch-local — which mounted row an objective names is its owning package's roster, and the coupling never crosses for it.
+- Obligates: Both branch spellings — C# kernel signal capsule, ts core observe owner — with `core/observe/board` folds and `iac/operate/observe` legs.
+- Law: Changes land both spellings and every fold dispatching on the family, since no compiler spans the two.
+- Law: Cases landing in one branch alone declare a target one runtime alerts on and the other cannot render.
+- Law: Series selection stays branch-local — the mounted row an objective names is its owning package's roster, and no coupling crosses for it.
 
 [INSTRUMENT_ADMISSION]:
-- Surface: Producer measure rows — a python `MeasureRow` descriptor with its `_measures` arm or charter fold, a C# `InstrumentSpec` row crossing `TelemetryContributorPort`, a typescript `Convention._instrument` row.
-- Obligates: Python's runtime `INSTRUMENTS` counterpart row under the producer's `domain`; C#'s owning package census projection beside its projection arm and its `Dimensions` tag vocabulary; the ts iac dashboard compile leg wherever a row names the measure.
+- Surface: Producer measure rows — python `MeasureRow`, C# `InstrumentSpec` crossing `TelemetryContributorPort`, ts `Convention._instrument`.
+- Obligates: Python's `INSTRUMENTS` row under the producer `domain`, C#'s package census beside its `Dimensions` vocabulary, the ts iac compile leg.
 - Law: Producers record only spellings the census admits, so every new measure lands its census row in the same change.
 - Law: Composition-time gates re-prove drift and never substitute for the census edit.
 - Law: Gates resolve the WHOLE descriptor their census counterpart mounts — name beside unit beside instrument family.
 - Law: Name-only proof passes the divergence where a mounted unit or family disagrees, exporting a rescaled series nothing raises on.
 - Law: Gates read the census owner's own published admission surface, never a mapped-row filter re-derived beside a producer charter.
-- Law: Measure names resolve their domain segment against the branch's declared domain roster, so a measure naming an unrostered segment lands its domain row first — the segment is legislated capability that a subject earns, never a name a producer coins.
-- Law: Contributors minting instruments on a meter their own load context owns publish those declarations on the port beside the mounted set, so one naming gate and one view predicate read both halves; a self-minted roster seated with the mounted rows binds a second handle per name, and one on neither column exports a stream no gate can refuse.
-- Law: C# census membership resolves through the mounted roster, never a name grep — a derived family censuses through its generating owner, whether that owner is a closed vocabulary's `Items` or a composition-frozen registry's own index, so a literal-name sweep reads every generated family as absent and a composition-open key set reads as unrostered.
+- Law: Measure names resolve their domain segment against the branch's declared roster, so an unrostered segment lands its domain row first.
+- Law: Segments carry legislated capability a subject earns, never a name a producer coins.
+- Law: Contributors minting on a meter their own load context owns publish those declarations on the port beside the mounted set.
+- Law: One naming gate and one view predicate read both columns, and a roster on neither exports a stream no gate can refuse.
+- Law: C# census membership resolves through the mounted roster, never a literal-name sweep that reads every generated family as absent.
+- Law: Derived families census through their generating owner — a closed vocabulary's `Items` or a composition-frozen registry's index.

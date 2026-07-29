@@ -6,11 +6,9 @@ W3C propagation crosses the interchange plane as ONE typed `traceparent`/`traces
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                         | [PUBLIC]  |
-| :-----: | :--------------- | :----------------------------------------------------------------------------- | :-------- |
-|  [01]   | `CONTEXT_VALUE`  | the typed triple, its brands, the total parse/print folds, the span lift       | `Carrier` |
-|  [02]   | `TENANT_BAGGAGE` | the `rasm.tenant` promotion and the scoped recovery decode                     | `Carrier` |
-|  [03]   | `DIALECT_TABLE`  | the closed frame rows, inject/extract dispatch, the `-bin` typed-metadata lane | `Carrier` |
+- [02]-[CONTEXT_VALUE]: the typed triple, its brands, the total parse/print folds, the span lift; `Carrier`.
+- [03]-[TENANT_BAGGAGE]: the `rasm.tenant` promotion and the scoped recovery decode; `Carrier`.
+- [04]-[DIALECT_TABLE]: the closed frame rows, inject/extract dispatch, the `-bin` typed-metadata lane; `Carrier`.
 
 ## [02]-[CONTEXT_VALUE]
 

@@ -4,14 +4,12 @@ The ONE_FOLD_ONE_BINDING law made code: `@effect-atom` is the single state bindi
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                                | [PUBLIC]  |
-| :-----: | :--------------- | :------------------------------------------------------------------------------------ | :-------- |
-|  [01]   | `STORE_ROOT`     | `Store.make` — the runtime root, registry policy, shared `MemoMap`, persistence rows  | `Store`   |
-|  [02]   | `REMOTE_BINDING` | the `AtomHttpApi`/`AtomRpc` contract-binding rows                                     | —         |
-|  [03]   | `SELECTOR_RAIL`  | projection law — `map`/`mapResult`/`transform`, `family`, `debounce`, reactivity keys | —         |
-|  [04]   | `LIVE_BRIDGE`    | host-fold ingress (`subscriptionRef`/`subscribable`), paged `pull`, stream egress     | —         |
-|  [05]   | `WRITE_AND_FOLD` | write modality, optimistic reconcile, refresh triggers, the Suspense/boundary rail    | —         |
-|  [06]   | `HISTORY_FOLD`   | the `History` owner — command-vocabulary undo/redo stack over any value atom          | `History` |
+- [02]-[STORE_ROOT]: `Store.make` — the runtime root, registry policy, shared `MemoMap`, persistence rows; `Store`.
+- [03]-[REMOTE_BINDING]: the `AtomHttpApi`/`AtomRpc` contract-binding rows; —.
+- [04]-[SELECTOR_RAIL]: projection law — `map`/`mapResult`/`transform`, `family`, `debounce`, reactivity keys; —.
+- [05]-[LIVE_BRIDGE]: host-fold ingress (`subscriptionRef`/`subscribable`), paged `pull`, stream egress; —.
+- [06]-[WRITE_AND_FOLD]: write modality, optimistic reconcile, refresh triggers, the Suspense/boundary rail; —.
+- [07]-[HISTORY_FOLD]: the `History` owner — command-vocabulary undo/redo stack over any value atom; `History`.
 
 ## [02]-[STORE_ROOT]
 

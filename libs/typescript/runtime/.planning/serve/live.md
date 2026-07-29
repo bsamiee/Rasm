@@ -4,14 +4,12 @@ This realtime serve plane: SSE and WebSocket endpoints over the branch's own fee
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]    | [OWNS]                                                                           | [PUBLIC]    |
-| :-----: | :----------- | :------------------------------------------------------------------------------- | :---------- |
-|  [01]   | `LIVE_FAULT` | the realtime refusal family, the resume brand, the resumable-source contract     | `LiveFault` |
-|  [02]   | `SSE_ROW`    | the SSE endpoint fold: resume decode, encoder framing, heartbeat, lossless bound | `Realtime`  |
-|  [03]   | `SOCKET_ROW` | the WS upgrade fold: typed duplex framing over the socket channel                | `Realtime`  |
-|  [04]   | `FEED_ROWS`  | source adapters: reactive query reads, fanout topics, the presence roster stream | `Realtime`  |
-|  [05]   | `ADMISSION`  | channel rules, subscription grant, stamp guard, roster read, fan registry        | `Admission` |
-|  [06]   | `MOUNT_PORT` | the foreign-protocol mount port                                                  | `Mount`     |
+- [02]-[LIVE_FAULT]: the realtime refusal family, the resume brand, the resumable-source contract; `LiveFault`.
+- [03]-[SSE_ROW]: the SSE endpoint fold: resume decode, encoder framing, heartbeat, lossless bound; `Realtime`.
+- [04]-[SOCKET_ROW]: the WS upgrade fold: typed duplex framing over the socket channel; `Realtime`.
+- [05]-[FEED_ROWS]: source adapters: reactive query reads, fanout topics, the presence roster stream; `Realtime`.
+- [06]-[ADMISSION]: channel rules, subscription grant, stamp guard, roster read, fan registry; `Admission`.
+- [07]-[MOUNT_PORT]: the foreign-protocol mount port; `Mount`.
 
 ## [02]-[LIVE_FAULT]
 

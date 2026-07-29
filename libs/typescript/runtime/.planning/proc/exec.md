@@ -4,12 +4,10 @@ This process substrate: a runtime is a row, a bun swap is a Layer selection in t
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                                              | [PUBLIC]            |
-| :-----: | :------------- | :---------------------------------------------------------------------------------- | :------------------ |
-|  [01]   | `RUNTIME_ROWS` | the keyed `node \| bun` binding table — one row owns every runtime-specific member  | `Runtime`           |
-|  [02]   | `ROOT_SELECT`  | the boot law: one `main` per process, `Layer.launch` vs `ManagedRuntime`, the fence | `Runtime`           |
-|  [03]   | `COMMAND_SPEC` | the `Proc.Spec` record, capture-polymorphic entry, live handle, exit/budget faults  | `Proc`, `ExecFault` |
-|  [04]   | `MEASURED_RUN` | the benchmark owner minting claim-shaped receipts over one bracketed sample fold    | `Trial`             |
+- [02]-[RUNTIME_ROWS]: the keyed `node | bun` binding table — one row owns every runtime-specific member; `Runtime`.
+- [03]-[ROOT_SELECT]: the boot law: one `main` per process, `Layer.launch` vs `ManagedRuntime`, the fence; `Runtime`.
+- [04]-[COMMAND_SPEC]: the `Proc.Spec` record, capture-polymorphic entry, live handle, exit/budget faults; `Proc`, `ExecFault`.
+- [05]-[MEASURED_RUN]: the benchmark owner minting claim-shaped receipts over one bracketed sample fold; `Trial`.
 
 ## [02]-[RUNTIME_ROWS]
 

@@ -4,12 +4,10 @@ The one clock owner of the branch: `Hlc` is the hybrid-logical stamp — one `Sc
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                  | [PUBLIC]             |
-| :-----: | :---------------- | :---------------------------------------------------------------------- | :------------------- |
-|  [01]   | `STAMP_OWNER`     | the two-half value, its order, the tick/receive folds, the unit site    | `Hlc`                |
-|  [02]   | `TWO_HALF_LAYOUT` | the sixteen-byte little-endian twin and its overflow seam               | `Hlc.FromBytes`      |
-|  [03]   | `GRADE_LADDER`    | the sync-posture vocabulary and its conservative bounds                 | `Uncertainty.grades` |
-|  [04]   | `WINDOW_ALGEBRA`  | the interval value, its join semilattice, precedence, meet, containment | `Uncertainty`        |
+- [02]-[STAMP_OWNER]: the two-half value, its order, the tick/receive folds, the unit site; `Hlc`.
+- [03]-[TWO_HALF_LAYOUT]: the sixteen-byte little-endian twin and its overflow seam; `Hlc.FromBytes`.
+- [04]-[GRADE_LADDER]: the sync-posture vocabulary and its conservative bounds; `Uncertainty.grades`.
+- [05]-[WINDOW_ALGEBRA]: the interval value, its join semilattice, precedence, meet, containment; `Uncertainty`.
 
 ## [02]-[STAMP_OWNER]
 

@@ -4,13 +4,11 @@ Latency caching is correctness-neutral: losing a node costs one cold recompute. 
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                                             |
-| :-----: | :------------- | :--------------------------------------------------------------------------------- |
-|  [01]   | `TIER_ROWS`    | the escalation table — Tier-0 rows, the gated external row, the banned policies    |
-|  [02]   | `KEYED_FLIGHT` | the memo tier, the keyed single-flight row, the dedup plane, the hit census        |
-|  [03]   | `PERSISTED`    | the restart-surviving cache — the mint, the store assembly, the tenant partition   |
-|  [04]   | `POOLS`        | reference-counted handles, keyed resource maps, the bounded origin-connection pool |
-|  [05]   | `ASSEMBLY`     | the assembled export; occupancy and hit economics project at their own owners      |
+- [02]-[TIER_ROWS]: the escalation table — Tier-0 rows, the gated external row, the banned policies.
+- [03]-[KEYED_FLIGHT]: the memo tier, the keyed single-flight row, the dedup plane, the hit census.
+- [04]-[PERSISTED]: the restart-surviving cache — the mint, the store assembly, the tenant partition.
+- [05]-[POOLS]: reference-counted handles, keyed resource maps, the bounded origin-connection pool.
+- [06]-[ASSEMBLY]: the assembled export; occupancy and hit economics project at their own owners.
 
 ## [02]-[TIER_ROWS]
 

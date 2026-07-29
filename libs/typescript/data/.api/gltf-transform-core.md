@@ -71,7 +71,7 @@
 
 `[PROPERTY_MINT]: `createScene` `createNode` `createMesh` `createPrimitive` `createPrimitiveTarget` `createMaterial` `createTexture` `createAccessor` `createBuffer` `createAnimation` `createAnimationChannel` `createAnimationSampler` `createSkin` `createCamera`` — every property mints from its document and attaches to the `Root`.
 
-`[ROOT_LIST]: `listScenes` `listNodes` `listMeshes` `listMaterials` `listTextures` `listAccessors` `listBuffers` `listAnimations` `listSkins` `listCameras` `listExtensionsUsed` `listExtensionsRequired`` — plus `getAsset`, `getDefaultScene`, and `setDefaultScene`.
+`[ROOT_LIST]: `listScenes` `listNodes` `listMeshes` `listMaterials` `listTextures` `listAccessors` `listBuffers` `listAnimations` `listSkins` `listCameras` `listExtensionsUsed` `listExtensionsRequired`` — plus `getAsset`, `getDefaultScene`, and `setDefaultScene`. `listExtensionsUsed()`/`listExtensionsRequired()` return `Extension` instances whose INSTANCE property `extensionName` carries the registered name — the instance twin of the static `EXTENSION_NAME`, and the member every roster proof maps over.
 
 [ENTRYPOINT_SCOPE]: IO — the one read/write surface and its host bindings
 

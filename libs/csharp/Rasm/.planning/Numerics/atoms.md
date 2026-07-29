@@ -12,7 +12,7 @@
 ## [02]-[SCALAR_FLOOR]
 
 - Owner: `EpsilonPolicy` names the two epsilon rows — sqrt-epsilon for near-unit and residual gates, zero-tolerance for degeneracy floors. `Dimension`, `PositiveMagnitude`, and `UnitInterval` generate scalar admission, so every count, positive-length, or normalized-parameter signature carries the owner, never a raw primitive re-gated per call site. `BoundarySense`, `SignedAxis`, `VectorRelation`, `AnglePivot`, and `VectorAngle` close directional sign, cardinal axis, coplanarity, measurement pivot, and radian-bounded angle. `PerceptualColor` owns the OKLab triple with normalized alpha, its mix, ramp, contrast, and gamut-safe RGB egress composing `Wacton.Unicolour` through `BlendPath`, `RgbProfile`, and `GamutPolicy` values, never a host-edge conversion.
-- Entry: `Dimension`, `PositiveMagnitude`, and `UnitInterval` admit through generated `TryCreate`/`Validate`; `SignedAxis.Of` resolves the world or frame axis; `VectorRelation.Of` classifies and `VectorAngle.Of` measures two vectors through the ambient `Context` and pivot; `PerceptualColor.Of`/`OfRgb` admit, `Mix` and `Ramp` interpolate, `Contrast` reads the WCAG ratio, and `ToRgb` quantizes to the sRGB byte quadruple.
+- Entry: `Dimension`, `PositiveMagnitude`, and `UnitInterval` admit through generated `TryCreate`/`Validate`; `SignedAxis.Of` resolves the world or frame axis; `VectorRelation.Of` classifies and `VectorAngle.Of` measures two vectors through the ambient `Context` and pivot; `PerceptualColor.Of`/`OfRgb` admit — display bytes under the default configuration or a profile-linear double triple under an `RgbProfile` row — `Mix` and `Ramp` interpolate, `Contrast` reads the WCAG ratio, and `ToRgb` quantizes to the sRGB byte quadruple or projects the profile-linear double quadruple.
 - Auto: generated `ValidateFactoryArguments` gates finiteness and the owner's bound, so interior code never re-validates an admitted scalar; `AnglePivot.Admit` re-validates only the case payload and `Compute` dispatches the three `Vector3d.VectorAngle` overloads through the generated `Switch`; `VectorRelation.Of` admits both operands as `Direction` before reading parallel and perpendicular relations under the context angle tolerance.
 - Receipt: none — scalar owners are their own admission evidence.
 - Packages: Thinktecture.Runtime.Extensions for the generated value-object, union, and smart-enum owners; LanguageExt.Core for the `Fin`/`Option`/`Seq` rails; Wacton.Unicolour for the perceptual model behind `PerceptualColor`; Rasm.Domain (project) for the `Op` key, `Context` tolerance, and `Admit` vocabulary; RhinoCommon for the `Vector3d` and `Plane` value structs.
@@ -143,6 +143,7 @@ public sealed partial class BlendPath {
 public sealed partial class RgbProfile {
     public static readonly RgbProfile Srgb = new(key: 0, configuration: Configuration.Default);
     public static readonly RgbProfile DisplayP3 = new(key: 1, configuration: new Configuration(rgbConfig: RgbConfiguration.DisplayP3));
+    public static readonly RgbProfile Acescg = new(key: 2, configuration: new Configuration(rgbConfig: RgbConfiguration.Acescg));
     internal Configuration Configuration { get; }
 }
 
@@ -174,6 +175,15 @@ public sealed partial class PerceptualColor {
         };
     public static Fin<PerceptualColor> OfRgb((byte Red, byte Green, byte Blue, byte Alpha) rgba, Op? key = null) =>
         OfRgb(red: rgba.Red, green: rgba.Green, blue: rgba.Blue, alpha: rgba.Alpha / (double)byte.MaxValue, key: key);
+    // Profile-parameterized LINEAR ingress — the counterpart of the profile-parameterized ToRgb egress: a working-space
+    // triple (Acescg the scene-linear instance) admits without a byte quantization, rebasing onto the default
+    // configuration exactly as ToRgb rebases off it, so ingress and egress stay one symmetric pair.
+    public static Fin<PerceptualColor> OfRgb(double red, double green, double blue, RgbProfile profile, double alpha = 1.0, Op? key = null) =>
+        double.IsFinite(red) && double.IsFinite(green) && double.IsFinite(blue)
+            ? new Unicolour(profile.Configuration, ColourSpace.RgbLinear, red, green, blue, alpha).ConvertToConfiguration(Configuration.Default).Oklab switch {
+                { } lab => Of(lightness: lab.L, opponentA: lab.A, opponentB: lab.B, alpha: alpha, key: key),
+            }
+            : Fin.Fail<PerceptualColor>(error: key.OrDefault().InvalidInput());
     public PerceptualColor Mix(PerceptualColor other, UnitInterval amount, BlendPath? path = null) =>
         (path ?? BlendPath.OklchShorter) switch {
             { } route => AsUnicolour().Mix(other.AsUnicolour(), route.Space, amount.Value, route.Span).Oklab switch {

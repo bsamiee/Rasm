@@ -75,6 +75,8 @@
 |  [03]   | `OriginCaCertificate` / `CertificatePack` / `TotalTls`      | origin CA cert, edge cert pack, automatic TLS |
 |  [04]   | `SpectrumApplication` / `PageRule`                          | L4 app proxy / page rule                      |
 
+- `Ruleset` args: `{ zoneId | accountId, name, kind ("zone" | "custom" | "managed" | "root"), phase, rules }`; the response-header phase is `"http_response_headers_transform"`, each rule `{ expression, action, actionParameters }` with `action: "rewrite"` and `actionParameters.headers: { [name]: { operation ("add" | "set" | "remove"), value } }`; expressions read `http.request.uri.path` through `starts_with`/`ends_with`, and EVERY matching header-transform rule in the phase applies — first-match narrowing belongs to the CDN dialects, never here.
+
 ## [04]-[PROVIDER]
 
 [PROVIDER_SCOPE]: the API credential — the cloudflare arm seam

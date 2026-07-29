@@ -2,7 +2,7 @@
 
 `BimIo` owns foreign-bytes ingest: one import fold lowers every `format#FORMAT_AXIS` `InterchangeFormat` row to a canonical carrier — managed mesh to the pooled `ImportedGeometry`, IFC/IFC5 to the live `DatabaseIfc`, STEP to `StepSemanticModel`, the Speckle `Base` seam to both. Byte->carrier decode is the rail's only concern; the entity walk — `IfcRel*` roster, property/quantity projection, `OwnerHistory`, `StepHeader` — is the `Rasm.Element` seam projector's off the live graph, never a lossy `IfcSemanticModel` flat-row re-projection. No BRep/NURBS evaluates in-process — a non-mesh geometry request routes to `tessellation#TESSELLATION_BRIDGE`.
 
-`ImportedGeometry` is a mesh POOL: `Blocks` ranges hold each decoded source mesh once and `Instances` place them by rigid transform, so an instanced source round-trips its sharing to `export#EXPORT_RAIL` instead of N baked copies, and `Bake()` flattens on demand. This page composes kernel `Rasm` geometry and consumes the `format#FORMAT_AXIS` codec/frame rows as settled vocabulary. Posture stays HOST-LOCAL: the Speckle seam composes `Speckle.Sdk`/`Speckle.Objects` only in the host-neutral exchange assembly, never inside the in-Rhino plugin ALC.
+`ImportedGeometry` is the seam `Rasm.Element/Projection/projection#INTERCHANGE_CARRIER` mesh POOL this rail produces: `Blocks` ranges hold each decoded source mesh once, `Instances` place them by rigid transform — so an instanced source round-trips its sharing to `export#EXPORT_RAIL` instead of N baked copies and `Bake()` flattens on demand — and the glTF arm fills the carrier's `Uvs` column from TEXCOORD_0, so the Compute tile partition and residency meshlet arm read a REAL unwrap off the one decode with no re-import edge. This page composes kernel `Rasm` geometry and consumes the `format#FORMAT_AXIS` codec/frame rows as settled vocabulary. Posture stays HOST-LOCAL: the Speckle seam composes `Speckle.Sdk`/`Speckle.Objects` only in the host-neutral exchange assembly, never inside the in-Rhino plugin ALC.
 
 ## [01]-[INDEX]
 
@@ -12,7 +12,7 @@
 
 ## [02]-[IMPORT_RAIL]
 
-- Owner: `BimIo` — the import fold over `InterchangeFormat`, one `InterchangeCodec`-keyed arm per managed decode. Three canonical carriers: `ImportedGeometry` the decoded mesh-POOL (`Vertices`/`Normals`/`Indices` hold each source mesh once as a `MeshBlock` range, `MeshInstance` rows place blocks by rigid transform, `Bake()` flattens on demand), the live `DatabaseIfc` the `Projection/semantic#SEMANTIC_PROJECTOR` `SemanticProjector` captures and lowers to a seam `GraphDelta`, and `StepSemanticModel` the ISO 10303 product-structure projection.
+- Owner: `BimIo` — the import fold over `InterchangeFormat`, one `InterchangeCodec`-keyed arm per managed decode. Three canonical carriers: the seam `Rasm.Element/Projection/projection#INTERCHANGE_CARRIER` `ImportedGeometry` mesh-POOL this rail produces (`Vertices`/`Normals`/`Uvs`/`Indices` hold each source mesh once as a `MeshBlock` range, `MeshInstance` rows place blocks by rigid transform, the seam `Bake()` flattens on demand), the live `DatabaseIfc` the `Projection/semantic#SEMANTIC_PROJECTOR` `SemanticProjector` captures and lowers to a seam `GraphDelta`, and `StepSemanticModel` the ISO 10303 product-structure projection.
 - Entry: `ImportGeometry` (managed mesh-and-scene → `ImportedGeometry`), `ImportIfc` (in-process IFC/IFC5 → live `DatabaseIfc`), and `ImportStep` (ISO 10303-21 Part-21 → `StepSemanticModel`), each dispatching by `InterchangeCodec` so a path lands one decode without a call-site type branch. `Fin<T>` aborts on `Model/faults#FAULT_BAND` `BimFault.CodecReject` or the companion-required `BimFault.CapabilityMiss`, each `Op`-keyed case lifting BARE (band 2600 IS the `Expected` `Code`, no `.ToError()` hop).
 - Auto: glTF decode routes binary GLB (`ModelRoot.ParseGLB`) and text `.gltf` (`ReadContext.ReadTextSchema2`) by format with zero intermediate file, a `Decompress` pre-decode branch reading each primitive's `KHR_draco_mesh_compression` and each bufferView's `EXT_meshopt_compression` extension before the `LogicalMeshes.Decode()` fold. IFC decode constructs the live `DatabaseIfc` by the row's STEP/XML/JSON serialization at the schema `SemanticProjector.Sniff` reads off the bytes, never a hardcoded default; the entity walk off that live graph is the projector's, never a lossy `IfcSemanticModel` flat-row re-projection.
 - Receipt: `ModelLoad` carries the format key, codec key, source byte count, and elapsed for a managed mesh import, an instanced source also reading the carrier's `Blocks.Count`/`Instances.Count` sharing evidence; an IFC decode stamps the schema version (`db.Release`) and model-view (`db.ModelView`) off the live `DatabaseIfc` (the entity-count receipt rides the `SemanticProjector` delta, not the import rail); a STEP ingest stamps the `StepProtocol`, `FILE_SCHEMA` name, and product/definition/assembly/geometry-ref counts; emission rides the sink port at the composition edge.
@@ -57,60 +57,10 @@ using Vector3 = System.Numerics.Vector3;       // the numerics coordinate this b
 namespace Rasm.Bim;
 
 // --- [MODELS] -----------------------------------------------------------------------------
-// Mesh-POOL carrier: Vertices/Normals/Indices hold each decoded source mesh ONCE as a Blocks range, and Instances
-// places blocks by rigid transform, so an instanced source (glTF node reuse + EXT_mesh_gpu_instancing, dotbim Mesh
-// pool, Assimp node tree, USD prim placement) round-trips its sharing to export instead of N baked copies.
-// Non-instanced decode is one identity instance per block, so its pool IS its world-space scene and Bake() returns
-// it unchanged; a consumer needing flat world-space geometry from an instanced carrier calls Bake() once.
-public readonly record struct MeshBlock(int VertexOffset, int VertexCount, int IndexOffset, int IndexCount);
-
-public readonly record struct MeshInstance(int Block, Matrix4x4 Transform);
-
-public sealed record ImportedGeometry(
-    InterchangeFormat Format,
-    ReadOnlyMemory<float> Vertices,
-    ReadOnlyMemory<float> Normals,
-    ReadOnlyMemory<long> Indices,
-    int VertexCount,
-    int TriangleCount,
-    Seq<MeshBlock> Blocks,
-    Seq<MeshInstance> Instances,
-    Instant At) {
-
-    public bool IsBaked => Instances.ForAll(static i => i.Transform.IsIdentity);
-
-    // Flatten the pool through the instance placements — positions Transform, normals TransformNormal — into one
-    // pre-sized allocation; the baked carrier re-describes itself as one block per placement, identity instances.
-    public ImportedGeometry Bake() {
-        if (IsBaked) { return this; }
-        var (v, n, x) = (Vertices.Span, Normals.Span, Indices.Span);
-        int vertexTotal = Instances.Sum(i => Blocks[i.Block].VertexCount);
-        int indexTotal = Instances.Sum(i => Blocks[i.Block].IndexCount);
-        var (vertices, normals, indices) = (new float[vertexTotal * 3], new float[vertexTotal * 3], new long[indexTotal]);
-        var (blocks, placed, vSlot, iSlot) = (Seq<MeshBlock>(), Seq<MeshInstance>(), 0, 0);
-        foreach (var instance in Instances) {
-            MeshBlock block = Blocks[instance.Block];
-            for (int k = 0; k < block.VertexCount; k++) {
-                int src = (block.VertexOffset + k) * 3;
-                var p = Vector3.Transform(new Vector3(v[src], v[src + 1], v[src + 2]), instance.Transform);
-                var m = Vector3.TransformNormal(new Vector3(n[src], n[src + 1], n[src + 2]), instance.Transform);
-                int dst = (vSlot + k) * 3;
-                (vertices[dst], vertices[dst + 1], vertices[dst + 2]) = (p.X, p.Y, p.Z);
-                (normals[dst], normals[dst + 1], normals[dst + 2]) = (m.X, m.Y, m.Z);
-            }
-            for (int k = 0; k < block.IndexCount; k++) {
-                indices[iSlot + k] = vSlot + (x[block.IndexOffset + k] - block.VertexOffset);
-            }
-            blocks = blocks.Add(new MeshBlock(vSlot, block.VertexCount, iSlot, block.IndexCount));
-            placed = placed.Add(new MeshInstance(blocks.Count - 1, Matrix4x4.Identity));
-            (vSlot, iSlot) = (vSlot + block.VertexCount, iSlot + block.IndexCount);
-        }
-        return this with {
-            Vertices = vertices, Normals = normals, Indices = indices,
-            VertexCount = vertexTotal, TriangleCount = indexTotal / 3, Blocks = blocks, Instances = placed,
-        };
-    }
-}
+// The mesh-POOL carrier is the seam `Rasm.Element/Projection/projection#INTERCHANGE_CARRIER` `ImportedGeometry`
+// (with `MeshBlock`/`MeshInstance` and the one `Bake` flatten) — this rail PRODUCES it and the Compute tile
+// partition reads the SAME shape, so no package-local twin exists; every decode arm constructs it through
+// `MeshSoup.ToGeometry`, `FormatKey` carrying the `format#FORMAT_AXIS` row key this rail re-hydrates on egress.
 
 public sealed record StepSemanticModel(
     StepProtocol Protocol,
@@ -247,7 +197,12 @@ public static partial class BimIo {
         var meshes = model.LogicalMeshes.Decode();
         var soup = new MeshSoup();
         var blocks = new int[meshes.Count];
-        for (int m = 0; m < meshes.Count; m++) { blocks[m] = soup.Append(Block(meshes[m])); }
+        for (int m = 0; m < meshes.Count; m++) {
+            // TEXCOORD_0 availability probes the SCHEMA accessor (GetVertexAccessor null = unmapped), so an
+            // unmapped mesh contributes an EMPTY uv block and a zero-filled decoder read never fabricates a mapping.
+            bool mapped = model.LogicalMeshes[m].Primitives.Any(static prim => prim.GetVertexAccessor("TEXCOORD_0") is not null);
+            blocks[m] = soup.Append(Block(meshes[m], mapped));
+        }
         var referenced = new bool[meshes.Count];
         foreach (var node in Optional(model.DefaultScene).Map(static s => SharpGLTF.Schema2.Node.Flatten(s)).IfNone([])) {
             if (node.Mesh is not { } mesh) { continue; }
@@ -263,13 +218,14 @@ public static partial class BimIo {
         return soup.ToGeometry(format, at);
     }
 
-    static (float[] Vertices, float[] Normals, long[] Corners) Block(IMeshDecoder<Material> mesh) {
+    static (float[] Vertices, float[] Normals, float[] Uvs, long[] Corners) Block(IMeshDecoder<Material> mesh, bool mapped) {
         var triangles = mesh.Primitives
             .SelectMany(static prim => prim.TriangleIndices.Select(tri => (prim, tri)))
             .ToSeq();
         int vertexCount = triangles.Count * 3;
         var vertices = new float[vertexCount * 3];
         var normals = new float[vertexCount * 3];
+        var uvs = mapped ? new float[vertexCount * 2] : [];
         var corners = new long[vertexCount];
         int slot = 0;
         Span<int> fan = stackalloc int[3];
@@ -281,11 +237,15 @@ public static partial class BimIo {
                 int v = slot * 3;
                 (vertices[v], vertices[v + 1], vertices[v + 2]) = (p.X, p.Y, p.Z);
                 (normals[v], normals[v + 1], normals[v + 2]) = (n.X, n.Y, n.Z);
+                if (mapped) {
+                    var uv = prim.GetTextureCoord(corner, 0);
+                    (uvs[slot * 2], uvs[(slot * 2) + 1]) = (uv.X, uv.Y);
+                }
                 corners[slot] = slot;
                 slot++;
             }
         }
-        return (vertices, normals, corners);
+        return (vertices, normals, uvs, corners);
     }
 
     // Canonicalize the POOL onto the kernel frame: positions AND normals each ride their own strided call (the one
@@ -643,23 +603,31 @@ public static partial class BimIo {
     // growth buffers rent through ArrayPoolBufferWriter<T> (BCL IBufferWriter GetSpan/Advance staging, pooled doubling,
     // admitted CommunityToolkit.HighPerformance owner) replacing both the rejected per-block Seq concatenation
     // (O(blocks·total)) and the List<T> LOH churn. Append lands one block (vertices/normals as flat triples, 0-based
-    // corners offset into the pool) and returns its ordinal; Place records one rigid placement; Baked is the
-    // identity-placed block the non-instanced arms use. ToGeometry materializes the ONE contiguous ImportedGeometry
-    // allocation carrying the Blocks/Instances overlay AND returns the rents — the builder is dead after it.
+    // corners offset into the pool, an OPTIONAL uv-pair span for a TEXCOORD_0-bearing block) and returns its ordinal;
+    // Place records one rigid placement; Baked is the identity-placed block the non-instanced arms use. ToGeometry
+    // materializes the ONE contiguous seam ImportedGeometry allocation carrying the Blocks/Instances overlay AND
+    // returns the rents — the builder is dead after it. The pool Uvs column materializes only when a block carried
+    // UVs (an unmapped pool stays EMPTY — the typed absence the residency arm reads); a partially-mapped pool
+    // zero-fills the unmapped blocks so the per-vertex lockstep holds.
     sealed class MeshSoup {
         readonly ArrayPoolBufferWriter<float> vertices = new();
         readonly ArrayPoolBufferWriter<float> normals = new();
         readonly ArrayPoolBufferWriter<long> indices = new();
+        readonly List<float[]?> blockUvs = [];
         readonly List<MeshBlock> blocks = [];
         readonly List<MeshInstance> instances = [];
 
         public int VertexCount { get; private set; }
 
+        public int Append((float[] Vertices, float[] Normals, float[] Uvs, long[] Corners) block) =>
+            Append(block.Vertices, block.Normals, block.Corners, block.Uvs);
+
         public int Append((float[] Vertices, float[] Normals, long[] Corners) block) =>
             Append(block.Vertices, block.Normals, block.Corners);
 
-        public int Append(ReadOnlySpan<float> v, ReadOnlySpan<float> n, ReadOnlySpan<long> corners) {
+        public int Append(ReadOnlySpan<float> v, ReadOnlySpan<float> n, ReadOnlySpan<long> corners, ReadOnlySpan<float> uv = default) {
             blocks.Add(new MeshBlock(VertexCount, v.Length / 3, indices.WrittenCount, corners.Length));
+            blockUvs.Add(uv.IsEmpty ? null : uv.ToArray());
             v.CopyTo(vertices.GetSpan(v.Length));
             vertices.Advance(v.Length);
             n.CopyTo(normals.GetSpan(n.Length));
@@ -676,17 +644,26 @@ public static partial class BimIo {
             return this;
         }
 
-        public MeshSoup Baked(ReadOnlySpan<float> v, ReadOnlySpan<float> n, ReadOnlySpan<long> corners) =>
-            Place(Append(v, n, corners), Matrix4x4.Identity);
+        public MeshSoup Baked(ReadOnlySpan<float> v, ReadOnlySpan<float> n, ReadOnlySpan<long> corners, ReadOnlySpan<float> uv = default) =>
+            Place(Append(v, n, corners, uv), Matrix4x4.Identity);
 
         public ImportedGeometry ToGeometry(InterchangeFormat format, Instant at) {
-            var geometry = new ImportedGeometry(format,
-                vertices.WrittenSpan.ToArray(), normals.WrittenSpan.ToArray(), indices.WrittenSpan.ToArray(),
+            var geometry = new ImportedGeometry(format.Key,
+                vertices.WrittenSpan.ToArray(), normals.WrittenSpan.ToArray(), PoolUvs(), indices.WrittenSpan.ToArray(),
                 VertexCount, indices.WrittenCount / 3, blocks.ToSeq(), instances.ToSeq(), at);
             vertices.Dispose();
             normals.Dispose();
             indices.Dispose();
             return geometry;
+        }
+
+        float[] PoolUvs() {
+            if (blockUvs.TrueForAll(static uv => uv is null)) { return []; }
+            float[] uvs = new float[VertexCount * 2];
+            for (int b = 0; b < blocks.Count; b++) {
+                blockUvs[b]?.CopyTo(uvs.AsSpan(blocks[b].VertexOffset * 2));
+            }
+            return uvs;
         }
     }
 

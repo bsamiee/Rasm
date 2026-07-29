@@ -4,10 +4,8 @@ The decode-once law's type floor: one `Refined` vocabulary owner carries every c
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                  | [PUBLIC]  |
-| :-----: | :---------------- | :------------------------------------------------------ | :-------- |
-|  [01]   | `REFINED_FLOOR`   | the branded primitive family and its merged type hub    | `Refined` |
-|  [02]   | `INGRESS_CEILING` | decode-budget ceilings and the budget-gated schema seam | `Ingress` |
+- [02]-[REFINED_FLOOR]: the branded primitive family and its merged type hub; `Refined`.
+- [03]-[INGRESS_CEILING]: decode-budget ceilings and the budget-gated schema seam; `Ingress`.
 
 ## [02]-[REFINED_FLOOR]
 

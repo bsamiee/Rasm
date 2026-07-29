@@ -4,13 +4,11 @@ Outbound HTTP policy is one lane table, composed once, inherited everywhere: eve
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                                        | [PUBLIC]           |
-| :-----: | :-------------- | :---------------------------------------------------------------------------- | :----------------- |
-|  [01]   | `LANE_ROWS`     | the closed policy table — ledger binding, pulse compile, hops, circuit row    | `Client`           |
-|  [02]   | `BREAK_STATE`   | the keyed circuit ledger — pure admission/settle folds, the guard transformer | `Breaker`, `Lapse` |
-|  [03]   | `DIAL_SEAM`     | the one entry, the budget geometry, the consumer law                          | `Client`           |
-|  [04]   | `DISPATCH_ROWS` | undici dispatcher tuning beneath the node row's client                        | root data          |
-|  [05]   | `CONNECT_ROW`   | the Connect/gRPC dispatch row — transport table and lane inheritance          | `Rpc`              |
+- [02]-[LANE_ROWS]: the closed policy table — ledger binding, pulse compile, hops, circuit row; `Client`.
+- [03]-[BREAK_STATE]: the keyed circuit ledger — pure admission/settle folds, the guard transformer; `Breaker`, `Lapse`.
+- [04]-[DIAL_SEAM]: the one entry, the budget geometry, the consumer law; `Client`.
+- [05]-[DISPATCH_ROWS]: undici dispatcher tuning beneath the node row's client; root data.
+- [06]-[CONNECT_ROW]: the Connect/gRPC dispatch row — transport table and lane inheritance; `Rpc`.
 
 ## [02]-[LANE_ROWS]
 

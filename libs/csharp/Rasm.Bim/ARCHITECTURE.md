@@ -143,6 +143,7 @@ flowchart LR
     Rasm([Rasm])
     Projection -->|"[PROJECTION]: GraphDelta"| Element
     Projection -->|"[PORT]: IGraphConstraint"| Element
+    Element -->|"[SHAPE]: ImportedGeometry"| Exchange
     Semantics <-->|"[SHAPE]: DetailSchema"| Element
     Semantics <-->|"[SHAPE]: MaterialComposition"| Element
     Semantics -->|"[CONTENT_KEY]: AppearanceSummary"| Element

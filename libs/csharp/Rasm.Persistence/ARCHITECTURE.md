@@ -135,6 +135,7 @@ flowchart LR
     Bim e14@-->|"[WIRE]: GeoWire"| Ingest
     RasmElement e27@-->|"[WIRE]: AnalyticsSchema"| Query
     Materials e19@-->|"[WIRE]: AnalyticsSchema"| Query
+    Materials e28@-->|"[CONTENT_KEY]: ArtifactIndexRow"| Query
     Compute e8@-->|"[CONTENT_KEY]: AssessmentPayload"| Version
     Compute e9@<-->|"[CONTENT_KEY]: VectorCodebook"| Query
     Compute e10@<-->|"[CONTENT_KEY]: ArtifactIndexRow"| Query

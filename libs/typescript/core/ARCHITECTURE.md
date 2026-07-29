@@ -122,8 +122,8 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Core C# wire-plane seam registry
-    accDescr: Core owners decoding kinded wires spelled verbatim from the owning C# endpoint pages, one edge per landed family.
+    accTitle: Core wire-plane seam registry
+    accDescr: Core owners decoding kinded wires spelled verbatim from the owning peer endpoint pages — C# packages and the python artifacts producer — one edge per landed family.
     subgraph core[CORE]
         ContentKey[Content key]
         Quantity[Quantity]
@@ -140,6 +140,7 @@ flowchart LR
     Materials([Rasm.Materials])
     AppUi([Rasm.AppUi])
     AppHost([Rasm.AppHost])
+    Artifacts([python:artifacts])
     Rasm e1@<-->|"[CONTENT_KEY]: XxHash128"| ContentKey
     Compute e2@<-->|"[WIRE]: QuantityFamily"| Quantity
     Compute e3@-->|"[WIRE]: ReceiptEnvelopeWire"| Codec
@@ -150,6 +151,8 @@ flowchart LR
     Bim e8@-->|"[WIRE]: BcfTopicWire"| Codec
     Bim e9@-->|"[WIRE]: GeoFeatureWire"| Codec
     Materials e10@-->|"[WIRE]: MaterialWire"| Codec
+    Materials e18@-->|"[WIRE]: TextureSetWire"| Codec
+    Artifacts e19@-->|"[WIRE]: AssetSetManifest"| Codec
     AppUi e11@-->|"[WIRE]: CommandPayloadWire"| Invoke
     AppUi e12@-->|"[WIRE]: GeometryResidencyWire"| Frame
     AppUi e13@-->|"[WIRE]: EvidenceTimelineWire"| Feed
@@ -205,7 +208,7 @@ flowchart LR
     Board e11@-->|"[PROJECTION]: DashboardModel"| Iac
     Slo e14@-->|"[PROJECTION]: Alert.Spec"| Iac
     Frame e15@-->|"[SHAPE]: Residency.Ledger"| Ui
-    Codec e21@-->|"[SHAPE]: BcfTopic/BcfViewpoint/ControlIntent/LayoutProgram/GeoFeature/PbrGroups"| Ui
+    Codec e21@-->|"[SHAPE]: BcfTopic/BcfViewpoint/ControlIntent/LayoutProgram/GeoFeature/PbrGroups/TextureSet/AssetSetManifest"| Ui
     Slo e16@-->|"[PROJECTION]: Slo.Objective"| Iac
     Tap e17@-->|"[SHAPE]: Tap.Registry"| Runtime
     Carrier e18@-->|"[SHAPE]: Carrier.Context"| Runtime

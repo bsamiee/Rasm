@@ -4,12 +4,10 @@ Hook owns the `rasm.ui.<domain>.<point>` fact rail. Each plane contributes one t
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                         | [PUBLIC] |
-| :-----: | :--------------- | :----------------------------------------------------------------------------- | :------- |
-|  [01]   | `POINT_REGISTRY` | the open point seam, the contribution law, the initial point census            | `Hook`   |
-|  [02]   | `RAIL_CHANNELS`  | the per-app registry mint — modality channels, replay windows, adopted sources | `Hook`   |
-|  [03]   | `FACT_PUBLISH`   | the one polymorphic publish and the veto-arbiter fold                          | `Hook`   |
-|  [04]   | `TAP_ISOLATION`  | scoped taps, the subscriber-fault channel, the telemetry-as-tap bridge law     | `Hook`   |
+- [02]-[POINT_REGISTRY]: the open point seam, the contribution law, the initial point census; `Hook`.
+- [03]-[RAIL_CHANNELS]: the per-app registry mint — modality channels, replay windows, adopted sources; `Hook`.
+- [04]-[FACT_PUBLISH]: the one polymorphic publish and the veto-arbiter fold; `Hook`.
+- [05]-[TAP_ISOLATION]: scoped taps, the subscriber-fault channel, the telemetry-as-tap bridge law; `Hook`.
 
 ## [02]-[POINT_REGISTRY]
 

@@ -4,12 +4,10 @@ The reassembly rail of the interchange plane: multi-part payloads from the compu
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                 | [PUBLIC]        |
-| :-----: | :----------------- | :--------------------------------------------------------------------- | :-------------- |
-|  [01]   | `FRAME_PROTOCOL`   | the frame shape, the budgeted keyed reassembly fold, sequence evidence | `ArtifactFrame` |
-|  [02]   | `KEY_VERIFY`       | the single-allocation join, the delegated verify, the artifact receipt | `ArtifactFrame` |
-|  [03]   | `GEOMETRY_PLANE`   | the GLB envelope, encoding and tensor vocabularies, span-proven views  | `GeometryFrame` |
-|  [04]   | `RESIDENCY_LEDGER` | the state vocabulary, manifest/delta envelope, the one ledger fold     | `Residency`     |
+- [02]-[FRAME_PROTOCOL]: the frame shape, the budgeted keyed reassembly fold, sequence evidence; `ArtifactFrame`.
+- [03]-[KEY_VERIFY]: the single-allocation join, the delegated verify, the artifact receipt; `ArtifactFrame`.
+- [04]-[GEOMETRY_PLANE]: the GLB envelope, encoding and tensor vocabularies, span-proven views; `GeometryFrame`.
+- [05]-[RESIDENCY_LEDGER]: the state vocabulary, manifest/delta envelope, the one ledger fold; `Residency`.
 
 ## [02]-[FRAME_PROTOCOL]
 

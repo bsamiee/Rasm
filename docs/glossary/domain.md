@@ -1,6 +1,6 @@
 # [DOMAIN_GLOSSARY]
 
-Domain vocabulary carries the AEC, fabrication, geometry, geospatial, and building-physics concepts every discipline owner assumes settled.
+Domain vocabulary carries the AEC, fabrication, geometry, geospatial, building-physics, and surface-appearance concepts every discipline owner assumes settled.
 
 ## [01]-[BUILDING_MODEL]
 
@@ -70,3 +70,23 @@ Domain vocabulary carries the AEC, fabrication, geometry, geospatial, and buildi
 - `MEP`: names the mechanical, electrical, and plumbing disciplines whose distribution networks thread the building.
 - `distribution system`: names one connected network of ports and segments carrying a medium through the building.
 - `VAV`: conditions a zone by modulating supply air volume at constant temperature.
+
+## [07]-[APPEARANCE]
+
+- `PBR`: describes a surface by measurable optics — reflectance, roughness, metalness, transmission — so it shades alike in every rig and renderer.
+- `texture channel`: names one optical or geometric quantity a texture plane carries, and decides that plane's transfer, neutral, unit, and mip fold.
+- `texture set`: gathers the channel planes describing one surface under one key, and the set is the addressable unit a consumer binds.
+    - [NOT]: texture atlases, which share one plane across several sets by content address and merge no set.
+- `texture bake`: evaluates a shading description into texel planes at a declared extent, freezing procedural and layered appearance as sampled data.
+    - [NOT]: element-graph baking, folding one graph root into a flat element, and the host bake gate, falling a live evaluator to a simulation.
+- `channel packing`: stores three single-component channels in one plane's RGB slots under a fixed order, so one fetch serves three quantities.
+- `normal convention`: fixes the green-channel polarity of a tangent-space normal plane, so the two values invert each other's apparent lighting.
+- `seamless tiling`: makes a plane's opposing edges continuous so repeating it shows no seam, and every channel of one set takes identical geometry.
+- `mip`: holds one pre-filtered level of a plane's resolution pyramid, and a level is folded in the linear domain under its channel's own kernel.
+- `UDIM`: indexes a surface's UV space as a grid of unit tiles, so one channel spans several planes addressed by tile number.
+- `HDRI`: captures a scene's full luminance range as one image, and the stored number is a light quantity rather than a display code value.
+- `IBL`: lights a surface from an environment image, prefiltered once into a diffuse irradiance term and a roughness-indexed specular term.
+- `KTX2`: packages texture planes with their pyramid, layers, and block-compressed payload as one GPU-ready container.
+- `EXR`: stores half and float texel planes with named channels, so a deep-pixel product survives without quantization.
+- `scene-linear`: measures colour as a linear light quantity in a declared working space, so light arithmetic composes correctly.
+    - [NOT]: display-referred sRGB, whose stored number is an encoded code value that decodes to a light quantity on read.

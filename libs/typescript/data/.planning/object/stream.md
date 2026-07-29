@@ -4,13 +4,11 @@ ONE resumable content-addressed rail moves bounded chunks, resumes at verified o
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                                             |
-| :-----: | :-------------- | :--------------------------------------------------------------------------------- |
-|  [01]   | `BYTE_INGRESS`  | the BYOB lift, the bounded form-data seam, backpressure law                        |
-|  [02]   | `CHUNK_STAGE`   | the owned FastCDC wasm surface, chunk receipts, sub-key identity                   |
-|  [03]   | `IDENTITY_FOLD` | the incremental digest session, the one-identity law, checkpointed resume state    |
-|  [04]   | `RESUME_RAIL`   | the tus server over the S3 staging store, hooks, finalize re-home, protocol growth |
-|  [05]   | `RANGE_READS`   | ranged resumable reads over content and staging bands                              |
+- [02]-[BYTE_INGRESS]: the BYOB lift, the bounded form-data seam, backpressure law.
+- [03]-[CHUNK_STAGE]: the owned FastCDC wasm surface, chunk receipts, sub-key identity.
+- [04]-[IDENTITY_FOLD]: the incremental digest session, the one-identity law, checkpointed resume state.
+- [05]-[RESUME_RAIL]: the tus server over the S3 staging store, hooks, finalize re-home, protocol growth.
+- [06]-[RANGE_READS]: ranged resumable reads over content and staging bands.
 
 ## [02]-[BYTE_INGRESS]
 

@@ -4,13 +4,11 @@ Form owns Schema-driven input, submission, and resumable upload. One kernel `Sch
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                 | [PUBLIC] |
-| :-----: | :--------------- | :--------------------------------------------------------------------- | :------- |
-|  [01]   | `SCHEMA_BINDING` | the Schema→aria validation seam and the one error-shape fold           | `Form`   |
-|  [02]   | `FIELD_ROSTER`   | the field-family rows and their kernel-scalar commit seams             | —        |
-|  [03]   | `SUBMIT_TRIP`    | the store-awaited action, pending state, reset, refusal reconciliation | `Form`   |
-|  [04]   | `DRAFT_CURSORS`  | field-grain re-render over one draft atom                              | —        |
-|  [05]   | `UPLOAD_LANE`    | the resumable tus session — resume proof, progress taps, typed refusal | `Form`   |
+- [02]-[SCHEMA_BINDING]: the Schema→aria validation seam and the one error-shape fold; `Form`.
+- [03]-[FIELD_ROSTER]: the field-family rows and their kernel-scalar commit seams; —.
+- [04]-[SUBMIT_TRIP]: the store-awaited action, pending state, reset, refusal reconciliation; `Form`.
+- [05]-[DRAFT_CURSORS]: field-grain re-render over one draft atom; —.
+- [06]-[UPLOAD_LANE]: the resumable tus session — resume proof, progress taps, typed refusal; `Form`.
 
 ## [02]-[SCHEMA_BINDING]
 

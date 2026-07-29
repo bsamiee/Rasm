@@ -69,18 +69,35 @@ public sealed partial class MatrixNormKind {
     [UseDelegateFromConstructor] internal partial double Compute(Matrix matrix);
 }
 
+// The Krylov preconditioner axis — a ROW family, never a boolean beside the path: Diagonal is the Jacobi
+// default, Milu0 the modified incomplete-LU row elliptic operators (a Neumann Laplacian, any SPD grid) want,
+// row-sum-preserving and CSR-native. Create dispatches the MathNet instance; Solve calls Initialize itself,
+// so the factor re-pays per call by that package's own contract.
+[SmartEnum<int>]
+public sealed partial class SparsePreconditioner {
+    public static readonly SparsePreconditioner None = new(key: 0);
+    public static readonly SparsePreconditioner Diagonal = new(key: 1);
+    public static readonly SparsePreconditioner Milu0 = new(key: 2);
+
+    public MathNet.Numerics.LinearAlgebra.Solvers.IPreconditioner<double> Create() =>
+        this == Diagonal ? new MathNet.Numerics.LinearAlgebra.Double.Solvers.DiagonalPreconditioner()
+        : this == Milu0 ? new MathNet.Numerics.LinearAlgebra.Double.Solvers.MILU0Preconditioner()
+        : new MathNet.Numerics.LinearAlgebra.Solvers.UnitPreconditioner<double>();
+}
+
 [SmartEnum<int>]
 public sealed partial class SolvePath {
-    public static readonly SolvePath DenseLu = new(key: 0, isSparse: false, isFallback: false, usesDiagonalPreconditioner: false);
-    public static readonly SolvePath DenseQrLeastSquares = new(key: 1, isSparse: false, isFallback: false, usesDiagonalPreconditioner: false);
-    public static readonly SolvePath DenseCholesky = new(key: 2, isSparse: false, isFallback: false, usesDiagonalPreconditioner: false);
-    public static readonly SolvePath SparseBiCgStabDiagonal = new(key: 3, isSparse: true, isFallback: false, usesDiagonalPreconditioner: true);
-    public static readonly SolvePath SparseMathNetDirectFallback = new(key: 4, isSparse: true, isFallback: true, usesDiagonalPreconditioner: false);
-    public static readonly SolvePath SparseCholesky = new(key: 5, isSparse: true, isFallback: false, usesDiagonalPreconditioner: false);
-    public static readonly SolvePath SparseLuIndefinite = new(key: 6, isSparse: true, isFallback: false, usesDiagonalPreconditioner: false);
+    public static readonly SolvePath DenseLu = new(key: 0, isSparse: false, isFallback: false, preconditioner: SparsePreconditioner.None);
+    public static readonly SolvePath DenseQrLeastSquares = new(key: 1, isSparse: false, isFallback: false, preconditioner: SparsePreconditioner.None);
+    public static readonly SolvePath DenseCholesky = new(key: 2, isSparse: false, isFallback: false, preconditioner: SparsePreconditioner.None);
+    public static readonly SolvePath SparseBiCgStabDiagonal = new(key: 3, isSparse: true, isFallback: false, preconditioner: SparsePreconditioner.Diagonal);
+    public static readonly SolvePath SparseMathNetDirectFallback = new(key: 4, isSparse: true, isFallback: true, preconditioner: SparsePreconditioner.None);
+    public static readonly SolvePath SparseCholesky = new(key: 5, isSparse: true, isFallback: false, preconditioner: SparsePreconditioner.None);
+    public static readonly SolvePath SparseLuIndefinite = new(key: 6, isSparse: true, isFallback: false, preconditioner: SparsePreconditioner.None);
+    public static readonly SolvePath SparseBiCgStabMilu0 = new(key: 7, isSparse: true, isFallback: false, preconditioner: SparsePreconditioner.Milu0);
     public bool IsSparse { get; }
     public bool IsFallback { get; }
-    public bool UsesDiagonalPreconditioner { get; }
+    public SparsePreconditioner Preconditioner { get; }
 }
 
 [SmartEnum<int>]
@@ -275,6 +292,9 @@ public readonly record struct SparseMatrix(Dimension Rows, Dimension Cols, Arr<i
             : MatrixKernel.SparseMatVec(self: this, x: vector, key: key.OrDefault());
     public Matrix ToDense() => MatrixKernel.SparseToDense(self: this);
     public Fin<SolveReceipt> SolveDetailed(Arr<double> rhs, Op? key = null) => MatrixKernel.SparseSolve(matrix: this, rhs: rhs, key: key.OrDefault());
+
+    public Fin<SolveReceipt> SolveIterativeDetailed(Arr<double> rhs, SparsePreconditioner preconditioner, double tolerance, int maxIterations, Op? key = null) =>
+        MatrixKernel.SparseSolveIterative(matrix: this, rhs: rhs, preconditioner: preconditioner, tolerance: tolerance, maxIterations: maxIterations, key: key.OrDefault());
     public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) => SolveDetailed(rhs: rhs, key: key.OrDefault()).Map(static result => result.Solution);
     public Fin<SolveReceipt> SingularSolveDetailed(Arr<double> rhs, GaugePolicy gauge, Context context, Op? key = null) =>
         MatrixKernel.SingularGaugeSolve(matrix: this, rhs: rhs, gauge: gauge, context: context, key: key.OrDefault());
@@ -732,6 +752,30 @@ internal static class MatrixKernel {
                 bool fallbackAccepted = double.IsFinite(residual) && residual <= fallbackCap;
                 return SolveSuccess(solution: ArrFromVector(x), solutionLength: matrix.Cols.Value, path: iterativeConverged ? SolvePath.SparseBiCgStabDiagonal : SolvePath.SparseMathNetDirectFallback, stop: iterativeConverged ? SolveStop.ResidualConverged : fallbackAccepted ? SolveStop.DirectFallbackSolved : SolveStop.FallbackRejected, rows: matrix.Rows, cols: matrix.Cols, rhsLength: rhs.Count, residual: residual, key: key, residualCap: iterativeConverged ? EpsilonPolicy.SqrtEpsilon : fallbackCap, maxIterations: Some(iterationCap), tolerance: Some(iterativeConverged ? EpsilonPolicy.SqrtEpsilon : fallbackCap), inputNonZeros: Some(matrix.NonZeros));
             });
+    // Preconditioned Krylov with NO direct fallback — the large-grid arm where SparseSolve's MathNet direct
+    // rescue (A.Solve densifies a sparse operator) IS the failure mode: a caller above its direct ceiling
+    // states the preconditioner ROW, the tolerance, and the cap, and a non-converged run reports
+    // IterativeExhausted with the true residual on the receipt rather than silently densifying millions of
+    // unknowns. ToMathNetSparse converts the kernel's OWN duplicate-summed CSR, so the MathNet OfIndexed
+    // append-duplicates trap never enters this rail.
+    internal static Fin<SolveReceipt> SparseSolveIterative(SparseMatrix matrix, Arr<double> rhs, SparsePreconditioner preconditioner, double tolerance, int maxIterations, Op key) =>
+        !matrix.IsValid || matrix.Rows.Value != matrix.Cols.Value || !SolveInputIsValid(rows: matrix.Rows.Value, rhs: rhs) || !double.IsFinite(tolerance) || tolerance <= 0.0 || maxIterations < 1
+            ? Fin.Fail<SolveReceipt>(key.InvalidInput())
+            : key.Catch(() => {
+                Matrix<double> A = ToMathNetSparse(s: matrix);
+                LinearVector b = DenseVectorD.OfArray([.. rhs.AsIterable()]);
+                MathNet.Numerics.LinearAlgebra.Solvers.Iterator<double> iterator = new([
+                    new MathNet.Numerics.LinearAlgebra.Solvers.FailureStopCriterion<double>(),
+                    new MathNet.Numerics.LinearAlgebra.Solvers.DivergenceStopCriterion<double>(maximumRelativeIncrease: BiCgStabDivergenceFactor, minimumIterations: 8),
+                    new MathNet.Numerics.LinearAlgebra.Solvers.ResidualStopCriterion<double>(maximum: tolerance, minimumIterationsBelowMaximum: 2),
+                    new MathNet.Numerics.LinearAlgebra.Solvers.IterationCountStopCriterion<double>(maximumNumberOfIterations: maxIterations),
+                ]);
+                LinearVector x = A.SolveIterative(input: b, solver: new MathNet.Numerics.LinearAlgebra.Double.Solvers.BiCgStab(), iterator: iterator, preconditioner: preconditioner.Create());
+                double residual = RelativeResidual(a: A, x: x, b: b);
+                bool converged = iterator.Status == MathNet.Numerics.LinearAlgebra.Solvers.IterationStatus.Converged && double.IsFinite(residual) && residual <= tolerance;
+                return SolveSuccess(solution: ArrFromVector(x), solutionLength: matrix.Cols.Value, path: preconditioner == SparsePreconditioner.Milu0 ? SolvePath.SparseBiCgStabMilu0 : SolvePath.SparseBiCgStabDiagonal, stop: converged ? SolveStop.ResidualConverged : SolveStop.IterativeExhausted, rows: matrix.Rows, cols: matrix.Cols, rhsLength: rhs.Count, residual: residual, key: key, residualCap: tolerance, maxIterations: Some(maxIterations), tolerance: Some(tolerance), inputNonZeros: Some(matrix.NonZeros));
+            });
+
     // Symmetric-indefinite (or nonsymmetric) sparse direct solve: CSparse SparseLU, A+At ordering,
     // column-relative pivot tol in [0,1]; SPD pivot loss throws bare Exception, caught into the typed rail.
     internal static Fin<SolveReceipt> SparseLuSolve(SparseMatrix matrix, Arr<double> rhs, double pivotTolerance, Op key) =>

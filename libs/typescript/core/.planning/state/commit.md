@@ -4,10 +4,8 @@ The commit-graph anti-entropy owner: `Commit` — the content-keyed commit class
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                                | [PUBLIC]                                      |
-| :-----: | :------------- | :-------------------------------------------------------------------- | :-------------------------------------------- |
-|  [01]   | `SUMMARY_MINT` | the Merkle shape, tier construction over the content mint, divergence | interior `_Merkle`, `_summarize`, `_diverges` |
-|  [02]   | `COMMIT_OWNER` | the commit class assembling shapes, orders, and the summary algebra   | `Commit`                                      |
+- [02]-[SUMMARY_MINT]: the Merkle shape, tier construction over the content mint, divergence; interior `_Merkle`, `_summarize`, `_diverges`.
+- [03]-[COMMIT_OWNER]: the commit class assembling shapes, orders, and the summary algebra; `Commit`.
 
 ## [02]-[SUMMARY_MINT]
 

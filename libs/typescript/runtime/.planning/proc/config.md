@@ -4,12 +4,10 @@ The one config owner of the process plane: an ordered provider chain answers eve
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                    | [PUBLIC]   |
-| :-----: | :--------------- | :------------------------------------------------------------------------ | :--------- |
-|  [01]   | `STAGE_FAMILY`   | the closed source vocabulary and the doppler-injection law                | `Provider` |
-|  [02]   | `CHAIN_FOLD`     | the orElse fold, skip-versus-fail construction, the one install site      | `Provider` |
-|  [03]   | `SETTING_OWNER`  | the boot-validated runtime contract and the config-family form            | `Setting`  |
-|  [04]   | `ADMISSION_ROWS` | the row vocabulary and the six-axis consumption profile the root supplies | `Profile`  |
+- [02]-[STAGE_FAMILY]: the closed source vocabulary and the doppler-injection law; `Provider`.
+- [03]-[CHAIN_FOLD]: the orElse fold, skip-versus-fail construction, the one install site; `Provider`.
+- [04]-[SETTING_OWNER]: the boot-validated runtime contract and the config-family form; `Setting`.
+- [05]-[ADMISSION_ROWS]: the row vocabulary and the six-axis consumption profile the root supplies; `Profile`.
 
 ## [02]-[STAGE_FAMILY]
 

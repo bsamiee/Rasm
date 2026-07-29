@@ -4,14 +4,12 @@ One crypto authority: argon2id credential digest-at-rest under a semaphore bulkh
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]          | [PUBLIC]                               |
-| :-----: | :----------------- | :------------------------------------- |
-|  [01]   | `FAULT_AND_ALG`    | `SignFault`, `KeyAlg`                  |
-|  [02]   | `KEY_MATERIAL`     | `Material`                             |
-|  [03]   | `CRYPTO_PRIMITIVE` | `Crypto`, `CredentialVerdict`, `Probe` |
-|  [04]   | `SHREDDER`         | `Shredder`                             |
-|  [05]   | `TOKEN_AUTHORITY`  | `Jwt`, `AccessClaims`                  |
-|  [06]   | `CALIBRATION`      | `Calibration`                          |
+- [02]-[FAULT_AND_ALG]: `SignFault`, `KeyAlg`.
+- [03]-[KEY_MATERIAL]: `Material`.
+- [04]-[CRYPTO_PRIMITIVE]: `Crypto`, `CredentialVerdict`, `Probe`.
+- [05]-[SHREDDER]: `Shredder`.
+- [06]-[TOKEN_AUTHORITY]: `Jwt`, `AccessClaims`.
+- [07]-[CALIBRATION]: `Calibration`.
 
 ## [02]-[FAULT_AND_ALG]
 

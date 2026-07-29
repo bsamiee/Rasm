@@ -35,7 +35,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [MANAGED_CONFIG_SPACE]-[QUEUED]: color management resolves through a versioned config graph, never a synthesized profile.
 - Capability: managed egress answers working space, display, view, and look by NAME out of a shareable config, so a scene-linear reference is a role a project declares rather than a matrix or profile any producer hardcodes, and deep planes, display rasters, and separations all resolve their ends through one graph.
 - Shape: `libs/python/artifacts/.planning/graphic/color/managed.md` widens its transform axis to carry the config-resolved leg beside the ICC leg, and the two boundary sentences at `graphic/texture/plane.md` and `graphic/texture/ibl.md` that already name this owner stop pointing at a capability the folder admits and composes nowhere.
-- Unlocks: texture pipelines whose scene-linear end is declared instead of assumed, with LUT egress and shader-side transforms reachable from the same resolution the CPU path takes.
+- Unlocks: deep-pixel paths whose scene-linear end is declared instead of assumed, with LUT egress and shader-side transforms reachable from the same resolution the CPU path takes.
 - Anchors: `opencolorio` with its `.api/` catalog — shipped ACES CG and Studio configs reachable with no file on disk, the role graph `scene_linear` leads, `Processor` compiling to a CPU applier over float buffers or a shader emitter, `Baker` as the LUT egress; the `IccTransform` bundle and `ManagedCodec` egress the new leg seats beside; the package-scoped build variable making the distribution resolve at the floor.
 - Tension: two color authorities then stand on one page — the ICC profile edge and the config graph — and the discriminant has to be which one OWNS a given end rather than which one can express it, or every arm grows a second knob answering the same question.
 
@@ -48,11 +48,11 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 
 [FLOOR_UNGATING]-[BLOCKED]: every admitted distribution builds at the interpreter floor.
 - Capability: the folder's package registry carries no interpreter marker a probe has not reproduced, so a source-built distribution admits on the estate build lane instead of waiting for an upstream wheel, and a marker that survives names the break it reproduces and the release that retires it.
-- Shape: the three marked rows in the root `pyproject.toml` — `scikit-image` beside the `[IMAGING]` card and `vtk`/`usd-core` beside the `[SCENE]` card at `libs/python/artifacts/README.md` — each drop their marker under their own route.
+- Shape: the four marked rows in the root `pyproject.toml` — `scikit-image` beside the `[IMAGING]` card and `vtk`/`pyvista`/`usd-core` beside the `[SCENE]` card at `libs/python/artifacts/README.md` — each drop their marker under their own route.
 - Unlocks: the acceptance bar is zero unexplained interpreter markers on artifacts rows; the measured-score half and the USD stage half stop carrying a build-lane caveat their own design pages never state.
-- Anchors: the ungated `openexr` and `opencolorio` admissions this folder already carries as the source-lane precedent, the package-scoped build-variable mechanism that repaired the second, and the `colour-cxf` static-metadata block as the pure-wheel cap precedent.
-- Arms: pythran shipping a release that pins `gast>=0.7`, and a wrapper mechanism seating a nixpkgs-built python module in the uv-managed venv.
-- Tension: the two routes are structurally different bets — one waits on an upstream toolchain fix this estate cannot force, the other buys a second admission lane whose ownership sits in the machine estate rather than here.
+- Anchors: the ungated `openexr` and `opencolorio` admissions this folder already carries as the source-lane precedent, the package-scoped build-variable mechanism that repaired the second, the `colour-cxf` static-metadata block as the pure-wheel cap precedent, and the Forge python-overlay `.pth` already resolving the scene natives at the floor.
+- Arms: pythran shipping a release that pins `gast>=0.7`, and an upstream cp315 wheel per scene distribution.
+- Tension: the imaging route waits on an upstream toolchain fix this estate cannot force while the scene route waits on a wheel, so the marker set retires in two unrelated moves rather than one sweep.
 
 ## [02]-[CLOSED]
 

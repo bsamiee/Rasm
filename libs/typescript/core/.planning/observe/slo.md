@@ -6,12 +6,10 @@ Every downstream artifact projects these values — `Slo.evaluate` verdicts, `bo
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]     | [OWNS]                                                                  |
-| :-----: | :------------ | :---------------------------------------------------------------------- |
-|  [01]   | `OBJECTIVE`   | the `Objective` policy owner, the closed `Sli` family, the sample fold  |
-|  [02]   | `BURN_ROWS`   | the multi-window multi-burn-rate table and its derivations              |
-|  [03]   | `ALGEBRA`     | burn/budget/share arithmetic and the windowed verdict fold              |
-|  [04]   | `ALERT_SPECS` | the severity routing rows and the `Objective -> specs` total derivation |
+- [02]-[OBJECTIVE]: the `Objective` policy owner, the closed `Sli` family, the sample fold.
+- [03]-[BURN_ROWS]: the multi-window multi-burn-rate table and its derivations.
+- [04]-[ALGEBRA]: burn/budget/share arithmetic and the windowed verdict fold.
+- [05]-[ALERT_SPECS]: the severity routing rows and the `Objective -> specs` total derivation.
 
 ## [02]-[OBJECTIVE]
 

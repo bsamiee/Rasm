@@ -4,11 +4,9 @@ OAuth 2.0 authorization-code ceremony over `arctic`, modeling every issuer as on
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [PUBLIC]                                                |
-| :-----: | :---------------- | :------------------------------------------------------ |
-|  [01]   | `PROVIDER_ROSTER` | `Provider`, `OAuthFault`, `Departed`, `OAuthStateStore` |
-|  [02]   | `CEREMONY`        | `OAuth`                                                 |
-|  [03]   | `GRANT_LIFECYCLE` | `OAuth`                                                 |
+- [02]-[PROVIDER_ROSTER]: `Provider`, `OAuthFault`, `Departed`, `OAuthStateStore`.
+- [03]-[CEREMONY]: `OAuth`.
+- [04]-[GRANT_LIFECYCLE]: `OAuth`.
 
 ## [02]-[PROVIDER_ROSTER]
 

@@ -4,12 +4,10 @@ Chart owns declared statistics, streaming series, and user-driven pivots behind 
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                           | [PUBLIC] |
-| :-----: | :----------------- | :------------------------------------------------------------------------------- | :------- |
-|  [01]   | `REGIME_LAW`       | the three-regime discriminant, the Arrow columnar bus, the engine boundary table | `Chart`  |
-|  [02]   | `DECLARED_SURFACE` | the Plot grammar bracket and the visx bespoke accessible-SVG lane                | `Chart`  |
-|  [03]   | `SERIES_SURFACE`   | the uplot scoped instance — aligned columns, `setData` streaming, cursor cohorts | `Chart`  |
-|  [04]   | `PIVOT_SURFACE`    | the perspective engine — client/table lifecycle, config fold-echo, derived feed  | `Chart`  |
+- [02]-[REGIME_LAW]: the three-regime discriminant, the Arrow columnar bus, the engine boundary table; `Chart`.
+- [03]-[DECLARED_SURFACE]: the Plot grammar bracket and the visx bespoke accessible-SVG lane; `Chart`.
+- [04]-[SERIES_SURFACE]: the uplot scoped instance — aligned columns, `setData` streaming, cursor cohorts; `Chart`.
+- [05]-[PIVOT_SURFACE]: the perspective engine — client/table lifecycle, config fold-echo, derived feed; `Chart`.
 
 ## [02]-[REGIME_LAW]
 

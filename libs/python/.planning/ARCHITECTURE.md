@@ -104,6 +104,7 @@ flowchart LR
     Data e7@-->|"[SHAPE]: DoeDataset"| RasmCompute
     Data e6@<-->|"[WIRE]: SubstraitPlan"| Persistence
     Data e8@-->|"[WIRE]: Environmental"| Materials
+    Materials e16@-->|"[WIRE]: MaterialWire + TextureSetWire"| Runtime
     Bim e9@-->|"[WIRE]: GeoFeatureWire"| Data
     Artifacts e14@-->|"[CONTENT_KEY]: SignedArtifact"| Persistence
     Fabrication e15@-->|"[SHAPE]: Tolerance"| Artifacts

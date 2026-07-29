@@ -4,13 +4,11 @@ Feature evaluation is one owner over the real OpenFeature server SDK: targeting 
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                          | [PUBLIC]  |
-| :-----: | :----------------- | :------------------------------------------------------------------------------ | :-------- |
-|  [01]   | `TARGETING_RULES`  | the recursive rule family, the deterministic bucket, the total `decide` fold    | `Rollout` |
-|  [02]   | `STICKY_ROWS`      | stickiness mode rows, the held-variant ledger, the reason-keyed expiry fold     | `Sticky`  |
-|  [03]   | `VERDICT_CONTRACT` | the OpenFeature projection, the document and delta families, the JSON value arm | `Verdict` |
-|  [04]   | `PROVIDER_OWNER`   | the SDK `Provider` implementation, events, hooks, the promise boundary          | `Flags`   |
-|  [05]   | `GATE_SERVICE`     | the evaluation service, the reason-expiring memo, the `FlagGate` satisfaction   | `Flags`   |
+- [02]-[TARGETING_RULES]: the recursive rule family, the deterministic bucket, the total `decide` fold; `Rollout`.
+- [03]-[STICKY_ROWS]: stickiness mode rows, the held-variant ledger, the reason-keyed expiry fold; `Sticky`.
+- [04]-[VERDICT_CONTRACT]: the OpenFeature projection, the document and delta families, the JSON value arm; `Verdict`.
+- [05]-[PROVIDER_OWNER]: the SDK `Provider` implementation, events, hooks, the promise boundary; `Flags`.
+- [06]-[GATE_SERVICE]: the evaluation service, the reason-expiring memo, the `FlagGate` satisfaction; `Flags`.
 
 ## [02]-[TARGETING_RULES]
 

@@ -4,12 +4,10 @@ This folder's fail-closed capability rail: one closed row/ensure vocabulary, one
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                                  |
-| :-----: | :--------------- | :-------------------------------------------------------------------------------------- |
-|  [01]   | `ROW_VOCABULARY` | the row, ensure, and demand shapes, the version-order fold, the one fault family        |
-|  [02]   | `BATCHED_PROBE`  | the probe request family and the one-statement `RequestResolver` over the roster        |
-|  [03]   | `PROBE_SERVICE`  | the `Capability` service — construction-time proof, granted set, `require`/`when` gates |
-|  [04]   | `CONTRACT`       | generated contract decode, canonical identity, local adapter admission, evidence        |
+- [02]-[ROW_VOCABULARY]: the row, ensure, and demand shapes, the version-order fold, the one fault family.
+- [03]-[BATCHED_PROBE]: the probe request family and the one-statement `RequestResolver` over the roster.
+- [04]-[PROBE_SERVICE]: the `Capability` service — construction-time proof, granted set, `require`/`when` gates.
+- [05]-[CONTRACT]: generated contract decode, canonical identity, local adapter admission, evidence.
 
 ## [02]-[ROW_VOCABULARY]
 

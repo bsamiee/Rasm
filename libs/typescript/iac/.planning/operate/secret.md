@@ -4,11 +4,9 @@
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                          | [PUBLIC]  |
-| :-----: | :---------------- | :-------------------------------------------------------------- | :-------- |
-|  [01]   | `STORE_HIERARCHY` | the parent-chained hierarchy, generated entries, the token      | `Secrets` |
-|  [02]   | `FAN_IN_AND_OUT`  | the single-key provider fan-in, the mirror fan-out, the webhook | `Secrets` |
-|  [03]   | `CERT_CHAIN`      | the usage vocabulary, the profile, the CA root, leaf issuance   | `Certs`   |
+- [02]-[STORE_HIERARCHY]: the parent-chained hierarchy, generated entries, the token; `Secrets`.
+- [03]-[FAN_IN_AND_OUT]: the single-key provider fan-in, the mirror fan-out, the webhook; `Secrets`.
+- [04]-[CERT_CHAIN]: the usage vocabulary, the profile, the CA root, leaf issuance; `Certs`.
 
 ## [02]-[STORE_HIERARCHY]
 

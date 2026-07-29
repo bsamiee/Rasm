@@ -1,0 +1,382 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rasm.build/contracts/appearance-vocabulary.schema.json",
+  "title": "APPEARANCE_VOCABULARY",
+  "$comment": "The shared appearance vocabulary both appearance seams reference and neither restates. `texture-set-by-key` and `asset-set-manifest` each $ref this fragment; a document-local re-spelling of a channel, transfer, convention, pack, container, payload, format, mip, or key row is the fork this fragment forecloses. Branch surfaces transcribing it: csharp:Rasm.Materials/Raster/{plane,codec,filter,tile,set,press,gpu} and Appearance/{environment,neural,interchange,texture,graph,acquisition}; python:artifacts/graphic/texture/{plane,derive,set,ibl,ingest} and python:runtime/transport/shapes; typescript:core/interchange/{codec,format}, typescript:data/object/asset, typescript:ui/viewer/scene. Every roster below is a `const` subschema: a branch projects its own roster and validates it here, so parity is a schema check rather than a reading.",
+
+  "$defs": {
+
+    "transcription": {
+      "$comment": "The canonical concept name is snake_case and each branch derives its identifier MECHANICALLY: csharp takes PascalCase (`specular_roughness` -> `TextureChannel.SpecularRoughness`), python UPPER_SNAKE (`TextureRole.SPECULAR_ROUGHNESS`), typescript camelCase (`\"specularRoughness\"`). Every enum row carries the canonical name as its KEY; cross-branch equality tests the key, never the identifier. A channel OpenPBR Surface 1.1 names IS the OpenPBR identifier verbatim (`geometry_opacity`, never `opacity`), so the `.mtlx` port binding is mechanical and needs no translation column. Two documents carry this vocabulary and each keeps its own name: the csharp-minted document is `TextureSetWire`, the python-minted document is `AssetSetManifest` — never one name over two producers.",
+      "const": {
+        "csharp": "PascalCase",
+        "python": "UPPER_SNAKE",
+        "typescript": "camelCase",
+        "nonMechanical": {
+          "specular_roughness_anisotropy": "the csharp vector column shortens to `SpecularAnisotropy`; the channel key and the `.mtlx` port stay canonical"
+        },
+        "hazards": {
+          "thin_film_thickness": "unit fork — nm everywhere but `.mtlx`, whose um input takes a divide by 1000 at egress",
+          "subsurface_radius": "shape fork — 3-band carrier; both wires flatten per channel, `.mtlx` splits radius and radius_scale",
+          "base_specular_tint": "no OpenPBR input — Rasm column; `.mtlx` lowers it INTO `specular_color` as the specular-to-base lerp",
+          "transmission_roughness": "no OpenPBR input — Rasm column; OpenPBR couples it to `specular_roughness`, so it never crosses `.mtlx`"
+        }
+      }
+    },
+
+    "channel": {
+      "$comment": "The closed channel vocabulary, DERIVED from the OpenPbrSurface record columns, the OpenPbrGroupsWire projection, the OpenPBR Surface 1.1 geometry group, and three derived fields — a projection of a settled vocabulary, never a hand-picked set. Order IS the roster index, and the roster index IS the channel order of every key preimage.",
+      "type": "string",
+      "enum": [
+        "base_weight", "base_color", "base_metalness", "base_diffuse_roughness", "base_specular_tint",
+        "specular_weight", "specular_color", "specular_roughness", "specular_roughness_anisotropy", "specular_ior",
+        "transmission_weight", "transmission_roughness",
+        "subsurface_weight", "subsurface_radius",
+        "coat_weight", "coat_color", "coat_roughness", "coat_ior",
+        "fuzz_weight", "fuzz_color", "fuzz_roughness",
+        "thin_film_weight", "thin_film_thickness", "thin_film_ior",
+        "emission_color", "emission_luminance",
+        "geometry_opacity", "geometry_normal", "geometry_coat_normal", "geometry_tangent", "geometry_coat_tangent",
+        "height", "occlusion", "curvature"
+      ]
+    },
+
+    "channelExclusion": {
+      "$comment": "Two vocabulary members that admit no per-texel field, each excluded for a set-level reason rather than an oversight. A producer minting a plane for either is the defect this carve names.",
+      "const": {
+        "conductor": "the OpenPbrSurface record column that stays set-level — a `ConductorMetal` key rides the set document beside the channel list",
+        "geometry_thin_walled": "the OpenPBR geometry-group input that stays set-level — a double-sided-shell boolean admits no plane"
+      }
+    },
+
+    "channelRoster": {
+      "$comment": "One row per channel: semantic component count, transfer tag, neutral, unit, mip policy, and the branches that MINT its bytes. NEUTRAL is the constant a producer writes into an absent packed slot, a mip gutter, and a UDIM hole — the OpenPBR Surface 1.1 default converted into the channel's declared unit; the csharp `ThinFilm.None` weight-zero sentinel is never a channel neutral. MINT names byte production alone: `python` carries every csharp-minted row by ingest CLASSIFICATION and synthesizes none of its bytes. `specular_color` and `coat_color` carry no OpenPbrSurface column — WireMap synthesizes them White — and are channel rows because OpenPBR defines the inputs and the groups wire already carries them, so a baked tint plane binds through SetBind with no wire change. `height` is normalized [0,1] and its millimetre span rides the set document, never the plane; `curvature` is signed [-1,1], and an integer-depth plane encodes (v + 1) / 2 and decodes 2v - 1.",
+      "const": {
+        "base_weight": { "components": 1, "transfer": "linear", "neutral": 1.0, "unit": null, "mip": "box", "mint": ["csharp"] },
+        "base_color": { "components": 3, "transfer": "srgb", "neutral": [0.8, 0.8, 0.8], "unit": null, "mip": "kaiser", "mint": ["csharp"] },
+        "base_metalness": { "components": 1, "transfer": "linear", "neutral": 0.0, "unit": null, "mip": "box", "mint": ["csharp"] },
+        "base_diffuse_roughness": { "components": 1, "transfer": "linear", "neutral": 0.0, "unit": null, "mip": "roughnessVariance", "mint": ["csharp"] },
+        "base_specular_tint": { "components": 1, "transfer": "linear", "neutral": 0.0, "unit": null, "mip": "box", "mint": ["csharp"] },
+        "specular_weight": { "components": 1, "transfer": "linear", "neutral": 1.0, "unit": null, "mip": "box", "mint": ["csharp"] },
+        "specular_color": { "components": 3, "transfer": "srgb", "neutral": [1.0, 1.0, 1.0], "unit": null, "mip": "kaiser", "mint": ["csharp"] },
+        "specular_roughness": { "components": 1, "transfer": "linear", "neutral": 0.3, "unit": null, "mip": "roughnessVariance", "mint": ["csharp"] },
+        "specular_roughness_anisotropy": { "components": 1, "transfer": "linear", "neutral": 0.0, "unit": null, "mip": "box", "mint": ["csharp"] },
+        "specular_ior": { "components": 1, "transfer": "raw", "neutral": 1.5, "unit": null, "mip": "box", "mint": ["csharp"] },
+        "transmission_weight": { "components": 1, "transfer": "linear", "neutral": 0.0, "unit": null, "mip": "box", "mint": ["csharp"] },
+        "transmission_roughness": { "components": 1, "transfer": "linear", "neutral": 0.0, "unit": null, "mip": "roughnessVariance", "mint": ["csharp"] },
+        "subsurface_weight": { "components": 1, "transfer": "linear", "neutral": 0.0, "unit": null, "mip": "box", "mint": ["csharp"] },
+        "subsurface_radius": { "components": 3, "transfer": "raw", "neutral": [1.0, 0.5, 0.25], "unit": "mm", "mip": "box", "mint": ["csharp"] },
+        "coat_weight": { "components": 1, "transfer": "linear", "neutral": 0.0, "unit": null, "mip": "box", "mint": ["csharp"] },
+        "coat_color": { "components": 3, "transfer": "srgb", "neutral": [1.0, 1.0, 1.0], "unit": null, "mip": "kaiser", "mint": ["csharp"] },
+        "coat_roughness": { "components": 1, "transfer": "linear", "neutral": 0.0, "unit": null, "mip": "roughnessVariance", "mint": ["csharp"] },
+        "coat_ior": { "components": 1, "transfer": "raw", "neutral": 1.6, "unit": null, "mip": "box", "mint": ["csharp"] },
+        "fuzz_weight": { "components": 1, "transfer": "linear", "neutral": 0.0, "unit": null, "mip": "box", "mint": ["csharp"] },
+        "fuzz_color": { "components": 3, "transfer": "srgb", "neutral": [1.0, 1.0, 1.0], "unit": null, "mip": "kaiser", "mint": ["csharp"] },
+        "fuzz_roughness": { "components": 1, "transfer": "linear", "neutral": 0.5, "unit": null, "mip": "roughnessVariance", "mint": ["csharp"] },
+        "thin_film_weight": { "components": 1, "transfer": "linear", "neutral": 0.0, "unit": null, "mip": "box", "mint": ["csharp"] },
+        "thin_film_thickness": { "components": 1, "transfer": "raw", "neutral": 500.0, "unit": "nm", "mip": "box", "mint": ["csharp"] },
+        "thin_film_ior": { "components": 1, "transfer": "raw", "neutral": 1.4, "unit": null, "mip": "box", "mint": ["csharp"] },
+        "emission_color": { "components": 3, "transfer": "srgb", "neutral": [1.0, 1.0, 1.0], "unit": null, "mip": "kaiser", "mint": ["csharp"] },
+        "emission_luminance": { "components": 1, "transfer": "linear", "neutral": 0.0, "unit": "cd/m2", "mip": "box", "mint": ["csharp"] },
+        "geometry_opacity": { "components": 1, "transfer": "linear", "neutral": 1.0, "unit": null, "mip": "box", "mint": ["csharp"] },
+        "geometry_normal": { "components": 3, "transfer": "raw", "neutral": [0.0, 0.0, 1.0], "unit": null, "mip": "normalRenormalize", "mint": ["csharp", "python"] },
+        "geometry_coat_normal": { "components": 3, "transfer": "raw", "neutral": [0.0, 0.0, 1.0], "unit": null, "mip": "normalRenormalize", "mint": ["csharp", "python"] },
+        "geometry_tangent": { "components": 3, "transfer": "raw", "neutral": [1.0, 0.0, 0.0], "unit": null, "mip": "normalRenormalize", "mint": ["csharp"] },
+        "geometry_coat_tangent": { "components": 3, "transfer": "raw", "neutral": [1.0, 0.0, 0.0], "unit": null, "mip": "normalRenormalize", "mint": ["csharp"] },
+        "height": { "components": 1, "transfer": "raw", "neutral": 0.5, "unit": null, "mip": "box", "mint": ["csharp", "python"] },
+        "occlusion": { "components": 1, "transfer": "linear", "neutral": 1.0, "unit": null, "mip": "box", "mint": ["csharp", "python"] },
+        "curvature": { "components": 1, "transfer": "raw", "neutral": 0.0, "unit": null, "mip": "box", "mint": ["csharp", "python"] }
+      }
+    },
+
+    "aliasTable": {
+      "$comment": "The ONE stem vocabulary classification consumes; the csharp `SetIngest.Classify` roster and the python `_ALIASES` frozendict transcribe it. Matching is case-insensitive over the filename stem after separator normalization — `-`, `_`, `.`, and space all fold to one boundary. `nor_gl`/`normalgl` resolve to `geometry_normal` plus `NormalConvention.gl` and `nor_dx`/`normaldx` to `dx`; a stem carrying NEITHER token leaves the convention UNRESOLVED and the manifest records it, because a defaulted convention is the silent-lighting-inversion defect. `arm` is an alias of `orm` (identical slot order) and `mra` the reversed pack, so a packed stem resolves to a pack row, never to one channel. `gloss`/`glossiness`/`smoothness` resolve to `specular_roughness` under the roughness-transfer law, never to a channel of their own. Classification is TOTAL and PURE: an unmatched stem accumulates on the fault monoid, and no probe alone infers a channel. Egress product names (`equirect`, `irradiance`, `specular`, `brdf_lut`, `luminance_cdf`) are NOT stems — IBL products arrive manifest-borne from their producer, so a product name inside a resolution map is the shadowing defect (`specular` the proven instance).",
+      "const": {
+        "base_color": ["albedo", "diffuse", "basecolor", "col", "color", "d", "alb"],
+        "base_metalness": ["metallic", "metalness", "metal", "m", "mtl"],
+        "specular_roughness": ["roughness", "rough", "rgh", "r"],
+        "geometry_normal": ["normal", "nor", "nrm", "n", "normalgl", "norgl", "nordx", "normaldx"],
+        "geometry_opacity": ["opacity", "alpha", "mask", "transparency"],
+        "height": ["height", "disp", "displacement", "bump", "h"],
+        "occlusion": ["ao", "occlusion", "ambientocclusion"],
+        "curvature": ["curv", "curvature"],
+        "emission_color": ["emissive", "emission", "glow", "e"],
+        "specular_color": ["spec", "specular", "speccol"],
+        "transmission_weight": ["transmission", "transmissive", "refraction"],
+        "subsurface_weight": ["sss", "subsurface", "scatter"],
+        "coat_weight": ["clearcoat", "coat", "cc"],
+        "fuzz_weight": ["sheen", "fuzz", "velvet"]
+      }
+    },
+
+    "transfer": {
+      "$comment": "csharp `PlaneTransfer`, python `PlaneSpace`, and typescript `colorSpace` literals each carry all five rows; a three-row transcription is a cardinality defect.",
+      "type": "string",
+      "enum": ["linear", "srgb", "raw", "pq", "hlg"]
+    },
+
+    "transferRoster": {
+      "$comment": "A channel plane tagged `pq` or `hlg` REFUSES at set admission on both documents: a bake target is scene-referred, and a display-referred bake forks the shading value from the stored value. A color channel at integer depth encodes `srgb` and the same channel at float depth encodes `linear`; every non-color channel is transfer-invariant across depth. The `linear` primaries are the ONE ACEScg working space the material graph's scene-linear port carries, so a plane crossing either wire never declares primaries a second time.",
+      "const": {
+        "linear": { "meaning": "scene-linear light quantity; the stored number IS the linear value", "legalOn": "any channel plane, any environment plane" },
+        "srgb": { "meaning": "IEC 61966-2-1 display-encoded color; decodes to scene-linear on read", "legalOn": "color channels only" },
+        "raw": { "meaning": "no transfer, no color management; the stored number IS the parameter", "legalOn": "any non-color channel plane" },
+        "pq": { "meaning": "SMPTE ST 2084 display transfer", "legalOn": "environment and IBL planes only" },
+        "hlg": { "meaning": "ITU-R BT.2100 HLG display transfer", "legalOn": "environment and IBL planes only" }
+      }
+    },
+
+    "normalConvention": {
+      "$comment": "The green-channel polarity of a tangent-space normal plane. `gl` is +Y — the OpenGL/glTF/USD/MaterialX convention and the CANONICAL wire form. `dx` is -Y, admitted at INGEST and converted to `gl` before the plane is keyed. Both documents carry a convention field to record the INGEST SOURCE on the provenance leg; a `dx` plane crossing either wire is refused. The conversion is g' = 1 - g at integer depth and g' = -g at signed float depth, applied ONCE at ingest. `geometry_normal` and `geometry_coat_normal` share one convention per set, and a set declaring divergent conventions per channel is refused.",
+      "type": "string",
+      "enum": ["gl", "dx"]
+    },
+
+    "alphaMode": {
+      "type": "string",
+      "enum": ["straight", "associated", "none"]
+    },
+
+    "alphaLaw": {
+      "$comment": "Encode CONVERTS to the container's canonical association and decode NORMALIZES to the plane's declared mode; neither step is a caller knob. A straight-to-associated conversion at 8 bits or less quantizes catastrophically at low alpha, so a plane whose declared mode differs from its container's canonical association admits ONLY at 16-bit or float depth — which is why every channel row carries the container beside the storage format: an association gate that string-parses the egress extension to recover the container is unspellable law. Mip filtering premultiplies before the fold and un-premultiplies after, matching the sampler's own reconstruction law, so a transparent texel never bleeds opaque color across a coverage edge.",
+      "const": {
+        "straight": "RGB is NOT multiplied by alpha",
+        "associated": "RGB IS multiplied by alpha",
+        "none": "the plane carries no alpha channel"
+      }
+    },
+
+    "container": {
+      "$comment": "The file-container vocabulary. `container` is a REQUIRED column on every channel and map record on both documents: it selects the canonical association the encode leg converts to, and no other column recovers it.",
+      "type": "string",
+      "enum": ["png16", "tiff16", "tiff_f32", "webp", "qoi", "exr", "exr_deep", "hdr", "ktx2", "jxl", "jxl_f16", "avif12"]
+    },
+
+    "containerRoster": {
+      "$comment": "One row per container: the egress extension, the canonical alpha association encode converts to, the depth ceiling it writes, whether it holds its OWN pyramid, and the branches whose codec estates read and write it. A container held by one branch alone still rides the shared vocabulary — the peer refuses it by roster membership rather than by an unknown key. The `jxl`, `jxl_f16`, and `avif12` associations are the MEASURED posture of the provisioned encoders: `imagecodecs.jpegxl_encode` and `imagecodecs.avif_encode` expose no premultiplication seat at all, so those containers write straight alpha and a plane declaring `associated` on one of them is unrepresentable rather than merely lossy.",
+      "const": {
+        "png16": { "ext": "png", "alpha": "straight", "depthCeiling": "u16", "selfPyramid": false, "engines": ["csharp", "python"] },
+        "tiff16": { "ext": "tif", "alpha": "straight", "depthCeiling": "u16", "selfPyramid": false, "engines": ["csharp"] },
+        "tiff_f32": { "ext": "tif", "alpha": "straight", "depthCeiling": "f32", "selfPyramid": false, "engines": ["python"] },
+        "webp": { "ext": "webp", "alpha": "straight", "depthCeiling": "u8", "selfPyramid": false, "engines": ["csharp", "python"] },
+        "qoi": { "ext": "qoi", "alpha": "straight", "depthCeiling": "u8", "selfPyramid": false, "engines": ["csharp"] },
+        "exr": { "ext": "exr", "alpha": "associated", "depthCeiling": "f32", "selfPyramid": false, "engines": ["csharp", "python"] },
+        "exr_deep": { "ext": "exr", "alpha": "associated", "depthCeiling": "f32", "selfPyramid": false, "engines": ["csharp"] },
+        "hdr": { "ext": "hdr", "alpha": "none", "depthCeiling": "f32", "selfPyramid": false, "engines": ["csharp", "python"] },
+        "ktx2": { "ext": "ktx2", "alpha": "straight", "depthCeiling": "f32", "selfPyramid": true, "engines": ["csharp", "python"] },
+        "jxl": { "ext": "jxl", "alpha": "straight", "depthCeiling": "u16", "selfPyramid": false, "engines": ["python"] },
+        "jxl_f16": { "ext": "jxl", "alpha": "straight", "depthCeiling": "f16", "selfPyramid": false, "engines": ["python"] },
+        "avif12": { "ext": "avif", "alpha": "straight", "depthCeiling": "u12", "selfPyramid": false, "engines": ["python"] }
+      }
+    },
+
+    "roughnessTransfer": {
+      "$comment": "ROUGHNESS is the only representation. Gloss, glossiness, and smoothness are INGEST aliases carrying a transfer, never a channel row and never a wire field. `roughness = 1 - gloss` evaluates in the LINEAR domain: a gloss plane authored `srgb` decodes to linear BEFORE the inversion, and inverting the encoded value is the silent-roughness-fork defect. The transfer applies ONCE, at classification, and no downstream surface holds a gloss spelling.",
+      "const": { "aliases": ["gloss", "glossiness", "smoothness"], "law": "roughness = 1 - gloss, in the linear domain, applied once at classification" }
+    },
+
+    "channelPack": {
+      "type": "string",
+      "enum": ["orm", "mra"]
+    },
+
+    "packRoster": {
+      "$comment": "The only two packing orders; a third is a new row, never a caller-ordered tuple. A packed plane is ALWAYS `raw` transfer and `none` alpha, and the alpha component carries nothing and is never repurposed. An absent slot fills with its channel's neutral, never zero. A packed plane mips PER COMPONENT under each slot's own policy — one policy across the pack is the defect. `orm` is the glTF KHR occlusion plus metallic-roughness read order and is the ONLY pack that crosses to a glTF consumer.",
+      "const": {
+        "orm": { "r": "occlusion", "g": "specular_roughness", "b": "base_metalness", "a": null, "gltf": true },
+        "mra": { "r": "base_metalness", "g": "specular_roughness", "b": "occlusion", "a": null, "gltf": false }
+      }
+    },
+
+    "planeFormat": {
+      "$comment": "The STORAGE-format vocabulary. The csharp document carries the key verbatim; the python document records the row as its (depth, channels) pair, where storage width rounds the semantic component count up through {1, 2, 4}, so the pair resolves to exactly one row and a 3-component channel resolves to the 4-component row. A three-component plane IS a four-component plane declaring `none` alpha; no odd-width texel struct exists. The semantic component count lives on the channel roster; a row of this table is the storage width.",
+      "type": "string",
+      "enum": ["r8", "r16", "r16f", "r32f", "rg8", "rg16", "rgba8", "rgba16", "rgba16f", "rgba32f"]
+    },
+
+    "planeFormatRoster": {
+      "const": {
+        "r8": { "components": 1, "depth": "u8", "serves": "masks, 8-bit scalar previews" },
+        "r16": { "components": 1, "depth": "u16", "serves": "height, occlusion, opacity at production depth" },
+        "r16f": { "components": 1, "depth": "f16", "serves": "scalar HDR fields" },
+        "r32f": { "components": 1, "depth": "f32", "serves": "curvature, thickness, radius scalars, solver products" },
+        "rg8": { "components": 2, "depth": "u8", "serves": "two-component tangent and normal reconstruction" },
+        "rg16": { "components": 2, "depth": "u16", "serves": "two-component normal at production depth" },
+        "rgba8": { "components": 4, "depth": "u8", "serves": "packed orm and mra, 8-bit color egress" },
+        "rgba16": { "components": 4, "depth": "u16", "serves": "PNG16 and TIFF16 color and vector planes" },
+        "rgba16f": { "components": 4, "depth": "f16", "serves": "EXR half color, IBL specular pyramid" },
+        "rgba32f": { "components": 4, "depth": "f32", "serves": "EXR full, equirect environment, solver-grade planes" }
+      }
+    },
+
+    "mipPolicy": {
+      "type": "string",
+      "enum": ["box", "kaiser", "normalRenormalize", "roughnessVariance", "none"]
+    },
+
+    "mipPolicyRoster": {
+      "$comment": "Every fold runs in the LINEAR domain — averaging srgb-encoded texels darkens the pyramid, so a color channel decodes, folds, and re-encodes per level. `roughnessVariance` couples the normal-map variance lost at each level into the roughness channel at the same level so specular aliasing does not reappear at distance; a roughness channel mipped under `box` alone is a declared quality floor, never the default.",
+      "const": {
+        "box": "2x2 arithmetic mean in the linear domain",
+        "kaiser": "windowed-sinc downsample in the linear domain; the color-channel default",
+        "normalRenormalize": "box fold then unit-normalize each texel vector",
+        "roughnessVariance": "box fold plus the normal-variance term the paired normal channel lost",
+        "none": "single-level plane; no pyramid exists"
+      }
+    },
+
+    "ktxPayload": {
+      "type": "string",
+      "enum": ["rawBcn", "uastc", "etc1s", "astc", "none"]
+    },
+
+    "ktxPayloadRoster": {
+      "$comment": "WIRE-LEGALITY: only `uastc`, `etc1s`, and `none` appear in a channel or map record on either document. A `rawBcn` or `astc` file is a branch-local desktop payload the ktx-parse plus basis-transcoder read path cannot consume, so either crossing the wire is the file the estate's own viewer refuses. `none` reads two ways one column apart: with `ktx2` as the container it names the uncompressed deep KTX2, and with any other container it names the payload column's vacancy. MEASURED ENCODE BOUND, binding on both encode legs: block compression admits ONLY an 8-bit store — `compress_basis` raises INVALID_OPERATION and `compress_astc` raises UNSUPPORTED_FEATURE on u16, f16, and f32, and `ktx create --encode` admits only R8 formats — so a float or half plane ships as `none` (uncompressed deep KTX2, vk_format set, needs_transcoding false) and block compression composes only at LDR. Vector channels take `uastc` with RDO disabled and the normal-map error metric set ONLY on channels carrying direction semantics; a color channel raises from `etc1s` to `uastc` when the set declares a quality floor, and that floor is a set-level policy, never a per-call knob. A supercompressed container reads vk_format VK_FORMAT_UNDEFINED until transcode, so every reader branches on `needs_transcoding`; a reader branching on vk_format classes every wire-legal payload as malformed.",
+      "const": {
+        "rawBcn": { "content": "KTX2 holding BC1-BC7 and BC6H block data direct", "wireLegal": false, "policy": "desktop-native consumers only; never manifest-borne" },
+        "uastc": { "content": "KTX2 UASTC, Basis-transcodable", "wireLegal": true, "policy": "geometry_normal, geometry_coat_normal, geometry_tangent, geometry_coat_tangent, height, curvature" },
+        "etc1s": { "content": "KTX2 ETC1S and BasisLZ, Basis-transcodable", "wireLegal": true, "policy": "color channels at the default quality policy" },
+        "astc": { "content": "KTX2 ASTC block data direct from the in-process encoder", "wireLegal": false, "policy": "branch-local LDR acceleration; never manifest-borne" },
+        "none": { "content": "no block compression — the deep store, or the payload column's vacancy on a non-KTX2 container", "wireLegal": true, "policy": "float and half planes; vk_format set, no transcode" }
+      }
+    },
+
+    "encodeFloor": {
+      "$comment": "The provisioned `ktx` CLI v4.4.2 is the KTX2 encode FLOOR in all three branches: the csharp gate and the python tool leg spawn the SAME binary, and the in-process legs (TextureCompressor, pyktx) are acceleration rows carrying recorded retirement clauses. The tool is a SUBCOMMAND FAMILY — `create` mints from images, `encode` block-encodes a minted container, `transcode --target` lowers a Basis payload to the desktop-native block class the wire refuses (the ONLY producer of a rawBcn file), `deflate` supercompresses in place (the only sanctioned repack, because a container library's own writer re-keys an immutable object), and `extract --level/--layer/--face` returns one slice — so a branch spawning `create` alone hand-rolls what the binary already ships. `ktx validate --format mini-json` is the Khronos conformance proof every branch runs on its own product, and its verdict rides the report's `valid` field, never the process status. Every binary prints GIT-NOTFOUND for --version, so a provisioning probe asserts presence and the subcommand roster, never version text.",
+      "const": {
+        "binary": "ktx",
+        "subcommands": ["create", "encode", "transcode", "deflate", "extract", "validate", "info", "compare", "help"],
+        "inputClass": {
+          "raw": "--raw reads each input as HEADERLESS pixel data sized exactly width x height x texel; --width and --height are REQUIRED, and --generate-mipmap, --normalize, and --scale all refuse it",
+          "container": "PNG and EXR inputs decode directly and REQUIRE the --format precision to match the source; --width and --height RESAMPLE a container input to that extent"
+        },
+        "layerSpelling": {
+          "none": "no flag; faceCount reads 1, layerCount and pixelDepth read 0",
+          "cubeFaces": "--cubemap with six inputs per level in +X, -X, +Y, -Y, +Z, -Z order; faceCount reads 6",
+          "array": "--layers <n>",
+          "frames": "--layers <n>",
+          "volume": "--depth <n>"
+        },
+        "pyramidSpelling": {
+          "supplied": "one input file per level plus --levels <n>",
+          "folded": "--generate-mipmap with --mipmap-filter carrying the mip row's own kernel (box and kaiser spell verbatim; normalRenormalize spells box plus --normalize; roughnessVariance names no kernel the tool owns, so its levels supply)",
+          "runtime": "--runtime-mipmap; levelCount reads 0 with vk_format SET, and the container specification disallows it on a block payload, so the runtime pyramid reaches the deep store alone"
+        },
+        "colorAssignment": "--assign-tf and --assign-primaries RELABEL without touching a texel, so both spell on every create and --fail-on-color-conversions turns any remaining implicit conversion into a refusal; linear spells acescc and reads back KHR_DF_PRIMARIES_ACESCC, srgb spells bt709, and a raw parameter plane spells none and reads KHR_DF_PRIMARIES_UNSPECIFIED. Texcoord origin rides the same pair against the frozen top-left storage origin, and --cubemap admits no other origin.",
+        "gltfBasisu": "--gltf-basisu reads the payload column and never rides unconditionally: an RGBSDA deep container under that flag fails error-6301 by design"
+      }
+    },
+
+    "keySpelling": {
+      "$comment": "THREE hex spellings, each owned elsewhere; a surface folding two of them mints the address fork this fragment forecloses. `ContentAddress` admits its canonical X32 spelling ALONE — a lowered, unpadded, or prefix-bearing alias refuses at parse — so a csharp wire field carries ToValue() verbatim and re-spells nothing, and a key minted directly from an XxHash128 UInt128 spells ToString(\"X32\"), byte-identical. The path segment is ToValue().ToLowerInvariant() on the csharp side and the python projection unchanged: ONE lowering site, at egress-name construction, never at the wire and never at admission. A consumer joining a wire key to a path lowers the key; uppercasing a path segment to match a wire value is the deleted direction.",
+      "const": {
+        "wireUpper": { "owner": "ContentAddress.ToValue()", "pattern": "^[0-9A-F]{32}$", "carries": "every hex key and digest field on the texture-set-by-key document and its csharp-interior peers" },
+        "wireLower": { "owner": "ContentKey", "pattern": "^[0-9a-f]{32}$", "carries": "every hex key and digest field on the asset-set-manifest document" },
+        "pathSegment": { "owner": "the egress grammar", "pattern": "^[0-9a-f]{32}$", "carries": "the <key> directory and the typescript assets/<digest>/ join" }
+      }
+    },
+
+    "hex32Upper": { "type": "string", "pattern": "^[0-9A-F]{32}$" },
+    "hex32Lower": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+
+    "planeRefWeb": {
+      "$comment": "ONE address triple per stored plane file, camelCase for the JsonSerializerDefaults.Web projection the csharp document serializes under.",
+      "type": "object",
+      "properties": {
+        "file": { "type": "string", "minLength": 1 },
+        "blob": { "$ref": "#/$defs/hex32Upper" },
+        "byteLength": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["file", "blob", "byteLength"],
+      "additionalProperties": false
+    },
+
+    "planeRefProto": {
+      "$comment": "The same triple in snake_case for the proto projection the python document serializes under preserving_proto_field_name.",
+      "type": "object",
+      "properties": {
+        "file": { "type": "string", "minLength": 1 },
+        "digest": { "$ref": "#/$defs/hex32Lower" },
+        "byte_length": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["file", "digest", "byte_length"],
+      "additionalProperties": false
+    },
+
+    "planeLevels": {
+      "$comment": "EVERY addressed plane on either document is a LEVEL-ORDERED list of address triples, never a scalar address beside a level count. A self-pyramiding container carries its whole pyramid in one file and the list holds ONE entry whatever the declared depth; a container holding no pyramid of its own supplies one file per level and the list length EQUALS the declared depth. A scalar address beside a `mips` count names files it cannot address and leaves every level past the base undigested — the shape this list replaces. The same list types the environment products: a prefilter pyramid is levels, and its roughness ladder indexes it position for position.",
+      "const": {
+        "law": "list length is 1 for a self-pyramiding container or a single-level plane, and equals the declared level count otherwise",
+        "order": "ascending level index; entry 0 is the base level",
+        "leafGrammar": "a per-level file spells its level index in the variant slot, zero-padded to two digits"
+      }
+    },
+
+    "egressGrammar": {
+      "$comment": "Two egress paths, one grammar. A set occupies the variant slot with AT MOST ONE of {UDIM tile, mip index, layer index}, and a set declaring two refuses at admission. A KTX2 file holds its own pyramid, so a ktx2 leaf NEVER carries a mip variant; a per-level EXR pyramid spells <channel>.00.exr, <channel>.01.exr, ascending. Per-channel FILES are the canonical cross-branch EXR form, and multipart or named-AOV EXR is branch-local optimization no parity fixture depends on. TYPESCRIPT ASSET JOIN: assets/<digest>/<file> publishes with <digest> the SET key at the path spelling and <file> the leaf — one directory, one digest, every plane of the set, with the iac publish and the ui directory read the two ends; a per-plane digest directory is the deleted form. MATERIALX BINDING: the tiledimage and image `file` input carries this exact leaf, filled at the host edge that writes both the .mtlx and the sidecar planes, and the .mtlx port name IS the channel name for every OpenPBR-owned row. ATLAS BOUNDARY: an atlas is a PLANE-level sharing fact — N sets referencing one blob by content address — never a set-level merge behind one appearance key.",
+      "const": {
+        "texture": "materials/texture/<key>/<channel>[.<variant>].<ext>",
+        "environment": "materials/environment/<key>/<product>[.<variant>].<ext>",
+        "key": "the set content key at the path spelling — the csharp set key lowered once, or the python manifest key as-is",
+        "channel": "a canonical channel name, or a pack name (orm, mra)",
+        "product": ["equirect", "irradiance", "specular", "brdf_lut", "luminance_cdf"],
+        "variant": "ONE optional infix: a UDIM tile (4-digit, 1001 and up), a mip index, or a layer index (both 2-digit zero-padded)",
+        "ext": ["png", "tif", "webp", "qoi", "exr", "hdr", "ktx2", "jxl", "avif"]
+      }
+    },
+
+    "layerLaw": {
+      "$comment": "Cubemaps, flipbooks, arrays, and volumes are ROWS on one set document rather than shape breaks; the layer count rides beside the row and defaults to 1.",
+      "type": "string",
+      "enum": ["none", "cubeFaces", "array", "volume", "frames"]
+    },
+
+    "sh9": {
+      "$comment": "27 values, BAND-MAJOR with RGB interleaved: index i*3 + c holds band i channel c. A channel-major layout is the decode fork this fragment forecloses, and a length other than 27 refuses at admit. Python receipt bands carry the SAME 27 values as scalar keys sh_<band>_<channel>, because a receipt band holds scalars alone and a triple-valued band key is unrepresentable.",
+      "type": "array",
+      "items": { "type": "number" },
+      "minItems": 27,
+      "maxItems": 27
+    },
+
+    "sh9Basis": {
+      "$comment": "Real orthonormal spherical harmonics through l = 2 in a right-handed +Z-up world basis matching the OpenPBR local frame. Projection is L_i = integral over the sphere of L(w) Y_i(w) dw; irradiance reconstructs as E(n) = sum_i A_l(i) L_i Y_i(n) with A_0 = pi, A_1 = 2pi/3, A_2 = pi/4, and Lambertian outgoing radiance is albedo * E(n) / pi. Four implementations transcribe this one spelling — the csharp prefilter, the python irradiance projection, the three.js PMREM and SphericalHarmonics3 read, and the AppUi shader-side reconstruction.",
+      "const": [
+        { "slot": "sh_0", "l": 0, "m": 0, "basis": "K", "constant": 0.28209479177387814 },
+        { "slot": "sh_1", "l": 1, "m": -1, "basis": "K * y", "constant": 0.4886025119029199 },
+        { "slot": "sh_2", "l": 1, "m": 0, "basis": "K * z", "constant": 0.4886025119029199 },
+        { "slot": "sh_3", "l": 1, "m": 1, "basis": "K * x", "constant": 0.4886025119029199 },
+        { "slot": "sh_4", "l": 2, "m": -2, "basis": "K * x*y", "constant": 1.0925484305920792 },
+        { "slot": "sh_5", "l": 2, "m": -1, "basis": "K * y*z", "constant": 1.0925484305920792 },
+        { "slot": "sh_6", "l": 2, "m": 0, "basis": "K * (3z^2 - 1)", "constant": 0.31539156525252005 },
+        { "slot": "sh_7", "l": 2, "m": 1, "basis": "K * x*z", "constant": 1.0925484305920792 },
+        { "slot": "sh_8", "l": 2, "m": 2, "basis": "K * (x^2 - y^2)", "constant": 0.5462742152960396 }
+      ]
+    },
+
+    "sh9Golden": {
+      "$comment": "Two exactly computable vectors that jointly discriminate band order, normalization, and up-axis, at 1e-6 absolute tolerance per coefficient. Vector 2 is the AXIS discriminator: a Y-up implementation places the non-zero at sh_1 or sh_3 and fails. A Y-up runtime remaps the DIRECTION BASIS at the read and never reorders the wire bands; the remap proves against vector 2 at its landing, and a landing without that proof is incomplete.",
+      "const": [
+        { "radiance": "L(w) = 1", "sh_0": 3.5449077018110318, "others": 0.0, "irradiance": "E(n) = pi for all n" },
+        { "radiance": "L(w) = w . zhat", "sh_2": 2.046653415892977, "others": 0.0, "irradiance": "E(+zhat) = 2pi/3 = 2.0943951023931953" }
+      ]
+    },
+
+    "equirectMapping": {
+      "$comment": "The dome projection both branches and every consumer share. Up axis is FROZEN +Z and carries no field, matching the OpenPBR z-up local frame and the shading-frame basis. Read-side policy stays read-side: a dome's intensity and rotation apply at the READ — the consumer un-rotates a queried direction before reconstructing, rotates a sampled direction into world, and scales after — so re-orienting or re-exposing a dome re-keys no blob and triggers no re-prefilter, and a producer baking either into the coefficients or the level set forks every consumer reading the same digest at a different orientation.",
+      "const": {
+        "u": "0.5 + atan2(d.y, d.x) / 2pi",
+        "v": "acos(clamp(d.z, -1, 1)) / pi, with v = 0 at +Z",
+        "handedness": "u increases counter-clockwise viewed from +Z",
+        "upAxis": "z",
+        "rotation": "about +Z, radians in [0, 2pi)"
+      }
+    },
+
+    "licenseClass": {
+      "$comment": "The acquisition provenance class every set carries when a model produced any of its planes. `blocked` REFUSES at request construction: a silent-license model enters the registry as a blocked row and carries no grant to run. The canonical snake_case key rides both manifest documents — the python producer and the typescript landing both spell `open_rail` — while the csharp-INTERIOR stage wire spells its branch camelCase (`openRail`) and never crosses a branch boundary, so the interior spelling validates against this enum only through the casing derivation.",
+      "type": "string",
+      "enum": ["permissive", "copyleft", "open_rail", "research", "blocked"]
+    }
+  }
+}

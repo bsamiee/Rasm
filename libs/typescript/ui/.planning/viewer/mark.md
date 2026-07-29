@@ -4,14 +4,12 @@ Selection owns one `HashSet<GlobalId>` written through `Replace`, `Add`, `Toggle
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                                    | [PUBLIC]    |
-| :-----: | :------------------ | :------------------------------------------------------------------------ | :---------- |
-|  [01]   | `SELECTION_FOLD`    | the `GlobalId` set atom, the closed op vocabulary, the History ride       | `Selection` |
-|  [02]   | `PICK_PIPES`        | native-hit → `GlobalId` resolution per backend — point, marquee, lasso    | `Selection` |
-|  [03]   | `ECHO_ROWS`         | the projections — GPU highlight, feature-state, grid selection, reveal    | `Selection` |
-|  [04]   | `ANCHOR_PINS`       | topic pins — world anchors projected to screen, per-surface DOM anchoring | `Mark`      |
-|  [05]   | `VIEWPOINT_RESTORE` | the viewpoint → camera-intent + selection-op fold with anchor evidence    | `Mark`      |
-|  [06]   | `TOPIC_BOARD`       | lifecycle tone vocabularies, board rows, the write-egress boundary        | `Mark`      |
+- [02]-[SELECTION_FOLD]: the `GlobalId` set atom, the closed op vocabulary, the History ride; `Selection`.
+- [03]-[PICK_PIPES]: native-hit → `GlobalId` resolution per backend — point, marquee, lasso; `Selection`.
+- [04]-[ECHO_ROWS]: the projections — GPU highlight, feature-state, grid selection, reveal; `Selection`.
+- [05]-[ANCHOR_PINS]: topic pins — world anchors projected to screen, per-surface DOM anchoring; `Mark`.
+- [06]-[VIEWPOINT_RESTORE]: the viewpoint → camera-intent + selection-op fold with anchor evidence; `Mark`.
+- [07]-[TOPIC_BOARD]: lifecycle tone vocabularies, board rows, the write-egress boundary; `Mark`.
 
 ## [02]-[SELECTION_FOLD]
 

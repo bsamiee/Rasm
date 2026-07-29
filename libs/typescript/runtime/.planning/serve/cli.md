@@ -4,13 +4,11 @@ The terminal entry family under the one front-door assembly law: a verb family i
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                         | [PUBLIC] |
-| :-----: | :--------------- | :----------------------------------------------------------------------------- | :------- |
-|  [01]   | `ASSEMBLY_LAW`   | the contribution shape, the clean-exit run rail, bridge rows, completion table | `Verb`   |
-|  [02]   | `OPS_FAMILY`     | the doctor/replay/inspect runbooks over their capability sources               | `Ops`    |
-|  [03]   | `ROLE_TABLE`     | the semantic-role directive rows, the role annotator, the theming seam         | `Print`  |
-|  [04]   | `STRUCTURE_ROWS` | kv, table, verdicts, banner, prose, pretty composition rows                    | `Print`  |
-|  [05]   | `PRINT_SEAM`     | the ambient mode row, the fold to string, the display effect, live redraw      | `Print`  |
+- [02]-[ASSEMBLY_LAW]: the contribution shape, the clean-exit run rail, bridge rows, completion table; `Verb`.
+- [03]-[OPS_FAMILY]: the doctor/replay/inspect runbooks over their capability sources; `Ops`.
+- [04]-[ROLE_TABLE]: the semantic-role directive rows, the role annotator, the theming seam; `Print`.
+- [05]-[STRUCTURE_ROWS]: kv, table, verdicts, banner, prose, pretty composition rows; `Print`.
+- [06]-[PRINT_SEAM]: the ambient mode row, the fold to string, the display effect, live redraw; `Print`.
 
 ## [02]-[ASSEMBLY_LAW]
 

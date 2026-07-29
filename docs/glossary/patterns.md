@@ -5,7 +5,7 @@ Shape vocabulary and replicated-state vocabulary bind every branch alike, so one
 ## [01]-[SHAPE]
 
 - `rail`: carries a computation's success and failure channels as one typed value, so domain logic returns outcomes rather than throwing.
-- `receipt`: records how one computation resolved — route, status, sampling, solver, host evidence — as typed fields a consumer reads instead of re-deriving.
+- `receipt`: records how a computation resolved — route, status, sampling, solver, host evidence — as typed fields consumers read, never re-derive.
     - [NOT]: purchase and delivery receipts; only computation evidence carries this word.
 - `fold`: reduces a structure to one value through a single owner, replacing accumulation across call sites.
 - `arm`: handles one case of a closed family inside a dispatch, and adding a case breaks every dispatch site loudly.
@@ -21,7 +21,7 @@ Shape vocabulary and replicated-state vocabulary bind every branch alike, so one
     - [NOT]: security and risk postures; only call form carries this word.
 - `projection`: maps a source shape onto a derived shape a consumer reads, minted at the source and never stored twice.
     - [NOT]: CQRS read-model projection, one instance rather than this definition, and geometric projection, which the drawing owners spell in full.
-- `statechart`: declares a hierarchical transition system as data — nodes, guards, ordered transitions — whose macrostep is a fold over that declaration.
+- `statechart`: declares a hierarchical transition system as data — nodes, guards, ordered transitions — whose macrostep folds that declaration.
 
 ## [02]-[BOUNDARY]
 

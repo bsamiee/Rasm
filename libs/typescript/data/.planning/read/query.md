@@ -10,12 +10,10 @@ Truth records stay exempt by law: the journal never takes a repository, and this
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                                                 |
-| :-----: | :-------------- | :------------------------------------------------------------------------------------- |
-|  [01]   | `MODEL_FAMILY`  | the `Model.Class` field families — six variants from one declaration, exposure control |
-|  [02]   | `READ_FAMILY`   | the `SqlSchema` typed-query surface — arity in the combinator, one decode rail         |
-|  [03]   | `RESOLVER_ROWS` | the `SqlResolver` batch rows — ordered, grouped, findById, void, the cache verbs       |
-|  [04]   | `TABLE_BINDING` | `Query.Relation` and `Query.table` — identity, timing, and verbs on one owner          |
+- [02]-[MODEL_FAMILY]: the `Model.Class` field families — six variants from one declaration, exposure control.
+- [03]-[READ_FAMILY]: the `SqlSchema` typed-query surface — arity in the combinator, one decode rail.
+- [04]-[RESOLVER_ROWS]: the `SqlResolver` batch rows — ordered, grouped, findById, void, the cache verbs.
+- [05]-[TABLE_BINDING]: `Query.Relation` and `Query.table` — identity, timing, and verbs on one owner.
 
 ## [02]-[MODEL_FAMILY]
 

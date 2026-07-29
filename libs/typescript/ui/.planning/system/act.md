@@ -4,14 +4,12 @@ The one motion-and-interaction owner across five planes: `react-aria` owns every
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                                                | [PUBLIC]     |
-| :-----: | :------------------ | :------------------------------------------------------------------------------------ | :----------- |
-|  [01]   | `CLASS_DIVISION`    | the discrete/continuous ownership law and the composition rules on shared elements    | —            |
-|  [02]   | `DISCRETE_ROWS`     | the react-aria interaction/focus hook composition every view row binds through        | `Gesture`    |
-|  [03]   | `CONTINUOUS_OWNER`  | the tree-shaken camera/free-drag recognizer factory over `@use-gesture`               | `Gesture`    |
-|  [04]   | `MOTION_ROWS`       | the named enter/exit composition vocabulary over the tw-animate axis mechanism        | `Motion`     |
-|  [05]   | `CONTINUOUS_MOTION` | the physical plane — springs, motion values, scroll linkage, morphs, presence, policy | `Motion`     |
-|  [06]   | `DOCUMENT_RAIL`     | the three-tier document-transition ladder, the `<Activity>` row, the degrade chain    | `Transition` |
+- [02]-[CLASS_DIVISION]: the discrete/continuous ownership law and the composition rules on shared elements; —.
+- [03]-[DISCRETE_ROWS]: the react-aria interaction/focus hook composition every view row binds through; `Gesture`.
+- [04]-[CONTINUOUS_OWNER]: the tree-shaken camera/free-drag recognizer factory over `@use-gesture`; `Gesture`.
+- [05]-[MOTION_ROWS]: the named enter/exit composition vocabulary over the tw-animate axis mechanism; `Motion`.
+- [06]-[CONTINUOUS_MOTION]: the physical plane — springs, motion values, scroll linkage, morphs, presence, policy; `Motion`.
+- [07]-[DOCUMENT_RAIL]: the three-tier document-transition ladder, the `<Activity>` row, the degrade chain; `Transition`.
 
 ## [02]-[CLASS_DIVISION]
 

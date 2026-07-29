@@ -4,15 +4,13 @@ The one geospatial surface-and-camera owner: one maplibre `Map` owns the WebGL c
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                                       | [PUBLIC] |
-| :-----: | :--------------- | :------------------------------------------------------------------------------------------- | :------- |
-|  [01]   | `SURFACE`        | scoped map + interleaved overlay, relief/sky/globe rows, control/glyph rails, position ports | `Geo`    |
-|  [02]   | `CAMERA`         | the `Camera.State` vocabulary, the closed intent family, backend adapter rows                | `Camera` |
-|  [03]   | `PROJECT`        | pure screen↔world math — anchors, mercator crossings, geometry-to-intent folds               | `Camera` |
-|  [04]   | `LAYER_ROWS`     | the atom-derived layer vocabulary — GeoJSON, arrow fan, tiles, cells, trips, WMS             | `Geo`    |
-|  [05]   | `EXTENSION_ROWS` | the eight-capability `LayerExtension` roster on any layer                                    | `Geo`    |
-|  [06]   | `PLANAR_OPS`     | the turf peer law — planar compute over decoded features                                     | —        |
-|  [07]   | `STYLE_DATA`     | declarative style rows and the feature-state echo                                            | `Geo`    |
+- [02]-[SURFACE]: scoped map + interleaved overlay, relief/sky/globe rows, control/glyph rails, position ports; `Geo`.
+- [03]-[CAMERA]: the `Camera.State` vocabulary, the closed intent family, backend adapter rows; `Camera`.
+- [04]-[PROJECT]: pure screen↔world math — anchors, mercator crossings, geometry-to-intent folds; `Camera`.
+- [05]-[LAYER_ROWS]: the atom-derived layer vocabulary — GeoJSON, arrow fan, tiles, cells, trips, WMS; `Geo`.
+- [06]-[EXTENSION_ROWS]: the eight-capability `LayerExtension` roster on any layer; `Geo`.
+- [07]-[PLANAR_OPS]: the turf peer law — planar compute over decoded features; —.
+- [08]-[STYLE_DATA]: declarative style rows and the feature-state echo; `Geo`.
 
 ## [02]-[SURFACE]
 

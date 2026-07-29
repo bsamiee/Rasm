@@ -4,13 +4,11 @@ The evidence timeline aggregator: one process-local `Entry` family wrapping the 
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                                  | [PUBLIC]                               |
-| :-----: | :------------------ | :---------------------------------------------------------------------- | :------------------------------------- |
-|  [01]   | `DOCUMENT_REF`      | the content-keyed result-document reference and its column band         | `Feed.Document`                        |
-|  [02]   | `ENTRY_FAMILY`      | the tagged entry union and its total projections                        | `Feed.Entry`, `Feed.at/.lane/.subject` |
-|  [03]   | `FEED_FOLD`         | the ordered feed state, absorb step, policy row, merge, fold plan       | `Feed.absorb/.merge/.plan`             |
-|  [04]   | `EVIDENCE_TIMELINE` | the AppUi evidence-timeline wire counterpart absorbed onto the one feed | `Feed.timeline`                        |
-|  [05]   | `FEED_READS`        | window and recency reads over the folded feed                           | `Feed.window/.recent`                  |
+- [02]-[DOCUMENT_REF]: the content-keyed result-document reference and its column band; `Feed.Document`.
+- [03]-[ENTRY_FAMILY]: the tagged entry union and its total projections; `Feed.Entry`, `Feed.at/.lane/.subject`.
+- [04]-[FEED_FOLD]: the ordered feed state, absorb step, policy row, merge, fold plan; `Feed.absorb/.merge/.plan`.
+- [05]-[EVIDENCE_TIMELINE]: the AppUi evidence-timeline wire counterpart absorbed onto the one feed; `Feed.timeline`.
+- [06]-[FEED_READS]: window and recency reads over the folded feed; `Feed.window/.recent`.
 
 ## [02]-[DOCUMENT_REF]
 

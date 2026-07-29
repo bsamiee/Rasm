@@ -6,12 +6,10 @@
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                               | [PUBLIC]       |
-| :-----: | :--------------- | :------------------------------------------------------------------- | :------------- |
-|  [01]   | `ARM_VOCABULARY` | the closed arm tuple and derived identity union                      | `StackSpec`    |
-|  [02]   | `SPEC_OWNER`     | the app-supplied value: coordinates, profile, tenancy, defaults      | `StackSpec`    |
-|  [03]   | `TIER_BASE`      | the abstract component owner: token scope, option fold, seal, roster | `Tier`         |
-|  [04]   | `OUTPUT_PLANES`  | the decoded exit, the secret gate, the one channel-flatten owner     | `StackOutputs` |
+- [02]-[ARM_VOCABULARY]: the closed arm tuple and derived identity union; `StackSpec`.
+- [03]-[SPEC_OWNER]: the app-supplied value: coordinates, profile, tenancy, defaults; `StackSpec`.
+- [04]-[TIER_BASE]: the abstract component owner: token scope, option fold, seal, roster; `Tier`.
+- [05]-[OUTPUT_PLANES]: the decoded exit, the secret gate, the one channel-flatten owner; `StackOutputs`.
 
 ## [02]-[ARM_VOCABULARY]
 

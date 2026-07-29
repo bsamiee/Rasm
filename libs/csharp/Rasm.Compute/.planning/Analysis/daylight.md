@@ -1,110 +1,22 @@
 # [COMPUTE_DAYLIGHT]
 
-Rasm.Compute daylight runner owns the `Discipline.Daylight` assessment arm. C# derives direct sun-hours, shadow fraction, sky-view factor, and Perez diffuse irradiance from one package solar-position kernel; climate-based CBDM and glare stay with the Python companion. Weather-less requests require an explicit site, and present weather failures remain typed failures rather than silently degrading.
+Rasm.Compute daylight runner owns the `Discipline.Daylight` assessment arm. C# derives direct sun-hours, shadow fraction, sky-view factor, and Perez diffuse irradiance from the kernel `Rasm` solar almanac; climate-based CBDM and glare stay with the Python companion. Weather-less requests require an explicit site, and present weather failures remain typed failures rather than silently degrading.
 
-Site and hourly direct-normal/diffuse-horizontal irradiance arrive through the energy lane's own `WeatherRef` surface read by the admitted OpenStudio `EpwFile` reader (`latitude()`/`longitude()`/`timeZone()`/`elevation()` headers, `data()` → `EpwDataPoint.directNormalRadiation()`/`diffuseHorizontalRadiation()` hourly reads); shadow and obstruction rays reuse the clash BVH through `ClashScale.Occluded` over the `AccelerationStructure` the kernel `Spatial.Apply(SpatialOp.Wire)` node-link wire decodes (`Solver/clash` owns the decode; the retired `ToAcceleration` member is never named) — one ray engine, never a daylight-local walk; the app stages that decoded scene on the request as `ObstructionScene`, its content key riding the assessment content-key fold so a re-shaded site re-keys. `SolarPosition` exports across the package boundary as the branch's one solar kernel: `Rasm.AppUi` viewport sun-light composes its `At`/`SunPath` from site and instant, foreclosing an AppUi-side duplicate. Zero new central pins — `EpwFile` and the clash BVH are admitted substrate.
+Site and hourly direct-normal/diffuse-horizontal irradiance arrive through the energy lane's own `WeatherRef` surface read by the admitted OpenStudio `EpwFile` reader (`latitude()`/`longitude()`/`timeZone()`/`elevation()` headers, `data()` → `EpwDataPoint.directNormalRadiation()`/`diffuseHorizontalRadiation()` hourly reads); shadow and obstruction rays reuse the clash BVH through `ClashScale.Occluded` over the `AccelerationStructure` the kernel `Spatial.Apply(SpatialOp.Wire)` node-link wire decodes (`Solver/clash` owns the decode; the retired `ToAcceleration` member is never named) — one ray engine, never a daylight-local walk; the app stages that decoded scene on the request as `ObstructionScene`, its content key riding the assessment content-key fold so a re-shaded site re-keys. Solar position composes the kernel `Rasm/Numerics/calculus#SOLAR_EPHEMERIS` `SolarPosition.At`/`SunPath` over the validated `SolarSite` — the same owner `Rasm.AppUi` viewport sun-light and the Materials environment adapter compose, so no package-local ephemeris exists. Zero new central pins — `EpwFile` and the clash BVH are admitted substrate.
 
 ## [01]-[INDEX]
 
-- [02]-[SOLAR_POSITION]: `SolarPosition` derives apparent azimuth/altitude from an admitted site and instant through the owned closed form.
-- [03]-[SKY_AND_SHADOW]: `RunDaylight` folds the Perez all-weather sky rows over the EPW ingress against the clash-BVH shadow-ray cast.
+- [02]-[SKY_AND_SHADOW]: `RunDaylight` folds the Perez all-weather sky rows over the EPW ingress against the clash-BVH shadow-ray cast.
 
-## [02]-[SOLAR_POSITION]
-
-- Owner: validated `SolarSite`; `SunPosition` the apparent result; `SolarPosition` the package solar computation exported across the package boundary.
-- Entry: `At(site, instant)` derives apparent azimuth/altitude, including elevation-adjusted atmospheric refraction; `SunPath` samples that same total function from a NodaTime `Instant`.
-- Packages: NodaTime (`Instant`/`Duration`), BCL inbox (`Math`); the hand-owned NOAA/Meeus-style apparent-solar approximation carries no package admission.
-- Growth: an accuracy refinement (full SPA periodic-term tables over the truncated form) is a body change on the same two entries; a new consumer composes `At`/`SunPath`, never a duplicate kernel; zero new surface.
-- Boundary: `SolarPosition` is the declared `[APPUI_SUN_EXPORT]` package-boundary surface — `Rasm.AppUi/Render/pathtrace` composes `At`/`SunPath` for viewport sun-light and sun studies under that row name, this page's sky/shadow folds its first consumer; it carries no `Fin` rail (closed-form astronomy is total, effect-free), the only nontotal seam being `[03]`'s EPW read; a `DateTime`-taking overload is the deleted form.
-
-```csharp signature
-// --- [MODELS] ------------------------------------------------------------------------------
-[ComplexValueObject]
-public sealed partial class SolarSite {
-    public double LatitudeDeg { get; }
-    public double LongitudeDeg { get; }
-    public double TimezoneHours { get; }
-    public double ElevationM { get; }
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double latitudeDeg, ref double longitudeDeg,
-        ref double timezoneHours, ref double elevationM) =>
-        validationError = double.IsFinite(latitudeDeg) && latitudeDeg is >= -90.0 and <= 90.0
-            && double.IsFinite(longitudeDeg) && longitudeDeg is >= -180.0 and <= 180.0
-            && double.IsFinite(timezoneHours) && timezoneHours is >= -14.0 and <= 14.0
-            && double.IsFinite(elevationM) && elevationM is > -500.0 and <= 10000.0
-                ? null
-                : new ValidationError(message: "<solar-site-invalid>");
-}
-
-// Azimuth from north clockwise (the survey convention the sun-path arc and shadow rays share); zenith and below-horizon derive, never stored.
-public readonly record struct SunPosition(double AzimuthDeg, double AltitudeDeg) {
-    public double ZenithDeg => 90.0 - AltitudeDeg;
-    public bool AboveHorizon => AltitudeDeg > 0.0;
-
-    // Unit sun direction the shadow rays cast toward — from the target, so occlusion tests point at the sun.
-    public Vector3 Direction {
-        get {
-            double alt = AltitudeDeg * Math.PI / 180.0, az = AzimuthDeg * Math.PI / 180.0;
-            return new Vector3(Math.Cos(alt) * Math.Sin(az), Math.Cos(alt) * Math.Cos(az), Math.Sin(alt));
-        }
-    }
-}
-
-// --- [OPERATIONS] --------------------------------------------------------------------------
-// Apparent-solar closed form; the branch's one solar kernel, exported to `Rasm.AppUi` viewport sun-light.
-public static class SolarPosition {
-    public static SunPosition At(SolarSite site, Instant instant) {
-        double jd = 2440587.5 + instant.ToUnixTimeTicks() / (double)NodaConstants.TicksPerDay;
-        double t = (jd - 2451545.0) / 36525.0;
-        double meanLongitude = Wrap360(280.46646 + t * (36000.76983 + t * 0.0003032));
-        double meanAnomaly = (357.52911 + t * (35999.05029 - 0.0001537 * t)) * Math.PI / 180.0;
-        double center = Math.Sin(meanAnomaly) * (1.914602 - t * (0.004817 + 0.000014 * t))
-            + Math.Sin(2.0 * meanAnomaly) * (0.019993 - 0.000101 * t)
-            + Math.Sin(3.0 * meanAnomaly) * 0.000289;
-        double eclipticLongitude = (meanLongitude + center - 0.00569 - 0.00478 * Math.Sin((125.04 - 1934.136 * t) * Math.PI / 180.0)) * Math.PI / 180.0;
-        double obliquity = (23.0 + (26.0 + (21.448 - t * (46.815 + t * (0.00059 - t * 0.001813))) / 60.0) / 60.0) * Math.PI / 180.0;
-        double declination = Math.Asin(Math.Sin(obliquity) * Math.Sin(eclipticLongitude));
-        double y = Math.Tan(obliquity / 2.0) * Math.Tan(obliquity / 2.0);
-        double meanLonRad = meanLongitude * Math.PI / 180.0;
-        double equationOfTime = 4.0 * (180.0 / Math.PI) * (
-            y * Math.Sin(2.0 * meanLonRad) - 2.0 * 0.016708634 * Math.Sin(meanAnomaly)
-            + 4.0 * 0.016708634 * y * Math.Sin(meanAnomaly) * Math.Cos(2.0 * meanLonRad)
-            - 0.5 * y * y * Math.Sin(4.0 * meanLonRad) - 1.25 * 0.016708634 * 0.016708634 * Math.Sin(2.0 * meanAnomaly));
-        double fractionalDay = jd - Math.Floor(jd) - 0.5 + site.TimezoneHours / 24.0;
-        double trueSolarMinutes = Wrap(fractionalDay * 1440.0 + equationOfTime + 4.0 * site.LongitudeDeg - 60.0 * site.TimezoneHours, 1440.0);
-        double hourAngle = ((trueSolarMinutes / 4.0) - 180.0) * Math.PI / 180.0;
-        double phi = site.LatitudeDeg * Math.PI / 180.0;
-        double altitude = Math.Asin(Math.Sin(phi) * Math.Sin(declination) + Math.Cos(phi) * Math.Cos(declination) * Math.Cos(hourAngle));
-        double azimuth = Math.Atan2(Math.Sin(hourAngle), Math.Cos(hourAngle) * Math.Sin(phi) - Math.Tan(declination) * Math.Cos(phi));
-        double altitudeDeg = altitude * 180.0 / Math.PI;
-        double pressureRatio = Math.Pow(1.0 - 2.25577e-5 * Math.Max(site.ElevationM, -500.0), 5.25588);
-        double refractionDeg = altitudeDeg is > -1.0 and < 90.0
-            ? pressureRatio * 1.02 / Math.Tan((altitudeDeg + 10.3 / (altitudeDeg + 5.11)) * Math.PI / 180.0) / 60.0
-            : 0.0;
-        return new SunPosition(Wrap360(azimuth * 180.0 / Math.PI + 180.0), altitudeDeg + refractionDeg);
-    }
-
-    // One day's positions at the policy step — the sun-hours sweep and the viewport sun-path arc share it.
-    public static Seq<(Instant Instant, SunPosition Sun)> SunPath(SolarSite site, Instant midnight, Duration step, int samples) =>
-        toSeq(Enumerable.Range(0, samples)).Map(i => {
-            Instant at = midnight + step * i;
-            return (at, At(site, at));
-        });
-
-    static double Wrap360(double degrees) => Wrap(degrees, 360.0);
-    static double Wrap(double value, double period) => value - period * Math.Floor(value / period);
-}
-```
-
-## [03]-[SKY_AND_SHADOW]
+## [02]-[SKY_AND_SHADOW]
 
 - Owner: `PerezBand` `[SmartEnum<string>]` the eight all-weather clearness bands, each carrying the five published `(a, b, c, d, e)` brightening coefficients as row data over the clearness index ε (the published table, never a hardcoded interpolation); `SkyState` the per-hour sky carrier (DNI + DHI, derived ε, resolved `PerezBand`); `WeatherIngress` the `EpwFile` boundary off the `WeatherRef` surface; `DaylightAnalysis` the runner fold.
 - Cases: with weather — per-target `direct-sun-hours` (the `SunPath` sweep × the clash-BVH occlusion ray per above-horizon sample), `shadow-fraction`, `sky-view-factor` (the hemisphere ray fan), `perez-diffuse-irradiance` (the circumsolar + horizon-band + isotropic-dome three-term sum over the resolved band); weather-less — the degrade: the same geometric facts at the design days off the solar kernel over the request's explicit `Site`, the `sky-state` fact stating `"geometry-only"` inline, never a silently-defaulted sky; absent both weather and an explicit site the run rails `AssessmentInputMissing`.
 - Entry: `Run(graph, request, geometry, clock)` resolves the target points and obstruction scene through the `GeometrySource` port (an unresolvable target rails `AnalysisFailed(Admission, Input)`), reads optional weather through `WeatherIngress.Read` (a present-but-malformed EPW rails typed; an absent EPW selects the geometry-only degrade over the request's explicit `Site`), and mints the fact stream; the governing ratio is the worst target's required/achieved sun-hours (EN 17037 minimum-sunlight, the route row's citation).
 - Receipt: rides the one `ComputeReceipt.Assessment` case, no daylight-local receipt; the `sky-state` fact (`perez:<band>` or `geometry-only`) makes the degrade auditable off the baked node.
-- Packages: NREL.OpenStudio.macOS-arm64 (the `EpwFile` reader — `latitude()`/`longitude()`/`timeZone()`/`elevation()`, `data()` → `EpwDataPoint.directNormalRadiation()`/`diffuseHorizontalRadiation()` `OptionalDouble` under the SWIG `is_initialized()`-then-`get()` discipline — the energy lane's own pin), Rasm (project — the kernel `Spatial.Apply(SpatialOp.Wire)` node-link wire the staged scene decodes from), Rasm.Element, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
+- Packages: NREL.OpenStudio.macOS-arm64 (the `EpwFile` reader — `latitude()`/`longitude()`/`timeZone()`/`elevation()`, `data()` → `EpwDataPoint.directNormalRadiation()`/`diffuseHorizontalRadiation()` `OptionalDouble` under the SWIG `is_initialized()`-then-`get()` discipline — the energy lane's own pin), Rasm (project — the kernel `Spatial.Apply(SpatialOp.Wire)` node-link wire the staged scene decodes from, and the `Numerics/calculus#SOLAR_EPHEMERIS` `SolarPosition`/`SolarSite`/`SunPosition` solar almanac), Rasm.Element, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new sky model is one band-table swap on the same `SkyState` carrier; a new daylight fact (a window vertical-sky-component) is one fold over the same rays; annual CBDM/glare stays the Python companion's, an in-process Radiance-class loop the rejected form; zero new surface.
-- Boundary: shadow rays are `Solver/clash#CLASH_AND_TWIN` `ClashScale.Occluded` over the decoded kernel BVH — one ray engine on the one acceleration owner, never a daylight-local traversal; sky ingress is the energy lane's own `WeatherRef` surface through the admitted `EpwFile` reader, never a second weather decode path nor a weather column on the daylight policy; the Perez coefficients ride `PerezBand` as the published table; `[02]`'s solar kernel is composed, never re-derived.
+- Boundary: shadow rays are `Solver/clash#CLASH_AND_TWIN` `ClashScale.Occluded` over the decoded kernel BVH — one ray engine on the one acceleration owner, never a daylight-local traversal; sky ingress is the energy lane's own `WeatherRef` surface through the admitted `EpwFile` reader, never a second weather decode path nor a weather column on the daylight policy; the Perez coefficients ride `PerezBand` as the published table; the kernel `Numerics/calculus#SOLAR_EPHEMERIS` almanac is composed, never re-derived.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -339,7 +251,7 @@ public sealed record DaylightScene(Seq<NodeId> Targets, Map<NodeId, Vector3> Sam
 }
 ```
 
-## [04]-[RESEARCH]
+## [03]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

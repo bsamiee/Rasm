@@ -4,11 +4,9 @@ The Automation-API driver: inline typed programs over `LocalWorkspace.createOrSe
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                                  | [PUBLIC]      |
-| :-----: | :------------------ | :---------------------------------------------------------------------- | :------------ |
-|  [01]   | `ENGINE_VOCABULARY` | the ledger tuple, the `OpType` union, the receipt owner                 | `RunReceipt`  |
-|  [02]   | `DEPLOY_FAULT`      | the reason-discriminated fault family, its policy table, the triage     | `DeployFault` |
-|  [03]   | `AUTOMATION_RUN`    | host facts, the stream bridge, internalized resilience, the fleet verbs | `Automation`  |
+- [02]-[ENGINE_VOCABULARY]: the ledger tuple, the `OpType` union, the receipt owner; `RunReceipt`.
+- [03]-[DEPLOY_FAULT]: the reason-discriminated fault family, its policy table, the triage; `DeployFault`.
+- [04]-[AUTOMATION_RUN]: host facts, the stream bridge, internalized resilience, the fleet verbs; `Automation`.
 
 ## [02]-[ENGINE_VOCABULARY]
 

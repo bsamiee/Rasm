@@ -59,7 +59,7 @@ Rasm.Compute/
     ├── Energy.cs          # Energy-route axis over the simulation toolchain
     ├── Lifecycle.cs       # Embodied-carbon and cost rollup over the EPD boundary
     ├── Circulation.cs     # Egress and life-safety runner
-    └── Daylight.cs        # Solar-position kernel and sky-model daylight rows
+    └── Daylight.cs        # Perez sky-model daylight rows over the kernel solar almanac
 ```
 
 Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. Rail is named in the return type — `Fin<T>` aborts at admission, `Validation<Error,T>` accumulates (the monoidal `Error` carrier; typed `ComputeFault` arms lift onto it through their `Expected` base, since `ComputeFault` is not itself a monoid), `IO<T>` carries effects, `Option<T>` carries absence.
@@ -77,7 +77,7 @@ Five strata order the seven sub-domains; `Runtime` seats lowest as the vocabular
 - S2 `Stats` — the `EstimatorKind` fit axis, the spectral rail, and the `StreamMonitor` capsule family.
 - S3 `Solver` — the discretize-solve-optimize-sweep spine over tensors, symbols, surrogates, and estimators.
 - S3 `Solver` — `MeshKernel`, `OptimizerKind`, `SweepLane`, the `ClashScale` collision fold, and the `DoeDataset` wire shape.
-- S4 `Analysis` — the discipline-assessment rail nothing composes: `AssessmentRoute`, `AssemblyAggregator`, the `SolarPosition` kernel.
+- S4 `Analysis` — the discipline-assessment rail nothing composes: `AssessmentRoute`, `AssemblyAggregator`, the `DaylightAnalysis` runner over the kernel solar almanac.
 - S4 reach — `Analysis` reads the `ElementGraph` and writes content-keyed deltas.
 
 ```mermaid
@@ -93,7 +93,7 @@ flowchart TB
     accDescr: Five stacked strata from the analysis rail through the solve spine, the model and stats stratum, and the tensor-symbolic peers onto the runtime substrate, every consumption edge downward and solid naming one sourced type, and one labeled forbidden upward edge.
     subgraph S4["S4 ANALYSIS"]
         Assessment[AssessmentRoute]
-        Daylight[SolarPosition]
+        Daylight[DaylightAnalysis]
     end
     subgraph S3["S3 SOLVER"]
         Sweep[SweepLane]
@@ -177,6 +177,7 @@ flowchart LR
     Element e5@-->|"[SHAPE]: ElementGraph"| Analysis
     Element e22@-->|"[SHAPE]: AssessmentPayload"| Analysis
     Runtime e6@<-->|"[CONTENT_KEY]: RepresentationContentHash"| Element
+    Element e33@-->|"[SHAPE]: ImportedGeometry"| Runtime
     Element e10@-->|"[SHAPE]: AssemblyAggregator"| Analysis
     Materials e9@-->|"[WIRE]: MaterialPropertySet"| Analysis
     Materials e23@-->|"[WIRE]: SectionCapacity"| Analysis
@@ -223,7 +224,6 @@ flowchart LR
     Runtime e15@-->|"[PORT]: ComputeHookRail"| AppHost
     Runtime e5@-->|"[PROJECTION]: ResidencyPayload"| AppUi
     Tensor e6@<-->|"[SHAPE]: WgpuDevice"| AppUi
-    Analysis e7@-->|"[SHAPE]: SolarPosition"| AppUi
     Runtime e8@<-->|"[WIRE]: ComputeService"| Geometry
     Runtime e18@<-->|"[CONTENT_KEY]: ContentIdentity"| Geometry
     Runtime e9@<-->|"[WIRE]: ProtoVocabulary"| PyRuntime
@@ -296,7 +296,7 @@ Seam graph carries which owner exchanges which shape; the load-bearing cross-bou
 - Strata run one direction: the AEC peers admit `UnitsNet` in-folder rather than reference the app-platform unit and solve owners downward.
 - `Analysis` reads the concrete `ElementGraph` upward and writes a content-keyed assessment `GraphDelta` the caller applies; it mutates nothing.
 - C# owns inference and classical fit; Python compute owns offline-learned models exchanged by content key over graduation evidence.
-- `Rasm.Materials` SPECIFIES photo-to-PBR inference and `Model/inference` EXECUTES it: stage, model-card, licence, and role identities cross as opaque KEYS this side dispatches on none of, every plane crosses as a content address injected ports resolve, and the strata forbid a reference in either direction — so admitting a model at the specifying end moves no Compute surface and the wire mints no corpus contract entry.
+- `Rasm.Materials` SPECIFIES photo-to-PBR inference and `Model/inference` EXECUTES it: stage, model-card, and role identities cross as opaque KEYS this side dispatches on none of, the licence spelling RESOLVES here to a grant verdict on the roster this side owns (fail-closed on an unrostered spelling — the one wire column an executing end never takes on trust), every plane crosses as a content address injected ports resolve, and the strata forbid a reference in either direction — so admitting a model at the specifying end moves no Compute surface and the wire mints no corpus contract entry.
 - `EnergyToolchain` resolves EnergyPlus by env var, configured path, or bundle; no hardcoded path or token column enters the policy.
 - `EnergyRoute` converges local and cloud runs on the one `SqlFile` fold.
 - Closed-form ISO/EN folds and the multi-ply `AssemblyAggregator` live in `Analysis`; single-material folds stay seam-owned, composed here.

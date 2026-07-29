@@ -26,13 +26,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: `libs/typescript/security/.planning/crypt/secret.md` `LeaseSpec` owner and its `SECURITY_LEASE_SPEC` app-root fold; `operate/secret.md` `Secrets` custodian; `kube/workload.md` `Workload.Args`.
 - Ripple: `security` `[LEASE_SPEC_CONTRACT]`.
 
-[UI_ASSET_ROSTER_SEAM]-[QUEUED]: Served-asset identity types from the UI-owned roster.
-- Capability: static distribution and `served` outputs — already standing — gain typed asset identity from the encoded UI roster, closing the cross-folder identity seam.
-- Shape: the identity seam on `program/source.md`, replacing `Source.AssetRow` with `ui:viewer/scene#RESIDENCY_GRAFT`'s `Glb.AssetIdentity` row and typing the `assets` array as `Glb.AssetRoster`.
-- Unlocks: content-addressed codec serving with an airtight CSP and no caller-untyped identity.
-- Anchors: `program/source.md` `Source.AssetRow`/`_addressed`; `ui:viewer/scene#RESIDENCY_GRAFT` `Glb.AssetIdentity` beside the `Glb.AssetRoster` array `Glb.assetPath` reads one row of, and its `assets/<digest>/<file>` derivation.
-- Ripple: `ui` `[ASSET_IDENTITY]`.
-
 [GENERATION_ROLLOUT_STRATEGY]-[QUEUED]: Backend generations cut over under a declared rollout strategy, not one atomic pointer flip.
 - Capability: cutover becomes a strategy row the deploy plane folds — immediate, canary over a traffic fraction, or paired blue-green targets — each carrying its own admission evidence and its own abort predicate, so a generation that proves in the cluster but fails under live traffic retires without a manual runbook.
 - Shape: one strategy vocabulary on `operate/converge.md` `[04]-[PUBLICATION]` threading the pointer write, with the traffic split reading the `kube/traffic.md` Gateway rows.
@@ -55,6 +48,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[UI_ASSET_ROSTER_SEAM]-[DROPPED]: refuted at the strata — iac imports no ui type (the branch `[02]-[STRATA]` gives iac core/data/runtime reads only), and the branch served-asset rulings seat the seam as two independent derivations, `_addressedAll` publishing and `Glb.assetPath`/`Glb.assetDir` reading one spelling with the multi-file pair moving as one wave; a shared identity type re-enters only as a core-homed owner, a different card.
 [PRODUCER_PACK_DESCRIPTORS]-[COMPLETE]: every signal-bearing producer now reaches the board plane as its own pack — the kernel `BoardPack` carries the provenance key as its first column, so all six C# packs seat beside `runtime.pulse` and `security.audit` and the tuple censuses closed in both directions; python geometry claims no seat because it mints a measure charter and a fault boundary rather than a board-and-alert projection.
 [SECURITY_PACK_INGEST]-[COMPLETE]: the producer landed and the seat returned — `Audit.pack`/`Audit.wire` on `libs/typescript/security/.planning/access/audit.md` seal the folder board beside its burn specs as one encoded value, so `security.audit` re-enters `_PACKS` under the tuple's own earn-test rather than as a wire nobody mints.
 [STORE_SUFFIX_PARITY]-[COMPLETE]: re-proved against the settled rule — core resolved suffixing as a RENDER property (`Convention.translated` over the `_translation` strategy roster, the `_promUnit` word, and the `_tail` type tail), so each `_stores` row's `translation` answer already reaches every selector through one unchanged query value and the three dialects need no per-row re-derivation.

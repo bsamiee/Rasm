@@ -136,7 +136,7 @@ CORPUS: Final[Block[BenchSubject]] = Block.of_seq([
         BenchFeed(planar=BenchPlane(width=_TEXEL_EDGE, height=_TEXEL_EDGE)), rounds=16
     ),
     BenchSubject(
-        "artifacts.graphic.texture.ibl.prefilter", "texture", BenchMode.LATENCY, BenchThreshold(p95_ceiling_ms=6000.0),
+        "artifacts.graphic.texture.ibl.ggx_prefilter", "texture", BenchMode.LATENCY, BenchThreshold(p95_ceiling_ms=6000.0),
         BenchFeed(planar=BenchPlane(width=_TEXEL_EDGE, height=_TEXEL_EDGE // 2, channels=3)), rounds=8, warmup=1
     ),
     BenchSubject(

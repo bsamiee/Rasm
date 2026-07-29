@@ -4,12 +4,10 @@ Security fact rail: breach evidence is receipt-truth on one typed `SecurityFact`
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]     | [OWNS]                                                                      | [PUBLIC]                                 |
-| :-----: | :------------ | :-------------------------------------------------------------------------- | :--------------------------------------- |
-|  [01]   | `FACT_FAMILY` | the tagged fact vocabulary, the point/class/modality table, the fault shape | `SecurityFact`, `AuditFault`             |
-|  [02]   | `FACT_RAIL`   | the journal record, the append-only port, the publish seam, lane policy     | `AuditRecord`, `AuditJournal`, `Witness` |
-|  [03]   | `EGRESS`      | the keyed-mac pseudonymizer port and the PII-free analytics projection      | `Pseudonym`, `AuditTrace`                |
-|  [04]   | `BOARD`       | the snapshot receipt, latency objectives, alert derivation, assembled owner | `Audit`, `Snapshot`                      |
+- [02]-[FACT_FAMILY]: the tagged fact vocabulary, the point/class/modality table, the fault shape; `SecurityFact`, `AuditFault`.
+- [03]-[FACT_RAIL]: the journal record, the append-only port, the publish seam, lane policy; `AuditRecord`, `AuditJournal`, `Witness`.
+- [04]-[EGRESS]: the keyed-mac pseudonymizer port and the PII-free analytics projection; `Pseudonym`, `AuditTrace`.
+- [05]-[BOARD]: the snapshot receipt, latency objectives, alert derivation, assembled owner; `Audit`, `Snapshot`.
 
 ## [02]-[FACT_FAMILY]
 

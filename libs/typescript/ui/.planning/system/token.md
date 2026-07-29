@@ -4,12 +4,10 @@ The design-token authority as TWO exports: `Theme` — OKLCH color computed in `
 
 ## [01]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                           | [PUBLIC] |
-| :-----: | :---------------- | :------------------------------------------------------------------------------- | :------- |
-|  [01]   | `COLOR_AUTHORITY` | the `Theme.Color` decode brand, ramp/contrast algebra, and the `@theme` CSS fold | `Theme`  |
-|  [02]   | `CLASS_RAIL`      | the one `cn` composer — `extendTailwindMerge` over `clsx`, group table as data   | `cn`     |
-|  [03]   | `SCALE_TABLES`    | `Theme.Scale` — spacing/text/radius/ease/shadow/z/breakpoint rows and emission   | `Theme`  |
-|  [04]   | `THEME_SWITCH`    | the theme vocabulary, the `data-theme` stamp seam, and the persisted-theme law   | `Theme`  |
+- [02]-[COLOR_AUTHORITY]: the `Theme.Color` decode brand, ramp/contrast algebra, and the `@theme` CSS fold; `Theme`.
+- [03]-[CLASS_RAIL]: the one `cn` composer — `extendTailwindMerge` over `clsx`, group table as data; `cn`.
+- [04]-[SCALE_TABLES]: `Theme.Scale` — spacing/text/radius/ease/shadow/z/breakpoint rows and emission; `Theme`.
+- [05]-[THEME_SWITCH]: the theme vocabulary, the `data-theme` stamp seam, and the persisted-theme law; `Theme`.
 
 ## [02]-[COLOR_AUTHORITY]
 

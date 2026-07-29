@@ -51,7 +51,7 @@ Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.El
     └── Analytics.cs       # DatasetWire declarations over ColumnToken and the catalogue-to-row projection folds
 ```
 
-VividOrange grounds the structural section, capacity, and rebar data in-folder, never a hand-keyed literal; the per-page consumption law lives on the owning pages. Return type names the rail: a `SurfaceShade`/`Unicolour` carrier where the result is total, `Fin<T>` where a banded fault routes, the seam `Fin<GraphDelta>` from the projector. C# is the sole producer of the appearance wire vocabulary — `Appearance/Interchange` mints the OpenPBR-vector `MaterialWire`, the baked `TextureSetWire`, the `EnvironmentLightWire` dome mirror, the photo-to-PBR `StageRequestWire`/`StageResultWire` crossing, and the MaterialX `.mtlx` document once, each an `IAppearanceWire` whose `CorpusBorne` column states whether a `tests/contracts/MANIFEST.md` entry is owed; the TypeScript and Python peers decode the corpus-borne pair.
+VividOrange grounds the structural section, capacity, and rebar data in-folder, never a hand-keyed literal; the per-page consumption law lives on the owning pages. Return type names the rail: a `SurfaceShade`/`Unicolour` carrier where the result is total, `Fin<T>` where a banded fault routes, the seam `Fin<GraphDelta>` from the projector. C# is the sole producer of the appearance wire vocabulary — `Appearance/Interchange` mints the OpenPBR-vector `MaterialWire`, the baked `TextureSetWire`, the `EnvironmentLightWire` dome mirror, the photo-to-PBR `StageRequestWire`/`StageResultWire` crossing, and the MaterialX `.mtlx` document once, each an `IAppearanceWire` whose `CorpusBorne` column states whether a `tests/contracts/MANIFEST.md` entry is owed; the TypeScript and Python peers decode the corpus-borne pair. One wire crosses INBOUND: the python-minted `AssetSetManifest` lands at `Raster/Set` `SetIngest.Peer` as classification input — the `python:artifacts/graphic/texture` counterpart edge the artifacts branch ARCHITECTURE registers at its own end.
 
 ## [02]-[STRATA]
 
@@ -150,11 +150,12 @@ config:
 ---
 flowchart LR
     accTitle: Materials platform, compute, and cross-runtime seams
-    accDescr: Materials sub-domain owners exchanging capacity, property, appearance, capture, telemetry, benchmark, and analytics wires with compute, the app host spine, the persistence store plane, the render host, the Python data peer, and the TypeScript core and viewer peers, one edge per contract family labeled by kind.
+    accDescr: Materials sub-domain owners exchanging capacity, property, appearance, capture, telemetry, benchmark, and analytics wires plus artifact content keys with compute, the app host spine, the persistence store plane, the render host, the Python data peer, and the TypeScript core and viewer peers, one edge per contract family labeled by kind.
     subgraph materials[RASM.MATERIALS]
         Component[Component families]
         Properties[Property source]
         Appearance[Appearance engine]
+        Raster[Raster plane estate]
         Projection[Projection contracts]
     end
     Compute{{Rasm.Compute}}
@@ -162,6 +163,8 @@ flowchart LR
     AppUi([Rasm.AppUi])
     Persistence([Rasm.Persistence])
     DataPeer([python:data])
+    PyArtifacts([python:artifacts])
+    PyRuntime([python:runtime])
     Core([typescript:core])
     Ui([typescript:ui])
     Host([Host boundary])
@@ -170,13 +173,18 @@ flowchart LR
     DataPeer e3@-->|"[WIRE]: Assessment"| Properties
     Appearance e11@-->|"[WIRE]: StageRequest"| Compute
     Compute e12@-->|"[WIRE]: StageResult"| Appearance
-    Appearance e4@-->|"[BOUNDARY]: LayeredBsdf + SurfaceShade + EnvironmentLight"| AppUi
+    Appearance e4@-->|"[BOUNDARY]: LayeredBsdf + SurfaceShade + EnvironmentLight + TextureSet"| AppUi
     Appearance e5@-->|"[WIRE]: MaterialWire"| Core
+    Appearance e13@-->|"[WIRE]: MaterialWire"| PyRuntime
+    Appearance e14@-->|"[WIRE]: TextureSetWire"| Core
+    Appearance e15@-->|"[WIRE]: TextureSetWire"| PyRuntime
     Appearance e6@-->|"[WIRE]: OpenPbrGroupsWire"| Ui
+    PyArtifacts e16@-->|"[WIRE]: AssetSetManifest"| Raster
     Host e7@-->|"[WIRE]: CaptureSource"| Appearance
     Projection e8@-->|"[PORT]: TelemetryContributorPort"| AppHost
     Projection e9@-->|"[WIRE]: BenchmarkReceipt"| AppHost
     Projection e10@-->|"[WIRE]: AnalyticsSchema"| Persistence
+    Raster e17@-->|"[CONTENT_KEY]: ArtifactIndexRow"| Persistence
 ```
 
 ## [04]-[ROUTING]
