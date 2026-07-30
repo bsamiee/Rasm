@@ -21,3 +21,4 @@
 ## [05]-[PROCESS]
 
 - `Expectation` on a `REAL` pin carries its bytes inline, else the pin is `DESIGN-PIN` — describing an unminted vector reads frozen and gates nothing.
+- Heavy golden-fixture proofs — sweeps in the `ShGolden.Prove` class, 10^7+ evaluations per fixture — run at LANDING cadence: once per transcription landing and again on any change to the frozen spelling, the fixture roster, or the proving fold, inside the owning suite's default lane. They never gate a runtime path, a per-run hot loop, or a benchmark session; the proof re-runs the shipping fold against the page's evaluated vectors, never a private re-derivation.

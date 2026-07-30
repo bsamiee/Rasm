@@ -67,6 +67,7 @@ Consumers walk this table and resolve each row live. Transcribing rows into a se
 - Law: Claimed absence proves by a failed live resolve against the installed distribution alone, and catalog silence never suffices.
 - Law: Members that verify land as a catalog row in the same pass.
 - Law: Catalog rows contradicting a doctrine page stay unverified until live reflection decides, and the losing surface repairs in the same change.
+- Law: Codec rows claim per container — standalone exactness re-proves in each carrier across the extent range; asserting both is two claims.
 
 [FENCE_SEAM]:
 - Surface: Planning-fence seam members.
@@ -78,6 +79,8 @@ Consumers walk this table and resolve each row live. Transcribing rows into a se
 - Law: Code-generated bindings record their own field types, optionality, and collection cardinality as generated, never the source schema's.
 - Law: Surfaces projecting a closed family under renamed vocabulary — a wire union, a decode literal set, a dialect token column — carry it whole.
 - Law: Sweeps enumerate arms per projecting surface — one arm per case, its full field set, discriminants included — never an identifier grep.
+- Law: Decode-only mirrors carry the producer's column set arm for arm and re-census against its whole roster on every move, never a routed delta.
+- Law: Refusals seated at a consumer obligate the producer to publish the column that refusal reads in the same pass.
 
 [GRADUATION_WIRE_MIRROR]:
 - Surface: Geometry's `GeometrySubject` union and `GeometryHandoff.wire()` field shape at `python:geometry/graduation`.
@@ -107,6 +110,7 @@ Consumers walk this table and resolve each row live. Transcribing rows into a se
 - Law: Changes land both spellings and every fold dispatching on the family, since no compiler spans the two.
 - Law: Cases landing in one branch alone declare a target one runtime alerts on and the other cannot render.
 - Law: Series selection stays branch-local — the mounted row an objective names is its owning package's roster, and no coupling crosses for it.
+- Law: Objectives pinning a quantile ceiling land it on a mint-declared histogram bound; a ceiling between bounds grades a value no bucket carries.
 
 [INSTRUMENT_ADMISSION]:
 - Surface: Producer measure rows — python `MeasureRow`, C# `InstrumentSpec` crossing `TelemetryContributorPort`, ts `Convention._instrument`.

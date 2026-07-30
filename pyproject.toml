@@ -280,7 +280,7 @@ dependencies = [
     "pillow",                                      # [ARTIFACTS]: image IO
     "psd-tools",                                   # [ARTIFACTS]: PSD read/inspect plus pixel author
     "psdtags",                                     # [ARTIFACTS]: Photoshop TIFF image resources and layer source data
-    "pyktx",                                       # [ARTIFACTS]: in-process KTX2 write, UASTC/ETC1S basis encode, zstd supercompression, and BC7/ASTC transcode over the Forge libktx
+    "pyktx",                                       # [ARTIFACTS]: in-process KTX2 write, UASTC/ETC1S basis encode, zstd supercompression, and BC7/ASTC transcode over the Forge libktx; lineage peer: pnpm ktx-parse reads the same ktx product (docs/laws/topology.md [43])
     "pysubs2",                                     # [ARTIFACTS]: subtitle parse/convert/retime/restyle model
     "pyvips",                                      # [ARTIFACTS]: fused decode, downscale, ICC, smartcrop; source API mode over the Forge vips — HEVC/HEIF, JXL, and EXR the binary wheel excludes
     "scikit-image; python_version<'3.15'",         # [ARTIFACTS]: image processing; pythran lowers through gast 0.6.0, which breaks on the 3.15 AST, and meson exposes no pythran toggle
@@ -737,6 +737,7 @@ ignore = [
     "SIM108", # match/case owns dispatch, not ternaries
     "SIM114", # match/case owns dispatch, not merged if arms
     # --- [DENSITY]
+    "PLR0911", # a total match over a closed tagged union returns per arm; a return cap pressures the doctrine's own dispatch form
     "PLR0912", # one dispatch surface owns every branch; a branch cap pressures arm extraction
     "PLR0914", # dense dispatch surfaces own their locals; a variable cap pressures fragmentation
     "PLR0915", # one surface owns every arm; a statement cap never justifies splitting a closed union

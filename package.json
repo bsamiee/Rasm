@@ -284,6 +284,7 @@
         "vite-plugin-svgr": "catalog:",
         "vite-plugin-webfont-dl": "catalog:",
         "vitest": "catalog:",
+        "watlas": "catalog:",
         "web-vitals": "catalog:",
         "webdav": "catalog:",
         "workbox-build": "catalog:",

@@ -26,7 +26,7 @@ Structural vocabulary binds the whole repo: a rank, boundary, unit, or corpus-su
 - `strata`: orders a branch's whole rank set, seating shared machinery at the lowest rank every consumer reaches.
     - [NOT]: wave and band, neither of which ranks anything, and `tier`, which ranks ownership breadth rather than dependency.
 - `plane`: names one horizontal concern band cutting across strata rank, whose members seat at a rank yet stay outside the runtime graph.
-    - [NOT]: network control and data planes, and the geometric `Plane` value the geometry kernel owns.
+    - [NOT]: network control and data planes, the geometric `Plane` value the geometry kernel owns, and the texel-raster `texture plane` the appearance domain owns.
 - `type plane`: carries the compile-time half of a declaration, where a name exists for the checker alone.
 - `value plane`: carries the runtime half of a declaration, where a name exists as a live value.
 - `deploy plane`: carries deployment-time data an infrastructure program feeds into a workload environment.
@@ -78,6 +78,13 @@ Words carrying live senses no context disambiguates refuse bare use, and every s
 - `transaction lane`: separates a serialized writing path from an unwrapped analytical read path over one engine.
 - `cache lane`: keys one cache topology a resolver resolves by lane key, so each lane reads its own second-level store.
 - `signal lane`: carries one telemetry signal's exporter and pipeline rows through egress.
+- `descriptor`: refuses bare use, and every site spells one qualified sense below.
+- `capability descriptor`: rows an open consumption axis — key, supplied capability, reached isolation — filled by its supplying branch alone.
+- `descriptor set`: snapshots a proto source's compiled form beside it as the drift gate's per-source baseline.
+- `landing`: refuses bare use, and every site spells one qualified sense below.
+- `wire landing`: declares a decoded wire family's one branch-side shape at the codec owner, so a consumer imports it and re-derives no field.
+- `landing grain`: states a fact at task resolution — the exact file or sub-domain a card's work lands in.
+- `plane landing`: settles an infrastructure plane's row onto its realized backend, so readers provision off the armed set.
 - `slot`: refuses bare use, and every site spells one qualified sense below.
 - `identity slot`: holds the key an evidence record projects for grouping, and that key is the pre-run source key a hit test compares.
 - `carrier slot`: names one position inside a rail or carrier where exactly one value lives — failure, variance, effect, converter.

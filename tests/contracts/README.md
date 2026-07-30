@@ -31,7 +31,7 @@ tests/contracts/
     └── <message>.json       # canonical JSON projection of the same payload
 ```
 
-Peer assets beside the seam directories — descriptor-set snapshots, exported schemas, or other contract assets — land the day they become real, never in advance, and each is registered as a manifest entry with its own payload kind.
+Peer assets beside the seam directories — descriptor-set snapshots, exported schemas, or other contract assets — land the day they become real, never in advance, and each is registered as a manifest entry with its own payload kind. A descriptor source and its `FileDescriptorSet` snapshot land together as one peer asset (`rasm/<file>.proto` beside `<file>.descriptor.binpb`): the snapshot is the drift gate's per-source baseline, never a seam fixture, so it rides a `DESIGN-PIN` entry without breaching the pin law.
 
 [SHARED_DEFINITION]: definitions several seams conform to land ONCE beside the seam directories as `<vocabulary>.schema.json`, and each referencing seam's `contract.schema.json` reaches one by `$ref` rather than restating a row. Such a definition registers no manifest entry of its own — a definition names no minter and emits no asset, so the entry schema's exclusive maps have nothing to bind — and every entry conforming to it names it in `Shape`. Rosters ride it as `const` subschemas so a branch validates its own projection against the frozen vocabulary instead of a reader comparing two tables by eye. Two seams re-spelling one roster is the fork this form forecloses; the shared definition freezes before either seam's own definition lands, because a seam schema that fixes a shared row locally has already forked it.
 

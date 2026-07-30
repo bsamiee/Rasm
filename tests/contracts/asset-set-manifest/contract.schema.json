@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rasm.build/contracts/asset-set-manifest/contract.schema.json",
+  "title": "ASSET_SET_MANIFEST",
+  "$comment": "The ingest/IBL-assembled set manifest — the python-minted appearance document. Producer python:artifacts/graphic/texture/set#TEXTURE_SET; descriptor source rasm/channels.proto message rasm.AssetSetManifest. Field names are snake_case because the vocabulary row binds the declaration to its generated message under preserved proto field names; every digest is the lowercase ContentKey wire spelling. Every roster this document spells resolves through the shared appearance vocabulary — a local re-spelling is the fork the fragment forecloses. The canonical-JSON projection is MessageToDict under preserving_proto_field_name, so proto3 fields at their zero default are ABSENT from the JSON asset while the wire bytes still decode them; required below therefore binds only the fields no legal instance zeroes.",
+  "$defs": {
+    "vocabulary": {
+      "$comment": "Anchor for the shared fragment beside this seam directory.",
+      "$ref": "../appearance-vocabulary.schema.json"
+    },
+    "planeRef": {
+      "type": "object",
+      "$comment": "The shared planeRefProto triple as the canonical-JSON projection spells it: proto3 JSON renders every 64-bit field as a decimal string, so byte_length admits the string spelling beside the integer the struct declares. The triple's shape stays the fragment's — this def adds only the 64-bit JSON rendering.",
+      "properties": {
+        "file": { "type": "string", "minLength": 1 },
+        "digest": { "$ref": "../appearance-vocabulary.schema.json#/$defs/hex32Lower" },
+        "byte_length": { "anyOf": [{ "type": "integer", "minimum": 0 }, { "type": "string", "pattern": "^[0-9]+$" }] }
+      },
+      "required": ["file", "digest", "byte_length"],
+      "additionalProperties": false
+    },
+    "mapEntry": {
+      "type": "object",
+      "$comment": "One produced FILE's evidence row. `levels` is level-ordered under the shared planeLevels law: ONE triple for a self-pyramiding container whatever `mips` declares, one per level otherwise with length equal to `mips`. `tool`/`tool_version` are per-map facts — one set legitimately mixes the spawned ktx floor with an in-process leg — and the tool roster is producer-owned: ktx | imagecodecs | pyvips | openexr.",
+      "properties": {
+        "role": { "type": "string", "minLength": 1 },
+        "color_space": { "$ref": "../appearance-vocabulary.schema.json#/$defs/transfer" },
+        "color_primaries": { "type": "string", "enum": ["", "none", "bt709", "srgb", "bt601_ebu", "bt601_smpte", "bt2020", "ciexyz", "aces", "acescc", "ntsc1953", "pal525", "displayp3", "adobergb"], "$comment": "The PLANE's declared primaries datum, the khr_df_primaries_e spelling the KTX2 stamp reads; \"\" spells an undeclared datum on a pre-primaries document." },
+        "depth": { "type": "string", "enum": ["u8", "u16", "f16", "f32"] },
+        "container": { "$ref": "../appearance-vocabulary.schema.json#/$defs/container" },
+        "channels": { "type": "integer", "minimum": 1, "maximum": 4 },
+        "mips": { "type": "integer", "minimum": 1 },
+        "ktx_payload": { "type": "string", "enum": ["uastc", "etc1s", "none"] },
+        "levels": { "type": "array", "items": { "$ref": "#/$defs/planeRef" }, "minItems": 1 },
+        "tool": { "type": "string", "enum": ["ktx", "imagecodecs", "pyvips", "openexr"] },
+        "tool_version": { "type": "string", "minLength": 1 }
+      },
+      "required": ["role", "container", "levels", "tool", "tool_version"],
+      "additionalProperties": false
+    },
+    "packEntry": {
+      "type": "object",
+      "$comment": "`present` holds three flags in the pack row's own slot order; a false slot carries its channel neutral. `format` is always a 4-component storage-texel key.",
+      "properties": {
+        "pack": { "$ref": "../appearance-vocabulary.schema.json#/$defs/channelPack" },
+        "present": { "type": "array", "items": { "type": "boolean" }, "minItems": 3, "maxItems": 3 },
+        "format": { "type": "string", "enum": ["rgba8", "rgba16", "rgba16f", "rgba32f"] },
+        "container": { "type": "string" },
+        "mips": { "type": "integer", "minimum": 1 },
+        "levels": { "type": "array", "items": { "$ref": "#/$defs/planeRef" }, "minItems": 1 }
+      },
+      "required": ["pack", "present", "format", "container", "levels"],
+      "additionalProperties": false
+    },
+    "iblEntry": {
+      "type": "object",
+      "$comment": "Present only for the hdri and ibl kinds. sh9 rides the shared band order and layout; intensity and rotation apply ON READ, so re-orienting a dome re-keys no blob; up_axis is frozen z and a y value is a decode refusal.",
+      "properties": {
+        "sh9": { "$ref": "../appearance-vocabulary.schema.json#/$defs/sh9" },
+        "equirect": { "$ref": "#/$defs/planeRef" },
+        "specular": { "type": "array", "items": { "$ref": "#/$defs/planeRef" } },
+        "roughness_per_mip": { "type": "array", "items": { "type": "number" } },
+        "brdf_lut": { "$ref": "#/$defs/planeRef" },
+        "luminance_cdf": { "$ref": "#/$defs/planeRef" },
+        "cubemap": { "$ref": "#/$defs/planeRef" },
+        "preview": { "$ref": "#/$defs/planeRef" },
+        "intensity": { "type": "number" },
+        "up_axis": { "type": "string", "const": "z" },
+        "rotation": { "type": "number", "minimum": 0, "exclusiveMaximum": 6.283185307179587 }
+      },
+      "required": ["sh9", "equirect", "up_axis"],
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "properties": {
+    "manifest_key": { "$ref": "../appearance-vocabulary.schema.json#/$defs/hex32Lower" },
+    "kind": { "type": "string", "enum": ["pbr_set", "hdri", "ibl"] },
+    "source": { "type": "string", "minLength": 1 },
+    "width": { "type": "integer", "minimum": 1 },
+    "height": { "type": "integer", "minimum": 1 },
+    "normal_convention": { "$ref": "../appearance-vocabulary.schema.json#/$defs/normalConvention" },
+    "alpha_mode": { "$ref": "../appearance-vocabulary.schema.json#/$defs/alphaMode" },
+    "udim": { "type": "string", "enum": ["none", "mari"] },
+    "udim_tiles": { "type": "array", "items": { "type": "integer", "minimum": 1001 } },
+    "tiled": { "type": "boolean" },
+    "maps": { "type": "array", "items": { "$ref": "#/$defs/mapEntry" }, "minItems": 1 },
+    "packs": { "type": "array", "items": { "$ref": "#/$defs/packEntry" } },
+    "ibl": { "$ref": "#/$defs/iblEntry" },
+    "unresolved": { "type": "array", "items": { "type": "string" } },
+    "height_scale": { "type": "number", "minimum": 0 },
+    "license_class": { "$ref": "../appearance-vocabulary.schema.json#/$defs/licenseClass" }
+  },
+  "required": ["manifest_key", "kind", "source", "width", "height", "normal_convention", "alpha_mode", "udim", "maps"],
+  "additionalProperties": false
+}

@@ -113,6 +113,8 @@ Every new suite, kit capability, fixture, or corpus asset has exactly one home; 
 |  [13]   | TS architecture gauge       | `tests/typescript/_architecture` — branch-boundary suites the exports map cannot express |
 |  [14]   | TS dev-tool API catalog     | `tests/typescript/.api/`, one catalog per dev-plane package                              |
 |  [15]   | contract corpus seam        | `tests/contracts/<seam>/` per the corpus law                                             |
+|  [16]   | shared corpus definition    | `tests/contracts/<vocabulary>.schema.json`, beside the seam directories                  |
+|  [17]   | corpus descriptor source    | `tests/contracts/rasm/<file>.proto` beside its frozen `<file>.descriptor.binpb` snapshot |
 
 Per-package mirror law: where the ecosystem separates tests from source, suite homes mirror the production tree — C# shells under `tests/csharp/libs` mirror `libs/csharp`, Python suites under `tests/python/libs` mirror `libs/python`. TS unit specs instead colocate beside source per the vitest idiom, so `tests/typescript/` never hosts unit specs.
 

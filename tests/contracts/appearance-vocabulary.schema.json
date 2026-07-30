@@ -13,7 +13,8 @@
         "python": "UPPER_SNAKE",
         "typescript": "camelCase",
         "nonMechanical": {
-          "specular_roughness_anisotropy": "the csharp vector column shortens to `SpecularAnisotropy`; the channel key and the `.mtlx` port stay canonical"
+          "specular_roughness_anisotropy": "the csharp vector column shortens to `SpecularAnisotropy`; the channel key and the `.mtlx` port stay canonical",
+          "specular_roughness_anisotropy_rotation": "the csharp column shortens to `SpecularRotation`; the channel key and the `.mtlx` port stay canonical"
         },
         "hazards": {
           "thin_film_thickness": "unit fork — nm everywhere but `.mtlx`, whose um input takes a divide by 1000 at egress",
@@ -29,7 +30,7 @@
       "type": "string",
       "enum": [
         "base_weight", "base_color", "base_metalness", "base_diffuse_roughness", "base_specular_tint",
-        "specular_weight", "specular_color", "specular_roughness", "specular_roughness_anisotropy", "specular_ior",
+        "specular_weight", "specular_color", "specular_roughness", "specular_roughness_anisotropy", "specular_roughness_anisotropy_rotation", "specular_ior",
         "transmission_weight", "transmission_roughness",
         "subsurface_weight", "subsurface_radius",
         "coat_weight", "coat_color", "coat_roughness", "coat_ior",
@@ -50,7 +51,7 @@
     },
 
     "channelRoster": {
-      "$comment": "One row per channel: semantic component count, transfer tag, neutral, unit, mip policy, and the branches that MINT its bytes. NEUTRAL is the constant a producer writes into an absent packed slot, a mip gutter, and a UDIM hole — the OpenPBR Surface 1.1 default converted into the channel's declared unit; the csharp `ThinFilm.None` weight-zero sentinel is never a channel neutral. MINT names byte production alone: `python` carries every csharp-minted row by ingest CLASSIFICATION and synthesizes none of its bytes. `specular_color` and `coat_color` carry no OpenPbrSurface column — WireMap synthesizes them White — and are channel rows because OpenPBR defines the inputs and the groups wire already carries them, so a baked tint plane binds through SetBind with no wire change. `height` is normalized [0,1] and its millimetre span rides the set document, never the plane; `curvature` is signed [-1,1], and an integer-depth plane encodes (v + 1) / 2 and decodes 2v - 1.",
+      "$comment": "One row per channel: semantic component count, transfer tag, neutral, unit, mip policy, and the branches that MINT its bytes. NEUTRAL is the constant a producer writes into an absent packed slot, a mip gutter, and a UDIM hole — the OpenPBR Surface 1.1 default converted into the channel's declared unit; the csharp `ThinFilm.None` weight-zero sentinel is never a channel neutral. MINT names byte production alone: `python` carries every csharp-minted row by ingest CLASSIFICATION and synthesizes none of its bytes. The roster is a TOTAL PROJECTION: every OpenPBR row — `specular_color` and `coat_color` included — reads its own OpenPbrSurface column through the row's lens and binds back through the same lens, so a baked tint plane binds through SetBind with no wire change and no synthesized value stands in for a column read. `height` is normalized [0,1] and its millimetre span rides the set document, never the plane; `curvature` is signed [-1,1], and an integer-depth plane encodes (v + 1) / 2 and decodes 2v - 1.",
       "const": {
         "base_weight": { "components": 1, "transfer": "linear", "neutral": 1.0, "unit": null, "mip": "box", "mint": ["csharp"] },
         "base_color": { "components": 3, "transfer": "srgb", "neutral": [0.8, 0.8, 0.8], "unit": null, "mip": "kaiser", "mint": ["csharp"] },
@@ -61,6 +62,7 @@
         "specular_color": { "components": 3, "transfer": "srgb", "neutral": [1.0, 1.0, 1.0], "unit": null, "mip": "kaiser", "mint": ["csharp"] },
         "specular_roughness": { "components": 1, "transfer": "linear", "neutral": 0.3, "unit": null, "mip": "roughnessVariance", "mint": ["csharp"] },
         "specular_roughness_anisotropy": { "components": 1, "transfer": "linear", "neutral": 0.0, "unit": null, "mip": "box", "mint": ["csharp"] },
+        "specular_roughness_anisotropy_rotation": { "components": 1, "transfer": "linear", "neutral": 0.0, "unit": null, "mip": "box", "mint": ["csharp"] },
         "specular_ior": { "components": 1, "transfer": "raw", "neutral": 1.5, "unit": null, "mip": "box", "mint": ["csharp"] },
         "transmission_weight": { "components": 1, "transfer": "linear", "neutral": 0.0, "unit": null, "mip": "box", "mint": ["csharp"] },
         "transmission_roughness": { "components": 1, "transfer": "linear", "neutral": 0.0, "unit": null, "mip": "roughnessVariance", "mint": ["csharp"] },
@@ -110,7 +112,7 @@
     },
 
     "transfer": {
-      "$comment": "csharp `PlaneTransfer`, python `PlaneSpace`, and typescript `colorSpace` literals each carry all five rows; a three-row transcription is a cardinality defect.",
+      "$comment": "csharp `PlaneTransfer`, python `PlaneSpace`, and typescript `_transferRows` each carry all five rows; a three-row transcription is a cardinality defect, while a narrower ADMITTED subset derives from the roster's own legality column.",
       "type": "string",
       "enum": ["linear", "srgb", "raw", "pq", "hlg"]
     },
@@ -191,7 +193,7 @@
     "planeFormat": {
       "$comment": "The STORAGE-format vocabulary. The csharp document carries the key verbatim; the python document records the row as its (depth, channels) pair, where storage width rounds the semantic component count up through {1, 2, 4}, so the pair resolves to exactly one row and a 3-component channel resolves to the 4-component row. A three-component plane IS a four-component plane declaring `none` alpha; no odd-width texel struct exists. The semantic component count lives on the channel roster; a row of this table is the storage width.",
       "type": "string",
-      "enum": ["r8", "r16", "r16f", "r32f", "rg8", "rg16", "rgba8", "rgba16", "rgba16f", "rgba32f"]
+      "enum": ["r8", "r16", "r16f", "r32f", "rg8", "rg16", "rg16f", "rg32f", "rgba8", "rgba16", "rgba16f", "rgba32f"]
     },
 
     "planeFormatRoster": {
@@ -202,6 +204,8 @@
         "r32f": { "components": 1, "depth": "f32", "serves": "curvature, thickness, radius scalars, solver products" },
         "rg8": { "components": 2, "depth": "u8", "serves": "two-component tangent and normal reconstruction" },
         "rg16": { "components": 2, "depth": "u16", "serves": "two-component normal at production depth" },
+        "rg16f": { "components": 2, "depth": "f16", "serves": "web-reachable two-component normal — the re-route target where rg16 has no transcode row" },
+        "rg32f": { "components": 2, "depth": "f32", "serves": "two-component solver-grade fields" },
         "rgba8": { "components": 4, "depth": "u8", "serves": "packed orm and mra, 8-bit color egress" },
         "rgba16": { "components": 4, "depth": "u16", "serves": "PNG16 and TIFF16 color and vector planes" },
         "rgba16f": { "components": 4, "depth": "f16", "serves": "EXR half color, IBL specular pyramid" },
@@ -234,8 +238,8 @@
       "$comment": "WIRE-LEGALITY: only `uastc`, `etc1s`, and `none` appear in a channel or map record on either document. A `rawBcn` or `astc` file is a branch-local desktop payload the ktx-parse plus basis-transcoder read path cannot consume, so either crossing the wire is the file the estate's own viewer refuses. `none` reads two ways one column apart: with `ktx2` as the container it names the uncompressed deep KTX2, and with any other container it names the payload column's vacancy. MEASURED ENCODE BOUND, binding on both encode legs: block compression admits ONLY an 8-bit store — `compress_basis` raises INVALID_OPERATION and `compress_astc` raises UNSUPPORTED_FEATURE on u16, f16, and f32, and `ktx create --encode` admits only R8 formats — so a float or half plane ships as `none` (uncompressed deep KTX2, vk_format set, needs_transcoding false) and block compression composes only at LDR. Vector channels take `uastc` with RDO disabled and the normal-map error metric set ONLY on channels carrying direction semantics; a color channel raises from `etc1s` to `uastc` when the set declares a quality floor, and that floor is a set-level policy, never a per-call knob. A supercompressed container reads vk_format VK_FORMAT_UNDEFINED until transcode, so every reader branches on `needs_transcoding`; a reader branching on vk_format classes every wire-legal payload as malformed.",
       "const": {
         "rawBcn": { "content": "KTX2 holding BC1-BC7 and BC6H block data direct", "wireLegal": false, "policy": "desktop-native consumers only; never manifest-borne" },
-        "uastc": { "content": "KTX2 UASTC, Basis-transcodable", "wireLegal": true, "policy": "geometry_normal, geometry_coat_normal, geometry_tangent, geometry_coat_tangent, height, curvature" },
-        "etc1s": { "content": "KTX2 ETC1S and BasisLZ, Basis-transcodable", "wireLegal": true, "policy": "color channels at the default quality policy" },
+        "uastc": { "content": "KTX2 UASTC, Basis-transcodable", "wireLegal": true, "policy": "every non-colour channel — the direction triples, the derived modulators, and every scalar parameter row; a scalar parameter plane refuses a chroma-subsampled ETC1S store exactly as a vector does" },
+        "etc1s": { "content": "KTX2 ETC1S and BasisLZ, Basis-transcodable", "wireLegal": true, "policy": "colour channels at the default quality policy, raising to uastc on a set-level quality floor" },
         "astc": { "content": "KTX2 ASTC block data direct from the in-process encoder", "wireLegal": false, "policy": "branch-local LDR acceleration; never manifest-borne" },
         "none": { "content": "no block compression — the deep store, or the payload column's vacancy on a non-KTX2 container", "wireLegal": true, "policy": "float and half planes; vk_format set, no transcode" }
       }
@@ -319,9 +323,9 @@
         "environment": "materials/environment/<key>/<product>[.<variant>].<ext>",
         "key": "the set content key at the path spelling — the csharp set key lowered once, or the python manifest key as-is",
         "channel": "a canonical channel name, or a pack name (orm, mra)",
-        "product": ["equirect", "irradiance", "specular", "brdf_lut", "luminance_cdf"],
+        "product": ["equirect", "irradiance", "specular", "brdf_lut", "luminance_cdf", "cubemap", "preview"],
         "variant": "ONE optional infix: a UDIM tile (4-digit, 1001 and up), a mip index, or a layer index (both 2-digit zero-padded)",
-        "ext": ["png", "tif", "webp", "qoi", "exr", "hdr", "ktx2", "jxl", "avif"]
+        "ext": ["png", "tif", "webp", "qoi", "exr", "hdr", "ktx2", "jxl", "avif", "jpg"]
       }
     },
 
@@ -329,6 +333,19 @@
       "$comment": "Cubemaps, flipbooks, arrays, and volumes are ROWS on one set document rather than shape breaks; the layer count rides beside the row and defaults to 1.",
       "type": "string",
       "enum": ["none", "cubeFaces", "array", "volume", "frames"]
+    },
+
+    "productRoster": {
+      "$comment": "One row per environment product in the channelRoster column shape; the python `_PRODUCT_LAW` transcribes it and the typescript `ibl` landing validates decoded products against it. MINT is python on every row — the csharp document carries no environment kind, so a second mint here asserts a producer that does not exist. `specular` ships as per-level FILES (the roughness ladder is a manifest list, never a container-carried level index); `cubemap` is six faces in ONE self-pyramiding container, the face axis riding the container's own face count rather than a variant infix; `preview` is the ONE display-referred product — absolute-luminance RGBA behind a gain map authored against a declared display peak.",
+      "const": {
+        "equirect": { "components": 3, "transfer": "linear", "unit": "cd/m2", "mip": "kaiser", "mint": ["python"] },
+        "irradiance": { "components": 3, "transfer": "linear", "unit": "cd/m2", "mip": "none", "mint": ["python"] },
+        "specular": { "components": 3, "transfer": "linear", "unit": "cd/m2", "mip": "none", "mint": ["python"] },
+        "brdf_lut": { "components": 2, "transfer": "raw", "unit": null, "mip": "none", "mint": ["python"] },
+        "luminance_cdf": { "components": 2, "transfer": "raw", "unit": null, "mip": "none", "mint": ["python"] },
+        "cubemap": { "components": 3, "transfer": "linear", "unit": "cd/m2", "mip": "none", "mint": ["python"] },
+        "preview": { "components": 4, "transfer": "linear", "unit": "cd/m2", "mip": "none", "mint": ["python"] }
+      }
     },
 
     "sh9": {
@@ -340,7 +357,7 @@
     },
 
     "sh9Basis": {
-      "$comment": "Real orthonormal spherical harmonics through l = 2 in a right-handed +Z-up world basis matching the OpenPBR local frame. Projection is L_i = integral over the sphere of L(w) Y_i(w) dw; irradiance reconstructs as E(n) = sum_i A_l(i) L_i Y_i(n) with A_0 = pi, A_1 = 2pi/3, A_2 = pi/4, and Lambertian outgoing radiance is albedo * E(n) / pi. Four implementations transcribe this one spelling — the csharp prefilter, the python irradiance projection, the three.js PMREM and SphericalHarmonics3 read, and the AppUi shader-side reconstruction.",
+      "$comment": "Real orthonormal spherical harmonics through l = 2 in a right-handed +Z-up world basis matching the OpenPBR local frame. Projection is L_i = integral over the sphere of L(w) Y_i(w) dw; irradiance reconstructs as E(n) = sum_i A_l(i) L_i Y_i(n) with A_0 = pi, A_1 = 2pi/3, A_2 = pi/4, and Lambertian outgoing radiance is albedo * E(n) / pi. The transcribing implementations are the csharp prefilter, the python irradiance projection, the three.js PMREM and SphericalHarmonics3 read, and the AppUi shader-side reconstruction.",
       "const": [
         { "slot": "sh_0", "l": 0, "m": 0, "basis": "K", "constant": 0.28209479177387814 },
         { "slot": "sh_1", "l": 1, "m": -1, "basis": "K * y", "constant": 0.4886025119029199 },
@@ -355,7 +372,7 @@
     },
 
     "sh9Golden": {
-      "$comment": "Two exactly computable vectors that jointly discriminate band order, normalization, and up-axis, at 1e-6 absolute tolerance per coefficient. Vector 2 is the AXIS discriminator: a Y-up implementation places the non-zero at sh_1 or sh_3 and fails. A Y-up runtime remaps the DIRECTION BASIS at the read and never reorders the wire bands; the remap proves against vector 2 at its landing, and a landing without that proof is incomplete.",
+      "$comment": "Two exactly computable vectors that jointly discriminate band order, normalization, and up-axis. Tolerance splits by band class: 1e-6 absolute on the azimuthal (m != 0) bands, which cancel exactly under a phi-symmetric grid, and 2e-3 on the zonal (m = 0) bands sh_0/sh_2/sh_6, whose theta-dependent monomial a midpoint quadrature lands with an O((pi/H)^2) residue — a flat 1e-6 is a fixture a CORRECT implementation fails. Vector 2 is the AXIS discriminator: a Y-up implementation places the non-zero at sh_1 or sh_3 and fails. A Y-up runtime remaps the DIRECTION BASIS at the read and never reorders the wire bands; the remap proves against vector 2 at its landing, and a landing without that proof is incomplete.",
       "const": [
         { "radiance": "L(w) = 1", "sh_0": 3.5449077018110318, "others": 0.0, "irradiance": "E(n) = pi for all n" },
         { "radiance": "L(w) = w . zhat", "sh_2": 2.046653415892977, "others": 0.0, "irradiance": "E(+zhat) = 2pi/3 = 2.0943951023931953" }

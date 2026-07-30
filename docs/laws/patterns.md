@@ -22,6 +22,7 @@ Content-addressed identity binds every branch that hashes, keys, or wires a valu
 [WIRE_TOKEN]:
 - Binds: All branches.
 - Law: Wire tokens admit the emitting owner's exact spelling alone, compared byte-wise at every peer, and a tolerant re-emit forks the key.
+- Law: ONE ingest table maps peer-wire strings onto a branch's ordinal-keyed owner; re-keying the owner or mapping twice forks the correspondence.
 
 [PREIMAGE_FRAMING]:
 - Binds: All branches.
@@ -30,6 +31,11 @@ Content-addressed identity binds every branch that hashes, keys, or wires a valu
 - Law: Fixed-width digest spines concatenate injectively and need no framing, while fixed-width elements never mark a collection boundary.
 - Law: Composite identities ride a canonical codec — framed canonical bytes or canonical JSON — never a hand-rolled join or quote scheme.
 - Law: Array-bearing keys frame shape beside canonicalized dtype and layout bytes.
+
+[KEY_GRAMMAR]:
+- Binds: All branches.
+- Law: Free-form identity inputs compile a grammar only on a class proved TOTAL over the live cross-branch roster, never an illustrative sample.
+- Law: Peers minting one identity segment share its character class byte-wise; `python:runtime/evidence/identity` owns the dotted `[a-z0-9_-]` class.
 
 [PREIMAGE_COVERAGE]:
 - Binds: All branches.

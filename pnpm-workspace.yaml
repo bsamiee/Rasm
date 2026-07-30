@@ -70,8 +70,9 @@ catalog:
   '@gltf-transform/core': 4.4.2
   '@gltf-transform/extensions': 4.4.2
   '@gltf-transform/functions': 4.4.2
-  ktx-parse: 1.1.0
+  ktx-parse: 1.1.0 # reads what the one provisioned ktx CLI writes; lineage peer: pyproject.toml pyktx over the Forge libktx (docs/laws/topology.md [43])
   meshoptimizer: 1.2.0
+  watlas: 1.0.1
   ssh2: 1.17.0
   webdav: 5.10.0
   basic-ftp: 6.0.1
@@ -319,6 +320,8 @@ overrides:
   rollup: 4.62.2
   # ndarray-pixels declares sharp ^0.34; @gltf-transform/functions imports it eagerly on node, so the
   # unpinned resolution loads a SECOND libvips native beside the catalog sharp. One lineage, one binary.
+  # Branch-local lineage: python's pyvips builds against the Forge vips, an independent native — no
+  # cross-branch pin couples the two, and either side bumps alone.
   sharp: 0.35.3
   svgo: 4.0.2
   tar: 7.5.21

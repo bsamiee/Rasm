@@ -1,0 +1,68 @@
+{
+  "manifest_key": "adf06145b592fc08fedd963c5170f974",
+  "kind": "pbr_set",
+  "source": "contract-vector",
+  "width": 8,
+  "height": 8,
+  "normal_convention": "gl",
+  "alpha_mode": "none",
+  "udim": "none",
+  "maps": [
+    {
+      "role": "base_color",
+      "color_space": "srgb",
+      "depth": "u16",
+      "container": "png16",
+      "channels": 3,
+      "mips": 1,
+      "ktx_payload": "none",
+      "levels": [
+        {
+          "file": "base_color.png",
+          "digest": "72b07d26416e03d501713d3781dd99c2",
+          "byte_length": "134"
+        }
+      ],
+      "tool": "imagecodecs",
+      "tool_version": "libpng 1.6.58"
+    },
+    {
+      "role": "geometry_normal",
+      "color_space": "raw",
+      "depth": "u16",
+      "container": "png16",
+      "channels": 3,
+      "mips": 1,
+      "ktx_payload": "none",
+      "levels": [
+        {
+          "file": "geometry_normal.png",
+          "digest": "1cb09264272c513b6a78a6f83566ce47",
+          "byte_length": "82"
+        }
+      ],
+      "tool": "imagecodecs",
+      "tool_version": "libpng 1.6.58"
+    },
+    {
+      "role": "height",
+      "color_space": "raw",
+      "depth": "f32",
+      "container": "exr",
+      "channels": 1,
+      "mips": 1,
+      "ktx_payload": "none",
+      "levels": [
+        {
+          "file": "height.exr",
+          "digest": "40f4dd4b6fbdf17d18f3d04bbac4e31b",
+          "byte_length": "578"
+        }
+      ],
+      "tool": "imagecodecs",
+      "tool_version": "openexr 3.4.13"
+    }
+  ],
+  "height_scale": 10.0,
+  "license_class": "permissive"
+}

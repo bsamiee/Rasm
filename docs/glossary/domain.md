@@ -74,6 +74,7 @@ Domain vocabulary carries the AEC, fabrication, geometry, geospatial, building-p
 ## [07]-[APPEARANCE]
 
 - `PBR`: describes a surface by measurable optics — reflectance, roughness, metalness, transmission — so it shades alike in every rig and renderer.
+- `texture plane`: holds one channel's texel raster at one extent and depth — the addressable byte unit a container stores and a content key digests.
 - `texture channel`: names one optical or geometric quantity a texture plane carries, and decides that plane's transfer, neutral, unit, and mip fold.
 - `texture set`: gathers the channel planes describing one surface under one key, and the set is the addressable unit a consumer binds.
     - [NOT]: texture atlases, which share one plane across several sets by content address and merge no set.
