@@ -211,6 +211,8 @@
 [STACKING]:
 - `CavalierContours`(`.api/api-cavaliercontours.md`): `LwPolyline.Vertex.Bulge` and `Polyline2D` vertices carry `Bulge = tan(theta/4)` of the arc's included angle, the identical convention `PlineVertex<T>.Bulge` binds, so a bulge profile crosses to arc-native `Polyline<double>` for exact offset and Boolean without a line-densified fan.
 - `PolygonAlgebra` / `ArcAlgebra`: sampled entity vertices and exploded block children enter as `Loop` boundary atoms; `ArcAlgebra.Densify` is the sole bulge-to-line bridge, and every `CadDocument` and ACadSharp entity terminates inside the profile-import owner.
+- `ACadSharp`(`libs/csharp/Rasm.Bim/.api/api-acadsharp.md`): the Bim READ partition reads the SAME `CadDocument` and folds the mesh-bearing families (`Mesh`/`Face3D`/`PolyfaceMesh`/`PolygonMesh` under `Insert` explosion) into the `ImportedGeometry` triangle-soup — one drawing admitted into two READ folders, each projecting the entity families its domain owns.
+- `ACadSharp`(`libs/csharp/Rasm.AppUi/.api/api-drafting-export.md`): the WRITE partition is AppUi's, carried as the `ACadSharp` surface block inside that multi-package catalogue — `DwgWriter`/`DxfWriter`/`SvgWriter` over one authored `CadDocument`; this boundary is read-only and mints no writer.
 
 [LOCAL_ADMISSION]:
 - Admitted profiles: `LwPolyline`, `Polyline2D`, `Line`, `Arc`, `Circle`, `Ellipse`, `Spline`, and `Insert` block references flattened through `Insert.Explode()` beside the placed `Insert.Attributes`.

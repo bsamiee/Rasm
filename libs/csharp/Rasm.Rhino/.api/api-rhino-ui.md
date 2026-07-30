@@ -1,12 +1,12 @@
 # [RASM_RHINO_API_RHINO_UI]
 
-`Rhino.UI` owns Rhino host integration for native chrome: panel and page registration and lifecycle, the Eto host bridge (document-owned window, native styling, semi-modal presentation), native dialogs, the gumball manipulator, the mouse-callback and in-viewport interaction surface, status-bar and toolbar/RUI state, and SVG and preview resources. This boundary owns only the seam hosting an Eto surface inside Rhino and the in-viewport `UserInterfaceObject` family drawn through the display pipeline; the Eto framework composes through the host bridge, never re-implemented here.
+`Rhino.UI` owns Rhino host integration for native chrome: panel and page registration and lifecycle, `RhinoEtoApp` window ownership, the multi-value and document-scoped native dialogs, the gumball manipulator, the mouse-callback and in-viewport interaction surface, status-bar and toolbar/RUI state, SVG and preview resources, locale-aware formatting, and UI-thread marshaling. The `EtoExtensions` styling and window-binding bridge and the single-value prompts are the registered branch surface; the Eto framework composes through them and is never re-implemented here.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: RhinoCommon host-UI-bridge surface (`Rhino.UI` companion)
 - host: Rhino host runtime, in-process (proprietary McNeel SDK); `Rhino.UI` is the companion assembly
-- assembly: `Rhino.UI.dll` (`RhinoEtoApp`, `EtoExtensions`, dialog and control hosts)
+- assembly: `Rhino.UI.dll` (`RhinoEtoApp`, dialog and control hosts)
 - assembly: `RhinoCommon.dll` (`Panels`, `StatusBar`, `StackedDialogPage`, `DrawingUtilities`, gumball, mouse, toolbar, UI-thread)
 - namespace: `Rhino.UI` (panels, dialogs, pages, mouse, status, toolbar, resources, in-viewport UI objects)
 - namespace: `Rhino.UI.Gumball` (`GumballObject`, `GumballDisplayConduit`, `GumballFrame`)
@@ -25,15 +25,16 @@
 |  [02]   | `IPanel`                        | panel contract  | shown/hidden/closing callbacks        |
 |  [03]   | `PanelType`                     | discriminant    | panel host type                       |
 |  [04]   | `RhinoEtoApp`                   | window owner    | document-owned Eto parent             |
-|  [05]   | `EtoExtensions`                 | host styling    | native Eto window integration         |
-|  [06]   | `StackedDialogPage`             | stacked page    | nested page activation and navigation |
-|  [07]   | `OptionsDialogPage`             | options page    | document/application page host        |
-|  [08]   | `ObjectPropertiesPage`          | properties page | selection-driven page hooks           |
-|  [09]   | `ObjectPropertiesPageEventArgs` | properties args | selection-event projection            |
-|  [10]   | `PropertyPageType`              | discriminant    | properties-page type                  |
-|  [11]   | `EtoCollapsibleSection`         | section         | collapsible page section              |
-|  [12]   | `EtoCollapsibleSectionHolder`   | section host    | properties/options section stack      |
-|  [13]   | `LocalizeStringPair`            | localized label | English/localized caption pair        |
+|  [05]   | `StackedDialogPage`             | stacked page    | nested page activation and navigation |
+|  [06]   | `OptionsDialogPage`             | options page    | document/application page host        |
+|  [07]   | `ObjectPropertiesPage`          | properties page | selection-driven page hooks           |
+|  [08]   | `ObjectPropertiesPageEventArgs` | properties args | selection-event projection            |
+|  [09]   | `PropertyPageType`              | discriminant    | properties-page type                  |
+|  [10]   | `EtoCollapsibleSection`         | section         | collapsible page section              |
+|  [11]   | `EtoCollapsibleSectionHolder`   | section host    | properties/options section stack      |
+|  [12]   | `LocalizeStringPair`            | localized label | English/localized caption pair        |
+
+- Registers the `Rhino.UI` host-bridge seams (`libs/csharp/.api/api-rhino-ui.md`): `EtoExtensions.UseRhinoStyle`, `Show`/`GetRhinoDoc` document binding, `ShowSemiModal`, `SavePosition`/`RestorePosition`/`LocalizeAndRestore`, `WindowsFromDocument<T>`, and the `Dialogs` edit and number value prompts carry their algebra there; `RhinoEtoApp` supplies the window ownership those members present against, and the rows here are the subsystem this boundary adds beyond the bridge.
 
 [PUBLIC_TYPE_SCOPE]: dialogs, gumball, and mouse interaction
 
@@ -132,49 +133,40 @@
 |  [32]   | `RhinoEtoApp.MainWindowForDocument(RhinoDoc)`                             | window       | document Eto parent            |
 |  [33]   | `RhinoEtoApp.DocumentPropertiesWindowForPage(OptionsDialogPage)`          | window       | document-properties Eto parent |
 |  [34]   | `RhinoEtoApp.ApplicationPreferencesWindowForPage(OptionsDialogPage)`      | window       | application-preferences parent |
-|  [35]   | `EtoExtensions.UseRhinoStyle(Control)`                                    | host         | apply native styling           |
-|  [36]   | `EtoExtensions.Show(Form, RhinoDoc)`                                      | host         | show document-owned form       |
-|  [37]   | `EtoExtensions.ShowSemiModal<T>(Dialog<T>, RhinoDoc, Control)`            | host         | show typed semi-modal dialog   |
-|  [38]   | `EtoExtensions.ShowSemiModal(Dialog, RhinoDoc, Control)`                  | host         | show semi-modal dialog         |
-|  [39]   | `EtoExtensions.SavePosition(Window, Type)`                                | host         | persist window position        |
-|  [40]   | `EtoExtensions.RestorePosition(Window, Type)`                             | host         | restore window position        |
-|  [41]   | `EtoExtensions.LocalizeAndRestore(Window, Type)`                          | host         | localize and restore window    |
-|  [42]   | `EtoExtensions.WindowsFromDocument<T>(RhinoDoc)`                          | host         | discover document windows      |
-|  [43]   | `EtoExtensions.GetRhinoDoc(Form)`                                         | host         | resolve owning document        |
-|  [44]   | `ThemeSettings.ThemeChanged`                                              | theme        | light/dark transition edge     |
-|  [45]   | `StackedDialogPage.AddChildPage(StackedDialogPage)`                       | page         | append child page              |
-|  [46]   | `StackedDialogPage.MakeActivePage()`                                      | page         | activate page                  |
-|  [47]   | `StackedDialogPage.OnActivate(bool)`                                      | page         | page activation hook           |
-|  [48]   | `StackedDialogPage.SetActivePageTo(string, bool)`                         | page         | navigate stacked-page tree     |
-|  [49]   | `ObjectPropertiesPage.ShouldDisplay(...)`                                 | page         | selection display predicate    |
-|  [50]   | `ObjectPropertiesPage.UpdatePage(...)`                                    | page         | update properties page         |
-|  [51]   | `ObjectPropertiesPage.ModifyPage(Action<...>)`                            | page         | modify properties page         |
-|  [52]   | `ObjectPropertiesPage.GetSelectedObjects(ObjectType)`                     | page         | read selected objects          |
-|  [53]   | `ObjectPropertiesPageEventArgs.Document`                                  | page args    | selected document              |
-|  [54]   | `ObjectPropertiesPageEventArgs.DocRuntimeSerialNumber`                    | page args    | document runtime serial        |
-|  [55]   | `ObjectPropertiesPageEventArgs.EventRuntimeSerialNumber`                  | page args    | event runtime serial           |
-|  [56]   | `ObjectPropertiesPageEventArgs.View`                                      | page args    | selected view                  |
-|  [57]   | `ObjectPropertiesPageEventArgs.Viewport`                                  | page args    | selected viewport              |
-|  [58]   | `ObjectPropertiesPageEventArgs.ObjectCount`                               | page args    | selected object count          |
-|  [59]   | `ObjectPropertiesPageEventArgs.GetObjects(ObjectType)`                    | page args    | read filtered objects          |
-|  [60]   | `ObjectPropertiesPageEventArgs.GetObjects<T>()`                           | page args    | read typed objects             |
-|  [61]   | `ObjectPropertiesPageEventArgs.IncludesObjectsType(ObjectType, bool)`     | page args    | test included object type      |
-|  [62]   | `EtoCollapsibleSection.Caption`                                           | section      | override section caption       |
-|  [63]   | `EtoCollapsibleSection.SectionHeight`                                     | section      | override section height        |
-|  [64]   | `EtoCollapsibleSection.Collapsible`                                       | section      | configure collapsibility       |
-|  [65]   | `EtoCollapsibleSection.Hidden`                                            | section      | configure visibility           |
-|  [66]   | `EtoCollapsibleSection.InitiallyExpanded`                                 | section      | configure initial expansion    |
-|  [67]   | `EtoCollapsibleSection.CommandOptionName`                                 | section      | bind command option            |
-|  [68]   | `EtoCollapsibleSectionHolder.Add(ICollapsibleSection)`                    | section      | append section                 |
-|  [69]   | `EtoCollapsibleSectionHolder.UseScrollbars`                               | section      | configure scrollbars           |
-|  [70]   | `EtoCollapsibleSectionHolder.UseCheckBoxes`                               | section      | configure check boxes          |
-|  [71]   | `StackedDialogPage.SetEnglishPageTitle(string)`                           | page         | retitle page                   |
-|  [72]   | `StackedDialogPage.Modified` (get/set)                                    | page         | dirty-state flag               |
-|  [73]   | `StackedDialogPage.RemovePage()`                                          | page         | remove own page                |
-|  [74]   | `StackedDialogPage.NavigationTextColor` (get/set)                         | page         | Windows navigation color       |
-|  [75]   | `StackedDialogPage.NavigationTextIsBold` (get/set)                        | page         | Windows navigation bold        |
+|  [35]   | `ThemeSettings.ThemeChanged`                                              | theme        | light/dark transition edge     |
+|  [36]   | `StackedDialogPage.AddChildPage(StackedDialogPage)`                       | page         | append child page              |
+|  [37]   | `StackedDialogPage.MakeActivePage()`                                      | page         | activate page                  |
+|  [38]   | `StackedDialogPage.OnActivate(bool)`                                      | page         | page activation hook           |
+|  [39]   | `StackedDialogPage.SetActivePageTo(string, bool)`                         | page         | navigate stacked-page tree     |
+|  [40]   | `ObjectPropertiesPage.ShouldDisplay(...)`                                 | page         | selection display predicate    |
+|  [41]   | `ObjectPropertiesPage.UpdatePage(...)`                                    | page         | update properties page         |
+|  [42]   | `ObjectPropertiesPage.ModifyPage(Action<...>)`                            | page         | modify properties page         |
+|  [43]   | `ObjectPropertiesPage.GetSelectedObjects(ObjectType)`                     | page         | read selected objects          |
+|  [44]   | `ObjectPropertiesPageEventArgs.Document`                                  | page args    | selected document              |
+|  [45]   | `ObjectPropertiesPageEventArgs.DocRuntimeSerialNumber`                    | page args    | document runtime serial        |
+|  [46]   | `ObjectPropertiesPageEventArgs.EventRuntimeSerialNumber`                  | page args    | event runtime serial           |
+|  [47]   | `ObjectPropertiesPageEventArgs.View`                                      | page args    | selected view                  |
+|  [48]   | `ObjectPropertiesPageEventArgs.Viewport`                                  | page args    | selected viewport              |
+|  [49]   | `ObjectPropertiesPageEventArgs.ObjectCount`                               | page args    | selected object count          |
+|  [50]   | `ObjectPropertiesPageEventArgs.GetObjects(ObjectType)`                    | page args    | read filtered objects          |
+|  [51]   | `ObjectPropertiesPageEventArgs.GetObjects<T>()`                           | page args    | read typed objects             |
+|  [52]   | `ObjectPropertiesPageEventArgs.IncludesObjectsType(ObjectType, bool)`     | page args    | test included object type      |
+|  [53]   | `EtoCollapsibleSection.Caption`                                           | section      | override section caption       |
+|  [54]   | `EtoCollapsibleSection.SectionHeight`                                     | section      | override section height        |
+|  [55]   | `EtoCollapsibleSection.Collapsible`                                       | section      | configure collapsibility       |
+|  [56]   | `EtoCollapsibleSection.Hidden`                                            | section      | configure visibility           |
+|  [57]   | `EtoCollapsibleSection.InitiallyExpanded`                                 | section      | configure initial expansion    |
+|  [58]   | `EtoCollapsibleSection.CommandOptionName`                                 | section      | bind command option            |
+|  [59]   | `EtoCollapsibleSectionHolder.Add(ICollapsibleSection)`                    | section      | append section                 |
+|  [60]   | `EtoCollapsibleSectionHolder.UseScrollbars`                               | section      | configure scrollbars           |
+|  [61]   | `EtoCollapsibleSectionHolder.UseCheckBoxes`                               | section      | configure check boxes          |
+|  [62]   | `StackedDialogPage.SetEnglishPageTitle(string)`                           | page         | retitle page                   |
+|  [63]   | `StackedDialogPage.Modified` (get/set)                                    | page         | dirty-state flag               |
+|  [64]   | `StackedDialogPage.RemovePage()`                                          | page         | remove own page                |
+|  [65]   | `StackedDialogPage.NavigationTextColor` (get/set)                         | page         | Windows navigation color       |
+|  [66]   | `StackedDialogPage.NavigationTextIsBold` (get/set)                        | page         | Windows navigation bold        |
 
-`ThemeSettings.ThemeChanged` is a public static `EventHandler` field subscribed through `+=`; the `EtoExtensions` notifier behind it is private.
+`ThemeSettings.ThemeChanged` is a public static `EventHandler` field subscribed through `+=`; the `EtoExtensions` notifier behind it is private. Native styling, document-owned presentation, semi-modal display, and window position persistence are the registered branch bridge (`libs/csharp/.api/api-rhino-ui.md`), which the `RhinoEtoApp` parents above present against.
 
 [ENTRYPOINT_SCOPE]: dialogs, gumball, and mouse callbacks
 
@@ -189,28 +181,28 @@
 |  [07]   | `Dialogs.ShowTextDialog(string, string)`                                                  | dialog       | text transcript           |
 |  [08]   | `Dialogs.ShowContextMenu(IEnumerable<string>, Point, IEnumerable<int>)`                   | dialog       | context-menu selection    |
 |  [09]   | `Dialogs.ShowListBox(string, string, IList)` / `(string, string, IList, object)`          | dialog       | single-list selection     |
-|  [10]   | `Dialogs.ShowEditBox(string, string, string, bool, out string)`                           | dialog       | text edit                 |
-|  [11]   | `Dialogs.ShowNumberBox(string, string, ref double)` / `(..., double, double)`             | dialog       | number edit               |
-|  [12]   | `Dialogs.ShowSelectLayerDialog(ref int, string, bool, bool, ref bool)`                    | dialog       | single-layer selection    |
-|  [13]   | `Dialogs.ShowLayerMaterialDialog(RhinoDoc, IEnumerable<int>)`                             | dialog       | layer-material edit       |
-|  [14]   | `Dialogs.ShowLineTypes(string, string, RhinoDoc, Guid)`                                   | dialog       | linetype identity choice  |
-|  [15]   | `Dialogs.ShowSelectLinetypeDialog(ref int, bool)`                                         | dialog       | linetype index choice     |
-|  [16]   | `Dialogs.ShowPrintWidths(string, string)` / `(string, string, double)`                    | dialog       | print-width choice        |
-|  [17]   | `Dialogs.ShowSunDialog(Sun)`                                                              | dialog       | sun editor                |
-|  [18]   | `OpenFileDialog.ShowOpenDialog()` / `SaveFileDialog.ShowSaveDialog()`                     | dialog       | native file selection     |
-|  [19]   | `GumballDisplayConduit.SetBaseGumball(GumballObject, GumballAppearanceSettings)`          | gumball      | seat manipulator          |
-|  [20]   | `GumballDisplayConduit.PickGumball(PickContext, GetPoint)`                                | gumball      | pick manipulator          |
-|  [21]   | `GumballDisplayConduit.UpdateGumball(Point3d, Line)`                                      | gumball      | update drag from line     |
-|  [22]   | `GumballDisplayConduit.UpdateGumball(Plane)`                                              | gumball      | update drag from plane    |
-|  [23]   | `MouseCallback.OnMouseMove(MouseCallbackEventArgs)`                                       | override     | begin mouse-move phase    |
-|  [24]   | `MouseCallback.OnEndMouseMove(...)`                                                       | override     | end mouse-move phase      |
-|  [25]   | `MouseCallback.OnMouseDown(MouseCallbackEventArgs)`                                       | override     | begin mouse-down phase    |
-|  [26]   | `MouseCallback.OnEndMouseDown(...)`                                                       | override     | end mouse-down phase      |
-|  [27]   | `MouseCallback.OnMouseUp(MouseCallbackEventArgs)`                                         | override     | begin mouse-up phase      |
-|  [28]   | `MouseCallback.OnEndMouseUp(...)`                                                         | override     | end mouse-up phase        |
-|  [29]   | `MouseCallbackEventArgs.ViewportPoint`                                                    | read         | callback viewport point   |
-|  [30]   | `MouseCallbackEventArgs.IsOverGumball()`                                                  | read         | test gumball hover        |
-|  [31]   | `MouseCursor.SetToolTip(string)`                                                          | read         | set cursor tooltip        |
+|  [10]   | `Dialogs.ShowSelectLayerDialog(ref int, string, bool, bool, ref bool)`                    | dialog       | single-layer selection    |
+|  [11]   | `Dialogs.ShowLayerMaterialDialog(RhinoDoc, IEnumerable<int>)`                             | dialog       | layer-material edit       |
+|  [12]   | `Dialogs.ShowLineTypes(string, string, RhinoDoc, Guid)`                                   | dialog       | linetype identity choice  |
+|  [13]   | `Dialogs.ShowSelectLinetypeDialog(ref int, bool)`                                         | dialog       | linetype index choice     |
+|  [14]   | `Dialogs.ShowPrintWidths(string, string)` / `(string, string, double)`                    | dialog       | print-width choice        |
+|  [15]   | `Dialogs.ShowSunDialog(Sun)`                                                              | dialog       | sun editor                |
+|  [16]   | `OpenFileDialog.ShowOpenDialog()` / `SaveFileDialog.ShowSaveDialog()`                     | dialog       | native file selection     |
+|  [17]   | `GumballDisplayConduit.SetBaseGumball(GumballObject, GumballAppearanceSettings)`          | gumball      | seat manipulator          |
+|  [18]   | `GumballDisplayConduit.PickGumball(PickContext, GetPoint)`                                | gumball      | pick manipulator          |
+|  [19]   | `GumballDisplayConduit.UpdateGumball(Point3d, Line)`                                      | gumball      | update drag from line     |
+|  [20]   | `GumballDisplayConduit.UpdateGumball(Plane)`                                              | gumball      | update drag from plane    |
+|  [21]   | `MouseCallback.OnMouseMove(MouseCallbackEventArgs)`                                       | override     | begin mouse-move phase    |
+|  [22]   | `MouseCallback.OnEndMouseMove(...)`                                                       | override     | end mouse-move phase      |
+|  [23]   | `MouseCallback.OnMouseDown(MouseCallbackEventArgs)`                                       | override     | begin mouse-down phase    |
+|  [24]   | `MouseCallback.OnEndMouseDown(...)`                                                       | override     | end mouse-down phase      |
+|  [25]   | `MouseCallback.OnMouseUp(MouseCallbackEventArgs)`                                         | override     | begin mouse-up phase      |
+|  [26]   | `MouseCallback.OnEndMouseUp(...)`                                                         | override     | end mouse-up phase        |
+|  [27]   | `MouseCallbackEventArgs.ViewportPoint`                                                    | read         | callback viewport point   |
+|  [28]   | `MouseCallbackEventArgs.IsOverGumball()`                                                  | read         | test gumball hover        |
+|  [29]   | `MouseCursor.SetToolTip(string)`                                                          | read         | set cursor tooltip        |
+
+- The `Dialogs` single-value prompts — `ShowEditBox` and both `ShowNumberBox` overloads — are the registered branch fast lane (`libs/csharp/.api/api-rhino-ui.md`); the rows above are the multi-value, document-scoped, and resource-scoped dialogs this boundary alone reaches.
 
 [ENTRYPOINT_SCOPE]: in-viewport UI objects
 
@@ -324,12 +316,13 @@
 
 [TOPOLOGY]:
 - Native chrome registers once per plug-in in one owner: `Panels.RegisterPanel` seats a panel type, `StackedDialogPage`/`OptionsDialogPage`/`ObjectPropertiesPage` seat pages, and the host resolves instances through `GetPanel`/`GetPanels<T>`; a second registration of the same type is the collapsed form.
-- Every Eto surface reaches a Rhino window through the host bridge alone: `RhinoEtoApp` resolves the document-owned parent, `EtoExtensions.UseRhinoStyle` applies native styling, and `ShowSemiModal`/`Show` present it against a document; the control tree is authored through the folder Eto catalogs, never re-implemented by the bridge.
+- Every Eto surface reaches a Rhino window through one path: `RhinoEtoApp` resolves the document-owned parent and the registered bridge applies native styling and presents the surface against a document; the control tree is authored through the folder Eto catalogs, never re-implemented here.
 - Interaction runs two tiers: `MouseCallback` is the document-wide viewport mouse hook with begin/end phase pairs, while `UserInterfaceObjectBase` and its grip/slider subclasses are registered in-viewport widgets that draw through the display pipeline and receive a picked `MouseState`; a gumball is the dedicated third manipulator — a `GumballDisplayConduit` seated from a `GumballObject`, never a hand-rolled grip cluster.
 - Every host callback runs on the UI thread: work touching document or UI state from a background context marshals through `RhinoApp.InvokeOnUiThread`/`InvokeAndWait`, gated by `IsOnMainThread`.
 
 [STACKING]:
-- `api-eto-forms.md`/`api-eto-drawing.md`/`api-eto-runtime.md`: a panel or dialog's content is an Eto control tree from those catalogs; this boundary supplies the window ownership, native styling, and semi-modal presentation the tree lacks.
+- `api-rhino-ui`(`../../.api/api-rhino-ui.md`): the registered host bridge — `UseRhinoStyle`, document-owned `Show`/`GetRhinoDoc`, `ShowSemiModal`, position persistence, and the single-value prompts this boundary composes and re-tables none of.
+- `api-eto-forms.md`/`api-eto-drawing.md`/`api-eto-runtime.md`: a panel or dialog's content is an Eto control tree from those catalogs; this boundary supplies the `RhinoEtoApp` window ownership the registered bridge presents against.
 - `api-languageext.md`(`../../.api/api-languageext.md`): panel registration, page activation, dialog results, and resource loads trap onto the rail — `Try.lift(() => Panels.RegisterPanel(...)).Run()` and `Optional(Dialogs.ShowColorDialog(...)).ToFin(error)`; a dialog result or a loaded preview image crosses as `Fin<A>`, never a nullable host handle.
 - `api-thinktecture-runtime-extensions.md`(`../../.api/api-thinktecture-runtime-extensions.md`): host UI enums (`PanelType`, `FloatPanelMode`, `ShowPanelReason`, `MouseButton`, `GumballMode`, `PropertyPageType`, the dialog button/icon selectors) map at the edge to `[SmartEnum]` owners, and a panel/page `Guid` is a `[ValueObject<Guid>]`.
 - `api-rhinocommon-display.md`: in-viewport `UserInterfaceObjectBase.OnDraw` receives a `DrawEventArgs` and draws through the same `DisplayPipeline` the display catalog owns, and the gumball is a display conduit — the UI widget is a pipeline participant, not a private renderer.
@@ -341,7 +334,7 @@
 - `Rhino.UI.Controls.DataSource.EventInfoArgs.EventInfoPtr` is a raw native pointer trapped at the boundary, never a domain field; the dead `Rhino.UI.Controls.ThumbnailUI` surface is never admitted.
 
 [RAIL_LAW]:
-- Package: `RhinoCommon` + `Rhino.UI` (host UI bridge)
-- Owns: panel and page registration and lifecycle, the Eto host bridge (window ownership, native styling, semi-modal, position), native dialogs, the gumball manipulator, mouse callbacks and in-viewport UI objects, status/toolbar/RUI state, SVG and preview resources, and UI-thread marshaling
-- Accept: a panel/page registered once and resolved through the host, an Eto surface hosted through `RhinoEtoApp`/`EtoExtensions`, a gumball conduit or in-viewport widget drawing through the display pipeline, host handles trapped through `Try.lift(...).Run()`, and UI work marshaled onto the main thread
-- Reject: a duplicate registration of one panel/page type, a hand-rolled control where an Eto surface fits, a hand-rolled grip cluster where the gumball or a `UserInterfaceObject` fits, a cross-thread UI mutation without `InvokeOnUiThread`, and a `Panels`/`Dialogs`/`MouseCallback`/`StackedDialogPage` handle escaping into a domain signature
+- Partition: `RhinoCommon` + `Rhino.UI` Rhino host-boundary subsystem over the registered host bridge
+- Owns: panel and page registration and lifecycle, `RhinoEtoApp` window ownership, the multi-value and document-scoped native dialogs, the gumball manipulator, mouse callbacks and in-viewport UI objects, status, toolbar, and RUI state, SVG and preview resources, locale-aware formatting, the RDK data-source provider identities, and UI-thread marshaling
+- Accept: a panel or page registered once and resolved through the host, an Eto surface parented through `RhinoEtoApp` and presented by the registered bridge, a gumball conduit or in-viewport widget drawing through the display pipeline, host handles trapped through `Try.lift(...).Run()`, and UI work marshaled onto the main thread
+- Reject: a re-tabling of the registered host bridge or its single-value prompts, a duplicate registration of one panel or page type, a hand-rolled control where an Eto surface fits, a hand-rolled grip cluster where the gumball or a `UserInterfaceObject` fits, a cross-thread UI mutation without `InvokeOnUiThread`, and a `Panels`/`Dialogs`/`MouseCallback`/`StackedDialogPage` handle escaping into a domain signature

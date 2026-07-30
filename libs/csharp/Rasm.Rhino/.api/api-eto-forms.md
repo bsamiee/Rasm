@@ -1,314 +1,104 @@
 # [RASM_RHINO_API_ETO_FORMS]
 
-`Eto.Forms` owns the native cross-platform widget surface the Rhino process embeds: one host-loaded `Eto.dll` resolves every control, layout region, window, dialog, menu, and command through the ambient platform handler. Binding threads a control property to a `DataContext` over the `IndirectBinding`/`DirectBinding`/`BindableBinding`/`DualBinding` rail, so a generator-shaped UI layer folds each widget, region, and command as a row rather than a hand-wired call site.
+`Eto.Forms` builds every native surface the Rhino host embeds. The control base, layout owners, window and dialog hierarchy, grid and cell families, and popup-menu and command surface are the branch construction spine this boundary composes unchanged; the rows below are the calendar and document-tab widgets, the node tree, the application menu-bar and toolbar chrome, the `Eto.Forms.ThemedControls` custom-drawn family, and `Eto.Threading` main-thread identity that this host boundary alone reaches; the data-binding rail registers at the branch tier.
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `Eto.Forms`
-- package: `Eto.Forms` (BSD-3-Clause)
+[PACKAGE_SURFACE]: `Eto.Forms` — Rhino host-boundary partition
+- package: `Eto.Forms` (host-provided; bound in-place from the Rhino-loaded `Eto.dll`, never a second NuGet admission) (BSD-3-Clause)
 - assembly: `Eto.dll` (Rhino `RhCore` framework)
 - namespace: `Eto.Forms`, `Eto.Forms.ThemedControls`, `Eto.Threading`
 - rail: native-ui
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: value and text input controls
+- Registers the `Eto.Forms` construction spine (`libs/csharp/.api/api-eto-forms.md`): `Control` and its event families, the text, value, choice, command, and display roster, the container set, `Grid`/`GridView`/`TreeGridView` with the cell family, the four layout owners, the window, dialog, and chooser hierarchy, and the popup-menu and `Command` surface carry their construction there and this boundary composes that spelling; the rows below are the widgets, chrome, and rails this partition adds beyond it.
 
-| [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [CAPABILITY]                                         |
-| :-----: | :--------------- | :------------ | :--------------------------------------------------- |
-|  [01]   | `TextBox`        | text input    | single-line editable text                            |
-|  [02]   | `TextArea`       | text input    | multi-line editable text with wrap and caret control |
-|  [03]   | `RichTextArea`   | text input    | styled rich-text editor over a formatted buffer      |
-|  [04]   | `PasswordBox`    | text input    | masked secret entry                                  |
-|  [05]   | `SearchBox`      | text input    | search-styled text field with clear affordance       |
-|  [06]   | `NumericStepper` | value input   | bounded numeric entry with increment stepping        |
-|  [07]   | `Spinner`        | indicator     | indeterminate activity spinner                       |
-|  [08]   | `Slider`         | value input   | ranged track selector                                |
-|  [09]   | `DateTimePicker` | value input   | date and time selection                              |
-|  [10]   | `Calendar`       | value input   | month-grid date selection                            |
-|  [11]   | `ColorPicker`    | value input   | native colour selection well                         |
-|  [12]   | `FontPicker`     | value input   | native font selection well                           |
-|  [13]   | `FilePicker`     | value input   | inline file/folder path selector                     |
+[PUBLIC_TYPE_SCOPE]: calendar, document tabs, and node tree
 
-[PUBLIC_TYPE_SCOPE]: choice, command, and media controls
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [CAPABILITY]                                     |
+| :-----: | :---------------- | :------------ | :----------------------------------------------- |
+|  [01]   | `Calendar`        | value input   | month-grid date selection with a min/max range   |
+|  [02]   | `DocumentControl` | container     | closable, reorderable document-tab host          |
+|  [03]   | `DocumentPage`    | container     | one closable document tab over a content control |
+|  [04]   | `TreeView`        | tree          | node tree over `ITreeItem`                       |
+|  [05]   | `ITreeItem`       | contract      | node contract the tree binds                     |
 
-| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [CAPABILITY]                                |
-| :-----: | :---------------- | :------------ | :------------------------------------------ |
-|  [01]   | `CheckBox`        | choice        | tri-state boolean toggle                    |
-|  [02]   | `RadioButton`     | choice        | mutually-exclusive selection within a group |
-|  [03]   | `DropDown`        | choice        | single-selection collapsed list             |
-|  [04]   | `ComboBox`        | choice        | editable-text dropdown                      |
-|  [05]   | `ListBox`         | choice        | scrollable single-selection list            |
-|  [06]   | `CheckBoxList`    | choice        | multi-check option group                    |
-|  [07]   | `SegmentedButton` | choice        | linked multi-segment toggle bar             |
-|  [08]   | `Button`          | command       | push-command control                        |
-|  [09]   | `LinkButton`      | command       | hyperlink-styled command                    |
-|  [10]   | `Label`           | display       | static or wrapping text label               |
-|  [11]   | `ImageView`       | display       | static image presenter                      |
-|  [12]   | `ProgressBar`     | indicator     | determinate/indeterminate progress track    |
+[PUBLIC_TYPE_SCOPE]: application menu bar and toolbar chrome
 
-[PUBLIC_TYPE_SCOPE]: container and host controls
-
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                                                            |
-| :-----: | :------------------ | :------------ | :---------------------------------------------------------------------- |
-|  [01]   | `Panel`             | container     | single-child content host                                               |
-|  [02]   | `GroupBox`          | container     | titled bordered content frame                                           |
-|  [03]   | `Expander`          | container     | collapsible header/content region                                       |
-|  [04]   | `Scrollable`        | container     | scrolling viewport over oversized content                               |
-|  [05]   | `Splitter`          | container     | two-pane draggable split with `SplitterFixedPanel` sizing policy        |
-|  [06]   | `TabControl`        | container     | tabbed page host                                                        |
-|  [07]   | `DocumentControl`   | container     | closable-tab document host over `DocumentPage`                          |
-|  [08]   | `Drawable`          | container     | custom-paint host issuing `Eto.Drawing.Graphics` (`api-eto-drawing.md`) |
-|  [09]   | `WebView`           | container     | embedded browser surface                                                |
-|  [10]   | `PropertyGrid`      | container     | reflected property editor over a bound object                           |
-|  [11]   | `NativeControlHost` | container     | host-native control embedding (`api-eto-platform.md`)                   |
-
-[PUBLIC_TYPE_SCOPE]: grid, tree, and cell families
-
-`GridView` binds a flat `DataStore`, `TreeGridView` an `ITreeGridStore<ITreeGridItem>` hierarchy, `TreeView` an `ITreeItem` tree; a `GridColumn` carries one `Cell`, and the cell kind selects the in-cell editor.
-
-| [INDEX] | [SYMBOL]        | [TYPE_FAMILY] | [CAPABILITY]                                                |
-| :-----: | :-------------- | :------------ | :---------------------------------------------------------- |
-|  [01]   | `GridView`      | grid          | flat data grid over an ordered store                        |
-|  [02]   | `TreeGridView`  | grid          | hierarchical grid over `ITreeGridItem` nodes                |
-|  [03]   | `TreeView`      | tree          | node tree over `ITreeItem`                                  |
-|  [04]   | `GridColumn`    | grid part     | one bound column carrying a `Cell`                          |
-|  [05]   | `GridItem`      | grid part     | mutable flat row backing store item                         |
-|  [06]   | `TreeGridItem`  | grid part     | mutable tree node with children, implements `ITreeGridItem` |
-|  [07]   | `ITreeGridItem` | contract      | tree-grid node contract (parent, expanded, children)        |
-|  [08]   | `TextBoxCell`   | cell          | inline editable-text cell                                   |
-|  [09]   | `CheckBoxCell`  | cell          | inline boolean cell                                         |
-|  [10]   | `ComboBoxCell`  | cell          | inline dropdown cell                                        |
-|  [11]   | `ImageViewCell` | cell          | inline image cell                                           |
-|  [12]   | `ImageTextCell` | cell          | combined image + text cell                                  |
-|  [13]   | `ProgressCell`  | cell          | inline progress-bar cell                                    |
-|  [14]   | `DrawableCell`  | cell          | owner-drawn cell issuing `Graphics`                         |
-|  [15]   | `CustomCell`    | cell          | control-hosting cell over an arbitrary child                |
-
-[PUBLIC_TYPE_SCOPE]: control base and event surface
-
-`Control` is the common base carrying invalidation and native-attachment members and the event families every widget inherits: `Load`/`Shown` lifecycle, `GotFocus`/`LostFocus` focus, `MouseDown`/`MouseMove` mouse, `KeyDown` key, and `DragEnter`/`DragDrop` drag-drop.
-
-| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY] | [CAPABILITY]                          |
-| :-----: | :--------------------------------------- | :------------ | :------------------------------------ |
-|  [01]   | `Control`                                | base          | widget base carrying inherited events |
-|  [02]   | `Invalidate()` / `Invalidate(Rectangle)` | member        | requests full or bounded repaint      |
-|  [03]   | `AttachNative()` / `DetachNative()`      | member        | changes the external native parent    |
-|  [04]   | `TriggerStyleChanged()`                  | member        | reapplies style handlers              |
-|  [05]   | `DoDragDrop(DataObject, DragEffects, …)` | member        | starts a drag with an optional image  |
-
-[PUBLIC_TYPE_SCOPE]: layout containers
-
-| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [CAPABILITY]                                               |
-| :-----: | :---------------- | :------------ | :--------------------------------------------------------- |
-|  [01]   | `DynamicLayout`   | layout        | nested vertical/horizontal/group/scrollable region builder |
-|  [02]   | `TableLayout`     | layout        | scaling cell grid over `TableRow`/`TableCell`              |
-|  [03]   | `TableRow`        | layout part   | one grid row of cells with scale flags                     |
-|  [04]   | `TableCell`       | layout part   | one grid cell with x-scale flag                            |
-|  [05]   | `StackLayout`     | layout        | linear run over `StackLayoutItem` with alignment           |
-|  [06]   | `StackLayoutItem` | layout part   | one stacked child with expand flag                         |
-|  [07]   | `PixelLayout`     | layout        | absolute pixel-positioned placement                        |
-|  [08]   | `Orientation`     | enum          | `Horizontal`/`Vertical` axis selector                      |
-|  [09]   | `Padding`         | value         | four-edge inset value                                      |
-
-[PUBLIC_TYPE_SCOPE]: windows, dialogs, and file/colour/font choosers
-
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]                                                          |
-| :-----: | :------------------- | :------------ | :-------------------------------------------------------------------- |
-|  [01]   | `Window`             | window        | top-level window base with state/location/logical-pixel-size events   |
-|  [02]   | `Form`               | window        | modeless top-level form                                               |
-|  [03]   | `FloatingForm`       | window        | always-on-top utility form                                            |
-|  [04]   | `Dialog<T>`          | window        | modal dialog returning a typed result through `Close(T)`              |
-|  [05]   | `DialogResult`       | enum          | standard modal outcome vocabulary                                     |
-|  [06]   | `WindowStyle`        | enum          | native chrome style selector                                          |
-|  [07]   | `DialogDisplayMode`  | enum          | modal presentation policy                                             |
-|  [08]   | `MessageBox`         | dialog        | static message presentation over `MessageBoxType`/`MessageBoxButtons` |
-|  [09]   | `OpenFileDialog`     | dialog        | file-open chooser over `FileFilter`                                   |
-|  [10]   | `SaveFileDialog`     | dialog        | file-save chooser                                                     |
-|  [11]   | `SelectFolderDialog` | dialog        | folder chooser                                                        |
-|  [12]   | `FileDialog`         | dialog        | file-chooser base carrying `Filters`                                  |
-|  [13]   | `FileFilter`         | value         | file-extension filter row                                             |
-|  [14]   | `ColorDialog`        | dialog        | native colour chooser                                                 |
-|  [15]   | `FontDialog`         | dialog        | native font chooser                                                   |
-
-[PUBLIC_TYPE_SCOPE]: menus, toolbars, and commands
-
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                                                 |
-| :-----: | :------------------ | :------------ | :----------------------------------------------------------- |
-|  [01]   | `MenuBar`           | menu          | top-level application menu                                   |
-|  [02]   | `ButtonMenuItem`    | menu item     | invoking menu entry with submenu children                    |
-|  [03]   | `CheckMenuItem`     | menu item     | checkable menu entry                                         |
-|  [04]   | `RadioMenuItem`     | menu item     | radio-grouped menu entry                                     |
-|  [05]   | `SeparatorMenuItem` | menu item     | menu divider                                                 |
-|  [06]   | `SubMenuItem`       | menu item     | nested submenu container                                     |
-|  [07]   | `ContextMenu`       | menu          | popup menu bound to a control                                |
-|  [08]   | `ToolBar`           | toolbar       | control toolbar over `ToolItem` entries                      |
-|  [09]   | `ButtonToolItem`    | tool item     | invoking toolbar button                                      |
-|  [10]   | `CheckToolItem`     | tool item     | toggle toolbar button                                        |
-|  [11]   | `DropDownToolItem`  | tool item     | toolbar button with a dropdown menu                          |
-|  [12]   | `SeparatorToolItem` | tool item     | toolbar divider                                              |
-|  [13]   | `Command`           | command       | shared invocation with `Enabled`, `Shortcut`, and `Executed` |
-|  [14]   | `CheckCommand`      | command       | toggle command projected to check menu/tool items            |
-|  [15]   | `RadioCommand`      | command       | radio-grouped command                                        |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                            |
+| :-----: | :------------------ | :------------ | :-------------------------------------- |
+|  [01]   | `MenuBar`           | menu          | top-level application menu              |
+|  [02]   | `CheckMenuItem`     | menu item     | checkable menu entry                    |
+|  [03]   | `RadioMenuItem`     | menu item     | radio-grouped menu entry                |
+|  [04]   | `SeparatorMenuItem` | menu item     | menu divider                            |
+|  [05]   | `ToolBar`           | toolbar       | control toolbar over `ToolItem` entries |
+|  [06]   | `ButtonToolItem`    | tool item     | invoking toolbar button                 |
+|  [07]   | `CheckToolItem`     | tool item     | toggle toolbar button                   |
+|  [08]   | `DropDownToolItem`  | tool item     | toolbar button carrying a dropdown menu |
+|  [09]   | `SeparatorToolItem` | tool item     | toolbar divider                         |
 
 [PUBLIC_TYPE_SCOPE]: data binding
 
-`IndirectBinding<T>` reads and writes a value against an arbitrary data item and chains through `Convert`/`Child`/`AfterDelay`; `BindableBinding<T,TValue>` binds a control property to a `DataContext`; `DualBinding<T>` is the two-way link governed by a `DualBindingMode` policy.
+- Registers the `Eto.Forms` data-binding rail (`libs/csharp/.api/api-eto-binding.md`): `IndirectBinding<T>`, `DirectBinding<T>`, `BindableBinding<T,TValue>`, `DualBinding<T>`, `DualBindingMode`, and the `Bind`/`BindDataContext` fluent entry carry their algebra there; this boundary composes them and adds no binding carrier.
 
-| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                                                    |
-| :-----: | :-------------------------- | :------------ | :-------------------------------------------------------------- |
-|  [01]   | `IndirectBinding<T>`        | binding       | value binding against a supplied data item, chainable           |
-|  [02]   | `DirectBinding<T>`          | binding       | value binding against a fixed source with change notification   |
-|  [03]   | `BindableBinding<T,TValue>` | binding       | control-property binding to a `DataContext` source              |
-|  [04]   | `DualBinding<T>`            | binding       | two-way source/destination link                                 |
-|  [05]   | `DualBindingMode`           | enum          | `OneWay`/`OneWayToSource`/`TwoWay`/`OneTime` propagation policy |
-|  [06]   | `BindableExtensions`        | extension     | `Bind`/`BindDataContext` fluent entry over any bindable widget  |
-|  [07]   | `DataObject`                | transfer      | typed drag/clipboard payload consumed by `DoDragDrop`           |
-|  [08]   | `DragEffects`               | enum          | permitted drag operation flags                                  |
+[PUBLIC_TYPE_SCOPE]: themed dialogs, editors, and thread identity
 
-[PUBLIC_TYPE_SCOPE]: themed dialogs and editors
-
-`Eto.Forms.ThemedControls` mints the custom-drawn, cross-platform-uniform control family; its `Themed*Handler` backend classes register through the platform-handler seam (`api-eto-platform.md`), never a widget-construction row.
+`Eto.Forms.ThemedControls` mints the custom-drawn, cross-platform-uniform family; its `Themed*Handler` backend classes register through the platform-handler seam (`api-eto-platform.md`), never a widget-construction row. `Eto.Threading.Thread` is the managed thread abstraction carrying main-thread identity.
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                                                    |
 | :-----: | :----------------------- | :------------ | :-------------------------------------------------------------- |
 |  [01]   | `ThemedMessageBox`       | dialog        | themed modal message box with arbitrary result-typed buttons    |
 |  [02]   | `ThemedPropertyGrid`     | control       | themed reflected property editor over one or many bound objects |
-|  [03]   | `ThemedCollectionEditor` | control       | themed add/remove editor over a homogeneous object collection   |
+|  [03]   | `ThemedCollectionEditor` | control       | themed add and remove editor over a homogeneous collection      |
 |  [04]   | `ThemedSpinnerMode`      | enum          | themed-spinner glyph shape (`Line`/`Circle`)                    |
 |  [05]   | `ThemedSpinnerDirection` | enum          | themed-spinner rotation (`Clockwise`/`CounterClockwise`)        |
-
-[PUBLIC_TYPE_SCOPE]: thread marshal
-
-`Eto.Threading.Thread` is the managed thread abstraction carrying main-thread identity.
-
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY]                                                   |
-| :-----: | :------- | :------------ | :------------------------------------------------------------- |
-|  [01]   | `Thread` | thread        | managed thread with `IsMain`/`MainThread` main-thread identity |
+|  [06]   | `Thread`                 | thread        | managed thread with `IsMain`/`MainThread` main-thread identity  |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: DynamicLayout region building
+[ENTRYPOINT_SCOPE]: calendar, document tabs, and command projection
 
-`Begin*` builders open a nested scope; `Add*` members place children into the open region:
-
-| [INDEX] | [SURFACE]                                                                   | [CAPABILITY]                |
-| :-----: | :-------------------------------------------------------------------------- | :-------------------------- |
-|  [01]   | `BeginVertical(Padding?, Size?, bool?, bool?)` / `BeginHorizontal(bool?)`   | opens an axis region        |
-|  [02]   | `BeginGroup(string, Padding?, Size?, bool?, bool?)`                         | opens a titled region       |
-|  [03]   | `BeginScrollable(BorderType, Padding?, Size?, bool?, bool?)`                | opens a scrollable region   |
-|  [04]   | `Add(Control, bool?, bool?)` / `AddRow(Control[])` / `AddColumn(Control[])` | places children             |
-|  [05]   | `AddCentered(Control, Padding?, Size?, bool?, bool?, bool, bool)`           | places a centered child     |
-|  [06]   | `AddAutoSized(Control, Padding?, Size?, bool?, bool?, bool)`                | places a natural-size child |
-
-[ENTRYPOINT_SCOPE]: TableLayout and PixelLayout placement
-
-| [INDEX] | [SURFACE]                                                                                | [CAPABILITY]                             |
-| :-----: | :--------------------------------------------------------------------------------------- | :--------------------------------------- |
-|  [01]   | `TableLayout.Horizontal(params TableCell[] cells)`                                       | builds a single horizontal row table     |
-|  [02]   | `TableLayout.HorizontalScaled(params TableCell[] cells)`                                 | builds an evenly-scaled horizontal table |
-|  [03]   | `TableLayout.AutoSized(Control control, Padding? padding = null, bool centered = false)` | wraps one control at natural size        |
-|  [04]   | `TableLayout.Add(Control control, int x, int y, bool xscale, bool yscale)`               | places a control at a grid cell          |
-|  [05]   | `TableLayout.SetColumnScale(int column, bool scale = true)`                              | marks a column as scaling                |
-|  [06]   | `TableLayout.SetRowScale(int row, bool scale = true)`                                    | marks a row as scaling                   |
-|  [07]   | `PixelLayout.Add(Control control, int x, int y)`                                         | places a control at an absolute pixel    |
-|  [08]   | `PixelLayout.Move(Control control, int x, int y)`                                        | repositions a placed control             |
-
-[ENTRYPOINT_SCOPE]: control configuration and owned collections
-
-| [INDEX] | [SURFACE]                                                                           | [CAPABILITY]                                     |
-| :-----: | :---------------------------------------------------------------------------------- | :----------------------------------------------- |
-|  [01]   | `TextArea.Wrap { get; set; }`                                                       | controls line wrapping                           |
-|  [02]   | `Calendar.MinDate { get; set; }` / `Calendar.MaxDate { get; set; }`                 | bounds selectable calendar dates                 |
-|  [03]   | `FilePicker.Filters { get; }`                                                       | owns the mutable file-filter collection          |
-|  [04]   | `GridItem(params object[] values)` / `GridItem.Tag { get; set; }`                   | constructs a row and retains typed identity      |
-|  [05]   | `TreeGridItem(IEnumerable<ITreeGridItem> children, params object[] values)`         | constructs one hierarchical grid row             |
-|  [06]   | `StackLayoutItem(Control control, bool expand = false)`                             | places one linear-layout child                   |
-|  [07]   | `TableRow(IEnumerable<TableCell> cells)`                                            | constructs one table placement row               |
-|  [08]   | `TableCell(Control control, bool scaleWidth = false)`                               | places one control in a table cell               |
-|  [09]   | `CheckBox.ThreeState { get; set; }` / `CheckBox.Checked { get; set; }`              | selects binary or nullable toggle semantics      |
-|  [10]   | `PropertyGrid.ShowCategories { get; set; }`                                         | selects categorized property presentation        |
-|  [11]   | `GridColumn.Width / Resizable / AutoSize / Visible { get; set; }`                   | column width, resize, autosize, visibility       |
-|  [12]   | `Splitter.FixedPanel { get; set; }` (`SplitterFixedPanel` `Panel1`/`Panel2`/`None`) | selects which pane keeps its size on resize      |
-|  [13]   | `DocumentControl.Pages / SelectedIndex / AllowReordering { get; set; }`             | closable, reorderable document-tab host          |
-|  [14]   | `DocumentPage.Content / Text / Closable { get; set; }`                              | one closable document tab over a content control |
-|  [15]   | `Window.Location / WindowState / Icon { get; set; }`                                | window placement, min/max state, menu-bar icon   |
-
-[ENTRYPOINT_SCOPE]: modal dialog result
-
-| [INDEX] | [SURFACE]                                    | [SHAPE]                   | [CAPABILITY]                                |
-| :-----: | :------------------------------------------- | :------------------------ | :------------------------------------------ |
-|  [01]   | `Dialog<T>.ShowModal(Control owner)`         | instance call → `T`       | shows modal and blocks for the typed result |
-|  [02]   | `Dialog<T>.ShowModalAsync(Control owner)`    | instance call → `Task<T>` | shows modal and awaits the typed result     |
-|  [03]   | `Dialog<T>.Close(T result)`                  | instance call             | closes and sets the returned result         |
-|  [04]   | `CommonDialog.ShowDialog(Control parent)`    | call → `DialogResult`     | shows against an owning window              |
-|  [05]   | `FontDialog.Font { get; set; }`              | property                  | seeds and returns the selected font         |
-|  [06]   | `SelectFolderDialog.Title { get; set; }`     | property                  | configures the chooser title                |
-|  [07]   | `SelectFolderDialog.Directory { get; set; }` | property                  | seeds and returns the selected path         |
-
-[ENTRYPOINT_SCOPE]: command projection and invocation
-
-| [INDEX] | [SURFACE]                  | [SHAPE]                    | [CAPABILITY]                               |
-| :-----: | :------------------------- | :------------------------- | :----------------------------------------- |
-|  [01]   | `Command.Execute()`        | instance call              | raises the shared execution event          |
-|  [02]   | `Command.CreateMenuItem()` | instance call → `MenuItem` | projects the command into one menu item    |
-|  [03]   | `Command.CreateToolItem()` | instance call → `ToolItem` | projects the command into one toolbar item |
-
-[ENTRYPOINT_SCOPE]: binding construction and transform
-
-`Bind` and `BindDataContext` use `Expression<Func<…>>` selectors and default to `DualBindingMode.TwoWay`; context forms accept control/context `TValue` defaults. `Convert`/`Delegate` setters receive the source value, or the data item for two-generic `Delegate`, never a binding instance.
-
-| [INDEX] | [SURFACE]                                                        | [CAPABILITY]                    |
-| :-----: | :--------------------------------------------------------------- | :------------------------------ |
-|  [01]   | `BindableExtensions.Bind<TWidget,TSource,TValue>(…)`             | binds a fixed source            |
-|  [02]   | `BindableExtensions.BindDataContext<TWidget,TContext,TValue>(…)` | binds `DataContext`             |
-|  [03]   | `BindableBinding<T,TValue>.BindDataContext(…)`                   | binds an indirect context       |
-|  [04]   | `IndirectBinding<T>.GetValue` / `.SetValue`                      | reads or writes a data item     |
-|  [05]   | `IndirectBinding<T>.Convert<TValue>(…)`                          | maps the bound value type       |
-|  [06]   | `IndirectBinding<T>.Child<TValue>(…)`                            | descends into a bound member    |
-|  [07]   | `IndirectBinding<T>.AfterDelay(TimeSpan, bool)`                  | debounces write propagation     |
-|  [08]   | `Binding.Delegate<TValue>(get, set, add, remove)`                | creates a callback binding      |
-|  [09]   | `Binding.Delegate<T,TValue>(get, set, add, remove, …)`           | creates an item callback        |
-|  [10]   | `Binding.Property<T,TValue>(Expression<Func<…>>)`                | creates a property binding      |
-|  [11]   | `DirectBinding<T>.DataValue` / `.DataValueChanged`               | exposes value and change event  |
-|  [12]   | `DirectBinding<T>.Convert<TValue>` / `.CatchException`           | maps or guards direct binding   |
-|  [13]   | `IndirectBinding<T>.Convert<TValue>` / `.CatchException`         | maps or guards indirect binding |
-|  [14]   | `BindableBinding<T,TValue>.Bind(DirectBinding<TValue>, …)`       | links a direct source           |
-|  [15]   | `DualBinding<T>.Unbind` / `.Update`; `UpdateBindings`            | controls propagation            |
-
-`CatchException` lives on `DirectBinding<T>`/`IndirectBinding<T>` and returns that binding shape; `BindableBinding` carries no such member, so the funnel attaches to the source side of a dual link, never to the control selector.
+| [INDEX] | [SURFACE]                                                               | [SHAPE]  | [CAPABILITY]                              |
+| :-----: | :---------------------------------------------------------------------- | :------- | :---------------------------------------- |
+|  [01]   | `Calendar.MinDate { get; set; }` / `Calendar.MaxDate { get; set; }`     | property | bound the selectable dates                |
+|  [02]   | `DocumentControl.Pages / SelectedIndex / AllowReordering { get; set; }` | property | closable, reorderable tab host state      |
+|  [03]   | `DocumentPage.Content / Text / Closable { get; set; }`                  | property | one closable document tab                 |
+|  [04]   | `Command.CreateMenuItem() -> MenuItem`                                  | instance | project the command into one menu item    |
+|  [05]   | `Command.CreateToolItem() -> ToolItem`                                  | instance | project the command into one toolbar item |
 
 [ENTRYPOINT_SCOPE]: themed controls and thread identity
 
-| [INDEX] | [OWNER]                  | [SURFACE]                                           |
-| :-----: | :----------------------- | :-------------------------------------------------- |
-|  [01]   | `ThemedMessageBox`       | `AddButton`; result, text, alignment, image         |
-|  [02]   | `ThemedPropertyGrid`     | selection, categories, description, refresh, change |
-|  [03]   | `ThemedCollectionEditor` | `DataStore`, `ElementType`, `ExtraContent`          |
-|  [04]   | `Thread`                 | action lifecycle, main/current identity, liveness   |
+| [INDEX] | [OWNER]                  | [SURFACE]                                             |
+| :-----: | :----------------------- | :---------------------------------------------------- |
+|  [01]   | `ThemedMessageBox`       | `AddButton`; result, text, alignment, image           |
+|  [02]   | `ThemedPropertyGrid`     | selection, categories, description, refresh, change   |
+|  [03]   | `ThemedCollectionEditor` | `DataStore`, `ElementType`, `ExtraContent`            |
+|  [04]   | `Thread`                 | action lifecycle, main and current identity, liveness |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Every widget derives from `Control` and resolves a backend handler through the ambient platform; one construction row produces a native control on each host, and host divergence lives in the handler, never in the row.
-- Layout owns four orthogonal placement strategies — `DynamicLayout` nested regions, `TableLayout` grid cells, `StackLayout` one-axis run, `PixelLayout` absolute — composed per screen, never merged.
-- `GridView`/`TreeGridView`/`TreeView` separate the bound store from the `GridColumn`+`Cell` presentation, and one column definition drives every row.
-- Binding is bidirectional through `IndirectBinding<T>` with a `DualBindingMode`; `Convert`/`Child`/`AfterDelay` chain the transform, and `BindDataContext` reuses one binding graph across every data item swapped into `DataContext`.
-- One `Command` projects into both a menu item and a tool item, so a command row drives the menu bar, the context menu, and the toolbar from a single enablement and shortcut definition.
+- Binding is bidirectional through `IndirectBinding<T>` under a `DualBindingMode`; `Convert`/`Child`/`AfterDelay` chain the transform, and `BindDataContext` reuses one binding graph across every data item swapped into `DataContext`, so a generator-shaped UI layer folds each widget and region as a row rather than a hand-wired call site.
+- One registered `Command` projects into both a menu item and a tool item, so a command row drives the menu bar, the popup menu, and the toolbar from a single enablement and shortcut definition.
+- `DocumentControl` owns closable-tab document hosting where `TabControl` owns fixed pages; the two never merge, and a closable page is a `DocumentPage`.
+- Themed controls are backend classes, not construction rows: a themed message box, property grid, or collection editor registers its `Themed*Handler` at the platform seam and the widget then constructs like any other.
 
 [STACKING]:
+- `api-eto-forms`(`../../.api/api-eto-forms.md`): the registered construction spine every screen composes; this boundary adds no widget the spine already carries and re-tables none.
 - `Thinktecture.Runtime.Extensions`(`../../.api/api-thinktecture-runtime-extensions.md`): a `[SmartEnum]` owns the closed control-kind, cell-kind, layout-strategy, and dialog-outcome vocabularies a generator-shaped UI layer folds to rows, and a `[Union]` owns the discriminated screen-element tree; the generated `Switch`/`Map` drives construction dispatch instead of a hand-written control-type ladder.
-- `LanguageExt.Core`(`../../.api/api-languageext.md`): `Fin<A>` rails `ShowModal`/`ShowModalAsync` outcomes and file-dialog results (cancellation is a `Fail`, never a null sentinel); `Option<A>` carries the nullable `bool?` scale flags and optional selection; `Eff<A>` wraps `DoDragDrop` and native-attach effects; `Seq<A>` is the child-collection carrier a layout region folds over.
-- `Wacton.Unicolour`(`../../.api/api-unicolour.md`): the canonical colour value behind `ColorPicker` and `ColorDialog`; an `Eto.Drawing.Color` maps to and from `Unicolour` at the view edge (`api-eto-drawing.md`), keeping theme ramps and perceptual selection in the perceptual model.
-- `api-eto-platform.md`: `NativeControlHost`, `Control.AttachNative`/`DetachNative`, and `TriggerStyleChanged` cross into the platform-handler and theme-transition seam, and the `Themed*Handler` backend classes register through `Platform.Add<TWidget.IHandler>` at that same seam.
+- `LanguageExt.Core`(`../../.api/api-languageext.md`): `Fin<A>` rails modal outcomes and chooser results, cancellation a `Fail` rather than a null sentinel; `Option<A>` carries the nullable scale flags and optional selection; `Eff<A>` wraps drag and native-attach effects; `Seq<A>` is the child-collection carrier a layout region folds over.
+- `Wacton.Unicolour`(`../../.api/api-unicolour.md`): the canonical colour value behind the registered colour picker and chooser; the paint-edge colour maps to and from `Unicolour` (`api-eto-drawing.md`), keeping theme ramps and perceptual selection in the perceptual model.
+- `api-eto-platform`(`api-eto-platform.md`): native hosting, the native-parent attach and detach pair, and the style re-application seam cross into the platform-handler boundary, and the `Themed*Handler` backend classes register there.
+- `api-rhino-ui`(`api-rhino-ui.md`): a document-owned Rhino window, native styling, and semi-modal presentation come from the host bridge; this construction surface supplies the control tree the bridge presents.
 
 [LOCAL_ADMISSION]:
-- Eto is admitted from the Rhino-loaded `Eto.dll`; Rasm.Rhino references that instance so its widgets share the host application, dispatcher, and platform handler, and a second copy never enters through NuGet.
-- A screen is built once from generated element rows against these construction, layout, and binding surfaces; `Eto.Forms.*` types stay behind the Rasm.Rhino UI owner, and downstream code composes screen definitions rather than raw widget calls.
-- `Eto.Threading.Thread` stays subordinate to the Rhino host marshal owner (`RhinoApp.InvokeOnUiThread`/`InvokeAndWait`, `api-rhino-ui.md`); an Eto-level `Thread.IsMainThread` test never replaces the host marshal seam.
+- Eto is admitted from the Rhino-loaded `Eto.dll`; this boundary references that instance so its widgets share the host application, dispatcher, and platform handler, and a second copy never enters through NuGet.
+- A screen is built once from generated element rows against the registered construction surface and the rails here; `Eto.Forms.*` types stay behind the UI owner and downstream code composes screen definitions rather than raw widget calls.
+- `Eto.Threading.Thread` stays subordinate to the Rhino host marshal owner (`api-rhino-ui.md`); an Eto-level main-thread test never replaces the host marshal seam.
 
 [RAIL_LAW]:
-- Package: `Eto.Forms`
-- Owns: the native widget roster, the cell/item/grid families, the layout containers, the window/dialog/menu/toolbar/command hierarchy, the `IndirectBinding`/`DirectBinding`/`BindableBinding`/`DualBinding` data-binding surface, the `Eto.Forms.ThemedControls` themed dialog/editor family, and `Eto.Threading.Thread` main-thread identity.
-- Accept: native UI construction, layout composition, modal/modeless presentation, menu and command chrome, control-to-model binding through `DataContext`, and a themed message-box, property-grid, or collection-editor over the construction surface.
-- Reject: immediate 2D painting (`api-eto-drawing.md` owns `Graphics`), platform-handler and native-hosting selection plus the `Themed*Handler` backend classes (`api-eto-platform.md`), document-owned Rhino windows and panels (`api-rhino-ui.md`), the `Eto.IO` icon surface (`api-eto-drawing.md` owns `SystemImages`), and leaking `Eto.Forms.*` types past the UI owner.
+- Partition: `Eto.Forms` Rhino host boundary — calendar and document-tab widgets, the node tree, application menu-bar and toolbar chrome, the themed control family, and managed thread identity; the data-binding rail rides the registered branch owner
+- Owns: the widgets, chrome, and rails this host boundary adds over the registered branch spine
+- Accept: date and document-tab construction, node-tree binding, menu-bar and toolbar chrome from one command row, control-to-model binding through `DataContext`, a themed message box, property grid, or collection editor
+- Reject: a re-tabling of the branch construction spine, immediate 2D painting (`api-eto-drawing.md`), platform-handler and native-hosting selection plus the `Themed*Handler` backends (`api-eto-platform.md`), document-owned Rhino windows and panels (`api-rhino-ui.md`), and leaking `Eto.Forms.*` types past the UI owner

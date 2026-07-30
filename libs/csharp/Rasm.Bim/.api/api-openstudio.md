@@ -119,7 +119,8 @@ Only these types are true CLR enums; most OpenStudio "enumerations" are SWIG `*E
 [STACKING]:
 - `HoneybeeSchema`(`.api/api-honeybee-schema`): the HBJSON authored model meets this OSM/IDF runtime at gbXML — `GbXMLReverseTranslator.loadModel` ingests the shared gbXML — and at the canonical Bim energy model; the full HBJSON→OSM path runs the external `honeybee-openstudio` Python step.
 - `GeometryGymIFC`(`.api/api-geometrygym-ifc`): an IFC building exports gbXML, `GbXMLReverseTranslator.loadModel` folds it into a `Model`, and IFC spaces and zones become OSM spaces and thermal zones at the Exchange/import boundary.
-- `SharpGLTF.Ext.3DTiles`(`.api/api-sharpgltf-3dtiles`): `GltfForwardTranslator` and `ThreeJSForwardTranslator` emit a model's geometry onto the Exchange/export delivery rail the glTF and 3D-Tiles legs share.
+- `SharpGLTF.Ext.3DTiles`(`.api/api-sharpgltf-3dtiles.md`): `GltfForwardTranslator` and `ThreeJSForwardTranslator` emit a model's geometry onto the Exchange/export delivery rail the glTF and 3D-Tiles legs share.
+- `api-openstudio`(`libs/csharp/Rasm.Compute/.api/api-openstudio.md`): the Compute partition of the same binding owns the `Analysis/energy` SIMULATION leg — the in-process `Model` build from the seam `ElementGraph`, the `EnergyPlusForwardTranslator` OSM→IDF translation, and the post-run `SqlFile` read against a subprocess EnergyPlus — and its `Reject` excludes IFC↔OSM/gbXML semantic exchange whole; this partition owns that exchange leg and never builds from the seam graph.
 - `System.IO.Hashing`(`libs/csharp/.api/api-hashing`): a saved `.osm`/IDF UTF-8 string feeds `XxHash3` for the in-process fingerprint and `XxHash128` for the persisted content key into the `Rasm.Persistence` artifact index.
 - within-lib: the Bim Energy Exchange lowers each `Optional<Model>` onto `Fin<Model>`, captures translator `errors()`/`warnings()` as a typed receipt, and offloads a translation as one unit of work.
 

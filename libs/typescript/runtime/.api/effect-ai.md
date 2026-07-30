@@ -116,7 +116,7 @@ Each `Prompt` message/part carries a `Prompt.ProviderOptions` slot and each `Res
 
 [PUBLIC_TYPE_SCOPE]: stateful conversation and persistence
 
-`Chat` keeps history in a `Ref<Prompt>` and mirrors `generateText`/`streamText`/`generateObject` while appending both turns; `export`/`exportJson` serialize, `fromJson`/`fromExport`/`fromPrompt` restore, and `Persistence` + `layerPersisted` back durable sessions.
+`Chat` keeps history in a `Ref<Prompt>` and mirrors `generateText`/`streamText`/`generateObject` while appending both turns; `export`/`exportJson` serialize, `fromJson`/`fromExport`/`fromPrompt` restore, and `Persistence` + `layerPersisted` back durable sessions. The append is `Prompt.merge(prompt, Prompt.fromResponseParts(content))` over the FULL held history, so a chat-carried tool loop feeds only new material per call — re-feeding prior turns duplicates them; a `Persisted` chat writes to its backing store on EVERY generation, so a closing `save` after a generation is redundant.
 
 [SURFACES]: `Chat` `Service` `empty` `fromPrompt` `fromExport` `fromJson` `ChatNotFoundError` `Persistence` `Persisted` `makePersisted` `layerPersisted` `Layer`
 

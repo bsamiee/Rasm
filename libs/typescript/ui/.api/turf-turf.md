@@ -16,7 +16,7 @@
 
 [PUBLIC_TYPE_SCOPE]: turf's flexible-input, unit, and grid-option types
 
-`@types/geojson` (`.api/types-geojson.md`) owns the RFC 7946 value vocabulary turf re-exports — the `Geometry` union, the `Feature`/`FeatureCollection`/`GeoJSON<G, P>` generics, `Position`/`BBox`, and the `GeoJsonTypes`/`GeoJsonGeometryTypes` discriminants; turf's own additive types normalize the coordinate input and bound the measurement and grid vocabularies.
+`@types/geojson` (`.api/types-geojson.md`) owns the RFC 7946 value vocabulary — the `Geometry` union, the `Feature`/`FeatureCollection`/`GeoJSON<G, P>` generics, `Position`/`BBox`, and the `GeoJsonTypes`/`GeoJsonGeometryTypes` discriminants; turf does NOT re-export them — every turf declaration imports them from `geojson` and a consumer imports them from `geojson` too; turf's own additive types normalize the coordinate input and bound the measurement and grid vocabularies.
 
 | [INDEX] | [SYMBOL]                                                                        | [TYPE_FAMILY] | [CAPABILITY]                         |
 | :-----: | :------------------------------------------------------------------------------ | :------------ | :----------------------------------- |

@@ -87,6 +87,7 @@
 
 [STACKING]:
 - `CavalierContours`(`.api/api-cavaliercontours.md`): its `PlineVertex.Bulge` maps directly to a `G2`/`G3` move, so a bulge-carrying offset, lead-arc, or adaptive-spiral loop emits arcs without a refit; `g3.BiArcFit2` fires only on a genuinely line-sourced chord run — a line-only path densified through `ArcsToApproxLines` then clipped, or a kernel mesh-section chain — and stays the sole biarc owner for that residual.
+- `geometry3Sharp`(`libs/csharp/Rasm.Bim/.api/api-geometry3sharp.md`): the Bim partition owns the disjoint mesh-text decode surface of the same distribution — `StandardMeshReader`, the per-format `MeshFormatReader` handlers, and the `DMesh3`/`DMesh3Builder` carrier grounding the OBJ/STL/OFF import leg — none of which this fitter reaches.
 - `Posting/program`, `Toolpath/motion`: the fitted `Arc2d`/`Segment2d` span drives arc emit — `Arc2d.Center - SampleT(0.0)` is the `Move.ArcCenter` `I`/`J` offset, `IsReversed` selects `G2` vs `G3`, `Segment2d.P1` the `G1` fallback, `SampleArcLength` the tab and lead-point spacing.
 
 [LOCAL_ADMISSION]:

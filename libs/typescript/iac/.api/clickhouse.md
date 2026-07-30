@@ -12,24 +12,24 @@
 
 ## [02]-[CHART_VALUES]
 
-| [INDEX] | [KEY]                             | [SHAPE]                            | [CAPABILITY]                                         |
-| :-----: | :-------------------------------- | :--------------------------------- | :--------------------------------------------------- |
-|  [01]   | `clickhouse.replicasCount`        | `int`                              | replicas per shard; above one demands Keeper         |
-|  [02]   | `clickhouse.shardsCount`          | `int`                              | shard count; ignored once `zones` is set             |
-|  [03]   | `clickhouse.persistence.*`        | `{ enabled, size, accessMode, … }` | the data claim per replica, and a separate log claim |
-|  [04]   | `clickhouse.initScripts.*`        | `{ enabled, configMapName, … }`    | the one branch-owned DDL carrier                     |
-|  [05]   | `clickhouse.defaultUser.*`        | rows                               | default-user credential and its network reach        |
-|  [06]   | `clickhouse.users`                | rows                               | additional users with per-user profiles              |
-|  [07]   | `clickhouse.image.*`              | `string`                           | server distribution and tag                          |
-|  [08]   | `clickhouse.service.*`            | `{ type, annotations, labels }`    | the CHI-level Service the operator renders           |
-|  [09]   | `clickhouse.keeper.{host,port}`   | `string` / `int`                   | an external Keeper when the subchart is off          |
-|  [10]   | `clickhouse.zones`                | rows                               | zone spread; overrides `replicasCount` placement     |
-|  [11]   | `clickhouse.antiAffinity{,Scope}` | `boolean` / `string`               | placement spread at CHI, shard, replica, or cluster  |
-|  [12]   | `clickhouse.clusterSecret.*`      | rows                               | secret-based inter-node communication                |
-|  [13]   | `keeper.*`                        | rows                               | the bundled Keeper installation                      |
-|  [14]   | `operator.enabled`                | `boolean`                          | off where the operator is already cluster-wide       |
-|  [15]   | `namespaceDomainPattern`          | `string`                           | a printf pattern for a custom cluster domain         |
-|  [16]   | `nameOverride` `fullnameOverride` | `string`                           | pins the CR name, never the rendered Service name    |
+| [INDEX] | [KEY]                             | [CAPABILITY]                                                                              |
+| :-----: | :-------------------------------- | :---------------------------------------------------------------------------------------- |
+|  [01]   | `clickhouse.replicasCount`        | `int` — replicas per shard; above one demands Keeper                                      |
+|  [02]   | `clickhouse.shardsCount`          | `int` — shard count; ignored once `zones` is set                                          |
+|  [03]   | `clickhouse.persistence.*`        | `{ enabled, size, accessMode, … }` — the data claim per replica, and a separate log claim |
+|  [04]   | `clickhouse.initScripts.*`        | `{ enabled, configMapName, … }` — the one branch-owned DDL carrier                        |
+|  [05]   | `clickhouse.defaultUser.*`        | default-user credential and its network reach                                             |
+|  [06]   | `clickhouse.users`                | additional users with per-user profiles                                                   |
+|  [07]   | `clickhouse.image.*`              | `string` — server distribution and tag                                                    |
+|  [08]   | `clickhouse.service.*`            | `{ type, annotations, labels }` — the CHI-level Service the operator renders              |
+|  [09]   | `clickhouse.keeper.{host,port}`   | `string` / `int` — an external Keeper when the subchart is off                            |
+|  [10]   | `clickhouse.zones`                | zone spread; overrides `replicasCount` placement                                          |
+|  [11]   | `clickhouse.antiAffinity{,Scope}` | `boolean` / `string` — placement spread at CHI, shard, replica, or cluster                |
+|  [12]   | `clickhouse.clusterSecret.*`      | secret-based inter-node communication                                                     |
+|  [13]   | `keeper.*`                        | the bundled Keeper installation                                                           |
+|  [14]   | `operator.enabled`                | `boolean` — off where the operator is already cluster-wide                                |
+|  [15]   | `namespaceDomainPattern`          | `string` — a printf pattern for a custom cluster domain                                   |
+|  [16]   | `nameOverride` `fullnameOverride` | `string` — pins the CR name, never the rendered Service name                              |
 
 [clickhouse.initScripts]: `enabled` `configMapName` `alwaysRun` — the ConfigMap's keys mount as SQL files the server runs at start; `alwaysRun` re-runs them on every restart, which converges only for idempotent DDL
 [clickhouse.defaultUser]: `password` `password_secret_name` (a Secret keyed `password`) `allowExternalAccess` `hostIP` — `allowExternalAccess` overrides `hostIP` to `0.0.0.0/0` outright

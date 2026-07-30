@@ -15,22 +15,22 @@
 
 `privileged` carries the admission decision — host privilege a workload cannot grant itself — and every other key places the DaemonSet.
 
-| [INDEX] | [KEY]                                 | [SHAPE]                        | [CAPABILITY]                                                   |
-| :-----: | :------------------------------------ | :----------------------------- | :------------------------------------------------------------- |
-|  [01]   | `config.data`                         | `[03]-[AGENT_CONFIG]`          | carries the agent document the chart writes to its ConfigMap   |
-|  [02]   | `config.*`                            | `boolean` / `string`           | chart-authored config, or an operator ConfigMap                |
-|  [03]   | `preset`                              | `application` / `network`      | selects the shipped property bundle                            |
-|  [04]   | `privileged`                          | `boolean`                      | full privilege; `false` selects the capability path            |
-|  [05]   | `securityContext` `extraCapabilities` | `SecurityContext` / `string[]` | grants the capability path names                               |
-|  [06]   | `contextPropagation.enabled`          | `boolean`                      | HTTP and TCP trace-context injection; adds `NET_ADMIN`         |
-|  [07]   | `dnsPolicy` `hostNetwork`             | `string` / `boolean`           | `ClusterFirstWithHostNet` keeps DNS under host networking      |
-|  [08]   | `image.*`                             | rows                           | distribution selection; `digest` outranks `tag`                |
-|  [09]   | `rbac.*` `serviceAccount.*`           | rows                           | grant and identity the metadata reader earns                   |
-|  [10]   | `service.*`                           | rows                           | serves the Prometheus and internal-metrics listeners, both off |
-|  [11]   | `serviceMonitor.*`                    | rows                           | operator scrape objects over those listeners                   |
-|  [12]   | `k8sCache.*`                          | rows                           | shared metadata cache; `replicas: 0` disables it               |
-|  [13]   | `env` `envValueFrom`                  | `Record<string,string>` / rows | `OTEL_EBPF_*` overrides outranking every ConfigMap value       |
-|  [14]   | `<scheduling>`                        | rows                           | placement, roll posture, and extra mounts                      |
+| [INDEX] | [KEY]                                 | [CAPABILITY]                                                                              |
+| :-----: | :------------------------------------ | :---------------------------------------------------------------------------------------- |
+|  [01]   | `config.data`                         | `[03]-[AGENT_CONFIG]` — carries the agent document the chart writes to its ConfigMap      |
+|  [02]   | `config.*`                            | `boolean` / `string` — chart-authored config, or an operator ConfigMap                    |
+|  [03]   | `preset`                              | `application` / `network` — selects the shipped property bundle                           |
+|  [04]   | `privileged`                          | `boolean` — full privilege; `false` selects the capability path                           |
+|  [05]   | `securityContext` `extraCapabilities` | `SecurityContext` / `string[]` — grants the capability path names                         |
+|  [06]   | `contextPropagation.enabled`          | `boolean` — HTTP and TCP trace-context injection; adds `NET_ADMIN`                        |
+|  [07]   | `dnsPolicy` `hostNetwork`             | `string` / `boolean` — `ClusterFirstWithHostNet` keeps DNS under host networking          |
+|  [08]   | `image.*`                             | distribution selection; `digest` outranks `tag`                                           |
+|  [09]   | `rbac.*` `serviceAccount.*`           | grant and identity the metadata reader earns                                              |
+|  [10]   | `service.*`                           | serves the Prometheus and internal-metrics listeners, both off                            |
+|  [11]   | `serviceMonitor.*`                    | operator scrape objects over those listeners                                              |
+|  [12]   | `k8sCache.*`                          | shared metadata cache; `replicas: 0` disables it                                          |
+|  [13]   | `env` `envValueFrom`                  | `Record<string,string>` / rows — `OTEL_EBPF_*` overrides outranking every ConfigMap value |
+|  [14]   | `<scheduling>`                        | placement, roll posture, and extra mounts                                                 |
 
 [config]: `create` `name` `skipConfigMapCheck` — an operator ConfigMap keys the document `ebpf-instrument-config.yaml`
 [preset]: `application` is the shipped value; `network` arms the network-flow signal and demands host networking with it

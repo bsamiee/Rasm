@@ -26,11 +26,12 @@
 |  [01]   | `LASLoader`                                                    | value    | `= LAZPerfLoader`, the default full loader        |
 |  [02]   | `LAZPerfLoader.parse/parseSync(ArrayBuffer, opts?) -> LASMesh` | property | laz-perf C++ WASM; sync-capable; declines LAS 1.4 |
 |  [03]   | `LAZRsLoader.parse(ArrayBuffer, opts?) -> Promise<LASMesh>`    | property | laz-rs Rust WASM; LAS 1.4 extended formats; async |
-|  [04]   | `LASArrowLoader.parse(ArrayBuffer) -> Promise<ArrowTable>`     | property | async Arrow egress                                |
+|  [04]   | `LASArrowLoader.parse(ArrayBuffer) -> Promise<ArrowTable>`     | property | async Arrow egress; NO options parameter          |
 |  [05]   | `LASWorkerLoader`                                              | value    | `worker: true`, parserless; core worker delegate  |
 |  [06]   | `LASFormat`                                                    | value    | format identity for sniff registries; no parser   |
 
 - `LASArrowLoader.parseSync`: spread-inherited, returns `LASMesh` not `ArrowTable`; Arrow consumers never call it.
+- `LASArrowLoader.parse` takes the bare `ArrayBuffer` alone — `las.*` options reach it only through `load(url, LASArrowLoader, options)`, never a second `parse` argument.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

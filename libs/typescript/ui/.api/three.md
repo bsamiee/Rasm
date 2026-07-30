@@ -59,6 +59,7 @@ Every row is consumed by `viewer/scene/glb`.
 |  [04]   | `AnimationMixer` / `AnimationClip` / `AnimationAction` / `Clock` | animation     | GLB tracks on a per-frame mixer + `Clock`             |
 |  [05]   | `HDRLoader` / `EXRLoader` (`three/addons`)                       | HDR ingest    | `viewer/scene` — in-memory equirect decode            |
 |  [06]   | `RoomEnvironment` (`three/addons`)                               | env floor     | `viewer/scene` — analytic dome floor, `dispose()`     |
+|  [07]   | `GLTFExporter` (`three/addons/exporters/GLTFExporter.js`)        | GLB export    | `parseAsync(input: Object3D \| Object3D[], options?: GLTFExporterOptions) -> Promise<ArrayBuffer \| {[key: string]: unknown}>`; the `binary: true` GLB arm is NOT discriminated by the return type — the caller narrows on its own option |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -159,8 +160,9 @@ Every row is consumed by `viewer/scene/glb`.
 |  [07]   | `.setMatrixAt(i, matrix)` / `.computeBoundingSphere()`                           | instanced slot  | per-instance matrix + bounds  |
 |  [08]   | `new BatchedMesh(maxInstances, maxVertices, maxIndices, material)`               | batched build   | distinct geoms, one draw call |
 |  [09]   | `.addGeometry(geo)` / `.addInstance(geoId)`                                      | batched add     | geometry + instance ids       |
-|  [10]   | `.setMatrixAt(i, matrix)` / `.setVisibleAt(i, flag)`                             | batched slot    | per-instance matrix + visible |
-|  [11]   | `renderer.initTexture(texture)`                                                  | eager upload    | upload ahead of first frame   |
+|  [10]   | `.setMatrixAt(i, matrix)` / `.setVisibleAt(i, flag)` / `.getVisibleAt(i)`        | batched slot    | per-instance matrix + visible |
+|  [11]   | `.setColorAt(i, Color \| Vector4)` / `.setGeometryIdAt(i, geoId)`                 | batched slot    | per-instance tint + geometry  |
+|  [12]   | `renderer.initTexture(texture)`                                                  | eager upload    | upload ahead of first frame   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

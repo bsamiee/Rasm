@@ -60,16 +60,27 @@ Import is the manufacturing-geometry ingress (STEP/IGES B-rep, STL mesh-as-shape
 [ENTRYPOINT_SCOPE]: primitive construction and topology
 Constructed edges expose `Start`/`End`, wires expose `Edges`, faces expose `OuterWire`.
 
-| [INDEX] | [SURFACE]                                                  | [SHAPE] | [CAPABILITY]        |
-| :-----: | :--------------------------------------------------------- | :------ | :------------------ |
-|  [01]   | `new OcctBox(double, double, double)`                      | ctor    | axis-aligned solid  |
-|  [02]   | `new OcctCylinder(double, double)`                         | ctor    | cylinder solid      |
-|  [03]   | `new OcctSphere(double)`                                   | ctor    | sphere solid        |
-|  [04]   | `new OcctEdge(OcctPointCoordinates, OcctPointCoordinates)` | ctor    | straight edge       |
-|  [05]   | `new OcctWire(params OcctEdge[])`                          | ctor    | ordered edge chain  |
-|  [06]   | `new OcctFace(OcctWire)`                                   | ctor    | boundary face       |
-|  [07]   | `new OcctPoint3d(double, double, double)`                  | ctor    | native handle point |
-|  [08]   | `OcctPoint3d.Origin() -> OcctPoint3d`                      | static  | origin point        |
+| [INDEX] | [SURFACE]                                                  | [SHAPE]  | [CAPABILITY]        |
+| :-----: | :--------------------------------------------------------- | :------- | :------------------ |
+|  [01]   | `new OcctBox(double, double, double)`                      | ctor     | axis-aligned solid  |
+|  [02]   | `new OcctCylinder(double, double)`                         | ctor     | cylinder solid      |
+|  [03]   | `new OcctSphere(double)`                                   | ctor     | sphere solid        |
+|  [04]   | `new OcctEdge(OcctPointCoordinates, OcctPointCoordinates)` | ctor     | straight edge       |
+|  [05]   | `new OcctWire(params OcctEdge[])`                          | ctor     | ordered edge chain  |
+|  [06]   | `new OcctFace(OcctWire)`                                   | ctor     | boundary face       |
+|  [07]   | `new OcctPoint3d(double, double, double)`                  | ctor     | native handle point |
+|  [08]   | `OcctPoint3d.Origin() -> OcctPoint3d`                      | static   | origin point        |
+|  [09]   | `box.SizeX` / `.SizeY` / `.SizeZ`                          | property | box dimensions      |
+|  [10]   | `cylinder.Radius` / `.Height`                              | property | cylinder dimensions |
+|  [11]   | `sphere.Radius`                                            | property | sphere dimension    |
+|  [12]   | `wire.Edges -> IReadOnlyList<OcctEdge>`                    | property | edge chain read     |
+|  [13]   | `face.OuterWire -> OcctWire`                               | property | boundary wire read  |
+|  [14]   | `point.X` / `.Y` / `.Z` / `.Coordinates`                   | property | point read-back     |
+|  [15]   | `point.SetCoordinates(double, double, double)`             | instance | reposition in place |
+|  [16]   | `point.DistanceTo(OcctPoint3d) -> double`                  | instance | native distance     |
+|  [17]   | `vector.Length -> double`                                  | property | vector magnitude    |
+
+Every constructed primitive reads its OWN dimensions back — `SizeX`/`SizeY`/`SizeZ` on a box, `Radius`/`Height` on a cylinder, `Radius` on a sphere — so a fixture-clearance or rough-stock solid built here needs no dimension carried alongside its handle. `BoundingBox` is the IMPORTED-shape source; a constructed primitive answers from these getters, which are exact where the box is a fit.
 
 [ENTRYPOINT_SCOPE]: modeling operations — `OcctShape` instance
 Every operation returns a NEW disposable `OcctShape`; the source is unmodified.
@@ -111,7 +122,7 @@ Tessellation bridges the exact B-rep to an indexed triangle mesh; `linearDeflect
 
 [TOPOLOGY]:
 - `OcctShape` and `OcctPoint3d` own native `SafeHandle`s and are `IDisposable` — wrap every shape (imported, constructed, operation-result) in `using`, and treat a boolean/sweep/translate result as a fresh disposable distinct from its operands; a leaked shape leaks native OCCT memory.
-- value types are managed and copyable, not disposable — use `OcctPointCoordinates` for edge endpoints and axis origins, reserving the disposable `OcctPoint3d` for the native distance query.
+- value types are managed and copyable, not disposable — use `OcctPointCoordinates` for edge endpoints and axis origins, reserving the disposable `OcctPoint3d` for `DistanceTo`, the one native distance query, whose `SetCoordinates` repositions the same handle so a swept probe holds one allocation.
 - `OcctException` carries `StatusCode` on every native failure; consumers catch it and lower to the fabrication fault rail, never reading the internal `OcctStatus` enum.
 - gate startup on `OcctRuntime.TryGetNativeVersion` and lower a load failure to a typed capability-miss so the portable-fabrication owner degrades gracefully, never letting a `DllNotFoundException` escape.
 - managed binding covers import/export, primitives, boolean, extrude/revolve/translate, and tessellation only; `OcctEdge` is straight point-to-point, so a curved profile is imported (STEP/IGES), never authored edge-by-edge with curvature.
@@ -126,10 +137,10 @@ Tessellation bridges the exact B-rep to an indexed triangle mesh; `linearDeflect
 [LOCAL_ADMISSION]:
 - solid ingress enters at `ImportStep`/`ImportIges` under a `using`, tessellated through `Triangulate` at a tolerance-driven deflection (finer linear deflection for a small precision part); the `OcctMesh` triangle soup is the cross-seam payload, never the live `OcctShape` handle.
 - boolean stock-removal (rough-stock minus the part, a fixture-clearance cut) is `Fuse`/`Cut`/`Common` returning fresh disposable shapes; extrude/revolve build a solid from a profile face.
-- stock sizing and the keep-out envelope read from `shape.BoundingBox`, never folded from the mesh vertices.
+- stock sizing and the keep-out envelope read from `shape.BoundingBox` on an IMPORTED shape and from the primitive's own dimension properties on a CONSTRUCTED one, never folded from the mesh vertices and never carried alongside the handle as a caller-side duplicate.
 
 [RAIL_LAW]:
 - Package: `OcctNet.Wrapper` (MIT)
-- Owns: STEP/IGES/STL read into an `OcctShape` B-rep, B-rep into `OcctMesh` tessellation, STEP/IGES/STL write, primitive construction (box/cylinder/sphere/edge/wire/face), boolean fuse/cut/common, extrude/revolve/translate, bounding-box query, and native-version probe.
+- Owns: STEP/IGES/STL read into an `OcctShape` B-rep, B-rep into `OcctMesh` tessellation, STEP/IGES/STL write, primitive construction (box/cylinder/sphere/edge/wire/face) with its dimension and topology read-backs, boolean fuse/cut/common, extrude/revolve/translate, bounding-box query, point distance, and native-version probe.
 - Accept: a single imported `OcctShape` under `using`, tessellated to `OcctMesh` at a tolerance-driven deflection and crossed at the boundary; boolean and sweep modeling returning fresh disposable shapes; value-type `OcctVector3d`/`OcctAxis1d`/`OcctPointCoordinates` inputs; the rail gated on `OcctRuntime.TryGetNativeVersion`.
 - Reject: a leaked `OcctShape`/`OcctPoint3d`; a kernel `Rasm` geometry type entering the OCCT ABI; reading the raw `OcctStatus` enum instead of catching `OcctException`; loading this wrapper into an in-Rhino net48 plugin ALC; seeking an OCCT capability the managed wrapper leaves unbound though the native toolkit ships — assembly/XCAF/color/PMI reading, hidden-line removal (the kernel `DrawingProjection` owns HLR), or fillet/chamfer/loft/general B-rep editing.

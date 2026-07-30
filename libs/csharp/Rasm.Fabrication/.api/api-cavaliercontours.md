@@ -53,6 +53,7 @@
 
 [PUBLIC_TYPE_SCOPE]: spatial index and geometry primitives (`CavalierContours.Spatial`, `.Core`)
 - note: `StaticAABB2DIndex<T>` is a flatbush packed-Hilbert R-tree built once from a polyline's segment AABBs; the offset and Boolean engines consume it to prune the self-intersection scan. Both visitor contracts bind a plain `struct`, never a `ref struct`. `Core` structs are the value-type math floor.
+- intersections: every `*Intr<T>` result carries a private constructor and is minted only by its static `*Intersection` facade, so the facade row is the whole reachable surface. Each verdict rides `Kind` over a `byte` enum the pair-shape decides — `CircleCircleIntrKind { NoIntersect, TangentIntersect, TwoIntersects, Overlapping }` answering `Point1`/`Point2`, `LineCircleIntrKind { NoIntersect, TangentIntersect, TwoIntersects }` answering the line parameters `T0`/`T1`, `LineLineIntrKind { NoIntersect, TrueIntersect, Overlapping, FalseIntersect }` answering `Seg1T`/`Seg2T`/`Seg2T1` — so a circle form returns points and a line form returns parameters the caller lifts through the segment.
 
 | [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]       | [CAPABILITY]      |
 | :-----: | :---------------------------- | :------------------ | :---------------- |
@@ -64,9 +65,16 @@
 |  [06]   | `DelegateNeighborVisitor<T>`  | adapter struct      | neighbor adapter  |
 |  [07]   | `Vector2<T>`                  | readonly struct     | vector algebra    |
 |  [08]   | `AABB<T>`                     | readonly struct     | axis-aligned box  |
-|  [09]   | `CircleCircleIntr`            | intersection struct | circle pair       |
-|  [10]   | `LineCircleIntr`              | intersection struct | line and circle   |
-|  [11]   | `LineLineIntr`                | intersection struct | line pair         |
+|  [09]   | `CircleCircleIntr<T>`         | intersection struct | circle pair       |
+|  [10]   | `LineCircleIntr<T>`           | intersection struct | line and circle   |
+|  [11]   | `LineLineIntr<T>`             | intersection struct | line pair         |
+|  [12]   | `CircleCircleIntersection`    | static facade       | circle-pair solve |
+|  [13]   | `LineCircleIntersection`      | static facade       | line-circle solve |
+|  [14]   | `LineLineIntersection`        | static facade       | line-pair solve   |
+|  [15]   | `PlineSeg`                    | static facade       | segment algebra   |
+|  [16]   | `PlineSegIntersection`        | static facade       | arc-aware solve   |
+|  [17]   | `PlineSegIntr<T>`             | intersection struct | segment pair      |
+|  [18]   | `SplitResult<T>`              | readonly struct     | split vertex pair |
 
 [PUBLIC_TYPE_SCOPE]: multi-loop shape offset (`CavalierContours.Shape`)
 - note: `Shape<T>` is the multi-loop owner — CCW outer loops and CW hole loops offset together with island topology preserved, the form a pocket-with-islands clearing toolpath needs.
@@ -104,9 +112,28 @@
 |  [18]   | `ExtendRemoveRepeat(IPlineSource<T>, T)`          | instance | deduplicated merge           |
 |  [19]   | `CreateFrom<O,T>(IPlineSource<T>)`                | factory  | source materialization       |
 |  [20]   | `CreateFromRemoveRepeat<O,T>(IPlineSource<T>, T)` | factory  | deduplicated materialization |
-|  [21]   | `PlineSeg.SegMidpoint`                            | static   | exact arc midpoint           |
-|  [22]   | `PlineSeg.SegTangentVector`                       | static   | exact arc tangent            |
-|  [23]   | `PlineSeg.SegArcRadiusAndCenter`                  | static   | exact arc frame              |
+
+[ENTRYPOINT_SCOPE]: segment primitives and exact intersection — `PlineSeg` over one `PlineVertex<T>` pair, and the `CavalierContours.Core` facades under it
+- shape: static, every member generic on the same `T`; a segment IS the vertex pair `(v1, v2)` and `v1.Bulge` alone decides line or arc, so no member takes a shape flag
+- note: these are the sub-polyline floor — a corridor, kerf-corner, lead-arc trim, or arc-space NFP contact test reaches a single segment here rather than densifying the loop or running a whole-polyline Boolean.
+
+| [INDEX] | [SURFACE]                                                                                            | [CAPABILITY]                  |
+| :-----: | :--------------------------------------------------------------------------------------------------- | :---------------------------- |
+|  [01]   | `PlineSeg.SegArcRadiusAndCenter(v1, v2) -> (T Radius, Vector2<T> Center)`                            | exact arc frame               |
+|  [02]   | `PlineSeg.SegMidpoint(v1, v2) -> Vector2<T>`                                                         | exact arc midpoint            |
+|  [03]   | `PlineSeg.SegTangentVector(v1, v2, Vector2<T> pointOnSeg) -> Vector2<T>`                             | exact tangent at a point      |
+|  [04]   | `PlineSeg.SegClosestPoint(v1, v2, Vector2<T> point, T epsilon) -> Vector2<T>`                        | nearest point on one segment  |
+|  [05]   | `PlineSeg.SegLength(v1, v2) -> T`                                                                    | exact arc or chord length     |
+|  [06]   | `PlineSeg.SegBoundingBox(v1, v2) -> AABB<T>`                                                         | exact swept-arc box           |
+|  [07]   | `PlineSeg.SegFastApproxBoundingBox(v1, v2) -> AABB<T>`                                               | conservative bulge-offset box |
+|  [08]   | `PlineSeg.SegSplitAtPoint(v1, v2, Vector2<T> pointOnSeg, T posEqualEps) -> SplitResult<T>`           | bulge-preserving split        |
+|  [09]   | `PlineSegIntersection.Intersect(v1, v2, u1, u2, T posEqualEps) -> PlineSegIntr<T>`                   | arc-aware segment-pair solve  |
+|  [10]   | `CircleCircleIntersection.Intersect(T r1, Vector2<T> c1, T r2, Vector2<T> c2, T epsilon)`            | exact circle-pair solve       |
+|  [11]   | `LineCircleIntersection.Intersect(Vector2<T> p0, Vector2<T> p1, T radius, Vector2<T> center, T eps)` | exact line-circle solve       |
+|  [12]   | `LineLineIntersection.Intersect(Vector2<T> v1, Vector2<T> v2, Vector2<T> u1, Vector2<T> u2, T eps)`  | exact line-pair solve         |
+
+- `PlineSeg.SegFastApproxBoundingBox`: bounds an arc by offsetting the chord box by the bulge rather than sweeping it, so it is a superset of `SegBoundingBox` and the form `CreateApproxAabbIndex()` builds; a containment verdict reads the exact box.
+- `PlineSegIntersection.Intersect`: `SplitResult<T>` carries `UpdatedStart` and `SplitVertex`, and `PlineSegIntr<T>` carries `Kind` with `Point1`/`Point2` under `PlineSegIntrKind { NoIntersect, TangentIntersect, OneIntersect, TwoIntersects, OverlappingLines, OverlappingArcs }`. The two overlap cases are verdicts a boolean intersect test cannot represent — a keepout corridor riding a boundary arc reads `OverlappingArcs`, never a crossing — so a `Kind` fold discriminates all six and never collapses to a hit predicate.
 
 [ENTRYPOINT_SCOPE]: measure, query, and arc handling — extension methods on `IPlineSource<T>`, applying uniformly to `Polyline<T>`, `PlineView<T>`, and any custom source
 - shape: instance (extensions on `IPlineSource<T>`)
@@ -230,6 +257,6 @@
 
 [RAIL_LAW]:
 - Package: `CavalierContours`
-- Owns: arc-native (bulge) 2D polyline parallel offset, closed-polyline Boolean, containment and winding, closest-point, arc-aware area/path-length/extents, arc-length sampling, arc-to-line densification, and the flatbush `StaticAABB2DIndex` over open, closed, and self-intersecting polylines.
-- Accept: a `Polyline<double>` carrying real `Bulge` from the `ACadSharp` arc ingest; the static `PlineOffset`/`PlineBoolean` slice pipelines with a once-built `StaticAABB2DIndex` threaded through the options; the `ref struct` `IQueryVisitor` for the hot index loop.
-- Reject: densifying an arc to a line fan at ingest; re-implementing offset or Boolean on `Clipper2` for an arc-walled profile; a `g3.BiArcFit2` refit of a bulge-carried path; a hand-rolled O(n²) self-intersection scan beside the `StaticAABB2DIndex`; a non-`double` `T` on the fabrication rail; a medial-axis expectation this owner does not carry.
+- Owns: arc-native (bulge) 2D polyline parallel offset, closed-polyline Boolean, containment and winding, closest-point, arc-aware area/path-length/extents, arc-length sampling, arc-to-line densification, the exact segment algebra and six-verdict segment-pair intersection under `PlineSeg`, and the flatbush `StaticAABB2DIndex` over open, closed, and self-intersecting polylines.
+- Accept: a `Polyline<double>` carrying real `Bulge` from the `ACadSharp` arc ingest; the static `PlineOffset`/`PlineBoolean` slice pipelines with a once-built `StaticAABB2DIndex` threaded through the options; a plain-`struct` `IQueryVisitor` for the hot index loop; the `PlineSeg` primitives where a test reaches one segment.
+- Reject: densifying an arc to a line fan at ingest; re-implementing offset or Boolean on `Clipper2` for an arc-walled profile; a `g3.BiArcFit2` refit of a bulge-carried path; a hand-rolled O(n²) self-intersection scan beside the `StaticAABB2DIndex`; a hand-rolled segment-pair test beside `PlineSegIntersection`, or a boolean hit predicate that erases its overlap verdicts; a non-`double` `T` on the fabrication rail; a medial-axis expectation this owner does not carry.

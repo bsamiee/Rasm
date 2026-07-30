@@ -199,6 +199,7 @@
 [STACKING]:
 - `Rhino.Display`(`Rasm.Rhino/.api/api-rhinocommon-display.md`): `ViewCapture.CaptureToBitmap` hands back the `Bitmap` this surface owns and `DisplayBitmap(Bitmap)` takes one straight back as a sprite texture, so capture and GPU upload share one carrier with no intermediate encode.
 - `Rhino.UI`(`Rasm.Rhino/.api/api-rhino-ui.md`): `DrawingUtilities.BitmapFromSvg`, `IconFromResource`, and `CreateMeshPreviewImage` mint `Bitmap` and `Icon` values that host chrome consumes unconverted.
+- `Eto.Drawing`(`.api/api-eto-drawing.md`): the host-neutral paint algebra these GDI carriers convert into once at the boundary; the Grasshopper `Rhino.UI` partition owns the `ToEto`/`ToSystemDrawing` conversion family, so neither vocabulary mirrors the other.
 - Within-library: a raster pass pins once through `Bitmap.LockBits` and walks `BitmapData.Scan0` by `Stride` for the whole window; a draw pass brackets every transform, clip, and quality mutation between `Graphics.Save` and `Graphics.Restore` so one context serves an entire overlay.
 
 [LOCAL_ADMISSION]:

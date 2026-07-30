@@ -64,13 +64,13 @@ Every `Use*`/`ConfigureOptions`/`AsBuilder` returns its builder for chaining; a 
 |  [10]   | `ChatClientBuilder.ConfigureOptions(Action<ChatOptions>)`                                | instance | mutate per-request options         |
 |  [11]   | `ChatClientBuilder.UseChatReducer(IChatReducer?, Action<...>?)`                          | instance | add history reduction              |
 |  [12]   | `ChatClientBuilder.Build(IServiceProvider?) -> IChatClient`                              | instance | materialize the pipeline           |
-|  [13]   | `IServiceCollection.AddChatClient(IChatClient, ServiceLifetime)`                         | static   | register the pipeline in DI        |
-|  [14]   | `IServiceCollection.AddKeyedChatClient(object?, IChatClient, ServiceLifetime)`           | static   | keyed DI registration              |
+|  [13]   | `IServiceCollection.AddChatClient(Func<IServiceProvider,IChatClient>, ServiceLifetime)`  | static   | register the pipeline in DI        |
+|  [14]   | `IServiceCollection.AddKeyedChatClient(object?, Func<IServiceProvider,IChatClient>, …)`  | static   | keyed DI registration              |
 |  [15]   | `IChatClient.GetResponseAsync<T>(...) -> Task<ChatResponse<T>>`                          | instance | typed structured-output round-trip |
 |  [16]   | `ChatResponse<T>.Result -> T`                                                            | property | typed read, throws on parse miss   |
 |  [17]   | `ChatResponse<T>.TryGetResult(out T?)`                                                   | instance | non-throwing typed read            |
 |  [18]   | `IEmbeddingGenerator<TIn,TE>.AsBuilder()`                                                | instance | open an embedding builder          |
-|  [19]   | `IServiceCollection.AddEmbeddingGenerator<TIn,TE>(IEmbeddingGenerator, ServiceLifetime)` | static   | register the embedding pipeline    |
+|  [19]   | `IServiceCollection.AddEmbeddingGenerator<TIn,TE>(Func<IServiceProvider,…>, …)`          | static   | register the embedding pipeline    |
 |  [20]   | `EmbeddingGeneratorBuilder<TIn,TE>.UseDistributedCache(...)`                             | instance | add the embedding cache            |
 |  [21]   | `EmbeddingGeneratorBuilder<TIn,TE>.UseOpenTelemetry(...)`                                | instance | add embedding telemetry            |
 |  [22]   | `EmbeddingGeneratorBuilder<TIn,TE>.UseLogging(...)`                                      | instance | add embedding logs                 |
@@ -83,6 +83,7 @@ Every `Use*`/`ConfigureOptions`/`AsBuilder` returns its builder for chaining; a 
 - `SummarizingChatReducer(IChatClient chatClient, int targetCount, int? threshold)`: `targetCount` is the number of MESSAGES retained and `threshold` the messages allowed beyond it before summarization runs; `SummarizationPrompt` is the settable instruction. Neither knob is token-shaped, so a token budget converts to a retention count before construction.
 - `ImageGeneratingChatClient(IChatClient, IImageGenerator, DataContentHandling = AllImages)`: substitutes each `HostedImageGenerationTool` in `ChatOptions.Tools` with function tools the inner loop invokes.
 - `DataContentHandling`: `None` | `AllImages` | `GeneratedImages`, selecting which images become identifiers on the way to the inner client.
+- Registration family: every `Add*ChatClient`/`Add*EmbeddingGenerator` member pairs an instance overload with a `Func<IServiceProvider, …>` factory overload (the instance form delegates to the factory form); each registers `ServiceDescriptor(typeof(IChatClient), builder.Build, lifetime)` and returns the builder, so DI itself invokes `Build` with the root provider at first resolution. The factory overload is the `ModelGovernance.Compose` seat — the composition root registers `services.AddChatClient(sp => ModelGovernance.Compose(runtimeOf(sp), inner))`, the factory's provider feeding `GovernanceRuntime.Services`; the pipeline never self-registers and `GovernanceRuntime` never carries `IServiceCollection`.
 
 - `ChatClientBuilder.Use(sharedFunc)`: `Func<IEnumerable<ChatMessage>,ChatOptions?,Func<…,Task>,CancellationToken,Task>` wrapped in the `internal sealed AnonymousDelegatingChatClient`; pre/post only, no `ChatResponse` handle.
 - `GetResponseAsync<T>`: accepts `IEnumerable<ChatMessage>`/`string`/`ChatMessage` with optional `JsonSerializerOptions`; `useJsonSchemaResponseFormat: true` forces `ChatResponseFormat.ForJsonSchema`, and it is the sole typed surface with no streaming twin.
@@ -133,5 +134,5 @@ Every `Use*`/`ConfigureOptions`/`AsBuilder` returns its builder for chaining; a 
 [RAIL_LAW]:
 - Package: `Microsoft.Extensions.AI`
 - Owns: the provider-agnostic chat and embedding middleware pipeline — function invocation, response caching, GenAI telemetry, logging, option configuration, history reduction, and DI registration.
-- Accept: decorators composed through `ChatClientBuilder`/`EmbeddingGeneratorBuilder` and registered via `AddChatClient`/`AddEmbeddingGenerator`.
+- Accept: decorators composed through `ChatClientBuilder`/`EmbeddingGeneratorBuilder`, each `Build` product handed to the composition root as the one client or generator a consumer resolves.
 - Reject: a hand-rolled retry loop, a per-call OTel span, a hand-rolled history trim, or a second response cache beside the decorators.

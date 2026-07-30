@@ -85,35 +85,58 @@ App-root code acquires and hands over the access token; a `*Api` binds the ambie
 
 [ENTRYPOINT_SCOPE]: high-level cloud transport over `Wrapper`
 
-| [INDEX] | [SURFACE]                                                      | [SHAPE]  | [CAPABILITY]                      |
-| :-----: | :------------------------------------------------------------- | :------- | :-------------------------------- |
-|  [01]   | `new JobInfo(Job)` / `new JobInfo(RecipeInterface)`            | ctor     | the job descriptor                |
-|  [02]   | `JobInfo.RunJobAsync() -> Task<ScheduledJobInfo>`              | instance | upload assets then submit         |
-|  [03]   | `JobInfo.UploadJobAssetsAsync() -> Task<Job>`                  | instance | upload input artifacts pre-submit |
-|  [04]   | `JobRunner.RunOnCloudAsync(Project) -> Task<CloudJob>`         | instance | submit a job to a project         |
-|  [05]   | `ScheduledJobInfo.WatchJobStatusAsync() -> Task<string>`       | instance | poll to a terminal status         |
-|  [06]   | `ScheduledJobInfo.DeleteAsync() -> Task<bool>`                 | instance | delete the scheduled job          |
-|  [07]   | `RunInfo.DownloadRunAssetsAsync() -> Task<List<RunAssetBase>>` | instance | pull result assets, cache-aware   |
+| [INDEX] | [SURFACE]                                                                                       | [SHAPE]  | [CAPABILITY]                                       |
+| :-----: | :---------------------------------------------------------------------------------------------- | :------- | :------------------------------------------------- |
+|  [01]   | `new JobInfo(Job)` / `new JobInfo(RecipeInterface)` / `JobInfo.FromJson(string)`                 | ctor     | the job descriptor, JSON round-trip via `ToJson()`  |
+|  [02]   | `JobInfo.RunJobAsync(progressReporting, token) -> Task<ScheduledJobInfo>`                        | instance | upload assets then submit                          |
+|  [03]   | `JobInfo.UploadJobAssetsAsync(progressReporting, token) -> Task<Job>`                            | instance | upload input artifacts pre-submit                  |
+|  [04]   | `JobInfo.SetLocalJob` / `SetCloudJob` / `SetPlatform` / `AddArgument` / `SetJobSubFolderPath`    | instance | descriptor mutation before submit                  |
+|  [05]   | `JobRunner.RunOnCloudAsync(Project, Action<string>, CancellationToken) -> Task<CloudJob>`        | instance | submit to a project — all three REQUIRED            |
+|  [06]   | `JobRunner.UploadJobAssetsAsync(Project, Job, string subfolderPath, …) -> Task<Job>`             | static   | pre-submit upload off a bare `Job`                 |
+|  [07]   | `JobRunner.RunOnLocalMachine(string workFolder, int workerNum, bool silentMode) -> string`       | instance | local queenbee execution arm                       |
+|  [08]   | `JobRunner.CheckLocalJobStatus(string) -> RunStatusEnum` / `GetJobErrors(string) -> string`      | static   | local run terminal state and error text            |
+|  [09]   | `JobRunner.CheckRecipeInProject(string, string, Project, string recTag = null) -> string`        | static   | recipe-filter admission probe                      |
+|  [10]   | `ScheduledJobInfo.From(Project, string)` / `From(string, string, string)` / `From(string)`       | static   | cloud handle from ids, or rehydrate a run folder   |
+|  [11]   | `ScheduledJobInfo.WatchJobStatusAsync(progressAction, cancelToken) -> Task<string>`              | instance | poll to a terminal status                          |
+|  [12]   | `ScheduledJobInfo.JobStatus` / `IsCloudJobDone(out string)` / `SyncCloudJob()`                   | instance | non-polling status read and refresh                |
+|  [13]   | `ScheduledJobInfo.CancelJob()` / `DeleteAsync() -> Task<bool>`                                   | instance | cancel in flight, delete the scheduled job         |
+|  [14]   | `new RunInfo(Project, Run)` / `(Project, string)` / `(JobInfo)` / `(ScheduledJobInfo)` / `(string)` | ctor  | run handle off cloud ids or a local run folder     |
+|  [15]   | `RunInfo.GetOutputAssets(string platform) -> List<RunOutputAsset>` / `GetInputAssets()`          | instance | the asset roster `DownloadRunAssetsAsync` consumes |
+|  [16]   | `RunInfo.DownloadRunAssetsAsync(List<RunAssetBase>, …) -> Task<List<RunAssetBase>>`              | instance | pull the named result assets                       |
+|  [17]   | `RunInfo.LoadLocalRunAssets(List<RunAssetBase>, string saveAsDir = null) -> List<RunAssetBase>`  | instance | the local-run counterpart, no transfer             |
+|  [18]   | `RunInfo.IsLocalRun` / `IsCloudRunDone` / `CloudRunStatus` / `GetStatusMessage()`                | instance | run-state reads off the held `Run`                 |
 
-Every async method's tail is `(…, Action<string> progressReporting = null, CancellationToken = default)`; the run handle pulls assets back for the `Version/provenance` owner to land content-keyed.
+No shared async tail exists — the progress delegate is named per member and a named-argument call site binds the exact spelling: `RunJobAsync`/`UploadJobAssetsAsync` take `(Action<string> progressReporting = null, CancellationToken token = default)`, `WatchJobStatusAsync` takes `(Action<string> progressAction = null, CancellationToken cancelToken = default)`, the static `JobRunner.UploadJobAssetsAsync` takes `progressLogAction` with `Action actionWhenDone = null` AFTER the token, `RunOnCloudAsync` defaults NONE of its three, and `DeleteAsync()` carries neither delegate nor token. `DownloadRunAssetsAsync` decompiles as `(List<RunAssetBase> runAssets, string saveAsDir = null, Action<string> reportingAction = null, bool useCached = false, CancellationToken cancelToken = default)` — the asset list is REQUIRED, no zero-argument overload exists, and `useCached` consults the `Wrapper.LocalDatabase` cache; the run handle pulls assets back for the `Version/provenance` owner to land content-keyed.
 
 [ENTRYPOINT_SCOPE]: low-level REST over `JobsApi`/`RunsApi`/`ProjectsApi`/`ArtifactsApi`
 
-| [INDEX] | [SURFACE]                                                               | [SHAPE]  | [CAPABILITY]                    |
-| :-----: | :---------------------------------------------------------------------- | :------- | :------------------------------ |
-|  [01]   | `JobsApi.CreateJobAsync(Job) -> Task<CreatedContent>`                   | instance | submit a job to a project       |
-|  [02]   | `JobsApi.GetJobAsync(string) -> Task<CloudJob>`                         | instance | poll one job                    |
-|  [03]   | `JobsApi.ListJobsAsync(…) -> Task<CloudJobList>`                        | instance | page and filter jobs            |
-|  [04]   | `RunsApi.GetRunAsync(string) -> Task<Run>`                              | instance | run state                       |
-|  [05]   | `RunsApi.GetRunOutputAsync(string, string) -> Task<object>`             | instance | named run output                |
-|  [06]   | `RunsApi.DownloadRunArtifactAsync(string, string) -> Task<object>`      | instance | fetch a run artifact by path    |
-|  [07]   | `ProjectsApi.GetProjectAsync() -> Task<Project>`                        | instance | project transport               |
-|  [08]   | `ProjectsApi.CreateProjectAsync(ProjectCreate) -> Task<CreatedContent>` | instance | create a project (drops `name`) |
-|  [09]   | `ArtifactsApi.CreateArtifactAsync(KeyRequest) -> Task<S3UploadRequest>` | instance | presigned S3 upload request     |
-|  [10]   | `ArtifactsApi.DownloadArtifactAsync(string) -> Task<object>`            | instance | fetch an artifact by path       |
-|  [11]   | `ArtifactsApi.ListArtifactsAsync(List<string>) -> Task<FileMetaList>`   | instance | list artifacts                  |
+| [INDEX] | [SURFACE]                                                                                        | [SHAPE]  | [CAPABILITY]                        |
+| :-----: | :----------------------------------------------------------------------------------------------- | :------- | :---------------------------------- |
+|  [01]   | `JobsApi.CreateJobAsync(owner, name, Job, authorization, xPollinationToken) -> Task<CreatedContent>` | instance | submit a job — the ONE header-bearing op |
+|  [02]   | `JobsApi.GetJobAsync(owner, name, jobId) -> Task<CloudJob>`                                       | instance | poll one job                        |
+|  [03]   | `JobsApi.ListJobsAsync(owner, name, …) -> Task<CloudJobList>`                                     | instance | page and filter jobs                |
+|  [04]   | `JobsApi.CancelJobAsync` / `RetryJobAsync(…, RetryConfig)` / `DeleteJobAsync(owner, name, jobId)` | instance | job lifecycle past submit           |
+|  [05]   | `JobsApi.SearchJobFolderAsync(owner, name, jobId, path, page, perPage) -> Task<FileMetaList>`     | instance | enumerate a job's output folder     |
+|  [06]   | `JobsApi.DownloadJobArtifactAsync(owner, name, jobId, path) -> Task<object>`                      | instance | fetch a job artifact by path        |
+|  [07]   | `RunsApi.GetRunAsync(owner, name, runId) -> Task<Run>`                                            | instance | run state                           |
+|  [08]   | `RunsApi.ListRunsAsync(owner, name, jobId, status, page, perPage) -> Task<RunList>`               | instance | page the runs of a job              |
+|  [09]   | `RunsApi.GetRunOutputAsync(owner, name, runId, outputName) -> Task<object>`                       | instance | named run output                    |
+|  [10]   | `RunsApi.QueryResultsAsync(owner, name, jobId, status, page, perPage) -> Task<RunResultList>`     | instance | result rows across a job's runs     |
+|  [11]   | `RunsApi.GetAllRunStepsAsync` / `GetRunStepsAsync(…, StepStatusEnum?, stepId, …generation…)`      | instance | per-step status, whole or filtered  |
+|  [12]   | `RunsApi.GetRunStepLogsAsync(owner, name, runId, stepId) -> Task<string>`                         | instance | one step's log text                 |
+|  [13]   | `RunsApi.ListRunArtifactsAsync(owner, name, runId, path, page, perPage) -> Task<FileMetaList>`    | instance | enumerate a run's artifacts         |
+|  [14]   | `RunsApi.DownloadRunArtifactAsync(owner, name, runId, path) -> Task<object>`                      | instance | fetch a run artifact by path        |
+|  [15]   | `RunsApi.CancelRunAsync` / `RetryRunAsync(owner, name, runId, RetryConfig)`                       | instance | run lifecycle past submit           |
+|  [16]   | `ProjectsApi.GetProjectAsync(owner, name) -> Task<Project>`                                       | instance | project transport                   |
+|  [17]   | `ProjectsApi.CreateProjectAsync(owner, ProjectCreate) -> Task<CreatedContent>`                    | instance | create a project — owner only, no `name` |
+|  [18]   | `ProjectsApi.GetProjectRecipesAsync(owner, name, search, page, perPage) -> Task<RecipeInterfaceList>` | instance | the recipe set a project admits |
+|  [19]   | `ProjectsApi.CreateProjectRecipeFilterAsync` / `GetProjectRecipeFiltersAsync`                     | instance | recipe-filter admission policy      |
+|  [20]   | `ArtifactsApi.CreateArtifactAsync(owner, name, KeyRequest) -> Task<S3UploadRequest>`              | instance | presigned S3 upload request         |
+|  [21]   | `ArtifactsApi.DownloadArtifactAsync(owner, name, path) -> Task<object>`                           | instance | fetch an artifact by path           |
+|  [22]   | `ArtifactsApi.ListArtifactsAsync(owner, name, path, page, perPage) -> Task<FileMetaList>`         | instance | list artifacts                      |
+|  [23]   | `ArtifactsApi.DeleteArtifactAsync(owner, name, path, page, perPage) -> Task`                      | instance | delete by path — returns bare `Task` |
 
-Each op pairs a model-returning `*Async` (throws `ApiException`) with a `*WithHttpInfoAsync` returning `ApiResponse<T>`, over the shared skeleton `(string owner, string name, …, string authorization = null, string xPollinationToken = null, CancellationToken = default)`. `ListJobsAsync` filters are `List<string> ids`, `JobStatusEnum? status`, `DateTime? createdAfter`, `DateTime? createdBefore`, `int? page`, `int? perPage`.
+Each op pairs a model-returning `*Async` (throws `ApiException`) with a `*WithHttpInfoAsync` returning `ApiResponse<T>`. Every op leads `(string owner, string name, …)` and closes on `CancellationToken cancellationToken = default` — `ProjectsApi.CreateProjectAsync` leads on `owner` ALONE and `ProjectsApi.ListProjectsAsync` leads on neither, so a positional call written against the two-leader shape binds the wrong argument. `JobsApi.CreateJobAsync` is the sole op carrying `string authorization = null, string xPollinationToken = null` before the token; reading that pair as the shared skeleton mis-positions the token on every other op. `ListJobsAsync` filters are `List<string> ids`, `JobStatusEnum? status`, `DateTime? createdAfter`, `DateTime? createdBefore`, `int? page`, `int? perPage`; the delete legs (`DeleteArtifactAsync`, `DeleteProjectAsync`) return bare `Task` and carry no body to inspect.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -124,7 +147,7 @@ Each op pairs a model-returning `*Async` (throws `ApiException`) with a `*WithHt
 
 [STACKING]:
 - `api-objectstore.md`(`Store/blobstore`): `ArtifactsApi.CreateArtifactAsync` returns an `S3UploadRequest` presigned PUT and the `*Download*` ops resolve S3-backed assets, so the byte transfer rides the folder's object-store owner (`AWSSDK.S3`/`Minio`) on the same S3 plane; a downloaded `RunAsset` lands content-keyed (`XxHash128`) through that same body bridge, never a second HTTP uploader.
-- `Rasm.Compute`: routes the job-submission and watch half to the cloud-run dispatch owner — this catalog owns the SDK transport surface, the recipe-run policy is a Compute concern.
+- `api-pollination-sdk`(`libs/csharp/Rasm.Compute/.api/api-pollination-sdk.md`): the Compute partition registers this catalogue as the SDK owner and holds the `EnergyRoute.Cloud` dispatch POLICY alone — which recipe, which `ElementGraph`-derived inputs, and cloud arm versus local `EnergyToolchain` subprocess; it tables no member, so every submit, watch, and download spelling resolves here.
 - within-lib: a `Run` result and its `RunOutputAsset`s land at `Version/provenance` (lineage) and `Query/cache#ARTIFACT_BLOB_INDEX` (result index), so a completed cloud run becomes a content-addressed, lineage-tracked artifact set.
 
 [LOCAL_ADMISSION]:

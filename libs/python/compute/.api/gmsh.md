@@ -33,12 +33,12 @@
 
 [ENTRYPOINT_SCOPE]: session lifecycle and model selection
 
-| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [RESULT]                                    |
-| :-----: | :-------------------------------------------- | :------------- | :------------------------------------------ |
-|  [01]   | `initialize(argv=[], readConfigFiles=True)`   | lifecycle      | opens the kernel; pair with `finalize()`    |
-|  [02]   | `finalize()` \| `isInitialized()`             | lifecycle      | closes the kernel / kernel-open probe       |
-|  [03]   | `model.add(name)` \| `model.setCurrent(name)` | model select   | new/active named model in the session       |
-|  [04]   | `model.getCurrent()` \| `clear()`             | model select   | active model name / empty the current model |
+| [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY] | [RESULT]                                    |
+| :-----: | :------------------------------------------------------ | :------------- | :------------------------------------------ |
+|  [01]   | `initialize(argv, readConfigFiles, run, interruptible)` | lifecycle      | opens the kernel; pair with `finalize()`    |
+|  [02]   | `finalize()` \| `isInitialized()`                       | lifecycle      | closes the kernel / kernel-open probe       |
+|  [03]   | `model.add(name)` \| `model.setCurrent(name)`           | model select   | new/active named model in the session       |
+|  [04]   | `model.getCurrent()` \| `clear()`                       | model select   | active model name / empty the current model |
 
 [ENTRYPOINT_SCOPE]: constructive geometry over the built-in and OpenCASCADE kernels
 
@@ -76,8 +76,9 @@
 |  [05]   | `model.mesh.setTransfiniteSurface` \| `setTransfiniteVolume` | structured     | mapped structured surface/volume mesh             |
 |  [06]   | `model.mesh.setRecombine(dim, tag)` \| `recombine()`         | structured     | recombine triangles/tets into quads/hexes         |
 |  [07]   | `model.mesh.setOrder(order)`                                 | high-order     | promote elements to the given interpolation order |
-|  [08]   | `model.mesh.optimize(method='', niter=1)` \| `refine()`      | quality        | Netgen/Laplace optimization / uniform refinement  |
+|  [08]   | `model.mesh.optimize(method, force, niter, dimTags)`         | quality        | entity-scoped Netgen/Laplace optimization         |
 |  [09]   | `model.mesh.setAlgorithm(dim, tag, val)` \| `embed(...)`     | control        | per-surface 2-D algorithm / embed lower entities  |
+|  [10]   | `model.mesh.refine()`                                        | quality        | one uniform refinement pass over the whole mesh   |
 
 [ENTRYPOINT_SCOPE]: size fields for background mesh and boundary layers
 - `model.mesh.field.add`: mints a field by string type (`Distance`, `Threshold`, `Box`, `Min`, `MathEval`, `BoundaryLayer`); a `Threshold` over a `Distance` field is the canonical distance-graded refinement.
@@ -112,9 +113,9 @@
 - naming: `addPhysicalGroup` is the sole route naming a boundary or material region, and `getElementProperties` resolves any gmsh element-type integer to its `(name, dim, order, numNodes)` record.
 
 [STACKING]:
-- `meshio`(`.api/meshio.md`): `write` emits a `.msh` that `meshio` reads, gmsh physical groups arriving as `cell_sets` and integer `cell_data`.
-- `scikit-fem`(`.api/scikit-fem.md`): the read mesh assembles through scikit-fem, physical groups feeding `get_dofs` boundary/subdomain selection.
-- `MeshField`/`MeshExchange`: extraction tuples cross as data into the content-keyed `MeshField`; every physical group maps onto the named `MeshField` set the read arm mints and gmsh element-type integers map onto `ElementKind`, so a generated mesh and a read mesh carry identical group and element semantics.
+- `meshio`(`.api/meshio.md`): `write` emits a `.msh` that `meshio` reads, gmsh physical groups arriving BOTH as named `cell_sets` and as the reserved integer `cell_data` columns `gmsh:physical`/`gmsh:geometrical`; a consumer promoting every integer column re-mints the named groups a second time and admits the entity-id column as a region, so the colon-namespaced pair is bookkeeping the promoter refuses.
+- `scikit-fem`(`.api/scikit-fem.md`): the read mesh assembles through scikit-fem, physical groups feeding `get_dofs` boundary/subdomain selection. The `Mesh*1` constructors take AFFINE connectivity, so `mesh.setOrder(2)` — which writes `triangle6`/`tetra10` blocks — produces a mesh the assembly cannot take; a higher-order scikit-fem element is a higher-order basis over first-order geometry.
+- `MeshField`/`MeshExchange`(`solvers/mesh#EXCHANGE`): the `generate` arm builds and meshes the model, writes the `.msh`, and mints its `MeshField` through the SAME `_read` fold every inbound mesh crosses, so a generated and a read mesh carry identical group, cell-block, and content-key semantics and no gmsh element-type integer table forms beside `CTOR`. `getNodes`/`getElements` stay unconsumed by design: reading element-type integers back would mint a second element vocabulary the folder rejects.
 
 [LOCAL_ADMISSION]:
 - import: top-level `gmsh` module; namespaced functions carry no return-object identity, so extraction tuples cross as data into the `MeshField`/`MeshExchange` owner, and no geometry-branch kernel is imported — boundary input arrives as data per the compute charter.
@@ -123,5 +124,5 @@
 [RAIL_LAW]:
 - Package: `gmsh`
 - Owns: 1/2/3-D unstructured mesh generation, built-in and OpenCASCADE constructive geometry with boolean/fillet/STEP-import operations, named physical groups, background/boundary-layer size fields, transfinite/recombine structured meshing, high-order promotion, mesh optimization, node/element/Jacobian extraction, and `.msh`/VTK/STL/MED codec IO
-- Accept: a synchronized `geo`/`occ` geometry with `addPhysicalGroup` regions, meshed via `generate` under composed size sources, extracted through `getNodes`/`getElements` or the `.msh`/`meshio` round-trip into a content-keyed `MeshField`
-- Reject: hand-rolled Delaunay/frontal meshing, CAD boolean geometry, `.msh` codec logic, or physical-group bookkeeping the kernel owns; concurrent access without process isolation or the session-owner lock; a geometry-branch kernel import when boundary input crosses as data
+- Accept: a synchronized `geo`/`occ` geometry with `addPhysicalGroup` regions, meshed via `generate` under composed size sources, extracted through the `.msh`/`meshio` round-trip into a content-keyed `MeshField`
+- Reject: hand-rolled Delaunay/frontal meshing, CAD boolean geometry, `.msh` codec logic, or physical-group bookkeeping the kernel owns; concurrent access without process isolation or the session-owner lock; a geometry-branch kernel import when boundary input crosses as data; `optimize` after a high-order promotion, which raises `Surface mesh smoothing only valid for first order mesh`

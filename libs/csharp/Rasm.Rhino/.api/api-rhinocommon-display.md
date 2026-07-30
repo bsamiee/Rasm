@@ -26,7 +26,7 @@
 |  [05]   | `ViewInfo`                  | named-view state   | focal-depth carriers           |
 |  [06]   | `DisplayModeDescription`    | mode descriptor    | named pipeline settings roster |
 |  [07]   | `DefinedViewportProjection` | projection enum    | standard projection presets    |
-|  [08]   | `IsometricCamera`           | enum               | axonometric quadrant roster    |
+|  [08]   | `IsometricCamera`           | projection enum    | axonometric quadrant roster    |
 |  [09]   | `DetailViewObject`          | page detail object | document detail owner          |
 |  [10]   | `DetailView`                | page detail        | model-in-page viewport         |
 |  [11]   | `ClippingPlaneObject`       | clip object        | clipping participation         |
@@ -42,11 +42,11 @@
 |  [05]   | `CullObjectEventArgs`           | culling args      | per-object visibility handle |
 |  [06]   | `CalculateBoundingBoxEventArgs` | bounds args       | zoom-extents contribution    |
 
-`DrawEventArgs` exposes `Viewport`, `RhinoDoc`, and `Display`; `DrawObjectEventArgs.RhinoObject`, `CullObjectEventArgs.RhinoObject`, and `RhinoObjectSerialNumber` name the object under the per-object and culling phases. `DrawObjectEventArgs.DrawObject` and `CullObjectEventArgs.CullObject` are draw-suppression flags an observer reads, never writes.
+`DrawEventArgs` exposes `Viewport`, `RhinoDoc`, and `Display`; `DrawObjectEventArgs.RhinoObject`, `CullObjectEventArgs.RhinoObject`, and `RhinoObjectSerialNumber` name the object under the per-object and culling phases. `DrawObjectEventArgs.DrawObject` and `CullObjectEventArgs.CullObject` are read/write draw-suppression flags backed by one channel-attribute slot in opposite polarity — `DrawObject` writes the slot directly, `CullObject` writes its negation — so a conduit vetoes a draw by writing either, and two conduits bound to one viewport compose their vetoes by reading the current flag before writing.
 
 [PUBLIC_TYPE_SCOPE]: draw appearance, effect, and attribute vocabulary
 
-`DisplayPen` constructs through the `FromLinetype` factory and strokes through `CapStyle` `JoinStyle` `HaloThickness` `HaloColor` `ThicknessSpace` `SetTaper` `SetPattern` `PatternAutoscale` `PatternScale` `PatternOffset` `PatternBySegment` `PatternLengthInWorldUnits`, with `SetPattern` capped at eight dash/gap entries. `DisplayMaterial` carries diffuse, specular, emission, and transparency channels; `LineCapStyle` carries `Round`/`Flat`/`Square` and `LineJoinStyle` carries `Round`/`Miter`/`Bevel`.
+`DisplayPen` is a plain settable class — NOT `IDisposable`, so a stroke needs no lease — reached three ways: a bare construction for a default black stroke, `Duplicate()` for a detached copy, and the two `FromLinetype(Linetype, Color[, double patternScale])` statics for a linetype-derived stroke. Its `Thickness` getter is DERIVED (the maximum of the start, end, and taper thicknesses), so a set does not round-trip once `SetTaper` has run and a boundary reads the taper triple, never the aggregate. It strokes through `CapStyle` `JoinStyle` `HaloThickness` `HaloColor` `ThicknessSpace` `SetTaper` `SetPattern` `PatternAutoscale` `PatternScale` `PatternOffset` `PatternBySegment` `PatternLengthInWorldUnits`, with `SetPattern` capped at eight dash/gap entries. `DisplayMaterial` carries diffuse, specular, emission, and transparency channels; `LineCapStyle` carries `Round`/`Flat`/`Square` and `LineJoinStyle` carries `Round`/`Miter`/`Bevel`.
 
 | [INDEX] | [SYMBOL]                                                             | [TYPE_FAMILY]    | [CAPABILITY]                      |
 | :-----: | :------------------------------------------------------------------- | :--------------- | :-------------------------------- |
@@ -66,7 +66,7 @@
 |  [14]   | `BlendMode.Zero` through `BlendMode.SourceAlphaSaturate`             | enum rows        | complete blend-factor policy      |
 |  [15]   | `Text3d`                                                             | world text       | `CustomDisplay.AddText` primitive |
 
-`IsoDrawEffect` carries `IsoDrawMode`, `Direction`, `Frequency`, and per-band color access.
+`IsoDrawEffect` is a settable carrier whose mode member is `DrawMode` of type `IsoDrawMode` — never a member named `IsoDrawMode` — beside `Point` `Direction` `Frequency` `GapSize` `GapColor` `Falloff` `RotationRadians` `DiscardGap` `UsedBandColorCount` and per-band `GetBandColor`/`SetBandColor` over ten slots. Host defaults are declared on the type (`Frequency` 10, `GapSize` 0.5, `Falloff` 0.01, `GapColor` white, `UsedBandColorCount` 1, `Direction` +X, ten black bands), so a boundary default restating one is a forged value.
 
 [PUBLIC_TYPE_SCOPE]: retained overlays and capture
 
@@ -84,21 +84,22 @@
 
 | [INDEX] | [SURFACE]                                               | [SHAPE]  | [CAPABILITY]             |
 | :-----: | :------------------------------------------------------ | :------- | :----------------------- |
-|  [01]   | `Bind(RhinoViewport viewport)`                          | binding  | viewport attachment      |
-|  [02]   | `ExclusiveBind(RhinoViewport)`                          | binding  | exclusive draw seizure   |
-|  [03]   | `UnbindAll()`                                           | binding  | complete detachment      |
-|  [04]   | `SetSelectionFilter(bool, bool)`                        | filter   | selection-state scope    |
-|  [05]   | `SetObjectIdFilter(IEnumerable<Guid>)`                  | filter   | fixed object-id scope    |
-|  [06]   | `ObjectCulling(CullObjectEventArgs e)`                  | override | pre-walk visibility      |
-|  [07]   | `CalculateBoundingBox(CalculateBoundingBoxEventArgs e)` | override | framing bounds           |
-|  [08]   | `CalculateBoundingBoxZoomExtents(...)`                  | override | zoom-extents bounds      |
-|  [09]   | `PreDrawObjects(DrawEventArgs e)`                       | override | pre-object-walk draw     |
-|  [10]   | `PreDrawObject(DrawObjectEventArgs e)`                  | override | single-object intercept  |
-|  [11]   | `PostDrawObjects(DrawEventArgs e)`                      | override | depth-tested opaque draw |
-|  [12]   | `DrawForeground(DrawEventArgs e)`                       | override | 2D foreground draw       |
-|  [13]   | `DrawOverlay(DrawEventArgs e)`                          | override | depth-free overlay       |
+|  [01]   | `Enabled { get; set; }`                                 | arming   | host registration toggle |
+|  [02]   | `Bind(RhinoViewport viewport)`                          | binding  | viewport attachment      |
+|  [03]   | `ExclusiveBind(RhinoViewport)`                          | binding  | exclusive draw seizure   |
+|  [04]   | `UnbindAll()`                                           | binding  | complete detachment      |
+|  [05]   | `SetSelectionFilter(bool, bool)`                        | filter   | selection-state scope    |
+|  [06]   | `SetObjectIdFilter(IEnumerable<Guid>)`                  | filter   | fixed object-id scope    |
+|  [07]   | `ObjectCulling(CullObjectEventArgs e)`                  | override | pre-walk visibility      |
+|  [08]   | `CalculateBoundingBox(CalculateBoundingBoxEventArgs e)` | override | framing bounds           |
+|  [09]   | `CalculateBoundingBoxZoomExtents(...)`                  | override | zoom-extents bounds      |
+|  [10]   | `PreDrawObjects(DrawEventArgs e)`                       | override | pre-object-walk draw     |
+|  [11]   | `PreDrawObject(DrawObjectEventArgs e)`                  | override | single-object intercept  |
+|  [12]   | `PostDrawObjects(DrawEventArgs e)`                      | override | depth-tested opaque draw |
+|  [13]   | `DrawForeground(DrawEventArgs e)`                       | override | 2D foreground draw       |
+|  [14]   | `DrawOverlay(DrawEventArgs e)`                          | override | depth-free overlay       |
 
-`DisplayConduit.GeometryFilter` masks the per-object phases to a geometry type; `DisplayConduit.SpaceFilter` scopes participation to model or page space.
+`DisplayConduit.GeometryFilter` masks the per-object phases to a geometry type; `DisplayConduit.SpaceFilter` scopes participation to model or page space. `Enabled` is the sole host registration: setting it true reflects over the subclass to discover which phase overrides it declares and subscribes only those `DisplayPipeline` static events, so a conduit that binds no viewport still draws globally while one that is never enabled never runs; flipping it tears the native conduit down and rebuilds it, so an enable/disable cycle re-derives the phase set and a conduit is armed exactly once per lease.
 
 [ENTRYPOINT_SCOPE]: `DisplayPipeline` — events, state stacks, and draw families
 
@@ -459,7 +460,7 @@ Beyond the method rows below, the attribute model is property families written b
 [STACKING]:
 - `api-languageext.md`(`../../.api/api-languageext.md`): every host call that can fail or return null is trapped onto the rail — `Try.lift(() => DisplayModeDescription.FindByName(name)).Run()` and `Optional(ViewCapture.CaptureToBitmap(settings)).ToFin(error)` are the boundary spellings; a captured bitmap, a resolved mode, or a bound conduit crosses into domain code as `Fin<A>`, never as a nullable host handle.
 - `api-rhinocommon-fileio.md`: `FilePdf.AddPage(ViewCaptureSettings)` consumes the identical `ViewCaptureSettings`, so page-view PDF egress reuses the capture configuration unchanged.
-- `api-thinktecture-runtime-extensions.md`(`../../.api/api-thinktecture-runtime-extensions.md`): the host draw enums (`BlendMode`, `CullFaceMode`, `LineCapStyle`, `LineJoinStyle`, `PointStyle`, `IsoDrawMode`) and mode/attribute selectors are mapped at the edge to `[SmartEnum]` owners, and a display-mode or analysis-mode `Guid` is a `[ValueObject<Guid>]` — the domain composes the bounded owner, the host enum lives only in the adapter.
+- `api-thinktecture-runtime-extensions.md`(`../../.api/api-thinktecture-runtime-extensions.md`): the host draw enums (`BlendMode`, `CullFaceMode`, `LineCapStyle`, `LineJoinStyle`, `PointStyle`, `IsoDrawMode`), the projection selectors (`DefinedViewportProjection`, `IsometricCamera`), and mode/attribute selectors are mapped at the edge to `[SmartEnum]` owners, and a display-mode or analysis-mode `Guid` is a `[ValueObject<Guid>]` — the domain composes the bounded owner, the host enum lives only in the adapter.
 - `api-rhinocommon-geometry.md`: every draw family consumes a `Rhino.Geometry` carrier (`Mesh`/`Brep`/`SubD`/`Hatch`/`TextEntity`/`ClippingPlaneSurface`); the pipeline is the sink, the geometry catalog the source.
 - `api-macos-native.md`: sprite-cloud and dynamic-display animation pace off the host `CADisplayLink` frame clock rather than a wall timer, and perceptual color blending of `Color4f`/`IsoDrawEffect` band colors composes the Rasm kernel color rail, never a host-side channel-average.
 

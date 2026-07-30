@@ -1,6 +1,6 @@
 # [RASM_BIM_API_NTS_GEOPACKAGE]
 
-`NetTopologySuite.IO.GeoPackage` is the pure-managed codec for the OGC GeoPackage *StandardGeoPackageBinary* geometry encoding — the per-feature BLOB stored in a `.gpkg` geometry column. Its `GeoPackageGeoReader`/`GeoPackageGeoWriter` pair round-trips that BLOB to a `NetTopologySuite` `Geometry` with `Ordinates` (XY/XYZ/XYM/XYZM) and SRID handling; the `.gpkg` SQLite container stays out of scope. It is the GeoPackage leg of the `Semantics/geospatial#GEOSPATIAL_SEAM`: the container layer yields the geometry-column bytes, this codec materializes the planar algebra `NetTopologySuite` owns.
+`NetTopologySuite.IO.GeoPackage` is the pure-managed codec for the OGC GeoPackage *StandardGeoPackageBinary* geometry encoding — the per-feature BLOB stored in a `.gpkg` geometry column. Its `GeoPackageGeoReader`/`GeoPackageGeoWriter` pair round-trips that BLOB to a `NetTopologySuite` `Geometry` with `Ordinates` (XY/XYZ/XYM/XYZM) and SRID handling; the `.gpkg` SQLite container stays out of scope. It is the GeoPackage leg of the `Semantics/geospatial#GEOSPATIAL_SEAM`: the container layer yields the geometry-column bytes, this codec materializes the planar algebra `NetTopologySuite` owns. `libs/csharp/Rasm.Persistence/.api/api-nts-geopackage.md` is the peer partition serving the `Ingest/geospatial#FEATURE_ROWS` `GeoContainer`/`GeoWire` seam, one catalogue per package on both tiers.
 
 ## [01]-[PACKAGE_SURFACE]
 

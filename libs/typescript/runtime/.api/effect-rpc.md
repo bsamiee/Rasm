@@ -109,8 +109,10 @@
 |  [03]   | `RpcSerialization.layerJsonRpc(options?)`                        | layer          | JSON-RPC serialization Layer                |
 |  [04]   | `RpcSerialization.layerNdJsonRpc(options?)`                      | layer          | NDJSON-RPC serialization Layer              |
 |  [05]   | `RpcSerialization.layerMsgPack`                                  | layer          | MessagePack serialization Layer             |
-|  [06]   | `RpcSerialization.makeMsgPack(msgpackrOptions?)`                 | tuned          | msgpack Layer with tuned `msgpackr` options |
+|  [06]   | `RpcSerialization.makeMsgPack(options?)`                         | tuned          | bare codec value, `Layer.succeed`-wrapped   |
 |  [07]   | `RpcSerialization.json`/`ndjson`/`jsonRpc`/`ndJsonRpc`/`msgPack` | bare           | the bare codec values behind the layers     |
+
+- `makeMsgPack(options?: Msgpackr.Options)` returns `RpcSerialization["Type"]`, not a `Layer` — `serve/api`'s `msgpackWith` row is the one wrap site, `Layer.succeed(RpcSerialization.RpcSerialization, makeMsgPack(options))`, which is why msgpack is the only codec carrying both a layer row and a bare constructor.
 
 [ENTRYPOINT_SCOPE]: middleware, streaming, worker, test
 

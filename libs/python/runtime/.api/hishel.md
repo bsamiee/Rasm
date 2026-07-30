@@ -106,6 +106,21 @@
 |  [06]   | `.is_safe_to_hard_delete(...)`                      | store   | hard-eviction guard after the soft-delete window |
 |  [07]   | `.close()`                                          | drain   | close the store on host drain                    |
 
+[ENTRYPOINT_SCOPE]: per-request and per-response extension metadata
+- `RequestMetadata` keys ride `httpx.Request.extensions` (the `request/stream/get(..., extensions=)` carry) and the proxy reads them beside the policy.
+- `ResponseMetadata` keys land on `httpx.Response.extensions`; every key is `hishel_`-prefixed to avoid colliding with caller extensions.
+
+| [INDEX] | [SURFACE]                              | [SHAPE]  | [CAPABILITY]                                                     |
+| :-----: | :------------------------------------- | :------- | :--------------------------------------------------------------- |
+|  [01]   | `hishel_ttl: float \| None`            | request  | per-entry eviction horizon in seconds; overrides the store TTL   |
+|  [02]   | `hishel_refresh_ttl_on_access: bool`   | request  | slide this entry's TTL on each serve instead of expiring fixed   |
+|  [03]   | `hishel_spec_ignore: bool`             | request  | bypass the RFC-9111 decision for this request alone              |
+|  [04]   | `hishel_body_key: bool`                | request  | fold the body into the cache key per request, `use_body_key`'s OR |
+|  [05]   | `hishel_from_cache: bool`              | response | this response was served from a stored entry                     |
+|  [06]   | `hishel_revalidated: bool`             | response | the entry revalidated against the origin before serving          |
+|  [07]   | `hishel_stored: bool`                  | response | the origin response was written to the store                     |
+|  [08]   | `hishel_created_at: float`             | response | epoch seconds the served or stored entry was written             |
+
 [ENTRYPOINT_SCOPE]: policy construction
 
 | [INDEX] | [SURFACE]                                                     | [SHAPE] | [CAPABILITY]                                     |
@@ -120,9 +135,10 @@
 - injection law: the cache rides the `httpx` transport seam, never a swapped client class — the long-lived `AsyncClient` keeps its `Timeout`/`Limits`/`Auth`/`base_url` and mounts `transport=AsyncCacheTransport(next_transport=AsyncHTTPTransport(...))`. `AsyncCacheClient` serves only boundary scripts owning no pre-built transport.
 - store law: `AsyncSqliteStorage` is the persistent local store; each app passes an owner-derived `database_path` from its cache root, and distinct instances isolate app cache rows. A multi-tenant app scopes the store per tenant through distinct `database_path` or `key_prefix`, and redis is the server-backed arm composed only where a redis host exists.
 - policy law: `SpecificationPolicy` (RFC-9111) is the default; freshness, conditional revalidation, and `304` refresh are owned by the state machine, never a hand-rolled `Cache-Control`/`ETag` parse. `CacheOptions(shared=)` selects shared vs private semantics and `allow_stale=` gates stale-on-error serving.
-- state law: cache decisions surface as the `AnyState` union; the runtime reads the reached state for telemetry rather than inferring hit/miss from headers.
-- key law: request identity is the default cache key; `CachePolicy.use_body_key` opts the request body into the key for body-varying endpoints only.
-- drain law: storage `.close()` and transport `aclose()` run in the host drain under the anyio lane; the sqlite connection is never left to GC.
+- state law: cache decisions surface as the `AnyState` union interior to the proxy and as `ResponseMetadata` keys on the served `httpx.Response`; a consumer reads the extension keys for telemetry rather than inferring hit/miss from headers or subclassing the state machine to observe it.
+- key law: request identity is the default cache key; the body joins it under `policy.use_body_key OR the request's own `hishel_body_key` extension, so a body-varying endpoint opts in PER REQUEST and a policy subclass that body-keys every request sharing the client is the heavier form. `use_body_key` is a class attribute on the `CachePolicy` ABC and no constructor accepts it, which is exactly why the per-request lever exists.
+- request-lever law: `hishel_ttl`, `hishel_refresh_ttl_on_access`, and `hishel_spec_ignore` are the per-request overrides of the store TTL, the TTL slide, and the RFC-9111 decision; a caller needing any of the three carries the extension rather than minting a second client, store, or policy for it.
+- drain law: `AsyncCacheTransport.aclose()` closes the wrapped transport AND the storage, and `httpx.AsyncClient.aclose()` reaches it through `self._transport`, so ONE client close is total — a `storage.close()` beside it in the host drain double-closes the sqlite connection rather than rescuing it from GC.
 
 [STACKING]:
 - `AsyncCacheTransport(next_transport=AsyncHTTPTransport(...), storage=AsyncSqliteStorage(database_path=...), policy=SpecificationPolicy(CacheOptions(shared=...)))` mounts on the runtime `AsyncClient`: one transport stack, cache above transport above pool.
@@ -137,5 +153,5 @@
 [RAIL_LAW]:
 - Package: `hishel[httpx]`
 - Owns: RFC-9111 HTTP caching over `httpx`, the transport-agnostic cache proxy, spec and filter policies, the `AnyState` stored/served union, and persistent sqlite / redis keyed storages behind one async storage protocol
-- Accept: `AsyncCacheTransport` injected at the transport seam, `AsyncSqliteStorage` with a required owner-derived `database_path`, `SpecificationPolicy`/`CacheOptions` for freshness and stale-serve, per-app store isolation, `AnyState`-tagged decisions on the receipt, `.close()`/`aclose()` on drain
-- Reject: a swapped `AsyncCacheClient` where a pre-built transport exists, a filesystem store, redis composed without a host, hand-rolled `Cache-Control`/revalidation parsing, a process-global or shared-mutable cache store, overlap with the content-keyed recipe cache
+- Accept: `AsyncCacheTransport` injected at the transport seam, `AsyncSqliteStorage` with a required owner-derived `database_path`, `SpecificationPolicy`/`CacheOptions` for freshness and stale-serve, per-app store isolation, the `RequestMetadata` extension levers for per-request body-key/TTL/spec decisions, the `ResponseMetadata` extension keys as the reached-decision and entry-age evidence, one client `aclose()` on drain closing transport and storage
+- Reject: a swapped `AsyncCacheClient` where a pre-built transport exists, a filesystem store, redis composed without a host, hand-rolled `Cache-Control`/revalidation parsing, a `CachePolicy` subclass minted to carry a per-request decision the extension already expresses, a process-global or shared-mutable cache store, overlap with the content-keyed recipe cache

@@ -7,7 +7,7 @@ CloudEvents projects the Persistence redacted op-log changefeed onto one CNCF-st
 [PACKAGE_SURFACE]: `CloudNative.CloudEvents`
 - package: `CloudNative.CloudEvents` (Apache-2.0)
 - assembly: `CloudNative.CloudEvents` (`net10.0` bound asset, pure-managed, no RID burden)
-- namespace: `CloudNative.CloudEvents`, `CloudNative.CloudEvents.Extensions`, `CloudNative.CloudEvents.Core`
+- namespace: `CloudNative.CloudEvents`, `CloudNative.CloudEvents.Extensions`, `CloudNative.CloudEvents.Core`, `CloudNative.CloudEvents.Http`
 - rail: sync-egress
 
 [PACKAGE_SURFACE]: `CloudNative.CloudEvents.Kafka`
@@ -85,9 +85,10 @@ CloudEvents projects the Persistence redacted op-log changefeed onto one CNCF-st
 |  [05]   | `CloudEventsSpecVersion.V1_0` / `.Default` / `FromVersionId(string)`      | static   | v1.0 schema, `V1_0` default, id resolution |
 |  [06]   | `specVersion.RequiredAttributes` / `OptionalAttributes` / `AllAttributes` | property | required/optional/full attribute schema    |
 |  [07]   | `Partitioning.SetPartitionKey(ce, string)` / `GetPartitionKey(ce)`        | static   | `partitionkey` → Kafka message key         |
-|  [08]   | `Sequence.SetSequence(ce, object)` / `GetSequence{Value,String}(ce)`      | static   | total event ordering (String-typed)        |
+|  [08]   | `Sequence.SetSequence(ce, object)` / `GetSequence{Value,String,Type}(ce)` | static   | total event ordering (String-typed)        |
 |  [09]   | `Sampling.SetSampledRate(ce, int)` / `GetSampledRate(ce)`                 | static   | sampling-rate hint (Integer, positive)     |
 |  [10]   | `Partitioning`/`Sampling`/`Sequence` `.<name>Attribute`                   | static   | extension attributes to pre-register       |
+|  [11]   | `CloudEventsSpecVersion.{Id,Source,Type,Time}Attribute`                   | static   | per-attribute singletons the indexer keys  |
 
 [ENTRYPOINT_SCOPE]: `CloudEventFormatter` codec contract and `JsonEventFormatter`
 
@@ -127,6 +128,7 @@ CloudEvents projects the Persistence redacted op-log changefeed onto one CNCF-st
 - Standard extensions are real `CloudEventAttribute`s: `Partitioning.PartitionKeyAttribute` (String) feeds the Kafka message key, `Sampling.SampledRateAttribute` (Integer, positive-validated), `Sequence.SequenceAttribute` (String); each `Set*` is an extension method on `CloudEvent`, callable as `Partitioning.SetPartitionKey(ce, key)` or `ce.SetPartitionKey(key)`.
 
 [STACKING]:
+- `api-cloudevents`(`libs/csharp/Rasm.Bim/.api/api-cloudevents.md`): the Bim partition registers this catalogue as the envelope and codec owner and adds only its own emit lacing — the `BimEvent` lowering, the source-generated `JsonSerializerContext` `Data` projection, the NodaTime `Instant` `time` seal, and the `traceparent`/`tracestate` extension rows; it references the core and the STJ codec alone and holds no transport binding.
 - `Version/egress` projects the `Version/ledger` `OpLogEntry` → `CloudEvent` via the egress-sink projector → `cloudEvent.ToKafkaMessage(ContentMode.Binary, formatter)` → `Confluent.Kafka` `ProduceAsync` (`api-kafka`), whose `DeliveryResult.Status == Persisted` advances the `Store/coordination` `OutboxAdvance` cursor past the contiguous `Persisted` prefix. One shared `JsonEventFormatter` encodes every event; `JsonEventFormatter<T>` is selected only when `Data` is a typed change record.
 - `ContentMode.Binary` is load-bearing: the CloudEvents attributes stay in Kafka headers so a broker filters and routes on `ce_type`/`ce_source`/`partitionkey` without deserializing the op payload, and `Partitioning.SetPartitionKey` from the entity key preserves per-key ordering on one partition through `librdkafka`'s default partitioner.
 - `api-schemaregistry-serdes-json` (`JsonSerializer<T>`): envelope-vs-body codec ownership is split on one `Message<string?, byte[]>.Headers` bag — this binding's `JsonEventFormatter` owns the CloudEvents envelope (`ce_specversion` and one `ce_<name>` per populated attribute, the `content-type` header, and `partitionkey` → `Message.Key`), while the registry serde owns the `Data` bytes and its `__value_schema_id`/`__key_schema_id` framing, disjoint from the `ce_` keys. Two unrelated JSON stacks, never a shared `JsonSerializerOptions`.

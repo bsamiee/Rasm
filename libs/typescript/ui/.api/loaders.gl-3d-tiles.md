@@ -42,12 +42,12 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- register INTO core, app-scoped: `registerLoaders([Tiles3DLoader])` mutates core's process-wide roster, so `viewer` registers inside an Effect `Scope` and `_unregisterLoaders` at release; passing `Tiles3DLoader` per `Tile3DLayer` `loaders` prop is the collision-free alternative. Binary tile decode runs in the core worker pool by default, embedded glTF/Draco/texture decode through the transitive decoders — no tile parse blocks the main thread.
+- loaders arrive per call site: `Tiles3DLoader` passes through the `Tile3DLayer` `loaders` prop or a `load(url, Tiles3DLoader)` argument — `registerLoaders` ships `@deprecated` (registration erases loader type information and mutates a process-wide roster two apps contend over), so the registry path is the rejected form, not an app-scoped alternative. Binary tile decode runs in the core worker pool by default, embedded glTF/Draco/texture decode through the transitive decoders — no tile parse blocks the main thread.
 
 [STACKING]:
 - `@loaders.gl/core`(`.api/loaders.gl-core.md`): `load(url, Tiles3DLoader)` fetches-then-decodes a `tileset.json` or tile href and `selectLoader` sniffs the four-byte magic — no decode vocabulary added atop core's polymorphic `parse`/`load`.
-- `@deck.gl/geo-layers`(`.api/deck.gl-geo-layers.md`): `Tile3DLayer` defaults `loaders`/`loader` to `Tiles3DLoader` and drives the `@loaders.gl/tiles` `Tileset3D`/`Tile3D` traversal — LOD by screen-space error, fetch fanout, lifecycle — surfacing each tile on `onTilesetLoad(Tileset3D)`/`onTileLoad(Tile3D)`; batched/instanced `gltf` renders through `@deck.gl/mesh-layers`, `pnts` feeds the columnar point path.
-- `@loaders.gl/las`(`.api/loaders.gl-las.md`): the `pnts` point content complements the LAS scan decoder on the same `PointCloudLayer` binary-attribute seam, both registered into the one core roster.
+- `@deck.gl/geo-layers`(`.api/deck.gl-geo-layers.md`): `Tile3DLayer` defaults `loaders` to `Tiles3DLoader` (the singular `loader` prop ships `@deprecated`) and drives the `@loaders.gl/tiles` `Tileset3D`/`Tile3D` traversal — LOD by screen-space error, fetch fanout, lifecycle — surfacing each tile on `onTilesetLoad(Tileset3D)`/`onTileLoad(Tile3D)`; batched/instanced `gltf` renders through `@deck.gl/mesh-layers`, `pnts` feeds the columnar point path.
+- `@loaders.gl/las`(`.api/loaders.gl-las.md`): the `pnts` point content complements the LAS scan decoder on the same `PointCloudLayer` binary-attribute seam, each passed per call site.
 - `viewer/geo`: `Tile3DFeatureTable`/`Tile3DBatchTable` decode the `featureTableBinary`/`batchTableJson` a `Tile3DLayer` `onClick` resolves picked-feature metadata against.
 
 [LOCAL_ADMISSION]:
@@ -57,5 +57,5 @@
 [RAIL_LAW]:
 - Package: `@loaders.gl/3d-tiles`
 - Owns: the 3D-tiles/Cesium content-decoder family — the `Tiles3DLoader`/`CesiumIonLoader`/`Tile3DSubtreeLoader`/`Tiles3DArchiveFileLoader` transports, `Tile3DWriter` inverse encode, `Tile3DFeatureTable`/`Tile3DBatchTable` metadata accessors, the `TILE3D_TYPE` vocabulary, the `'3d-tiles'` option bag, and the decoded output shapes
-- Accept: registering into `@loaders.gl/core` inside an Effect `Scope`, decoder selection by transport and `isTileset` sniff, `Tile3DLayer` driving the `@loaders.gl/tiles` traversal over this decoder, embedded glTF/Draco/texture decode delegated to the transitive decoders
-- Reject: hand-parsing tile bytes off the worker pool, a `parseTileset`/`parseIonTile` family instead of core's polymorphic `parse`/`load`, importing the `@loaders.gl/tiles` traversal engine directly, a global loader roster two apps contend over
+- Accept: per-call-site loader passing (`Tile3DLayer` `loaders` prop, `load(url, Tiles3DLoader)`), decoder selection by transport and `isTileset` sniff, `Tile3DLayer` driving the `@loaders.gl/tiles` traversal over this decoder, embedded glTF/Draco/texture decode delegated to the transitive decoders
+- Reject: hand-parsing tile bytes off the worker pool, a `parseTileset`/`parseIonTile` family instead of core's polymorphic `parse`/`load`, importing the `@loaders.gl/tiles` traversal engine directly, `registerLoaders` in any form — deprecated upstream, type-erasing, and a global roster two apps contend over

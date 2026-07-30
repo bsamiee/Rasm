@@ -136,7 +136,7 @@ Every provider symbol is one parameterized surface over the `Generated` REST cor
 | :-----: | :----------------------------------------------------------------------- | :------ | :-------------------------------- |
 |  [01]   | `addGenAIAnnotations(OpenAiTelemetryAttributeOptions) -> (Span) -> void` | fold    | dual; mutates the `Span` in place |
 
-- `OpenAiTelemetry` extends the core `Telemetry` GenAI attribute set; `addGenAIAnnotations` mutates the `effect/Tracer` `Span` in place — the one boundary-kernel mutation and the seam onto `@effect/opentelemetry`. Both `RequestAttributes` and `ResponseAttributes` fold under the `gen_ai.openai.request` prefix, so response attributes resolve under the request namespace.
+- `OpenAiTelemetry` extends the core `Telemetry` GenAI attribute set; `addGenAIAnnotations` mutates the `effect/Tracer` `Span` in place — the one boundary-kernel mutation and the seam onto `@effect/opentelemetry`. Both `RequestAttributes` and `ResponseAttributes` fold under the `gen_ai.openai.request` prefix, so response attributes resolve under the request namespace. `OpenAiTelemetryAttributeOptions` NESTS — `{ openai: { request?, response? } }`, never flat fields. `ResponseAttributes.systemFingerprint` is currently unfillable through the part algebra: `FinishPartMetadata.openai` exposes `serviceTier` alone, and no `Response` augmentation forwards the raw response's `system_fingerprint`.
 
 ## [08]-[CONFIG]
 

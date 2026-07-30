@@ -1,54 +1,51 @@
 # [RASM_GRASSHOPPER_API_MACOS_NATIVE]
 
-Installed `Microsoft.macOS.dll` bindings own the native surface beneath an Eto-hosted Grasshopper 2 canvas: `AppKit` owns views, input, accessibility, and notifications; `CoreAnimation` owns layers and display links; `ScreenCaptureKit`, `CoreMedia`, and `CoreVideo` own capture and raster egress; `Foundation` owns native lifetimes. `Eto.macOS.dll` owns AppKit extraction and value conversion across the managed boundary. Each retained native object carries its removal, invalidation, or disposal inverse.
+Installed `Microsoft.macOS.dll` bindings own the native subsystem beneath an Eto-hosted Grasshopper 2 canvas that the pacing core does not reach: `CoreAnimation` owns the composited layer graph and its animation values, `AppKit` owns the local event monitor, gesture and pressure recognizers, vibrancy chrome, and haptics, and `ScreenCaptureKit`, `CoreMedia`, and `CoreVideo` own leased capture and locked pixel-row egress. The view-window-screen anchor chain, display link, run loop, accessibility gates, and object bridge are the branch pacing core this partition registers. Each retained native object carries its removal, invalidation, or disposal inverse.
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: installed macOS bindings
+[PACKAGE_SURFACE]: installed macOS bindings — Grasshopper2 canvas partition
 - host: `Grasshopper2` inside the Rhino WIP macOS process
 - assemblies: `Microsoft.macOS.dll`; `Eto.macOS.dll`
-- namespaces: `AppKit`, `CoreAnimation`, `CoreGraphics`, `CoreImage`, `Foundation`, `ObjCRuntime`, `Eto.Mac`, `Eto.Mac.Forms`
-- platform: `Eto.Mac.Platform`; `IMacControlHandler`; `MacControlExtensions`
+- namespaces: `AppKit`, `CoreAnimation`, `CoreGraphics`, `CoreImage`, `CoreMedia`, `CoreVideo`, `ScreenCaptureKit`, `Foundation`, `ObjCRuntime`
 - rail: UI-affine native interop
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: views, screens, events, gestures, and pressure
+- Registers the macOS pacing core (`libs/csharp/.api/api-macos-native.md`): the `NSView`-to-`NSWindow`-to-`NSScreen` anchor chain with its display facts, coordinate maps (`NSView.ConvertPointFromView`), and EDR headroom, `CADisplayLink`/`CAFrameRateRange`, `NSRunLoop`/`NSRunLoopMode`, the `NSWorkspace` accessibility gates, the screen and accessibility observation tokens, and the `Runtime` handle bridge carry their algebra there; the rows below are the subsystem this canvas boundary adds beyond it.
+- The `Eto.Mac` value bridge — `MacConversions`, `CGConversions`, `MacControlExtensions` — is tabled at member depth by `.api/api-eto-platform`, which owns the `Eto.macOS` partition; this catalog composes it and adds only the AppKit-side facts a conversion call site needs.
+
+[PUBLIC_TYPE_SCOPE]: layer graph, animation, and filtering
+
+| [INDEX] | [SYMBOL]                                                       | [TYPE_FAMILY] | [CAPABILITY]                           |
+| :-----: | :------------------------------------------------------------- | :------------ | :------------------------------------- |
+|  [01]   | `CALayer`; `CAShapeLayer`; `CAGradientLayer`; `CATextLayer`    | class         | composited layer graph                 |
+|  [02]   | `CAReplicatorLayer`; `CAEmitterLayer`                          | class         | replicated and emitted layers          |
+|  [03]   | `CABasicAnimation`; `CASpringAnimation`; `CAKeyFrameAnimation` | class         | native animation values                |
+|  [04]   | `CAAnimationGroup`; `CAMediaTimingFunction`                    | class         | animation grouping and timing          |
+|  [05]   | `CATransaction`                                                | class         | mutation batching                      |
+|  [06]   | `CGPath`; `CGColor`; `CGAffineTransform`; `CGPoint`; `CGRect`  | family        | geometry, colour, and transform values |
+|  [07]   | `CIFilter`                                                     | class         | named Core Image filter                |
+
+[PUBLIC_TYPE_SCOPE]: local events, gestures, and pressure
 
 | [INDEX] | [SYMBOL]                                                                    | [TYPE_FAMILY] | [CAPABILITY]                            |
 | :-----: | :-------------------------------------------------------------------------- | :------------ | :-------------------------------------- |
-|  [01]   | `NSView`; `NSWindow`; `NSScreen`                                            | class         | native view and hosting-display state   |
-|  [02]   | `NSEvent`; `NSEventMask`; `NSEventType`                                     | family        | local event monitoring and discriminant |
-|  [03]   | `NSEventPhase`; `NSEventModifierMask`                                       | enum          | event phase and modifier ABI            |
-|  [04]   | `NSGestureRecognizer`; `NSClickGestureRecognizer`; `NSPanGestureRecognizer` | class         | click and translation recognition       |
-|  [05]   | `NSMagnificationGestureRecognizer`; `NSRotationGestureRecognizer`           | class         | magnification and rotation input        |
-|  [06]   | `NSPressGestureRecognizer`; `NSGestureRecognizerState`                      | family        | press input and recognizer state        |
-|  [07]   | `NSPressureConfiguration`; `NSPressureBehavior`                             | family        | pressure behavior                       |
+|  [01]   | `NSEvent`; `NSEventMask`; `NSEventType`                                     | family        | local event monitoring and discriminant |
+|  [02]   | `NSEventPhase`; `NSEventModifierMask`                                       | enum          | event phase and modifier ABI            |
+|  [03]   | `NSGestureRecognizer`; `NSClickGestureRecognizer`; `NSPanGestureRecognizer` | class         | click and translation recognition       |
+|  [04]   | `NSMagnificationGestureRecognizer`; `NSRotationGestureRecognizer`           | class         | magnification and rotation input        |
+|  [05]   | `NSPressGestureRecognizer`; `NSGestureRecognizerState`                      | family        | press input and recognizer state        |
+|  [06]   | `NSPressureConfiguration`; `NSPressureBehavior`                             | family        | pressure behaviour                      |
 
-[PUBLIC_TYPE_SCOPE]: layer graph, timing, and conversion
+[PUBLIC_TYPE_SCOPE]: vibrancy chrome, styled text, and haptics
 
-| [INDEX] | [SYMBOL]                                                                  | [TYPE_FAMILY] | [CAPABILITY]                               |
-| :-----: | :------------------------------------------------------------------------ | :------------ | :----------------------------------------- |
-|  [01]   | `CALayer`; `CAShapeLayer`; `CAGradientLayer`; `CATextLayer`               | class         | composited layer graph                     |
-|  [02]   | `CAReplicatorLayer`; `CAEmitterLayer`                                     | class         | replicated and emitted layers              |
-|  [03]   | `CABasicAnimation`; `CASpringAnimation`; `CAKeyFrameAnimation`            | class         | native animation values                    |
-|  [04]   | `CAAnimationGroup`; `CAMediaTimingFunction`                               | class         | animation grouping and timing              |
-|  [05]   | `CATransaction`; `CADisplayLink`; `CAFrameRateRange`                      | family        | mutation transaction and display pacing    |
-|  [06]   | `CGPath`; `CGColor`; `CGAffineTransform`; `CGPoint`; `CGRect`; `CIFilter` | family        | geometry, colour, transform, and filtering |
-|  [07]   | `NSObject`; `NSString`; `NSRunLoop`; `NSRunLoopMode`                      | family        | Objective-C object and run-loop            |
-|  [08]   | `Selector`; `ExportAttribute`; `Runtime`                                  | family        | selector export and object marshal         |
-|  [09]   | `MacConversions`; `CGConversions`; `MacControlExtensions`                 | static        | Eto extraction and conversion              |
-|  [10]   | `IMacControlHandler`; `IMacViewHandler`                                   | interface     | native view roles                          |
-
-[PUBLIC_TYPE_SCOPE]: chrome, accessibility, and observation
-
-| [INDEX] | [SYMBOL]                                                                     | [TYPE_FAMILY] | [CAPABILITY]                          |
-| :-----: | :--------------------------------------------------------------------------- | :------------ | :------------------------------------ |
-|  [01]   | `NSVisualEffectView`; `NSVisualEffectMaterial`; `NSVisualEffectBlendingMode` | family        | AppKit vibrancy and blur              |
-|  [02]   | `NSColor`; `NSColorSpace`; `NSFont`; `NSAttributedString`                    | class         | AppKit colour and styled text         |
-|  [03]   | `NSHapticFeedbackManager`; `NSHapticFeedbackPattern`                         | family        | haptic performance                    |
-|  [04]   | `NSHapticFeedbackPerformanceTime`                                            | enum          | haptic performance timing             |
-|  [05]   | `NSWorkspace`; `NSApplication`; `NSNotificationEventArgs`                    | class         | accessibility and display observation |
+| [INDEX] | [SYMBOL]                                                                     | [TYPE_FAMILY] | [CAPABILITY]                  |
+| :-----: | :--------------------------------------------------------------------------- | :------------ | :---------------------------- |
+|  [01]   | `NSVisualEffectView`; `NSVisualEffectMaterial`; `NSVisualEffectBlendingMode` | family        | AppKit vibrancy and blur      |
+|  [02]   | `NSColor`; `NSColorSpace`; `NSFont`; `NSAttributedString`                    | class         | AppKit colour and styled text |
+|  [03]   | `NSHapticFeedbackManager`; `NSHapticFeedbackPattern`                         | family        | haptic performance            |
+|  [04]   | `NSHapticFeedbackPerformanceTime`                                            | enum          | haptic performance timing     |
 
 [PUBLIC_TYPE_SCOPE]: display and window capture
 
@@ -65,39 +62,14 @@ Installed `Microsoft.macOS.dll` bindings own the native surface beneath an Eto-h
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: Eto-to-AppKit extraction
+[ENTRYPOINT_SCOPE]: layer attachment on the registered view
 
-| [INDEX] | [SURFACE]                                                                           | [SHAPE]  | [CAPABILITY]                     |
-| :-----: | :---------------------------------------------------------------------------------- | :------- | :------------------------------- |
-|  [01]   | `MacControlExtensions.GetMacControl(Control) -> IMacControlHandler?`                | static   | nullable handler extraction      |
-|  [02]   | `MacControlExtensions.GetMacViewHandler(Control) -> IMacViewHandler?`               | static   | nullable view-handler extraction |
-|  [03]   | `MacControlExtensions.GetContainerView(Widget) -> NSView?`                          | static   | nested container-view extraction |
-|  [04]   | `IMacControlHandler.{Container, Content, Event, Focus, TextInput}Control -> NSView` | property | five AppKit view roles           |
-
-- `GetMacControl`, `GetMacViewHandler`, and `GetContainerView`: non-null signatures returning runtime null for an absent control or handler; `GetContainerView` follows nested Eto controls and finally admits a direct `NSView`.
-- `IMacViewHandler` inherits the five roles and declares no `Control`; `IMacWindow.Control` is the separate `NSWindow` window-handler property, and `Canvas.ControlObject` yields a native anchor only when it is an `NSView`.
-
-[ENTRYPOINT_SCOPE]: view, window, and screen
-
-| [INDEX] | [SURFACE]                                                                    | [SHAPE]  | [CAPABILITY]                |
-| :-----: | :--------------------------------------------------------------------------- | :------- | :-------------------------- |
-|  [01]   | `NSView.Window -> NSWindow?`                                                 | property | hosting window              |
-|  [02]   | `NSView.WantsLayer / Layer -> CALayer?`                                      | property | backing-layer opt-in        |
-|  [03]   | `NSView.PressureConfiguration -> NSPressureConfiguration?`                   | property | per-view pressure config    |
-|  [04]   | `NSView.{MakeBackingLayer, AddGestureRecognizer, RemoveGestureRecognizer}`   | instance | layer and recognizer attach |
-|  [05]   | `NSView.ConvertPointFromView(CGPoint, NSView?) -> CGPoint`                   | instance | window-relative point map   |
-|  [06]   | `NSView.GetDisplayLink(NSObject, Selector) -> CADisplayLink`                 | instance | view-bound vsync source     |
-|  [07]   | `NSWindow.Screen -> NSScreen`                                                | property | hosting display             |
-|  [08]   | `NSScreen.MainScreen / Screens -> NSScreen[]`                                | static   | display enumeration         |
-|  [09]   | `NSScreen.MaximumFramesPerSecond -> nint`                                    | property | refresh ceiling             |
-|  [10]   | `NSScreen.MinimumRefreshInterval / MaximumRefreshInterval -> double`         | property | refresh-interval bounds     |
-|  [11]   | `NSScreen.MaximumExtendedDynamicRangeColorComponentValue -> NFloat`          | property | EDR headroom                |
-|  [12]   | `NSScreen.MaximumPotentialExtendedDynamicRangeColorComponentValue -> NFloat` | property | EDR potential headroom      |
-|  [13]   | `NSScreen.MaximumReferenceExtendedDynamicRangeColorComponentValue -> NFloat` | property | EDR reference headroom      |
-|  [14]   | `NSScreen.GetDisplayLink(NSObject, Selector) -> CADisplayLink`               | instance | screen-bound vsync source   |
-
-- `CADisplayLink`, `NSView.GetDisplayLink`, and `NSScreen.GetDisplayLink` carry `SupportedOSPlatform("macos14.0")` and declare non-null while the native result still needs runtime validation.
-- `NSWindow.Screen` resolves to native null before the window belongs to a screen; a view-bound pacing decision reads `view.Window?.Screen`, never `NSScreen.MainScreen`, which describes the application main screen.
+| [INDEX] | [SURFACE]                                                  | [SHAPE]  | [CAPABILITY]                 |
+| :-----: | :--------------------------------------------------------- | :------- | :--------------------------- |
+|  [01]   | `NSView.WantsLayer / Layer -> CALayer?`                    | property | backing-layer opt-in         |
+|  [02]   | `NSView.MakeBackingLayer() -> CALayer`                     | instance | supply the backing layer     |
+|  [03]   | `NSView.{AddGestureRecognizer, RemoveGestureRecognizer}`   | instance | recognizer attach and detach |
+|  [04]   | `NSView.PressureConfiguration -> NSPressureConfiguration?` | property | per-view pressure config     |
 
 [ENTRYPOINT_SCOPE]: local event monitor ABI
 
@@ -117,36 +89,20 @@ Installed `Microsoft.macOS.dll` bindings own the native surface beneath an Eto-h
 
 [ENTRYPOINT_SCOPE]: gesture and pressure ABI
 
-| [INDEX] | [SURFACE]                                                            | [SHAPE]  | [CAPABILITY]                     |
-| :-----: | :------------------------------------------------------------------- | :------- | :------------------------------- |
-|  [01]   | `NSGestureRecognizer(NSObject?, Selector?)`                          | ctor     | target/action or `Action` ctor   |
-|  [02]   | `NSGestureRecognizer.{Action, Target, State}`                        | property | callback and recognizer state    |
-|  [03]   | `NSGestureRecognizer.LocationInView(NSView?) -> CGPoint`             | instance | hit location                     |
-|  [04]   | `NSClickGestureRecognizer(Action)`                                   | ctor     | click and touch counts           |
-|  [05]   | `NSPanGestureRecognizer(Action)`                                     | ctor     | translation and velocity         |
-|  [06]   | `NSMagnificationGestureRecognizer.Magnification -> NFloat`           | property | magnification                    |
-|  [07]   | `NSRotationGestureRecognizer.Rotation / RotationInDegrees -> NFloat` | property | rotation                         |
-|  [08]   | `NSPressGestureRecognizer(Action)`                                   | ctor     | movement and duration            |
-|  [09]   | `NSPressureConfiguration() / (NSPressureBehavior)`                   | ctor     | `PressureBehavior` get + `Set()` |
+| [INDEX] | [SURFACE]                                                            | [SHAPE]  | [CAPABILITY]                       |
+| :-----: | :------------------------------------------------------------------- | :------- | :--------------------------------- |
+|  [01]   | `NSGestureRecognizer(NSObject?, Selector?)`                          | ctor     | target and action or `Action` ctor |
+|  [02]   | `NSGestureRecognizer.{Action, Target, State}`                        | property | callback and recognizer state      |
+|  [03]   | `NSGestureRecognizer.LocationInView(NSView?) -> CGPoint`             | instance | hit location                       |
+|  [04]   | `NSClickGestureRecognizer(Action)`                                   | ctor     | click and touch counts             |
+|  [05]   | `NSPanGestureRecognizer(Action)`                                     | ctor     | translation and velocity           |
+|  [06]   | `NSMagnificationGestureRecognizer.Magnification -> NFloat`           | property | magnification                      |
+|  [07]   | `NSRotationGestureRecognizer.Rotation / RotationInDegrees -> NFloat` | property | rotation                           |
+|  [08]   | `NSPressGestureRecognizer(Action)`                                   | ctor     | movement and duration              |
+|  [09]   | `NSPressureConfiguration() / (NSPressureBehavior)`                   | ctor     | `PressureBehavior` get and `Set()` |
 
-- `NSGestureRecognizer.State` is public get/set, but the generated binding sets `State` only from recognizer subclasses; `View` is non-null yet runtime-null before attachment.
+- `NSGestureRecognizer.State` is public get and set, but the generated binding sets it only from recognizer subclasses; `View` is non-null yet runtime-null before attachment.
 - `NSGestureRecognizer.PressureConfiguration` is non-null and settable, while `NSView.PressureConfiguration` is nullable and accepts null to remove a view configuration.
-
-[ENTRYPOINT_SCOPE]: display link and run loop
-
-| [INDEX] | [SURFACE]                                                                            | [SHAPE]  | [CAPABILITY]             |
-| :-----: | :----------------------------------------------------------------------------------- | :------- | :----------------------- |
-|  [01]   | `CADisplayLink.{Duration, Timestamp, TargetTimestamp} -> double`                     | property | frame timing             |
-|  [02]   | `CADisplayLink.{Paused, PreferredFrameRateRange}`                                    | property | pause and rate range     |
-|  [03]   | `CADisplayLink.{AddToRunLoop, RemoveFromRunLoop, Invalidate}`                        | instance | loop attach and teardown |
-|  [04]   | `CADisplayLink.Create(NSObject, Selector) -> CADisplayLink`                          | factory  | target/selector link     |
-|  [05]   | `CAFrameRateRange.{Minimum, Maximum, Preferred} -> float`                            | property | mutable rate fields      |
-|  [06]   | `CAFrameRateRange.Create(float, float, float) -> CAFrameRateRange`                   | factory  | rate-range value         |
-|  [07]   | `NSRunLoop.{Main, Current} -> NSRunLoop`                                             | static   | run-loop handles         |
-|  [08]   | `NSRunLoopMode.{Default, Common, ConnectionReply, ModalPanel, EventTracking, Other}` | static   | typed loop modes         |
-
-- `CADisplayLink.{AddToRunLoop, RemoveFromRunLoop}` each expose `(NSRunLoop, NSString)` and `(NSRunLoop, NSRunLoopMode)` overloads; `NSRunLoop.Main` with `NSRunLoopMode.Common` is the typed common-mode attachment.
-- `NSView.GetDisplayLink` and `NSScreen.GetDisplayLink` bind the link to a display source; teardown removes the link from the same loop and mode, invalidates it, then disposes link and callback target.
 
 [ENTRYPOINT_SCOPE]: layer, animation, and filter state
 
@@ -164,18 +120,16 @@ Installed `Microsoft.macOS.dll` bindings own the native surface beneath an Eto-h
 - `CABasicAnimation.FromKeyPath(string?)` and `CAKeyFrameAnimation.FromKeyPath(string?)` are nullable-key factories; `CAKeyFrameAnimation.GetFromKeyPath(string)` is the non-null-key wrapper.
 - `CAMediaTimingFunction` exposes the four-float control-point constructor and `FromName(NSString)`; a transaction pairs `Begin()` with `Commit()` and `CompletionBlock` is nullable.
 
-[ENTRYPOINT_SCOPE]: geometry, colour, marshal, and Eto conversions
+[ENTRYPOINT_SCOPE]: geometry, colour, and marshal at the layer edge
 
-| [INDEX] | [SURFACE]                                                          | [SHAPE]  | [CAPABILITY]             |
-| :-----: | :----------------------------------------------------------------- | :------- | :----------------------- |
-|  [01]   | `CGPath.{MoveToPoint, AddLineToPoint, AddRoundedRect}`             | instance | path building            |
-|  [02]   | `CGAffineTransform.MakeIdentity() -> CGAffineTransform`            | factory  | identity transform       |
-|  [03]   | `NSColor.FromDisplayP3(NFloat, NFloat, NFloat, NFloat) -> NSColor` | factory  | Display-P3 color         |
-|  [04]   | `Runtime.GetNSObject<T>(nint) -> T?`                               | static   | handle-to-object marshal |
+| [INDEX] | [SURFACE]                                                          | [SHAPE]  | [CAPABILITY]       |
+| :-----: | :----------------------------------------------------------------- | :------- | :----------------- |
+|  [01]   | `CGPath.{MoveToPoint, AddLineToPoint, AddRoundedRect}`             | instance | path building      |
+|  [02]   | `CGAffineTransform.MakeIdentity() -> CGAffineTransform`            | factory  | identity transform |
+|  [03]   | `NSColor.FromDisplayP3(NFloat, NFloat, NFloat, NFloat) -> NSColor` | factory  | Display-P3 colour  |
 
-- The `Eto.Mac` value bridge — `MacConversions`, `CGConversions`, `MacControlExtensions` — is tabled at member depth by `.api/api-eto-platform`, which owns the `Eto.macOS` partition; this catalog registers it and adds only the AppKit-side facts a conversion call site needs.
 - `MacConversions.ToEto(CGPoint, NSView)` treats the point as window coordinates through `ConvertPointFromView(point, null)` and flips Y when the view is not flipped.
-- `MacConversions.ToNS(CGColor)` returns runtime null for a null input; `CGConversions.ToCG(NSColor)` returns the colour in ITS OWN space on its primary arm, so a `NSColor.FromDisplayP3` mint reaches `CALayer.BackgroundColor`/`BorderColor`/`FillColor`/`StrokeColor` wide-gamut intact, while its fallback arms re-space to sRGB or floor at opaque black without signalling — a wide-colour crossing asserts the returned `ColorSpace` instead of trusting the call.
+- `MacConversions.ToNS(CGColor)` returns runtime null for a null input; `CGConversions.ToCG(NSColor)` returns the colour in ITS OWN space on its primary arm, so a `FromDisplayP3` mint reaches `CALayer.BackgroundColor`/`BorderColor`/`FillColor`/`StrokeColor` wide-gamut intact, while its fallback arms re-space to sRGB or floor at opaque black without signalling — a wide-colour crossing asserts the returned `ColorSpace` instead of trusting the call.
 
 [ENTRYPOINT_SCOPE]: screen capture and raster egress
 
@@ -207,29 +161,33 @@ Installed `Microsoft.macOS.dll` bindings own the native surface beneath an Eto-h
 - `ISCStreamOutput.DidOutputSampleBuffer(SCStream, CMSampleBuffer, SCStreamOutputType)` binds `stream:didOutputSampleBuffer:ofType:`; `ISCStreamDelegate.DidStop(SCStream, NSError)` binds `stream:didStopWithError:` and `UserDidStop(SCStream)` binds `userDidStopStream:`; optional protocol members live on an `NSObject` subclass under matching `[Export]`.
 - `SCStreamOutputType`, `SCContentFilterOption`, `SCFrameStatus`, and `CVPixelBufferLock` close their installed enum rows, and `CVReturn.Success` is the zero verdict.
 
-[ENTRYPOINT_SCOPE]: accessibility and display observation
-- `NSWorkspace.SharedWorkspace` exposes `AccessibilityDisplayShouldDifferentiateWithoutColor`, `AccessibilityDisplayShouldIncreaseContrast`, `AccessibilityDisplayShouldInvertColors`, `AccessibilityDisplayShouldReduceMotion`, and `AccessibilityDisplayShouldReduceTransparency`.
-- `NSWorkspace.Notifications.ObserveDisplayOptionsDidChange` and `NSApplication.Notifications.ObserveDidChangeScreenParameters` each expose unfiltered and `(NSObject objectToObserve)` overloads returning an `NSObject` observer token; disposing the token releases its registration.
+[ENTRYPOINT_SCOPE]: vibrancy and haptics
+
+- `NSVisualEffectView` carries `Material`, `BlendingMode`, `State`, and `EmphasizedAppearance`; the material is a semantic role the host re-resolves on an appearance flip, so a captured blur value stales at the flip.
+- `NSHapticFeedbackManager.DefaultPerformer` performs an `NSHapticFeedbackPattern` at an `NSHapticFeedbackPerformanceTime`; a snap or alignment confirmation performs once at the commit, never per motion frame.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every retained native object carries its exact inverse and disposal order, and a native op never widens or narrows the `nint`, `double`, `NFloat`, or `float` carrier inside the boundary.
-- `CATransaction` owns mutation batching, `CADisplayLink` owns native pacing, `NSRunLoop` owns callback scheduling, `Eto.Mac` owns managed/native conversion, and anchor-screen pacing reads the display hosting the active view.
+- `CATransaction` owns mutation batching over the layer graph, and a layer mount runs inside the registered anchor view's valid host lifetime.
 - ScreenCaptureKit capture is leased: an opened `SCStream` pairs stop-capture, output removal, and disposal of stream, filter, configuration, sink, and delegate as one inverse chain; a delivered `CMSampleBuffer` never outlives its callback, and detached pixel rows are the only raster that crosses.
+- Event monitoring, gesture recognition, and pressure configuration each attach to the registered anchor view and detach through their own inverse; a monitor token and its removal are distinct steps.
 
 [STACKING]:
-- `Eto` platform substrate (`.api/api-eto-platform`): `GetContainerView` and `IMacControlHandler.ContainerControl` yield the Eto-backed `NSView`, and every AppKit call, `CALayer` mount, and `CADisplayLink` pace runs inside that view's valid host lifetime while `MacConversions`/`CGConversions` carry values across the boundary.
-- `Thinktecture.Runtime.Extensions` (`.api/api-thinktecture-runtime-extensions`): the installed `NSEventType`, `NSEventPhase`, `NSRunLoopMode`, `SCStreamOutputType`, `SCContentFilterOption`, and `CVReturn` enums map at the folder boundary onto `[SmartEnum]` owners, so an event or capture branch is exhaustive dispatch rather than an `NSString` compare.
-- `LanguageExt.Core` (`.api/api-languageext`): the runtime-nullable extractions and native results — `GetMacControl`, `GetContainerView`, `NSWindow.Screen`, `GetDisplayLink`, and `CMSampleBuffer.GetImageBuffer` — lower onto `Option<T>`/`Fin<T>` at the boundary, and throwing conversions stay a caught boundary on the same rail.
-- within-lib: `MacGate` admits the seam; `Compose` mounts the `CALayer`/`CAGradientLayer` graph with Display-P3 colour; `SessionCapture` leases the `SCStream`/`SCScreenshotManager` capture into stamped frame rings; motion pacing consumes `CADisplayLink` through the one shared step fold.
+- `api-macos-native`(`libs/csharp/.api/api-macos-native.md`): the registered pacing core — the anchor chain, display link, run loop, accessibility gates, observation tokens, and handle bridge every subsystem here runs against.
+- `api-eto-platform`(`libs/csharp/Rasm.Grasshopper/.api/api-eto-platform.md`): `GetContainerView` and `IMacControlHandler.ContainerControl` yield the Eto-backed `NSView` every layer mount and recognizer attach binds to, and the conversion owners carry values across the boundary.
+- `api-thinktecture-runtime-extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): the installed `NSEventType`, `NSEventPhase`, `SCStreamOutputType`, `SCContentFilterOption`, `NSVisualEffectMaterial`, and `CVReturn` enums map at the folder boundary onto `[SmartEnum]` owners, so an event or capture branch is exhaustive dispatch rather than a string compare.
+- `api-languageext`(`libs/csharp/.api/api-languageext.md`): the runtime-nullable native results — `CIFilter.FromName`, `CMSampleBuffer.GetImageBuffer`, `SCWindow.OwningApplication` — lower onto `Option<T>`/`Fin<T>` at the boundary, and throwing conversions stay caught boundaries on the same rail.
+- Within-folder: the seam gate admits the boundary, the compositor mounts the layer graph with Display-P3 colour, the capture owner leases the stream into stamped frame rings, and motion pacing consumes the registered display link through one shared step fold.
 
 [LOCAL_ADMISSION]:
-- `MacGate` admits the seam only after the macOS process check and a valid active `Eto.Mac.Platform`; installed AppKit types carry no application-level admission themselves.
-- `IMacControlHandler` owns the five Eto-native view roles; `GetContainerView` owns nullable convenience extraction, and canvas extraction stays the explicit `Canvas.ControlObject as NSView` branch.
+- The seam admits only after the macOS process check and a valid active `Eto.Mac.Platform`; installed AppKit types carry no application-level admission themselves.
+- Layer, recognizer, monitor, and capture work binds to the extracted container view; canvas extraction stays the explicit control-object branch and never a widened cast.
+- Value crossings take the `Eto.Mac` conversion owners; a local conversion beside them is the deleted form.
 
 [RAIL_LAW]:
 - Package: `Microsoft.macOS.dll`; `Eto.macOS.dll`
-- Owns: AppKit extraction, ABI-faithful input, gesture and pressure attachment, display facts, accessibility observation, layer composition, display-link pacing, screen and window capture, and native conversion
-- Accept: explicit view roles, runtime-null validation, exact numeric carriers, paired native lifecycles, screen-local pacing, ScreenCaptureKit capture with locked pixel egress, and the installed conversion owners
-- Reject: `IMacViewHandler.Control`, `NSScreen.MainScreen` as an anchor-display substitute, unpaired native retention, or a local conversion beside `Eto.Mac`
+- Partition: the Grasshopper2 canvas native subsystem — layer graph and animation, local event monitoring, gesture and pressure attachment, vibrancy chrome and haptics, and ScreenCaptureKit capture with locked pixel egress
+- Accept: explicit view roles, runtime-null validation, exact numeric carriers, paired native lifecycles, leased capture with locked pixel egress, and the installed conversion owners
+- Reject: a re-tabling of the registered pacing core, `IMacViewHandler.Control`, unpaired native retention, a local conversion beside `Eto.Mac`, and a per-frame haptic or filter mint the transaction batch replaces

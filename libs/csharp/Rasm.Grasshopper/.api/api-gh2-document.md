@@ -39,8 +39,9 @@
 | [INDEX] | [SYMBOL]           | [KIND]       | [CAPABILITY]                                                                                |
 | :-----: | :----------------- | :----------- | :------------------------------------------------------------------------------------------ |
 |  [01]   | `Connectivity`     | class        | read-side traversal — immediate and transitive reach, linearity, causal sort, relay elision |
-|  [02]   | `ConnectiveObject` | struct       | a graph-node handle addressing an object or one of its parameters                           |
+|  [02]   | `ConnectiveObject` | class        | a graph-node handle addressing an object or one of its parameters                           |
 |  [03]   | `Connections`      | static class | write-side wire mutation under `Grasshopper2.Parameters`, each `ActionList`-recorded        |
+|  [04]   | `GraphTopology`    | enum         | subset topology verdict — `Empty`, `Singleton`, `Convex`, `Disjoint`, `Concave`             |
 
 [PUBLIC_TYPE_SCOPE]: solution execution and undo history
 
@@ -101,13 +102,20 @@
 |  [04]   | `ObjectList.Transfer` / `ChangeAllIds` / `ApplyIdMap`            | `(IDocumentObject)`        | cross-document pull and id remap     |
 |  [05]   | `ObjectList.AddGlobalPin` / `RepairPins` / `ExpireAll`           | `(IPin)` / `(PinRepair)`   | pin membership, repair, expiry       |
 |  [06]   | `Connectivity.FindImmediate*` / `FindAll*`                       | `(ConnectiveObject)`       | immediate and transitive reach       |
-|  [07]   | `Connectivity.FindConnections` / `IsLinear`                      | `(ConnectiveObject, …)`    | edge lookup and chain detect         |
-|  [08]   | `Connectivity.SubsetTopology` / `SortCausally` / `WithoutRelays` | `(ConnectiveObject[])`     | subgraph, order, relay-elided view   |
-|  [09]   | `Connections.Connect` / `Disconnect`                             | `(IParameter×2, …)`        | add or remove one wire               |
-|  [10]   | `Connections.DisconnectAll*Except`                               | `(IParameter, HashSet, …)` | prune one side but a kept set        |
-|  [11]   | `Connections.ReplaceSource` / `ReplaceTarget`                    | `(IParameter×3, …)`        | re-point a wire endpoint             |
-|  [12]   | `Connections.CutOutMiddleMan`                                    | `(IParameter×3, …)`        | bypass an intermediate parameter     |
-|  [13]   | `Connections.CopyAllInputs` / `MigrateAllOutputs`                | `(IParameter×2, …)`        | duplicate or move a wire set         |
+|  [07]   | `Connectivity.FindConnections -> IEnumerable<ConnectiveObject[]>` | `(ConnectiveObject ×2)`   | every causal path between a pair      |
+|  [08]   | `Connectivity.IsLinear(…, out ConnectiveObject ×2) -> bool`       | `(IEnumerable<Guid>\|node)` | chain verdict with head/tail witness |
+|  [09]   | `Connectivity.SubsetTopology -> GraphTopology`                    | `(Guid\|IDocumentObject)`  | subset topology CLASS, not a view     |
+|  [10]   | `Connectivity.SortCausally -> ConnectiveObject[]`                 | `(ConnectiveObject[])`     | topological order                     |
+|  [11]   | `Connectivity.WithoutRelays(bool, bool, bool) -> Connectivity`    | instance                   | relay-elided view                     |
+|  [12]   | `Connections.Connect` / `Disconnect`                             | `(IParameter×2, …)`        | add or remove one wire               |
+|  [13]   | `Connections.DisconnectAll*Except`                               | `(IParameter, HashSet, …)` | prune one side but a kept set        |
+|  [14]   | `Connections.ReplaceSource` / `ReplaceTarget`                    | `(IParameter×3, …)`        | re-point a wire endpoint             |
+|  [15]   | `Connections.CutOutMiddleMan`                                    | `(IParameter×3, …)`        | bypass an intermediate parameter     |
+|  [16]   | `Connections.CopyAllInputs` / `MigrateAllOutputs`                | `(IParameter×2, …)`        | duplicate or move a wire set         |
+
+- `SubsetTopology` MEASURES rather than projects: it answers `GraphTopology.{Empty, Singleton, Convex, Disjoint, Concave}` for the subset. Reading it as a `Connectivity` view is the defect the name invites, and only `WithoutRelays` returns a view.
+- `WithoutRelays(dangling, simple, complex)` REMOVES on true, keyed by relay arity — `dangling` has no inputs or no outputs, `simple` exactly one of each, `complex` two or more on a side. A consumer vocabulary spells the arity and the removal polarity; three positional bools carry neither.
+- `FindConnections` yields one `ConnectiveObject[]` per causal PATH between the pair, never the wires joining them.
 
 [ENTRYPOINT_SCOPE]: object identity, solution, undo
 

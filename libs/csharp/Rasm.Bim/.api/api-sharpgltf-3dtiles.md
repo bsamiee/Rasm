@@ -52,6 +52,7 @@
 |  [05]   | `MeshExtMeshFeatureIDTexture` | class         | texture-backed feature ID; `Texture`, `GetChannels`/`SetChannels`        |
 |  [06]   | `MeshExtInstanceFeatures`     | class         | `EXT_instance_features` node extension; `CreateFeatureID`                |
 |  [07]   | `MeshExtInstanceFeatureID`    | class         | one instance feature-ID set bound to GPU-instanced node attributes       |
+|  [08]   | `CesiumPrimitiveOutline`      | class         | `CESIUM_primitive_outline` primitive extension over the outline indices  |
 
 [PUBLIC_TYPE_SCOPE]: metadata enums and binary helpers; `BinaryTable` lives in `SharpGLTF.Memory`, `ComponentCount` in `SharpGLTF.Schema2`
 
@@ -77,6 +78,7 @@
 |  [05]   | `AddPropertyTexture(MeshPrimitive, PropertyTexture)`           | static  | attach a property texture to a primitive           |
 |  [06]   | `AddPropertyAttribute(MeshPrimitive, PropertyAttribute)`       | static  | attach a property attribute to a primitive         |
 |  [07]   | `SetCesiumOutline(MeshPrimitive, IReadOnlyList<uint>, string)` | static  | set `CESIUM_primitive_outline` index data          |
+|  [08]   | `SetCesiumOutline(MeshPrimitive, Accessor)`                    | static  | set the outline from an existing index accessor    |
 
 [ENTRYPOINT_SCOPE]: schema and table authoring on `EXTStructuralMetadataRoot`, `StructuralMetadataSchema`, `StructuralMetadataClass`
 
@@ -132,8 +134,9 @@
 - Feature IDs bind through `new FeatureIDBuilder(...)` → `MeshPrimitive.AddMeshFeatureIds` or `Node.AddInstanceFeatureIds`; the `OneOf<int, Texture>` selects a vertex-attribute index or a feature-ID texture, and `PropertyTableIndex` links a set to its property table so per-feature metadata resolves at read time.
 
 [STACKING]:
-- `SharpGLTF`(`.api/api-sharpgltf`): every Tiles3D extension registers on the `SharpGLTF.Core` `ExtensionsFactory` and mutates the same `ModelRoot`/`MeshPrimitive`/`Node` Core authors — Core owns the glTF schema, this surface overlays the 3D Tiles metadata on the shared target.
-- `Rasm.Compute` `TILE_PARTITION` interchange codec: per-tile `EXT_structural_metadata` emit lowers through it after `Rasm.Bim` authors the schema and feature bindings.
+- `SharpGLTF`(`.api/api-sharpgltf.md`): every Tiles3D extension registers on the `SharpGLTF.Core` `ExtensionsFactory` and mutates the same `ModelRoot`/`MeshPrimitive`/`Node` Core authors — Core owns the glTF schema, this surface overlays the 3D Tiles metadata on the shared target.
+- `api-sharpgltf`(`libs/csharp/Rasm.Compute/.api/api-sharpgltf.md`): the Compute partition of the SharpGLTF distribution registers this catalogue as the Tiles3D owner and holds only its own composition-root admission — `Runtime/codecs#TILE_PARTITION` seats `Tiles3DExtensions.RegisterExtensions()` once at composition and emits no leaf body, so every member spelling of the emitter surface resolves here.
+- `Rasm.Compute` `TILE_PARTITION` interchange codec: per-tile `EXT_structural_metadata` emit lowers through it after `Rasm.Bim` `Exchange/export#TILE_METADATA` authors the schema and feature bindings.
 - `Rasm.Bim` tessellation emit: composes the metadata, storage, and feature-ID folds to author per-tile 3D Tiles metadata on the tessellated `ModelRoot` before Compute lowers it.
 
 [LOCAL_ADMISSION]:

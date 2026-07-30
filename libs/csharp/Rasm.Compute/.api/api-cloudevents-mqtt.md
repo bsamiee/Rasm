@@ -1,52 +1,35 @@
 # [RASM_COMPUTE_API_CLOUDEVENTS_MQTT]
 
-`CloudNative.CloudEvents.Mqtt` binds the CNCF CloudEvents envelope onto the MQTT wire: the static `MqttExtensions` class maps a `CloudEvent` onto an MQTTnet `MqttApplicationMessage` and back, structured mode only. `CloudEvent`/`CloudEventFormatter` envelope algebra and the System.Text.Json codec live in the Persistence `api-cloudevents` overlay; this overlay owns only the MQTT protocol-binding seam feeding the twin sensor-ingest capture rail.
+`Rasm.Persistence` owns the `CloudNative.CloudEvents.Mqtt` binding for this branch at `libs/csharp/Rasm.Persistence/.api/api-cloudevents-mqtt.md` — one `MqttExtensions` static class mapping a `CloudEvent` onto an MQTTnet `MqttApplicationMessage` and back, structured mode only — so Compute registers that surface rather than re-tabling it. This partition holds the twin capture-INGEST direction alone: the sensor subscription decoding one sample per message onto the `WorkLane.CaptureIngest` row, against the sync-egress direction the owner drives.
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `CloudNative.CloudEvents.Mqtt`
-- package: `CloudNative.CloudEvents.Mqtt` (Apache-2.0)
-- assembly/namespace: `CloudNative.CloudEvents.Mqtt`
+[PACKAGE_SURFACE]: Compute ingest partition of `CloudNative.CloudEvents.Mqtt`
+- package: `CloudNative.CloudEvents.Mqtt` (Apache-2.0, direct `PackageReference`)
+- assembly/namespace: `CloudNative.CloudEvents.Mqtt`, as catalogued at the Persistence owner
 - asset: pure-managed library, no native asset, no RID burden
-- depends: `CloudNative.CloudEvents` (core envelope/formatter) and `MQTTnet` (the estate `MqttApplicationMessage` transport)
+- depends: `CloudNative.CloudEvents` (the envelope and formatter core — transitive here, so this folder holds no direct reference and no catalogue for it) and `MQTTnet` (`libs/csharp/.api/api-mqtt.md`, the estate `MqttApplicationMessage` transport)
 - abi: the binding reads and writes `MqttApplicationMessage.PayloadSegment`; resolve carrier compatibility against the restored `MQTTnet` public surface
 - rail: capture-ingest
 
-## [02]-[PUBLIC_TYPES]
+- Registers the MQTT protocol binding(`libs/csharp/Rasm.Persistence/.api/api-cloudevents-mqtt.md`): `MqttExtensions` with its `ToMqttApplicationMessage` egress map and both `ToCloudEvent` ingress overloads, the `ContentMode.Structured`-only contract and its `ArgumentOutOfRangeException`, and the null-`ContentType` decode path all resolve there, over the `CloudEvent`/`CloudEventFormatter`/`CloudEventAttribute` algebra `libs/csharp/Rasm.Persistence/.api/api-cloudevents.md` owns.
 
-[PUBLIC_TYPE_SCOPE]: MQTT protocol binding — one static class consuming the `api-cloudevents` core types
-
-| [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [CAPABILITY]                                                             |
-| :-----: | :--------------- | :------------ | :----------------------------------------------------------------------- |
-|  [01]   | `MqttExtensions` | static class  | `CloudEvent` ⇄ `MqttApplicationMessage`; structured-mode encode + decode |
-
-## [03]-[ENTRYPOINTS]
-
-[ENTRYPOINT_SCOPE]: `MqttExtensions` structured-mode egress and ingress maps, all static extension methods
-
-| [INDEX] | [SURFACE]                                                                     | [SHAPE] | [CAPABILITY]                               |
-| :-----: | :---------------------------------------------------------------------------- | :------ | :----------------------------------------- |
-|  [01]   | `ce.ToMqttApplicationMessage(ContentMode, CloudEventFormatter, string)`       | static  | encode onto `PayloadSegment`; sets `Topic` |
-|  [02]   | `message.ToCloudEvent(CloudEventFormatter, params CloudEventAttribute[])`     | static  | decode; params extension attrs             |
-|  [03]   | `message.ToCloudEvent(CloudEventFormatter, IEnumerable<CloudEventAttribute>)` | static  | decode; enumerable extension attrs         |
-
-- `ToCloudEvent`: decodes `PayloadSegment` through `formatter.DecodeStructuredModeMessage` with a null `ContentType`; the `params` overload forwards to the `IEnumerable` one, and both validate non-null message and formatter through `Validation.CheckNotNull`.
-
-## [04]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `MqttExtensions` maps every op through the injected shared `CloudEventFormatter` (`JsonEventFormatter`/`JsonEventFormatter<T>`, `api-cloudevents`), structured mode only — `PayloadSegment` carries the whole `application/cloudevents+json` envelope both directions, any non-`Structured` `ContentMode` throws `ArgumentOutOfRangeException`, and a per-message formatter instance is the rejected form.
+- The binding touches the payload body alone, so `Topic`, QoS (`MqttQualityOfServiceLevel`), and `UserProperties` are Compute subscription policy on the ingest side — one message, never two layers contending for the body, symmetric to the `api-nats` `NatsHeaders` carrier.
 
 [STACKING]:
 - twin ingest is one rail: an `MQTTnet` `IMqttClient` subscription surfaces one `MqttApplicationMessage` per sensor sample → `message.ToCloudEvent(formatter, extensions)` decodes the structured envelope → the typed `Data` admits onto the `WorkLane.CaptureIngest` DropOldest row → `Stats/signal` folds the measured end (`Transform.Modal`) → `DigitalTwin.Score`/`Update` closes the loop into anomaly verdicts.
-- W3C trace continuity rides `MqttApplicationMessage.UserProperties` (`List<MqttUserProperty>`, MQTT v5) as a manual composite carrier by estate transport law, read beside the `ToCloudEvent` decode to extract-and-continue the originating span; the binding touches only the payload body, so `Topic`, QoS (`MqttQualityOfServiceLevel`), and `UserProperties` are Compute subscription policy — one message, never two layers contending for the body, symmetric to the `api-nats` `NatsHeaders` carrier.
-- CloudEvents is the single cross-transport ingest vocabulary: the Kafka egress (`api-cloudevents`) and this MQTT ingest project the same `CloudEvent` shape, so a measured signal crosses into the twin under the identical envelope the changefeed egress emits, and a per-transport re-pack is the drift defect.
+- W3C trace continuity rides `MqttApplicationMessage.UserProperties` (`List<MqttUserProperty>`, MQTT v5) as a manual composite carrier by estate transport law, read beside the `ToCloudEvent` decode to extract and continue the originating span.
+- CloudEvents is the single cross-transport ingest vocabulary: the Kafka egress and this MQTT ingest project the same `CloudEvent` shape, so a measured signal crosses into the twin under the identical envelope the changefeed egress emits, and a per-transport re-pack is the drift defect.
 
 [LOCAL_ADMISSION]:
 - Compute pins `ContentMode.Structured` at the single call site and reads the pre-declared extension attributes as typed values rather than re-parsing envelope strings; a `ContentMode.Binary` call is compile-legal and run-time-throwing.
+- One shared `JsonEventFormatter`/`JsonEventFormatter<T>` instance decodes every message, its serializer options fixed at construction.
 
 [RAIL_LAW]:
 - Package: `CloudNative.CloudEvents.Mqtt`
-- Owns: the CloudEvents MQTT protocol binding — structured-mode `CloudEvent` ⇄ `MqttApplicationMessage` for the twin sensor-ingest wire
-- Accept: `ToMqttApplicationMessage`/`ToCloudEvent` with an injected shared `CloudEventFormatter`, `ContentMode.Structured`, pre-declared extension attributes, and W3C trace read from `MqttApplicationMessage.UserProperties` beside the decode
-- Reject: `ContentMode.Binary` on the MQTT binding, hand-rolled CloudEvents JSON over a raw `MqttApplicationMessage` payload, a per-message formatter instance, trace context smuggled into the envelope body instead of `UserProperties`, or a per-transport envelope shape parallel to the shared `CloudEvent` projection
+- Owns: the twin sensor capture-ingest direction over the registered binding — the subscription decode and its admission onto `WorkLane.CaptureIngest`
+- Accept: `ToCloudEvent` with an injected shared `CloudEventFormatter`, `ContentMode.Structured`, pre-declared extension attributes, and W3C trace read from `MqttApplicationMessage.UserProperties` beside the decode
+- Reject: a member roster for the binding here, `ContentMode.Binary`, hand-rolled CloudEvents JSON over a raw `MqttApplicationMessage` payload, a per-message formatter instance, trace context smuggled into the envelope body instead of `UserProperties`, and a per-transport envelope shape parallel to the shared `CloudEvent` projection

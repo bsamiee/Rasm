@@ -109,6 +109,26 @@ Storage factories return an opaque `Storage`; cloud backends share the keyword-o
 |  [16]   | `s3_store(region, endpoint_url, allow_http, s3_compatible, force_path_style, ...)`      | S3 `ObjectStoreConfig` factory               |
 |  [17]   | `gcs_store(opts)` / `http_store(opts, headers)` / `local_filesystem_store(path)`        | GCS/HTTP/local `ObjectStoreConfig` factories |
 
+[ENTRYPOINT_SCOPE]: configuration constructors
+
+Every config type is a keyword constructor whose every parameter defaults `None`, so a partial config overrides only the axes it names and inherits the rest. `RepositoryConfig` reaches `Repository.create`/`open`/`open_or_create` through `config=`; an unpassed config runs the built-in defaults, not the caller's storage policy.
+
+| [INDEX] | [SURFACE]                                                                                                                                  | [CAPABILITY]                          |
+| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------ |
+|  [01]   | `RepositoryConfig(inline_chunk_threshold_bytes, get_partial_values_concurrency, compression, max_concurrent_requests, caching, storage, virtual_chunk_containers, manifest, repo_update_retries, num_updates_per_repo_info_file)` | root config                           |
+|  [02]   | `StorageSettings(concurrency, retries, unsafe_use_conditional_create, unsafe_use_conditional_update, unsafe_use_metadata, storage_class, metadata_storage_class, chunks_storage_class, minimum_size_for_multipart_upload, timeouts)` | per-backend storage policy            |
+|  [03]   | `StorageRetriesSettings(max_tries, initial_backoff_ms, max_backoff_ms)`                                                                    | store retry envelope                  |
+|  [04]   | `StorageConcurrencySettings(max_concurrent_requests_for_object, ideal_concurrent_request_size)`                                            | per-object request fan-out            |
+|  [05]   | `StorageTimeoutSettings(connect_timeout_ms, read_timeout_ms, operation_timeout_ms, operation_attempt_timeout_ms)`                          | four independent timeout phases       |
+|  [06]   | `CachingConfig(num_snapshot_nodes, num_chunk_refs, num_transaction_changes, num_bytes_attributes, num_bytes_chunks)`                       | cache budgets by counted kind         |
+|  [07]   | `CompressionConfig(algorithm, level)`                                                                                                      | snapshot compression                  |
+|  [08]   | `ManifestConfig(preload, splitting, virtual_chunk_location_compression)`                                                                   | manifest behavior root                |
+|  [09]   | `ManifestSplittingConfig(split_sizes)`                                                                                                     | manifest sharding rows                |
+|  [10]   | `ManifestPreloadConfig(max_total_refs, preload_if, max_arrays_to_scan)`                                                                    | preload budget and predicate          |
+|  [11]   | `ManifestSplitCondition.AnyArray()` / `.PathMatches(...)` / `.NameMatches(...)` / `.And`/`.Or`                                             | node predicate for one split row      |
+|  [12]   | `ManifestSplitDimCondition.Any()` / `.Axis(...)` / `.DimensionName(...)`                                                                   | dimension predicate for one shard size |
+|  [13]   | `ManifestPreloadCondition.num_refs(lo, hi)` / `.name_matches` / `.path_matches` / `.true`/`.false`/`.and_conditions`/`.or_conditions`      | preload predicate algebra             |
+
 [ENTRYPOINT_SCOPE]: repository lifecycle, branches, and sessions (`Repository`)
 
 Every surface is a `Repository` method (leading `Repository.` elided) except rows [23]-[24], module-level functions; optional keyword args default `None` unless a default is shown.
@@ -174,6 +194,7 @@ Store operations run on `IcechunkStore` (leading `IcechunkStore.` elided).
 - `Repository.transaction(branch, *, message, ...)` fuses `writable_session` and `commit`, yielding an `IcechunkStore` inside the context — one path, not a separate code branch.
 - Async variants suffix `_async` and return coroutines; the two iterator-returning methods instead prefix as `async_ancestry` and `async_ops_log`, each returning an `AsyncCloseableIterator`.
 - Conflict resolution passes at commit time as `rebase_with=BasicConflictSolver(...)` or `rebase_with=ConflictDetector()`, `VersionSelection` (`Fail`/`UseOurs`/`UseTheirs`) driving the solver per `ConflictType`. A bare `commit` on a moved branch tip raises `ConflictError`; an unresolved auto-rebase raises `RebaseFailedError` carrying the `Conflict` list — both map to the data tier's typed error, never swallowed.
+- `ManifestSplittingConfig(split_sizes=)` takes a SEQUENCE of `(ManifestSplitCondition, Sequence[tuple[ManifestSplitDimCondition, int]])` pairs — the nested mapping its shape reads as raises `TypeError: 'dict' object is not an instance of 'Sequence' while processing 'split_sizes'` at construction — so a split roster is rows, ordered, and the first matching node condition wins.
 - Virtual chunk references address external object-store locations without copying data, each gated by `authorize_virtual_chunk_access` credentials; `containers_credentials` lowers a per-prefix credential-factory map into that keyword, and `set_virtual_ref`/`set_virtual_refs` register one chunk or a `VirtualChunkSpec` batch under fully-qualified Zarr-v3 keys.
 
 [STACKING]:
@@ -191,5 +212,5 @@ Store operations run on `IcechunkStore` (leading `IcechunkStore.` elided).
 [RAIL_LAW]:
 - Package: `icechunk`
 - Owns: transactional Zarr store, branch/tag/snapshot version control, multi-backend storage, conflict detection and rebase, garbage collection, and virtual chunk addressing
-- Accept: `Repository` as the lifecycle owner, `Session` as the write unit, `session.store` as the Zarr handle handed to `zarr`/`xarray`/`tensorstore`, module-level storage/credential factories, `rebase_with` solvers at commit time, and `IcechunkError`/`ConflictError`/`RebaseFailedError` mapped to the data tier's typed error
-- Reject: direct `Storage.new_*` call sites in domain code, out-of-band rebase under auto-rebase, parallel async/sync call sites for one operation, imperative chunk iteration outside the `IcechunkStore` protocol, and a parallel array/dataset container that re-owns the zarr/xarray semantics layered over `session.store`
+- Accept: one `RepositoryConfig` value passed at `create`/`open`/`open_or_create` carrying the caller's storage retry, timeout, concurrency, cache, and manifest-splitting policy, `Repository` as the lifecycle owner, `Session` as the write unit, `session.store` as the Zarr handle handed to `zarr`/`xarray`/`tensorstore`, module-level storage/credential factories, `rebase_with` solvers at commit time, and `IcechunkError`/`ConflictError`/`RebaseFailedError` mapped to the data tier's typed error
+- Reject: an `open_or_create` binding no `config`, which runs the built-in storage envelope beside a caller's own; a branch-local mirror of the nested config types, which renames a surface the package already owns; a mapping handed to `split_sizes`; direct `Storage.new_*` call sites in domain code, out-of-band rebase under auto-rebase, parallel async/sync call sites for one operation, imperative chunk iteration outside the `IcechunkStore` protocol, and a parallel array/dataset container that re-owns the zarr/xarray semantics layered over `session.store`

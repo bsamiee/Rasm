@@ -143,8 +143,8 @@ Construction routes through `from_*` classmethods, never positional constructors
 - `Proxy` lifecycle is eager: construction reconnects-or-spawns the localhost server, so the whole proxy scope — construction, callable resolution, and teardown — is the blocking surface, never a per-call lazy bring-up.
 
 [STACKING]:
-- `compas-dr`(`.api/compas-dr.md`): the compas `Mesh` feeds `InputData.from_mesh`; `InputData` and every `Constraint` are `compas.data.Data` subclasses round-tripping through `json_dumps`/`json_loads`, and `dr_numpy` resolves out of process through `Proxy`.
-- `compas-tna`(`.api/compas-tna.md`): `FormDiagram` extends `compas.datastructures.Mesh` and builds through `FormDiagram.from_mesh`; diagrams round-trip the same `Data` handle, and `horizontal_numpy`/`vertical_from_zmax` resolve through `Proxy`.
+- `compas_dr`(`.api/compas_dr.md`): the compas `Mesh` feeds `InputData.from_mesh`; `InputData` and every `Constraint` are `compas.data.Data` subclasses round-tripping through `json_dumps`/`json_loads`, and `dr_numpy` resolves out of process through `Proxy`.
+- `compas_tna`(`.api/compas_tna.md`): `FormDiagram` extends `compas.datastructures.Mesh` and builds through `FormDiagram.from_mesh`; diagrams round-trip the same `Data` handle, and `horizontal_numpy`/`vertical_from_zmax` resolve through `Proxy`.
 - `trimesh`(`.api/trimesh.md`): mesh exchange over vertices/faces arrays carries the `manifold3d`-backed boolean and repair paths past compas's `boolean_*_mesh_mesh` rows.
 - `topologicpy`(`.api/topologicpy.md`): the non-manifold-topology sibling composed beside the compas datastructures, never folded into their rows.
 - `meshio`(`.api/meshio.md`): the raw mesh-file decode/encode seam — compas returns COMPAS-JSON handles across the wire rather than writing a mesh file.

@@ -70,10 +70,12 @@
 |  [02]   | `.addValue(key, version, [value, multiplicity])`       | in-place                     |
 |  [03]   | `.reconstructAt(key, version)`                         | `[V, number][]`              |
 |  [04]   | `.compact(compactionFrontier: Antichain, keys?)`       | in-place                     |
-|  [05]   | `.keys()`/`.entries()`/`.versions(key)`/`.join(other)` | `K[]`/rows/`Version[]`/diffs |
-|  [06]   | `./sqlite` `SQLiteDb`/`BetterSQLite3Wrapper`           | durable operator state       |
-|  [07]   | `./electric` `electricStreamToD2Input(opts)`           | `RootStreamBuilder`          |
-|  [08]   | `./electric` `outputElectricMessages(fn)`              | `PipedOperator`              |
+|  [05]   | `.keys()`/`.entries()`/`.versions(key)`                | `K[]`/rows/`Version[]`       |
+|  [06]   | `.get(key)`/`.has(key)`/`.append(other)`               | `VersionMap`/`boolean`/merge |
+|  [07]   | `.join<V2>(other)`                                     | `[Version, MultiSet][]`      |
+|  [08]   | `./sqlite` `SQLiteDb`/`BetterSQLite3Wrapper`           | durable operator state       |
+|  [09]   | `./electric` `electricStreamToD2Input(opts)`           | `RootStreamBuilder`          |
+|  [10]   | `./electric` `outputElectricMessages(fn)`              | `PipedOperator`              |
 
 [SQLITE_DB]: `SQLiteDb.exec(string) -> void` `SQLiteDb.prepare(string) -> SQLiteStatement<P,R>`
 [BETTER_SQLITE3_WRAPPER]: `BetterSQLite3Wrapper(import('better-sqlite3').Database)` `BetterSQLite3Wrapper.close() -> void`
@@ -85,7 +87,7 @@
 
 [STACK: `reduce`/`groupBy` + `@effect/typeclass` (`.api/effect-typeclass.md`)] — a keyed fold applies a Semigroup incrementally: the `reduce` reducer `(vals) => [R, number][]` is `Semigroup.combineMany` over signed multiplicities, and `groupByOperators.{sum,min,max}` specialize `Number.Monoid{Sum,Min,Max}` to signed pairs. `state/merge` declares the merge Semigroup; `state/fold` applies it through `reduce`, so reducer law and merge law are one.
 
-[STACK: `@electric-sql/d2mini`(`.api/electric-sql-d2mini.md`)] — d2mini serves this operator algebra minus time (`sendData(collection)`, no `Version`); d2ts is the durable altitude (`sendData(version, collection)`, `Version`/`Antichain`, `Index.reconstructAt`, `./sqlite`). `state/fold` binds one algebra and the runtime picks the altitude — browser in-memory or node durable through `store/project`.
+[STACK: `@electric-sql/d2mini`(`.api/electric-sql-d2mini.md`)] — d2mini serves this operator algebra minus time (`sendData(collection)`, no `Version`); d2ts is the durable altitude (`sendData(version, collection)`, `Version`/`Antichain`, `Index.reconstructAt`, `./sqlite`). Both `Index` classes carry `join`, and the return shape is the altitude difference — d2ts answers `[Version, MultiSet<[K,[V,V2]]>][]`, one entry per contributing version, where d2mini answers a bare `MultiSet<[K,[V,V2]]>`, so a trace-level join crossing the altitudes reshapes at the boundary. `state/fold` binds one algebra and the runtime picks the altitude — browser in-memory or node durable through `store/project`.
 
 [STACK: REPLAY_LAW + `state/causal` frontiers] — `Version.meet` is the stability-frontier GLB `state/causal` computes, `Antichain` the honest-uncertainty frontier over `value/clock` windows, `iterate` the happened-before transitive fold, and `Index.compact(frontier)` the retention handoff to `store/journal`. A fold rebuilt from any event prefix replays through the same graph to the live version — the convergence `state/merge` asserts, checked as `@effect/vitest`(`tests/typescript/.api/effect-vitest.md`) `it.prop` laws over the `tests/contracts` fixtures.
 

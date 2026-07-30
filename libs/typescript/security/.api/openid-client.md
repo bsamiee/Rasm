@@ -24,8 +24,8 @@
 |  [05]   | `TokenEndpointResponse`        | interface     | open grant response; index-signature fields untyped      |
 |  [06]   | `TokenEndpointResponseHelpers` | interface     | `.claims()` and `.expiresIn()` on a resolved response    |
 |  [07]   | `IDToken`                      | interface     | parsed id-token claim set `.claims()` returns            |
-|  [08]   | `DPoPHandle`                   | interface     | nonce-tracking proof handle passed as `options.DPoP`     |
-|  [09]   | `CryptoKeyPair`                | interface     | DPoP signing pair; `cnf.jkt` is `Material.thumbprintUri` |
+|  [08]   | `DPoPHandle`                   | interface     | nonce-tracking handle; `calculateThumbprint()` is `jkt`  |
+|  [09]   | `CryptoKeyPair`                | interface     | DPoP signing pair the handle wraps                       |
 
 - [02]-[CLIENT_AUTH]: `ClientSecretPost(string?)` `ClientSecretBasic(string?)` `ClientSecretJwt(string?, opts?)` `PrivateKeyJwt(CryptoKey, opts?)` `TlsClientAuth()` `None()` — each returns `ClientAuth`.
 
@@ -36,7 +36,7 @@
 |  [01]   | `ClientError` (`code`)          | class         | request or validation refusal the module itself mints  |
 |  [02]   | `ResponseBodyError` (`error`)   | class         | RFC 6749 token-endpoint error body; `error` is the arm |
 |  [03]   | `AuthorizationResponseError`    | class         | error params on the authorization-response leg         |
-|  [04]   | `WWWAuthenticateChallengeError` | class         | protected-resource 401 carrying a DPoP challenge       |
+|  [04]   | `WWWAuthenticateChallengeError` | class         | RS challenge; `cause[].parameters.error` is the arm     |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -82,7 +82,9 @@
 - One `Configuration` holds the whole client state and every grant, builder, and read takes it first, so `Match` over a closed grant-kind tuple dispatches the row and one client type serves every grant.
 - `ClientAuth` binds once at config time, so no secret rides a per-call argument; `PrivateKeyJwt` reads the same `Material` key custody the folder already owns.
 - Token exchange rides `genericGrantRequest` under the RFC 8693 grant-type string held as a folder constant, with `subject_token`, `actor_token`, and `requested_token_type` on `params`.
-- DPoP binds per principal: `randomDPoPKeyPair` mints the pair, `getDPoPHandle` wraps it, `options.DPoP` carries it into every grant and resource call, and `cnf.jkt` is the folder's own `Material.thumbprintUri`, so proof binding and JWT identity share one key authority and a constrained token surfaces as `token_type: "dpop"`.
+- DPoP binds per principal: `randomDPoPKeyPair` mints the pair, `getDPoPHandle` wraps it, `options.DPoP` carries it into every grant and resource call, and a constrained token surfaces as `token_type: "dpop"`.
+- The confirmation value is the BARE RFC 7638 thumbprint the handle's own `calculateThumbprint()` returns — what a resource server recomputes from the presented proof key — never the `urn:ietf:params:oauth:jwk-thumbprint` URI form, which is a subject spelling no verifier matches against `cnf.jkt`.
+- A nonce demand travels two channels under one code: the token endpoint answers `ResponseBodyError` with `error` set to `use_dpop_nonce`, a resource server answers `WWWAuthenticateChallengeError` whose `cause` array carries the same code in `parameters.error`, and the handle records the served nonce as either lands — so recovery keys on the code across both classes and re-runs the leg once.
 - `TokenEndpointResponse` index-signature fields, `.claims()`, and `fetchUserInfo` claims are ingress; a `Schema` decodes each before a field reaches the session.
 
 [STACKING]:
@@ -95,10 +97,10 @@
 [LOCAL_ADMISSION]:
 - Thread one `Configuration` per issuer and dispatch the grant by `Match` over the closed kind tuple.
 - Reach token exchange through `genericGrantRequest` with the RFC 8693 grant-type constant; a hand-built token-endpoint body duplicates a grant row.
-- Mint one DPoP key pair per principal, bind `cnf.jkt` to `Material.thumbprintUri`, and pass the handle as `options.DPoP` wherever the AS advertises DPoP.
+- Mint one DPoP key pair per principal, read `cnf.jkt` off the handle's `calculateThumbprint()`, and pass the handle as `options.DPoP` wherever the AS advertises DPoP.
 
 [RAIL_LAW]:
 - Package: `openid-client`
 - Owns: RP configuration and registration, the client-auth vocabulary, the machine-grant rows including token exchange and the device and CIBA legs, DPoP sender-constraint, PKCE/state/nonce mint, the authorization/PAR/JAR/end-session builders, protected-resource and userinfo reads, and token introspection and revocation
-- Accept: one `Configuration` per issuer dispatched as a `Match` grant vocabulary, `Effect.tryPromise` around every network member, `Schema` decode of `TokenEndpointResponse` and `.claims()`, `jose` re-verification of id-token claims, `Redacted` secrets and DPoP keys, a per-principal handle bound to `Material.thumbprintUri`
-- Reject: a client type or method family per grant, a hand-built token-endpoint body, a bearer machine token where DPoP is advertised, a second key custody for the DPoP proof, a helper return trusted before `Schema` and `jose`, a bare `Promise` reject in domain logic, the `openid-client/passport` adapter
+- Accept: one `Configuration` per issuer dispatched as a `Match` grant vocabulary, `Effect.tryPromise` around every network member, `Schema` decode of `TokenEndpointResponse` and `.claims()`, `jose` re-verification of id-token claims, `Redacted` secrets and DPoP keys, a per-principal handle whose `calculateThumbprint()` is the confirmation value
+- Reject: a client type or method family per grant, a hand-built token-endpoint body, a bearer machine token where DPoP is advertised, a second key custody for the DPoP proof, a thumbprint URI in a `cnf.jkt` field, a nonce arm keyed on the challenge class rather than the `use_dpop_nonce` code, a helper return trusted before `Schema` and `jose`, a bare `Promise` reject in domain logic, the `openid-client/passport` adapter

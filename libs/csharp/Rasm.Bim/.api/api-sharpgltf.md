@@ -1,6 +1,6 @@
 # [RASM_BIM_API_SHARPGLTF]
 
-`SharpGLTF` owns glTF 2.0 schema I/O, typed scene and mesh authoring, and runtime scene instancing: `SharpGLTF.Core` mints the read/write contexts and the `ModelRoot` logical-resource model, `SharpGLTF.Toolkit` folds typed vertex fragments through scene, mesh, and material builders into a `ModelRoot`, and `SharpGLTF.Runtime` templatizes a `Schema2.Scene` for per-instance animation decode. Core carries the extension framework but no geometry codec — Draco and meshopt encode ride sibling packages that rewrite the authored buffer views.
+`SharpGLTF` owns glTF 2.0 schema I/O, typed scene and mesh authoring, and runtime scene instancing: `SharpGLTF.Core` mints the read/write contexts and the `ModelRoot` logical-resource model, `SharpGLTF.Toolkit` folds typed vertex fragments through scene, mesh, and material builders into a `ModelRoot`, and `SharpGLTF.Runtime` templatizes a `Schema2.Scene` for per-instance animation decode. Core carries the extension framework but no geometry codec — Draco and meshopt encode ride sibling packages that rewrite the authored buffer views. This catalogue is the branch owner of the Core, Toolkit, and Runtime carriers: the Compute partition (`libs/csharp/Rasm.Compute/.api/api-sharpgltf.md`) registers them here and adds only its composition-root Tiles3D admission, and the Tiles3D emitter surface itself is `.api/api-sharpgltf-3dtiles.md`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -41,27 +41,29 @@
 |  [07]   | `LogicalChildOfRoot` | class         | abstract base for logical resources; `LogicalParent` walks to root |
 
 - [01]-[LOGICAL]: `ModelRoot` typed read-lists — `LogicalMeshes`, `LogicalBufferViews`, `LogicalBuffers`, `LogicalAccessors`, `LogicalMaterials`, `LogicalNodes`; each element's `LogicalParent` walks back to the owning root.
-- [05]-[WRITESET]: `WriteSettings` — `MergeBuffers` (default `true`, merges `LogicalBuffers` pre-serialize), `BuffersMaxSize` (merged-chunk byte cap, glTF-only when merging), `JsonIndented`/`JsonOptions` (STJ writer options), `ImageWriting` (`ResourceWriteMode`: `BufferView` embeds GLB-native, `EmbeddedAsBase64` embeds glTF-JSON only), `ImageWriteCallback` (per-image override), `JsonPostprocessor` (raw-JSON transform pass), `Validation` (`ValidationMode`, both read and write).
+- [05]-[WRITESET]: `WriteSettings` — `MergeBuffers` (default `true`, merges `LogicalBuffers` pre-serialize), `BuffersMaxSize` (merged-chunk byte cap, glTF-only when merging), `JsonIndented`/`JsonOptions` (STJ `JsonWriterOptions`), `ImageWriting` (`ResourceWriteMode`: `BufferView` embeds GLB-native, `EmbeddedAsBase64` embeds glTF-JSON only), `ImageWriteCallback` (per-image override), `JsonPostprocessor` (raw-JSON transform pass), `Validation` (`ValidationMode`, both read and write).
 
 [PUBLIC_TYPE_SCOPE]: Schema2 scene graph and logical resources
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [CAPABILITY]                                                           |
-| :-----: | :----------------- | :------------ | :--------------------------------------------------------------------- |
-|  [01]   | `Scene`            | class         | root nodes of a scene                                                  |
-|  [02]   | `Node`             | class         | scene-graph node (mesh, skin, TRS, children); members in `[02]-[NODE]` |
-|  [03]   | `Mesh`             | class         | set of `MeshPrimitive`; `Primitives`, `LogicalParent`                  |
-|  [04]   | `MeshPrimitive`    | class         | geometry, material, attribute accessors; members in `[04]-[PRIM]`      |
-|  [05]   | `Accessor`         | class         | typed buffer-view element view; members in `[05]-[ACCESSOR]`           |
-|  [06]   | `BufferView`       | class         | contiguous `Buffer` subset; members in `[06]-[BUFVIEW]`                |
-|  [07]   | `Buffer`           | class         | raw binary blob (internal or external URI); members in `[07]-[BUFFER]` |
-|  [08]   | `Material`         | class         | PBR metallic-roughness and channel parameters through `FindChannel`    |
-|  [09]   | `MaterialChannel`  | struct        | channel projection carrying texture or parameter values                |
-|  [10]   | `Texture`          | class         | texture and sampler binding                                            |
-|  [11]   | `TextureSampler`   | class         | wrap and filter modes                                                  |
-|  [12]   | `Image`            | class         | image data; URI or buffer-view embedded                                |
-|  [13]   | `Skin`             | class         | joints and inverse-bind matrices for a skeletal mesh                   |
-|  [14]   | `Animation`        | class         | keyframe animation; owns channels and per-channel samplers             |
-|  [15]   | `AnimationChannel` | class         | binds a sampler to a node property; owns keyframes and channel target  |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                                                           |
+| :-----: | :----------------------------- | :------------ | :--------------------------------------------------------------------- |
+|  [01]   | `Scene`                        | class         | root nodes of a scene                                                  |
+|  [02]   | `Node`                         | class         | scene-graph node (mesh, skin, TRS, children); members in `[02]-[NODE]` |
+|  [03]   | `Mesh`                         | class         | set of `MeshPrimitive`; `Primitives`, `LogicalParent`                  |
+|  [04]   | `MeshPrimitive`                | class         | geometry, material, attribute accessors; members in `[04]-[PRIM]`      |
+|  [05]   | `Accessor`                     | class         | typed buffer-view element view; members in `[05]-[ACCESSOR]`           |
+|  [06]   | `BufferView`                   | class         | contiguous `Buffer` subset; members in `[06]-[BUFVIEW]`                |
+|  [07]   | `Buffer`                       | class         | raw binary blob (internal or external URI); members in `[07]-[BUFFER]` |
+|  [08]   | `Material`                     | class         | PBR metallic-roughness and channel parameters through `FindChannel`    |
+|  [09]   | `MaterialChannel`              | struct        | channel projection carrying texture or parameter values                |
+|  [10]   | `Texture`                      | class         | texture and sampler binding                                            |
+|  [11]   | `TextureSampler`               | class         | wrap and filter modes                                                  |
+|  [12]   | `Image`                        | class         | image data; URI or buffer-view embedded                                |
+|  [13]   | `Skin`                         | class         | joints and inverse-bind matrices for a skeletal mesh                   |
+|  [14]   | `Animation`                    | class         | keyframe animation; owns channels and per-channel samplers             |
+|  [15]   | `AnimationChannel`             | class         | binds a sampler to a node property; owns keyframes and channel target  |
+|  [16]   | `AnimationChannelTarget`       | class         | the channel target descriptor: animated `Node` plus `PropertyPath`     |
+|  [17]   | `MaterialPBRMetallicRoughness` | class         | metallic-roughness parameter block behind the `Material` channels      |
 
 - [02]-[NODE]: `Node.WorldMatrix` (`Matrix4x4` local-to-world), `GetGpuInstancing()`/`UseGpuInstancing()` → `MeshGpuInstancing`, static `Flatten(IVisualNodeContainer)` → depth-first `IEnumerable<Node>`.
 - [04]-[PRIM]: `MeshPrimitive.LogicalParent` (owning `Mesh`; `.LogicalParent.LogicalParent` reaches the `ModelRoot`), `GetVertexAccessor(string)`/`GetIndexAccessor()` → `Accessor`.
@@ -272,7 +274,9 @@
 |  [05]   | `ModelRoot.WriteGLB(Stream, WriteSettings?)`               | instance | writes GLB to a stream                 |
 |  [06]   | `WriteContext.WriteTextSchema2(string, ModelRoot)`         | instance | writes text schema to context output   |
 |  [07]   | `WriteContext.WriteBinarySchema2(string, ModelRoot)`       | instance | writes binary schema to context output |
-|  [08]   | `ModelRoot.GetJsonPreview() -> string`                     | instance | JSON text preview without side effects |
+|  [08]   | `WriteContext.WriteImage(string, MemoryImage)`             | instance | writes one satellite image to output   |
+|  [09]   | `ModelRoot.GetJSON(bool) -> string`                        | instance | full JSON text, indented on `true`     |
+|  [10]   | `ModelRoot.GetJsonPreview() -> string`                     | instance | JSON text preview without side effects |
 
 [ENTRYPOINT_SCOPE]: ModelRoot — construction and mutation
 
@@ -296,6 +300,17 @@
 |  [16]   | `ModelRoot.CreateSkin(string)`                                 | instance | creates a skin                             |
 |  [17]   | `ModelRoot.CreatePunctualLight(string, PunctualLightType)`     | instance | creates a KHR punctual light               |
 
+[ENTRYPOINT_SCOPE]: Core Material — string-keyed channel authoring
+- Core carries no `KnownChannel` (that enum is Toolkit) and its KHR material extension classes stay `internal`, so the public Core PBR surface is the string-keyed channel API on the `MaterialChannel` value struct — the read-side counterpart of the Toolkit fluent binders below.
+
+| [INDEX] | [SURFACE]                                                      | [SHAPE]  | [CAPABILITY]                                   |
+| :-----: | :------------------------------------------------------------- | :------- | :--------------------------------------------- |
+|  [01]   | `Material.Channels -> IEnumerable<MaterialChannel>`            | property | all active channels on the material            |
+|  [02]   | `Material.FindChannel(string) -> MaterialChannel?`             | instance | resolves one channel by key string             |
+|  [03]   | `MaterialChannel.GetFactor(string)`/`SetFactor(string, float)` | instance | channel scalar factor get and set              |
+|  [04]   | `MaterialChannel.SetTexture(int, Image, Image?, …)`            | instance | channel texture set with wrap and filter       |
+|  [05]   | `MaterialChannel.SetTransform(Vector2, Vector2, float, int?)`  | instance | per-channel KHR_texture_transform UV transform |
+
 [ENTRYPOINT_SCOPE]: Animation — keyframe channel authoring
 - carry: each TRS/morph channel takes `(Node, IReadOnlyDictionary<float, TValue> keyframes, bool linear = true)` — the caller supplies the float-seconds → value map; the channel allocates its own `AnimationSampler`, `linear` selects `LINEAR`/`STEP`, and a `(TangentIn, Value, TangentOut)` tuple-keyframe overload forces `CUBICSPLINE`; the visibility channel omits `linear` and is `STEP` by construction
 
@@ -318,11 +333,14 @@
 |  [01]   | `SceneBuilder.AddRigidMesh(IMeshBuilder<M>, NodeBuilder)`                  | instance | mesh attached to an animatable node       |
 |  [02]   | `SceneBuilder.AddRigidMesh(IMeshBuilder<M>, AffineTransform)`              | instance | mesh at a fixed world transform           |
 |  [03]   | `SceneBuilder.AddRigidMesh(IMeshBuilder<M>, NodeBuilder, AffineTransform)` | instance | mesh relative to a node                   |
-|  [04]   | `SceneBuilder.ToGltf2(SceneBuilderSchema2Settings?) -> ModelRoot`          | instance | converts this builder to a `ModelRoot`    |
-|  [05]   | `SceneBuilder.ToGltf2(IEnumerable<SceneBuilder>, settings)`                | static   | converts multiple scenes to a `ModelRoot` |
-|  [06]   | `SceneBuilder.AddScene(SceneBuilder, Matrix4x4)`                           | instance | merges another scene with an offset       |
-|  [07]   | `SceneBuilder.ApplyBasisTransform(Matrix4x4, string)`                      | instance | transforms all instances in this scene    |
-|  [08]   | `SceneBuilder.FindArmatures()`                                             | instance | unique armature roots                     |
+|  [04]   | `SceneBuilder.AddSkinnedMesh(IMeshBuilder<M>, Matrix4x4, NodeBuilder[])`   | instance | skinned mesh with a joint armature        |
+|  [05]   | `SceneBuilder.AddCamera(CameraBuilder, NodeBuilder)`                       | instance | camera at a node or look-at framing       |
+|  [06]   | `SceneBuilder.AddLight(LightBuilder, NodeBuilder)`                         | instance | punctual light at a node or transform     |
+|  [07]   | `SceneBuilder.ToGltf2(SceneBuilderSchema2Settings?) -> ModelRoot`          | instance | converts this builder to a `ModelRoot`    |
+|  [08]   | `SceneBuilder.ToGltf2(IEnumerable<SceneBuilder>, settings)`                | static   | converts multiple scenes to a `ModelRoot` |
+|  [09]   | `SceneBuilder.AddScene(SceneBuilder, Matrix4x4)`                           | instance | merges another scene with an offset       |
+|  [10]   | `SceneBuilder.ApplyBasisTransform(Matrix4x4, string)`                      | instance | transforms all instances in this scene    |
+|  [11]   | `SceneBuilder.FindArmatures()`                                             | instance | unique armature roots                     |
 
 [ENTRYPOINT_SCOPE]: MeshBuilder and PrimitiveBuilder — primitive assembly
 
@@ -334,6 +352,7 @@
 |  [04]   | `PrimitiveBuilder.AddQuadrangle(v0, v1, v2, v3)`                    | instance | adds a quad, auto-split to two triangles   |
 |  [05]   | `PrimitiveBuilder.AddLine(v0, v1)`                                  | instance | adds a line segment                        |
 |  [06]   | `PrimitiveBuilder.AddPoint(v0)`                                     | instance | adds a point                               |
+|  [07]   | `PrimitiveBuilder.UseVertex(ref VertexBuilder<vG,vM,vS>)`           | instance | adds or reuses a vertex, returns its index |
 
 [ENTRYPOINT_SCOPE]: MaterialBuilder — shader and channel configuration
 - fluent: every surface returns `MaterialBuilder`, chaining shader selection, channel mutation, and fallback
@@ -430,13 +449,13 @@
 
 [TOPOLOGY]:
 - I/O folds through `ModelRoot`: read enters `Load` (file), `ParseGLB` (bytes), or `ReadGLB` (stream); write enters `Save` (format by extension) or `WriteGLB` (bytes); `ReadSettings.Validation` and `WriteSettings.Validation` thread `ValidationMode` at both ends, and a custom URI resolver rides a `ReadContext` file-reader delegate set before `ReadSchema2`.
-- Toolkit build folds `VertexBuilder<TvG,TvM,TvS>` (geometry + material + skinning fragment) → `MeshBuilder` → `SceneBuilder.AddRigidMesh` → `SceneBuilder.ToGltf2()` → `ModelRoot`; `SceneBuilderSchema2Settings` drives strided buffers, buffer merge, and GPU-instancing threshold, and `MaterialBuilder` mutates channels through `UseChannel(KnownChannel)`.
+- Toolkit build folds `VertexBuilder<TvG,TvM,TvS>` (geometry + material + skinning fragment) → `MeshBuilder` → `SceneBuilder.AddRigidMesh` → `SceneBuilder.ToGltf2()` → `ModelRoot`; `SceneBuilderSchema2Settings` drives strided buffers, buffer merge, and GPU-instancing threshold, `MaterialBuilder` mutates channels through `UseChannel(KnownChannel)`, and `VertexBufferColumns.CalculateSmoothNormals`/`CalculateTangents` generate the normal and tangent columns a source mesh omits.
 - Runtime decode folds `SceneTemplate.Create(scene)` → `CreateInstance()` → `SetAnimationFrame` per tick; `SceneInstance` enumerates `DrawableInstance` (its `Template.LogicalMeshIndex` selects the mesh, `Transform` carries the `IGeometryTransform`), and `LogicalMeshes.Decode()` yields `IMeshDecoder<Material>[]` whose normals and MikkTSpace tangents generate inside the decode under the `internal` `VertexNormalsFactory`/`VertexTangentsFactory` kernels.
 - Every extension registers at `ExtensionsFactory.RegisterExtension<TParent,TExt>(name, factory)` before any read or write that touches it, the `Func<TParent, JsonSerializable>` argument supplying the instance; the name-only overload carries `[Obsolete]` naming this one, and the package's own in-box registrations all take the factory. KHR, MSFT, and EXT material, texture, and scene extensions ship registered, and a custom extension implements `JsonSerializable` and registers on the same factory.
 - Core carries the extension framework but zero geometry codec: no type matches `KHR_draco_mesh_compression` or `EXT_meshopt_compression` in the assembly, so `RuntimeOptions.IsolateMemory`/`GpuMeshInstancing`/`ExtrasConverterCallback` is the single decode-policy carrier and encode routes to a sibling codec.
 
 [STACKING]:
-- `Openize.Drako`(`.api/api-openize-drako.md`) and `Alimer.Bindings.MeshOptimizer`(`.api/api-alimer-meshoptimizer.md`): the `ModelRoot` is authored uncompressed, then one export-codec dispatch row selects the Draco (`KHR_draco_mesh_compression`) or meshopt (`EXT_meshopt_compression`) encode leg, which rewrites the buffer-view payload — SharpGLTF owns the schema, the sibling owns the codec, both Compute-side outside Rhino.
+- `Openize.Drako`(`.api/api-openize-drako.md`) and `Alimer.Bindings.MeshOptimizer`(`libs/csharp/.api/api-alimer-meshoptimizer.md`): the `ModelRoot` is authored uncompressed, then one export-codec dispatch row selects the Draco (`KHR_draco_mesh_compression`) or meshopt (`EXT_meshopt_compression`) encode leg, which rewrites the buffer-view payload — SharpGLTF owns the schema, the sibling owns the codec, both Compute-side outside Rhino.
 - `SharpGLTF.Ext.3DTiles`(`.api/api-sharpgltf-3dtiles.md`): per-tile `EXT_structural_metadata`/`EXT_mesh_features` overlays register on the shared `ExtensionsFactory` and mutate the same `ModelRoot`/`MeshPrimitive`/`Node` this surface authors.
 - `ProjNET`(`.api/api-projnet.md`): a decoded vertex span (`MeshDecoder.Decode` → `IMeshPrimitiveDecoder`) feeds the `Semantics/georeference` `MathTransform` batch reproject before frame normalization — the decode's `IGeometryTransform` arg and the ProjNET `Span<double>` batch are two stages of one ingest rail.
 - `System.IO.Hashing`(`libs/csharp/.api/api-hashing.md`): a `ModelRoot.WriteGLB(WriteSettings) -> ArraySegment<byte>` segment feeds `XxHash3`/`XxHash128` through `Append` zero-copy — `XxHash3` the fast export-snapshot fingerprint, `XxHash128` the persisted GLB content key the `Rasm.Persistence` artifact index is addressed by, joining the same content-identity rail the IFC/CityJSON/FBX siblings hold.

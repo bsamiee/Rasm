@@ -71,6 +71,7 @@
 
 [MemberPath]: `MemberPath(MemberPathSegment[])` `Append(MemberPathSegment)` `Append(MemberPath)` `Segments`
 [MemberPathSegment]: `Property(string)` `Field(string)` `Index(int)` `Key(object)` `Added()` `Removed()` `Kind` `Value`
+[MemberPathSegmentKind]: consumers read the added/removed sentinels off `MemberPathSegment.Added().Kind`/`Removed().Kind` rather than transcribing enum case spellings — the factory-projected value survives a case rename where a transcription silently diverges.
 [Inequality]: `Path` `Left` `Right`
 
 - `Inequality.ToString()`: renders `{Path}: {Left} → {Right}`.

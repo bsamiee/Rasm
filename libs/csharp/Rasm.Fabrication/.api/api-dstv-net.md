@@ -20,7 +20,9 @@
 |  [01]   | `IDstvReader` | reader contract    | `ParseAsync(string)` / `ParseAsync(TextReader)` → `Task<IDstv>`                     |
 |  [02]   | `IDstv`       | document contract  | parsed program: `Header` (`IDstvHeader?`) + `Elements` (`IEnumerable<DstvElement>`) |
 |  [03]   | `IDstvHeader` | header contract    | the steel-piece `ST`-block descriptor                                               |
-|  [04]   | `ISplitter`   | tokenizer contract | `string[] Split(string)` — a DSTV line-field splitting strategy                     |
+|  [04]   | `ISplitter`   | tokenizer shape    | `string[] Split(string)` — the shape the internal line tokenizers hold              |
+
+- `ISplitter` is a describing shape, NOT a seam: `ParseAsync` takes no splitter, constructs its own `ReaderContext`, and every implementation is `internal` with an `internal static readonly ISplitter Instance`, while `ReaderContext`'s own constructor and `Source` are `internal` too — so the tokenizer pipeline is fixed and unreachable from a consumer.
 
 [PUBLIC_TYPE_SCOPE]: located-element record tree — `DSTV.Net.Data`
 
@@ -124,4 +126,4 @@ Every `CodeProfile` member carries a `[Description]` label; the enum value is th
 - Package: `DSTV.Net`
 - Owns: DSTV / NC1 (Tekla / NC) steel-profile cut-program PARSING — the `ST` header descriptor and the hole/slot/cut/bend/numeration/contour feature record tree
 - Accept: `DstvReader.ParseAsync` over `string`/`TextReader`; the immutable `IDstv`/`DstvElement` tree; the typed `ParseException` (`LineNumber`) rail folded into `Fin`/`FabricationFault`; the `Clipper2` polygon-algebra and `XxHash128` content-identity seams
-- Reject: DSTV.Net as a writer (emission is the posting owner's `PostDialect`); `ToSvg()` as a drafting rail; exception escape past the boundary; threading DSTV record types past the ingress boundary-map
+- Reject: DSTV.Net as a writer (emission is the posting owner's `PostDialect`); `ToSvg()` as a drafting rail; exception escape past the boundary; threading DSTV record types past the ingress boundary-map; a dialect-tolerance design supplying an `ISplitter` — the tokenizer pipeline is fixed, so a vendor line-format variance normalizes BEFORE `ParseAsync` or fails as a typed `ParseException`

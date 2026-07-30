@@ -25,12 +25,13 @@
 |  [06]   | `Client#complete`                                                   | method        | argument auto-completion               |
 |  [07]   | `Client#getServerCapabilities / getServerVersion / getInstructions` | method        | post-init server facts                 |
 |  [08]   | `Client#setRequestHandler`                                          | method        | client-side elicitation/sampling/roots |
-|  [09]   | `Client#experimental.tasks`                                         | property      | streaming/task tool execution          |
-|  [10]   | `getSupportedElicitationModes`                                      | function      | capability-derived elicitation modes   |
+|  [09]   | `Client#setNotificationHandler / removeNotificationHandler`         | method        | one handler PER METHOD; second replaces |
+|  [10]   | `Client#experimental.tasks`                                         | property      | streaming/task tool execution          |
+|  [11]   | `getSupportedElicitationModes`                                      | function      | capability-derived elicitation modes   |
 
 - `Client.callTool`: auto-validates `structuredContent` against the tool `outputSchema` through the configured `jsonSchemaValidator`.
 
-[CLIENT_LIFECYCLE]: `Client(Implementation,ClientOptions?)` `Client.connect(Transport,RequestOptions?) -> Promise<void>` `Client.registerCapabilities(ClientCapabilities) -> void` `Client.getServerCapabilities() -> ServerCapabilities|undefined` `Client.getServerVersion() -> Implementation|undefined` `Client.getInstructions() -> string|undefined` `Client.ping(unknown?) -> Promise<Result>`
+[CLIENT_LIFECYCLE]: `Client(Implementation,ClientOptions?)` `Client.connect(Transport,RequestOptions?) -> Promise<void>` `Client.registerCapabilities(ClientCapabilities) -> void` (BEFORE `connect` — a capability registered after connect never reaches the initialize handshake) `Client.getServerCapabilities() -> ServerCapabilities|undefined` `Client.getServerVersion() -> Implementation|undefined` `Client.getInstructions() -> string|undefined` `Client.ping(unknown?) -> Promise<Result>`
 [CLIENT_CALLS]: `Client.listTools(ListToolsRequest["params"]?,RequestOptions?) -> Promise<ListToolsResult>` `Client.callTool(CallToolRequest["params"],typeof CallToolResultSchema?,RequestOptions?) -> Promise<CallToolResult>` `Client.listPrompts(unknown?,unknown?) -> Promise<ListPromptsResult>` `Client.getPrompt(GetPromptRequest["params"],unknown?) -> Promise<GetPromptResult>` `Client.complete(CompleteRequest["params"],unknown?) -> Promise<CompleteResult>`
 [CLIENT_RESOURCES]: `Client.listResources(unknown?,unknown?) -> Promise<ListResourcesResult>` `Client.listResourceTemplates(unknown?,unknown?) -> Promise<ListResourceTemplatesResult>` `Client.readResource(ReadResourceRequest["params"],unknown?) -> Promise<ReadResourceResult>` `Client.subscribeResource(unknown,unknown?) -> Promise<Result>` `Client.unsubscribeResource(unknown,unknown?) -> Promise<Result>`
 [CLIENT_CONTROL]: `Client.setLoggingLevel(LoggingLevel,unknown?) -> Promise<Result>` `Client.sendRootsListChanged() -> Promise<void>` `Client.experimental: {tasks:ExperimentalClientTasks<RequestT,NotificationT,ResultT>}`

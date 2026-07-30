@@ -81,7 +81,7 @@ Tessellation rows consume a `geom.settings` knob bag and a `geom.GEOMETRY_LIBRAR
 
 [ENTRYPOINT_SCOPE]: authoring usecase dispatch
 
-`ifcopenshell.api.<module>.<action>(ifc_file, should_run_listeners=True, **settings)` is the high-level authoring surface: `ifc_file` is the target `ifcopenshell.file` and `**settings` carry the action's typed arguments over a closed `module.action` usecase vocabulary. `api.extract_docs(module, usecase)` introspects a usecase's argument contract, and `add_pre_listener`/`add_post_listener`/`remove_pre_listener`/`remove_post_listener`/`remove_all_listeners` register mutation hooks. Each usecase takes `ifc_file` first-positional then its named arguments.
+`ifcopenshell.api.<module>.<action>(ifc_file, should_run_listeners=True, **settings)` is the high-level authoring surface: `ifc_file` is the target `ifcopenshell.file` and `**settings` carry the action's typed arguments over a closed `module.action` usecase vocabulary. `api.extract_docs(module, usecase)` reads a legacy `Usecase.__init__`/`Usecase.execute` pair most 0.8 usecase modules no longer define — the live argument contract is `inspect.signature` over the wrapped callable, whose `__signature__` the `wrap_usecases` listener shim assigns from the unwrapped usecase — and `add_pre_listener`/`add_post_listener`/`remove_pre_listener`/`remove_post_listener`/`remove_all_listeners` register mutation hooks. Each usecase takes `ifc_file` first-positional then its named arguments. `geometry.add_representation` is the Blender-coupled dispatcher (`bpy.types.Object` operands behind a `try/except ImportError` guard) and never binds host-free; `owner.update_owner_history(file, element)` keys its operand `element`, never `owner_history`.
 
 | [INDEX] | [USECASE]                                                                                        | [CAPABILITY]                          |
 | :-----: | :----------------------------------------------------------------------------------------------- | :------------------------------------ |
@@ -89,7 +89,9 @@ Tessellation rows consume a `geom.settings` knob bag and a `geom.GEOMETRY_LIBRAR
 |  [02]   | `root.remove_product(file, product)`                                                             | remove a product and its dependents   |
 |  [03]   | `root.copy_class(file, product)`                                                                 | duplicate an entity in its class      |
 |  [04]   | `attribute.edit_attributes(file, product, attributes)`                                           | set direct attribute values           |
-|  [05]   | `geometry.add_representation(file, context, …)`                                                  | attach a shape representation         |
+|  [05]   | `geometry.add_mesh_representation(file, context, vertices, edges=None, faces=None, …)`           | attach a mesh shape representation    |
+|  [05b]  | `geometry.add_profile_representation(file, context, profile, depth=1.0, cardinal_point=5, …)`    | attach an extruded-profile shape      |
+|  [05c]  | `geometry.assign_representation(file, product, representation) -> None`                          | bind a representation to a product    |
 |  [06]   | `geometry.edit_object_placement(file, product, matrix)`                                          | set a product's object placement      |
 |  [07]   | `context.add_context(file, context_type, …)`                                                     | add a representation context          |
 |  [08]   | `unit.add_si_unit(file, unit_type, prefix=None)`                                                 | add an SI unit to the project         |
@@ -103,7 +105,7 @@ Tessellation rows consume a `geom.settings` knob bag and a `geom.GEOMETRY_LIBRAR
 
 [ENTRYPOINT_SCOPE]: `util` analysis namespace
 
-`ifcopenshell.util` is the read-side analysis namespace over a `file`/`entity_instance`; each submodule owns one query concern and returns `entity_instance` values, dicts, or numpy matrices, never a parallel model.
+`ifcopenshell.util` is the read-side analysis namespace over a `file`/`entity_instance`; each submodule owns one query concern and returns `entity_instance` values, dicts, or numpy matrices, never a parallel model. `util.geolocation` is the one exception that also writes nothing yet spans both directions of one transform, and it is listed separately below because its entries pair an `auto_*` model-resolved leg with a manual parameter-taking twin.
 
 | [INDEX] | [SURFACE]                            | [CALL_SHAPE]              | [CAPABILITY]                           |
 | :-----: | :----------------------------------- | :------------------------ | :------------------------------------- |
@@ -118,12 +120,32 @@ Tessellation rows consume a `geom.settings` knob bag and a `geom.GEOMETRY_LIBRAR
 |  [09]   | `util.unit.get_project_unit`         | model plus unit type      | the assigned project unit for a type   |
 |  [10]   | `util.shape.get_vertices`            | geometry shape            | shape vertices as a numpy array        |
 
+[ENTRYPOINT_SCOPE]: `util.geolocation` map-conversion namespace
+
+The georeference band is pure Python over `IfcMapConversion`/`IfcMapConversionScaled`/`IfcRigidOperation` and the IFC2X3 `ePSet_MapConversion` fallback, so it reads without the native wrapper. `get_helmert_transformation_parameters` is the ONE extraction entry and returns a `HelmertTransformation` `NamedTuple` — `(e, n, h, xaa, xao, scale, factor_x, factor_y, factor_z)` — or `None` where no coordinate operation exists; every `auto_*` entry resolves it internally and returns its input unchanged on `None`, so absence is the identity transform rather than a raise. The manual `xyz2enh`/`enh2xyz`/`local2global`/`global2local` entries take those nine parameters as keyword-defaulted floats, which is exactly the `*parameters` splat the `auto_*` legs perform.
+
+| [INDEX] | [SURFACE]                                                                        | [CALL_SHAPE]              | [CAPABILITY]                                      |
+| :-----: | :------------------------------------------------------------------------------- | :------------------------ | :------------------------------------------------ |
+|  [01]   | `util.geolocation.get_helmert_transformation_parameters(ifc_file)`               | model                     | `HelmertTransformation \| None` map-conversion set |
+|  [02]   | `util.geolocation.get_crs(ifc_file)`                                             | model                     | `IfcProjectedCRS` attribute dict                   |
+|  [03]   | `util.geolocation.get_wcs(ifc_file)`                                             | model                     | world coordinate system as a 4x4, or `None`        |
+|  [04]   | `util.geolocation.auto_xyz2enh(ifc_file, x, y, z, should_return_in_map_units)`   | model plus local xyz      | local to easting/northing/height                   |
+|  [05]   | `util.geolocation.auto_enh2xyz(ifc_file, e, n, h, is_specified_in_map_units)`    | model plus map coords     | map to local xyz                                   |
+|  [06]   | `util.geolocation.auto_local2global(ifc_file, matrix, should_return_in_map_units)` | model plus 4x4          | local placement matrix to map frame                |
+|  [07]   | `util.geolocation.auto_global2local(ifc_file, matrix, is_specified_in_map_units)` | model plus 4x4           | map matrix to local frame                          |
+|  [08]   | `util.geolocation.auto_z2e(ifc_file, z, should_return_in_map_units)`             | model plus z              | Z coordinate to elevation                          |
+|  [09]   | `util.geolocation.get_grid_north(ifc_file)` / `get_true_north(ifc_file)`         | model                     | grid and true north angles in degrees              |
+|  [10]   | `util.geolocation.xaxis2angle(x, y)` / `angle2xaxis(angle)`                      | abscissa/ordinate pair    | X-axis direction to angle and back                 |
+|  [11]   | `util.geolocation.yaxis2angle(x, y)` / `angle2yaxis(angle)`                      | abscissa/ordinate pair    | Y-axis direction to angle and back                 |
+|  [12]   | `util.geolocation.dms2dd(degrees, minutes, seconds, us)` / `dd2dms(dd, use_us)`  | angle scalars             | sexagesimal and decimal degrees round-trip         |
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - import: boundary scope only; module-level import is banned by the manifest import policy.
 - model axis: `ifcopenshell.open` is the polymorphic intake — the backend (`file`/`sqlite`/`stream`) discriminates on `format`/`should_stream`, never a per-backend open function. Query routes through `by_id`/`by_guid`/`by_type` on one `file`, never per-key getter families.
 - mutation axis: edits batch under `begin_transaction`/`end_transaction()` (no `commit=` arg), with `undo`/`redo`/`discard_transaction` stepping the stack. High-level authoring is the direct `ifcopenshell.api.<module>.<action>(ifc_file, **settings)` callable over the closed usecase vocabulary; the per-usecase relating keyword differs per row, so a single generic relating keyword is the deleted form. `file.create_entity`/`add`/`remove` are the primitive verbs underneath.
+- georeference axis: `get_helmert_transformation_parameters` is the single extraction seam every conversion reads, so an `IfcMapConversion`, an `IfcMapConversionScaled` with its three scale factors, an `IfcRigidOperation`, and the IFC2X3 `ePSet_MapConversion` all resolve to ONE nine-field `HelmertTransformation` and no consumer branches on schema or coordinate-operation subtype. A `None` return means the model carries no georeference, and every `auto_*` entry answers its input unchanged rather than raising, so the ungeoreferenced case is the identity transform. `should_return_in_map_units`/`is_specified_in_map_units` select whether the scale factor is applied on the way out, so a project-unit and a map-unit consumer share one entry — a caller re-dividing by `scale` outside is the deleted form.
 - tessellation axis: one `geom.settings` knob bag (deflection, `iterator-output`, `use-world-coords`, `generate-uvs`, `length-unit`) and a `geometry_library` kernel feed `geom.iterate`/`create_shape`; `geom.has_occ` flags OpenCASCADE and falls back to CGAL. `TriangulationElement` verts/faces/materials feed the mesh/GLB seam, never the `BRepElement`.
 - analysis axis: `util.element` resolves property sets, containment, and decomposition; `util.selector.filter_elements` runs the selector grammar; results stay `entity_instance` values.
 - evidence: each model op captures schema version, instance count, and edited-entity count; each tessellation captures element/vertex/face counts and kernel as an ifc receipt.

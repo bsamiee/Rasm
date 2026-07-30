@@ -46,7 +46,7 @@
 [DISTINCTIVE_SURFACE] by row:
 - [01]-[MVTLAYER]: `data: TileJson | URLTemplate`; `binary` (default true), `uniqueIdProperty`, `highlightedFeatureId`, `loaders`; all `GeoJsonLayer` accessors; `getRenderedFeatures(maxFeatures?): Feature[]`, `MVTLayerPickingInfo` specializes `TileLayerPickingInfo` (the `tile` node) for the parsed `Feature`.
 - [02]-[TERRAINLAYER]: `elevationData: URLTemplate`, `texture?`, `elevationDecoder: {rScaler,gScaler,bScaler,offset}`, `meshMaxError` (Martini tolerance), `bounds`, `color`, `wireframe`, `material`.
-- [03]-[TILE3DLAYER]: `data: string` (tileset.json), `getPointColor`, `pointSize`, `onTilesetLoad(Tileset3D)`, `onTileLoad(Tile3D)`, `onTileUnload`, `onTileError`, `_getMeshColor`, `loaders`.
+- [03]-[TILE3DLAYER]: `data: string` (tileset.json href, REQUIRED and narrowed to `string`), `getPointColor`, `pointSize`, `onTilesetLoad(Tileset3D)`, `onTileLoad(Tile3D)`, `onTileUnload`, `onTileError`, `_getMeshColor`, `loaders` (the singular `loader` prop ships `@deprecated`).
 
 ## [04]-[CELL_FAMILY_AND_MOTION]
 

@@ -59,7 +59,7 @@
 
 [STACKING]:
 - `interchange/carrier` (`core/.planning/interchange/carrier.md`): `Carrier.inject('mqtt', context, frame)` prints the folded tracing value onto the `userProperties` record `publishAsync` ships, and `Carrier.extract('mqtt', frame)` reads it off the delivered packet's property block — this package realizes the carrier's `mqtt` dialect row.
-- `cloudevents` (`core/.api/cloudevents.md`): `cloudevents` ships the `MQTT.binary`/`MQTT.toEvent` ENVELOPE codec, this ships the live client the envelope rides — a CloudEvents-over-MQTT lane serializes through the `cloudevents` binding then `publishAsync`es the frame, so the binding never opens a connection and the client never mints an envelope.
+- `cloudevents` (`libs/typescript/.api/cloudevents.md`): `cloudevents` ships the `MQTT.binary`/`MQTT.toEvent` ENVELOPE codec, this ships the live client the envelope rides — a CloudEvents-over-MQTT lane serializes through the `cloudevents` binding then `publishAsync`es the frame, so the binding never opens a connection and the client never mints an envelope.
 - `effect` `Stream` (`.api/effect.md`): `message` frames lift to a `Stream<IPublishPacket>` through `Stream.asyncScoped` registering the `on('message')` pump and tearing it down on scope close, so backpressure and interruption are owned.
 - `effect` `Schema` (`.api/effect.md`): `Schema.decodeUnknown` decodes the `string | Buffer` payload once past the seam.
 - `effect` `Match`/`Data` (`.api/effect.md`): the `MqttProtocol` scheme, `QoS` grade, and `ReasonCodes` verdict dispatch through `Match.exhaustive`, a transport scheme or reason code resolving as a table row over broker-URL strings.

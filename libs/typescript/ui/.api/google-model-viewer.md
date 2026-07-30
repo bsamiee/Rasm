@@ -73,6 +73,8 @@ Each interface is one capability facet; its config records parameterize the face
 | [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY] | [CAPABILITY]                               |
 | :-----: | :---------------------------------------------------------------- | :------------- | :----------------------------------------- |
 |  [01]   | `exportScene(options?): Promise<Blob>`                            | scene graph    | GLB round-trip export                      |
+|  [01a]  | `toBlob(options?: ToBlobOptions): Promise<Blob>`                  | scene graph    | viewport raster capture; `ToBlobOptions` is declared un-exported, so a consumer references it structurally |
+|  [01b]  | `toDataURL(type?: string, encoderOptions?: number): string`       | scene graph    | sync data-URL capture of the current frame |
 |  [02]   | readonly `.model?: Model` / `.orientation` / `.scale`             | scene graph    | model-root access + transform              |
 |  [03]   | `.availableVariants` / `.variantName`                             | scene graph    | KHR_materials_variants switch              |
 |  [04]   | `createTexture(uri, type?)` / `createCanvasTexture()`             | texture        | runtime `ModelViewerTexture` authoring     |

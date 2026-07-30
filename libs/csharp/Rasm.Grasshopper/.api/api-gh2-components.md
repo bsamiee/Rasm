@@ -25,6 +25,8 @@
 |  [06]   | `PluginServer`        | registrar         | location/assembly plugin loading and object-to-plugin resolution                 |
 |  [07]   | `IoIdAttribute`       | io identity       | the persistent type-id attribute (`GrasshopperIO`)                               |
 
+- `Component` declares `public abstract class Component : ActiveObject, IBakeAware, IGuidAware`, so an authoring subclass inherits the `ActiveObject` document-object lifecycle and satisfies the bake and persistent-identity contracts without restating either.
+
 [PUBLIC_TYPE_SCOPE]: data access and pin registration
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]                                                             |
@@ -73,7 +75,7 @@
 |  [14]   | `DoRemoveParameter(Side, int, ActionList)`                  | mutate    | remove a pin with undo             |
 |  [15]   | `VariableParameterMaintenance`                              | mutate    | reconcile the changed pin surface  |
 |  [16]   | `BakeCapable`                                               | bake      | virtual bakeability gate           |
-|  [17]   | `BakeShapes(BakeContext, BakeUpdateMode) -> string[]`       | bake      | non-virtual emit, returns bake ids |
+|  [17]   | `BakeShapes(BakeContext, BakeUpdateMode) -> string[]`       | bake      | non-virtual call, baked-id roster  |
 |  [18]   | `CreateAttributes`                                          | view      | construct object attributes        |
 
 [ENTRYPOINT_SCOPE]: document emission (`Grasshopper2.Bake`)

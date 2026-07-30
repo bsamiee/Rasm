@@ -15,26 +15,26 @@
 
 Values merge as maps and REPLACE as lists, so an explicit `null` row deletes a chart-default component the tier does not own and naming a pipeline list overwrites it whole. `presets` own the k8s-side obligations a config document cannot express — RBAC rules, host volumes, security context — and `config` extends a preset's components without deleting them.
 
-| [INDEX] | [KEY]                              | [SHAPE]                                    | [CAPABILITY]                                          |
-| :-----: | :--------------------------------- | :----------------------------------------- | :---------------------------------------------------- |
-|  [01]   | `mode`                             | `deployment` / `daemonset` / `statefulset` | workload kind; empty is a render error                |
-|  [02]   | `fullnameOverride`                 | `string`                                   | pins every rendered name past the chart-name collapse |
-|  [03]   | `nameOverride` `namespaceOverride` | `string`                                   | chart-name and namespace on the same helper chain     |
-|  [04]   | `config`                           | `[03]-[CONFIG_DOCUMENT]`                   | merged onto the chart's default config                |
-|  [05]   | `alternateConfig`                  | `[03]-[CONFIG_DOCUMENT]`                   | replaces `config` whole, no merge; subchart use       |
-|  [06]   | `image.*`                          | `string`                                   | distribution selection; `digest` outranks `tag`       |
-|  [07]   | `command.*`                        | `string` / `string[]`                      | binary and argv; `otelcol` selects core               |
-|  [08]   | `presets.<preset>`                 | `{ enabled, … }`                           | components with the RBAC and volumes they earn        |
-|  [09]   | `configMap.*`                      | `boolean` / `string`                       | an external ConfigMap keys the config `relay`         |
-|  [10]   | `extraEnvs` `extraEnvsFrom`        | `EnvVar[]` / `EnvFromSource[]`             | the one credential path `${env:NAME}` reads           |
-|  [11]   | `extraVolumes` `extraVolumeMounts` | `Volume[]` / `VolumeMount[]`               | the persistent-queue PVC and its mount                |
-|  [12]   | `ports.<name>`                     | rows                                       | per-port publication; `metrics` ships off             |
-|  [13]   | `service.*`                        | `boolean` / `string`                       | daemonset mode defaults the policy `Local`            |
-|  [14]   | `resources` `useGOMEMLIMIT`        | `ResourceRequirements` / `boolean`         | the ceiling `memory_limiter` reads; GOMEMLIMIT 80%    |
-|  [15]   | `clusterRole.*`                    | `boolean` / `PolicyRule[]`                 | additive to whatever a preset created                 |
-|  [16]   | `internalTelemetryViaOTLP`         | `{ endpoint, headers, <signal> }`          | drops the default prometheus receiver                 |
-|  [17]   | `rewriteDeprecatedComponentNames`  | `boolean`                                  | rewrites retired component spellings                  |
-|  [18]   | `<scheduling>`                     | rows                                       | placement, disruption, and escape hatches             |
+| [INDEX] | [KEY]                              | [CAPABILITY]                                                                            |
+| :-----: | :--------------------------------- | :-------------------------------------------------------------------------------------- |
+|  [01]   | `mode`                             | `deployment` / `daemonset` / `statefulset` — workload kind; empty is a render error     |
+|  [02]   | `fullnameOverride`                 | `string` — pins every rendered name past the chart-name collapse                        |
+|  [03]   | `nameOverride` `namespaceOverride` | `string` — chart-name and namespace on the same helper chain                            |
+|  [04]   | `config`                           | `[03]-[CONFIG_DOCUMENT]` — merged onto the chart's default config                       |
+|  [05]   | `alternateConfig`                  | `[03]-[CONFIG_DOCUMENT]` — replaces `config` whole, no merge; subchart use              |
+|  [06]   | `image.*`                          | `string` — distribution selection; `digest` outranks `tag`                              |
+|  [07]   | `command.*`                        | `string` / `string[]` — binary and argv; `otelcol` selects core                         |
+|  [08]   | `presets.<preset>`                 | `{ enabled, … }` — components with the RBAC and volumes they earn                       |
+|  [09]   | `configMap.*`                      | `boolean` / `string` — an external ConfigMap keys the config `relay`                    |
+|  [10]   | `extraEnvs` `extraEnvsFrom`        | `EnvVar[]` / `EnvFromSource[]` — the one credential path `${env:NAME}` reads            |
+|  [11]   | `extraVolumes` `extraVolumeMounts` | `Volume[]` / `VolumeMount[]` — the persistent-queue PVC and its mount                   |
+|  [12]   | `ports.<name>`                     | per-port publication; `metrics` ships off                                               |
+|  [13]   | `service.*`                        | `boolean` / `string` — daemonset mode defaults the policy `Local`                       |
+|  [14]   | `resources` `useGOMEMLIMIT`        | `ResourceRequirements` / `boolean` — the ceiling `memory_limiter` reads; GOMEMLIMIT 80% |
+|  [15]   | `clusterRole.*`                    | `boolean` / `PolicyRule[]` — additive to whatever a preset created                      |
+|  [16]   | `internalTelemetryViaOTLP`         | `{ endpoint, headers, <signal> }` — drops the default prometheus receiver               |
+|  [17]   | `rewriteDeprecatedComponentNames`  | `boolean` — rewrites retired component spellings                                        |
+|  [18]   | `<scheduling>`                     | placement, disruption, and escape hatches                                               |
 
 [image]: `repository` `tag` `digest` `pullPolicy` — beside `imagePullSecrets`; the contrib repository is the standing value
 [command]: `name` `extraArgs`

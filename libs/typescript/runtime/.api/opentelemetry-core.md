@@ -57,12 +57,15 @@ Every exporter and SDK processor reports terminal disposition through `ExportRes
 
 [ENTRYPOINT_SCOPE]: `Context`-key operators
 
-Two immutable `Context`-key families, each a `(Context) -> Context` writer with a matching reader: `suppressTracing` fences an exporter's own HTTP calls out of trace, `setRPCMetadata` carries active HTTP-route data for span naming.
+Two immutable `Context`-key families, each a `(Context) -> Context` writer with a matching reader: `suppressTracing` marks a region whose spans must not record, `setRPCMetadata` carries active HTTP-route data for span naming. The suppression pair is a two-party contract — a caller marks the region, and the SDK `Tracer.startSpan` is the sole honoring site, returning a non-recording span for any tracer under a marked context.
 
-| [INDEX] | [SURFACE]                                                       | [SHAPE]     | [CAPABILITY]                               |
-| :-----: | :-------------------------------------------------------------- | :---------- | :----------------------------------------- |
-|  [01]   | `suppressTracing` / `unsuppressTracing` / `isTracingSuppressed` | context key | fence exporter self-spans out of trace     |
-|  [02]   | `setRPCMetadata` / `deleteRPCMetadata` / `getRPCMetadata`       | context key | active HTTP-route metadata for span naming |
+| [INDEX] | [SURFACE]                                                       | [SHAPE]     | [CAPABILITY]                                    |
+| :-----: | :-------------------------------------------------------------- | :---------- | :---------------------------------------------- |
+|  [01]   | `suppressTracing` / `unsuppressTracing`                         | context key | mark a region whose tracer must not record      |
+|  [02]   | `isTracingSuppressed`                                           | context key | the reader `Tracer.startSpan` alone consults    |
+|  [03]   | `setRPCMetadata` / `deleteRPCMetadata` / `getRPCMetadata`       | context key | active HTTP-route metadata for span naming      |
+
+- Callers of the writer at this pin are `BatchSpanProcessorBase`, `BatchLogRecordProcessorBase`, `internal._export`, `instrumentation-http`, and the aws/container/gcp resource detectors — each fencing its OWN outbound HTTP. Readers of the flag are `Tracer.startSpan` and core's own `W3CTraceContextPropagator.inject`/`W3CBaggagePropagator.inject`, which skip injection under a marked context; no `@opentelemetry/instrumentation-*` package reads it, and none needs to.
 
 [ENTRYPOINT_SCOPE]: typed `OTEL_*` env readers
 
@@ -107,7 +110,7 @@ Timestamp conversion folds one `api.HrTime` `[seconds, nanos]` tuple: a new time
 
 [STACKING]:
 - `@effect/opentelemetry`(`.api/effect-opentelemetry.md`): `otel/emit` calls `parseTraceParent(header) -> SpanContext`, lifts `tracestate` via `new TraceState(raw)`, and hands both to `Tracer.makeExternalSpan({ traceId, spanId, traceFlags, traceState })` / `Tracer.withSpanContext` — core supplies the codec, the facade owns the Effect parent-span continuation, and `parseTraceParent` is the one admitted `traceparent` decoder.
-- `opentelemetry-exporter-trace-otlp-http`(`.api/opentelemetry-exporter-trace-otlp-http.md`): the OTLP exporters and every SDK processor report through core's `ExportResult`/`ExportResultCode`, call `suppressTracing` on their outbound HTTP `Context` so egress is never self-traced, and adapt callback exporters through `internal._export`.
+- `opentelemetry-exporter-trace-otlp-http`(`.api/opentelemetry-exporter-trace-otlp-http.md`): the OTLP exporters and every SDK processor report through core's `ExportResult`/`ExportResultCode`. No exporter calls `suppressTracing` — the SDK PROCESSORS and READERS do, one layer above: `BatchSpanProcessorBase` and `BatchLogRecordProcessorBase` wrap their `exporter.export` call in `context.with(suppressTracing(context.active()))`, and `PeriodicExportingMetricReader` reaches the same wrap through `internal._export`, which is what that adapter is for beyond the callback-to-promise lift. Suppression is honored at the SDK `Tracer.startSpan`, which reads `isTracingSuppressed` and answers a non-recording span, so an instrumentation package need not reference the flag to be governed by it — none does. The fence therefore covers exactly the three OTLP legs and nothing that pushes outside a processor or reader: a vendor profiler's own HTTP, a second telemetry backend, and any non-SDK egress stay traced and need a caller-side exclusion.
 - `@effect/platform`(`.api/effect-platform.md`): core carries no HTTP client, so the SDK exporters bring their own `http`/`XMLHttpRequest` transport and the SDK-bridge lane does not inherit the `net/client` retry/proxy policy the native `Otlp` lane gets.
 - `opentelemetry-resources`(`.api/opentelemetry-resources.md`): `SDK_INFO` seeds the `telemetry.sdk.*` attributes `defaultResource()` merges onto the `AppIdentity`-derived base, and the typed env readers back `OTEL_RESOURCE_ATTRIBUTES` ingestion on the same resource.
 - `otel/emit` (within-lib): the export-boundary owner composes core's codecs at every ingress for extract-and-continue and surfaces core's `ExportResult` rail on the SDK-bridge lane.
@@ -119,6 +122,6 @@ Timestamp conversion folds one `api.HrTime` `[seconds, nanos]` tuple: a new time
 
 [RAIL_LAW]:
 - Package: `@opentelemetry/core`
-- Owns: the W3C `TextMapPropagator` codecs, the `ExportResult`/`ExportResultCode` export rail, the `suppressTracing`/`RPCMetadata` context-key operators, the typed `OTEL_*` env readers, and the `HrTime` conversion algebra with the shared attribute/error/util primitives every SDK peer reuses
+- Owns: the W3C `TextMapPropagator` codecs, the `ExportResult`/`ExportResultCode` export rail, the `suppressTracing`/`RPCMetadata` context-key operators (marked here, honored at the SDK tracer), the typed `OTEL_*` env readers, and the `HrTime` conversion algebra with the shared attribute/error/util primitives every SDK peer reuses
 - Accept: `parseTraceParent` + `TraceState` feeding `makeExternalSpan`/`withSpanContext` on `otel/emit`; `CompositePropagator` as the one folded propagator; `ExportResult` as the terminal export disposition; typed env readers over raw `process.env`; core composed only on the SDK-bridge/context path
 - Reject: `@opentelemetry/*` outside `scope:runtime`, hand-rolled `traceparent`/`tracestate` parsing, core codecs where the native `Otlp` lane already owns the seam, transcribing core's internal `semconv` constants, treating the `platform/*` split as a fork

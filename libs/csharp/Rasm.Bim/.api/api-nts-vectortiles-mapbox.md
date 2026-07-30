@@ -30,7 +30,8 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: pyramid and tile encode (`MapboxTileWriter` extensions)
-- Write carry: the pyramid overloads take a directory `path`, the single-tile overload a `Stream`, all with `(uint minLinealExtent, uint minPolygonalExtent, uint extent = 4096, string idAttributeName = "id")` — `extent` is the tile-local integer grid, the two extents cull sub-pixel features.
+- Write carry: the pyramid overloads take a directory `path`, the single-tile overload a `Stream`, all with `(uint minLinealExtent, uint minPolygonalExtent, uint extent = 4096, string idAttributeName = "id")` — `extent` is the tile-local integer grid, the two extents cull sub-pixel features. Each receiver also carries a SHORT overload with no extent culls — `Write(this VectorTileTree, string path, uint extent = 4096u)`, `Write(this IEnumerable<VectorTile>, string path, uint extent = 4096u)`, `Write(this VectorTile, Stream, uint extent = 4096u, string idAttributeName = "id")`.
+- Named defaults: `MapboxTileWriter.DefaultMinLinealExtent = 1u`, `.DefaultMinPolygonalExtent = 2u`, `.DefaultIdAttributeName = "id"` — a consumer binds these constants, never the literals, so the culling thresholds track the codec's own values.
 
 | [INDEX] | [SURFACE]                       | [SHAPE]   | [CAPABILITY]                                     |
 | :-----: | :------------------------------ | :-------- | :----------------------------------------------- |
@@ -55,7 +56,7 @@
 - `MapboxTileWriter` lays the pyramid as `{path}/{Zoom}/{X}/{Y}.mvt`, creating the `{Zoom}` and `{X}` directories — the standard XYZ layout a `{z}/{x}/{y}` URL template fetches.
 
 [STACKING]:
-- `NetTopologySuite.IO.VectorTiles`(`.api/api-nts-vectortiles`): the sibling builds the `VectorTileTree` (`tree.Add(features, router)`) this codec writes (`tree.Write(path, 1, 2, 4096)`) — the sibling owns the object model and tile algebra, this package owns the bytes; `tree.GetExtents(out bounds, out minZoom, out maxZoom)` supplies the `VectorTileSource` TileJSON, the pyramid with its catalog in one emit.
+- `NetTopologySuite.IO.VectorTiles`(`.api/api-nts-vectortiles`): the sibling builds the `VectorTileTree` (`tree.Add(features, router)`) this codec writes (`tree.Write(path, MapboxTileWriter.DefaultMinLinealExtent, MapboxTileWriter.DefaultMinPolygonalExtent, 4096)`) — the sibling owns the object model and tile algebra, this package owns the bytes; `tree.GetExtents(out bounds, out minZoom, out maxZoom)` supplies the `VectorTileSource` TileJSON, the pyramid with its catalog in one emit.
 - `protobuf-net`: `Serializer.Deserialize<Tile>`/`Serialize` drives the wire round-trip over the generated `Tile` DTOs.
 - geospatial seam: the `Semantics/geospatial#GEOSPATIAL_SEAM` `GeoFeature` `IFeature` rows the site model produces feed the tree, and the `GeoModel` `STRtree` holds the same rows the tree slices.
 - coordinate-frame law: geometry MUST be EPSG:4326 before tiling — the `Semantics/georeference#GEODETIC_TRANSFORM` `ProjNET`/OSR leg reprojects `GeoFeature` geometry BEFORE `tree.Add`, never inside the codec.

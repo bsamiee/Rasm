@@ -43,13 +43,14 @@ Build from points, a DXF, or a Rhino `.3dm`, register interior voids through the
 
 | [INDEX] | [SURFACE]                                                               | [SHAPE]  | [CAPABILITY]                              |
 | :-----: | :---------------------------------------------------------------------- | :------- | :---------------------------------------- |
-|  [01]   | `Geometry.from_points(points, facets, control_points, holes, material)` | factory  | polygon region from point/facet rings     |
+|  [01]   | `Geometry.from_points(points, facets, control_points, holes, material)` | factory  | ONE region; raises without exactly one control point |
+|  [01b]  | `CompoundGeometry.from_points(points, facets, control_points, holes=None, materials=None)` | factory  | multi-region owner — one control point per region |
 |  [02]   | `Geometry.from_dxf(dxf_filepath) -> Geometry \| CompoundGeometry`       | factory  | import a DXF profile into a geometry body |
 |  [03]   | `Geometry.from_3dm(filepath)`                                           | factory  | Rhino `.3dm` profile import               |
 |  [04]   | `CompoundGeometry(geoms)`                                               | ctor     | assemble built-up section from regions    |
 |  [05]   | `geometry - hole` (`__sub__`)                                           | operator | subtract a polygon for an interior void   |
 |  [06]   | `geometry.offset_perimeter(amount, where)`                              | instance | inset/outset the perimeter for thickness  |
-|  [07]   | `geometry.create_mesh(mesh_sizes) -> Geometry`                          | instance | triangulate region(s) at a max-area bound |
+|  [07]   | `geometry.create_mesh(mesh_sizes, min_angle=30.0, coarse=False)`        | instance | triangulate; `CompoundGeometry` takes a per-region size list |
 
 [ENTRYPOINT_SCOPE]: property and stress calculation (`analysis.Section`)
 

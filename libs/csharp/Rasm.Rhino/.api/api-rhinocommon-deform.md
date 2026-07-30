@@ -1,6 +1,6 @@
 # [RASM_RHINO_API_RHINOCOMMON_DEFORM]
 
-This catalog owns the host-fidelity nonlinear deformation and flattening boundary: the `SpaceMorph` engine, its `Rhino.Geometry.Morphs` implementations, the `MorphControl` deformer, and the `Unroller`/`Squisher`/`MeshUnwrapper` flatteners. A morph deforms any `GeometryBase` in place along a type-agnostic point map; the flatteners are disposable native resources. Every engine P/Invokes `rhcommon_c` and returns geometry bit-compatible with Rhino's commands; the boundary never re-derives kernel-altitude DEC UV-flattening or linear motion.
+This catalog owns the host-fidelity nonlinear deformation and flattening boundary: the `SpaceMorph` engine, its `Rhino.Geometry.Morphs` implementations, the `MorphControl` deformer, and the `Unroller`/`Squisher`/`MeshUnwrapper` flatteners. A morph deforms any `GeometryBase` in place along a type-agnostic point map; the flatteners split on custody — `Squisher` and `MeshUnwrapper` are `IDisposable` native resources and lease, while `Unroller` is a plain managed class holding no native handle, so a `using` over it names a disposal the type does not have. Every engine P/Invokes `rhcommon_c` and returns geometry bit-compatible with Rhino's commands; the boundary never re-derives kernel-altitude DEC UV-flattening or linear motion.
 
 ## [01]-[PACKAGE_SURFACE]
 

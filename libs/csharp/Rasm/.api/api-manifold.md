@@ -64,23 +64,54 @@ Every constructor takes a leading `void* mem` sized by its `manifold_*_size()` t
 
 [EXTRACTION]:
 
-Extraction lowers a manifold into the float or double `MeshGL`; array reads copy into caller-sized buffers, and merge reads expose the topological re-weld map for an open `MeshGL`.
+Extraction lowers a manifold into the float or double `MeshGL`; array reads copy into caller-sized buffers, and merge reads expose the topological re-weld map for an open `MeshGL`. EVERY entry point is LANE-SUFFIXED: the `64` infix binds `ManifoldMeshGL64` and its absence binds `ManifoldMeshGL`, so a row copied across lanes without the infix names a symbol the shared object does not export and fails at first call rather than at compile. Kernel bindings take the double lane alone.
 
-| [INDEX] | [SURFACE]                                      | [CAPABILITY]         |
-| :-----: | :--------------------------------------------- | :------------------- |
-|  [01]   | `manifold_get_meshgl(mem, manifold)`           | float mesh lowering  |
-|  [02]   | `manifold_get_meshgl64(mem, manifold)`         | double mesh lowering |
-|  [03]   | `manifold_meshgl_num_vert(mesh)`               | vertex count         |
-|  [04]   | `manifold_meshgl_num_tri(mesh)`                | triangle count       |
-|  [05]   | `manifold_meshgl_num_prop(mesh)`               | property count       |
-|  [06]   | `manifold_meshgl_vert_properties_length(mesh)` | property-buffer size |
-|  [07]   | `manifold_meshgl_tri_length(mesh)`             | index-buffer size    |
-|  [08]   | `manifold_meshgl_vert_properties(mem, mesh)`   | vertex-property copy |
-|  [09]   | `manifold_meshgl_tri_verts(mem, mesh)`         | triangle-index copy  |
-|  [10]   | `manifold_meshgl_merge(mem, mesh)`             | topological re-weld  |
-|  [11]   | `manifold_meshgl_merge_from_vert`              | source-vertex map    |
-|  [12]   | `manifold_meshgl_merge_to_vert`                | target-vertex map    |
-|  [13]   | `manifold_meshgl_tolerance(mesh)`              | receipt tolerance    |
+| [INDEX] | [FLOAT_LANE]                                   | [DOUBLE_LANE]                                    | [CAPABILITY]         |
+| :-----: | :--------------------------------------------- | :----------------------------------------------- | :------------------- |
+|  [01]   | `manifold_get_meshgl(mem, manifold)`           | `manifold_get_meshgl64(mem, manifold)`           | mesh lowering        |
+|  [02]   | `manifold_meshgl_num_vert(mesh)`               | `manifold_meshgl64_num_vert(mesh)`               | vertex count         |
+|  [03]   | `manifold_meshgl_num_tri(mesh)`                | `manifold_meshgl64_num_tri(mesh)`                | triangle count       |
+|  [04]   | `manifold_meshgl_num_prop(mesh)`               | `manifold_meshgl64_num_prop(mesh)`               | property count       |
+|  [05]   | `manifold_meshgl_vert_properties_length(mesh)` | `manifold_meshgl64_vert_properties_length(mesh)` | property-buffer size |
+|  [06]   | `manifold_meshgl_tri_length(mesh)`             | `manifold_meshgl64_tri_length(mesh)`             | index-buffer size    |
+|  [07]   | `manifold_meshgl_merge_length(mesh)`           | `manifold_meshgl64_merge_length(mesh)`           | merge-map size       |
+|  [08]   | `manifold_meshgl_vert_properties(mem, mesh)`   | `manifold_meshgl64_vert_properties(mem, mesh)`   | vertex-property copy |
+|  [09]   | `manifold_meshgl_tri_verts(mem, mesh)`         | `manifold_meshgl64_tri_verts(mem, mesh)`         | triangle-index copy  |
+|  [10]   | `manifold_meshgl_merge(mem, mesh)`             | `manifold_meshgl64_merge(mem, mesh)`             | topological re-weld  |
+|  [11]   | `manifold_meshgl_merge_from_vert(mem, mesh)`   | `manifold_meshgl64_merge_from_vert(mem, mesh)`   | source-vertex map    |
+|  [12]   | `manifold_meshgl_merge_to_vert(mem, mesh)`     | `manifold_meshgl64_merge_to_vert(mem, mesh)`     | target-vertex map    |
+|  [13]   | `manifold_meshgl_tolerance(mesh)`              | `manifold_meshgl64_tolerance(mesh)`              | receipt tolerance    |
+
+- Sizing and allocation twins in `[02]-[MEMORY_LAW]` carry the same infix — `manifold_meshgl64_size()`/`manifold_alloc_meshgl64()`/`manifold_destruct_meshgl64()`/`manifold_delete_meshgl64()` against their unsuffixed peers — so a lane crossing is one infix across the construct, extract, and release triple rather than three independent lookups.
+- Lanes differ in element WIDTH as well as in name: the double lane reads `double` properties, `uint64_t` triangle and merge indices, and a `double` tolerance, while the float lane reads `float` properties, `uint32_t` indices, and a `float` tolerance — so a buffer sized from a `*_length` read is sized in the lane's own element type, never in bytes shared across the two.
+
+[RUN_PROVENANCE]:
+
+MeshGL carries its output triangles as RUNS — maximal contiguous index ranges sharing one original-mesh id and one instancing transform — so a boolean output attributes back to the operand that produced each face. This is the only source-identity channel across the boundary; without it a `BooleanReceipt` can report counts and volumes and nothing about provenance. Every row is lane-suffixed on the same law as `[EXTRACTION]`.
+
+| [INDEX] | [FLOAT_LANE]                                   | [DOUBLE_LANE]                                    | [CAPABILITY]           |
+| :-----: | :--------------------------------------------- | :----------------------------------------------- | :--------------------- |
+|  [01]   | `manifold_meshgl_num_run(mesh)`                | `manifold_meshgl64_num_run(mesh)`                | run count              |
+|  [02]   | `manifold_meshgl_run_index_length(mesh)`       | `manifold_meshgl64_run_index_length(mesh)`       | run-boundary size      |
+|  [03]   | `manifold_meshgl_run_index(mem, mesh)`         | `manifold_meshgl64_run_index(mem, mesh)`         | run start offsets      |
+|  [04]   | `manifold_meshgl_run_original_id_length(mesh)` | `manifold_meshgl64_run_original_id_length(mesh)` | id-buffer size         |
+|  [05]   | `manifold_meshgl_run_original_id(mem, mesh)`   | `manifold_meshgl64_run_original_id(mem, mesh)`   | per-run source id      |
+|  [06]   | `manifold_meshgl_run_transform_length(mesh)`   | `manifold_meshgl64_run_transform_length(mesh)`   | transform-buffer size  |
+|  [07]   | `manifold_meshgl_run_transform(mem, mesh)`     | `manifold_meshgl64_run_transform(mem, mesh)`     | per-run instance pose  |
+|  [08]   | `manifold_meshgl_run_flags_length(mesh)`       | `manifold_meshgl64_run_flags_length(mesh)`       | flag-buffer size       |
+|  [09]   | `manifold_meshgl_run_flags(mem, mesh)`         | `manifold_meshgl64_run_flags(mem, mesh)`         | per-run flag bytes     |
+|  [10]   | `manifold_meshgl_backside(mesh, run)`          | `manifold_meshgl64_backside(mesh, run)`          | run-orientation fact   |
+|  [11]   | `manifold_meshgl_has_normals(mesh, run)`       | `manifold_meshgl64_has_normals(mesh, run)`       | run-normal presence    |
+|  [12]   | `manifold_meshgl_face_id_length(mesh)`         | `manifold_meshgl64_face_id_length(mesh)`         | face-id-buffer size    |
+|  [13]   | `manifold_meshgl_face_id(mem, mesh)`           | `manifold_meshgl64_face_id(mem, mesh)`           | per-triangle source id |
+|  [14]   | `manifold_meshgl_tangent_length(mesh)`         | `manifold_meshgl64_tangent_length(mesh)`         | tangent-buffer size    |
+|  [15]   | `manifold_meshgl_halfedge_tangent(mem, mesh)`  | `manifold_meshgl64_halfedge_tangent(mem, mesh)`  | halfedge tangent copy  |
+
+- `num_run` reads the ORIGINAL-ID count and `run_index` is one longer, so run `i` spans the FLAT `tri_verts` window `[run_index[i], run_index[i+1])` — a triangle-index reading of those boundaries is off by the factor of three every `run_index` value is divisible by. Runs sort by original id and cover `tri_verts` whole.
+- Element widths cross the lanes UNEVENLY: `run_index` and `face_id` widen `uint32_t`→`uint64_t` and `run_transform` and `halfedge_tangent` widen `float`→`double`, while `run_original_id` stays `uint32_t` and `run_flags` stays `uint8_t` in both. Copying a lane's buffer types wholesale therefore mis-sizes exactly the two that do not move.
+- `face_id` is `num_tri` long and survives simplification as the edge-preserving boundary; absent input face ids fill from Manifold's own coplanar-face pass against the mesh tolerance.
+- `run_transform` is `12 × num_run` components — a column-major 3×4 affine per run — and `manifold_get_meshgl_w_normals`/`manifold_get_meshgl64_w_normals` are the extraction forms populating the normal property channel that `has_normals` then reports per run.
+- Provenance is EARNED on the input side: `manifold_reserve_ids(uint32_t n)` mints a unique original-id block, `manifold_as_original(mem, m)` re-seats a manifold as its own original, and `manifold_original_id(m)` reads the seated id back, so a boolean's `run_original_id` attributes to operands the caller can name. Without that seating, the output ids are Manifold's own and attribute to nothing the kernel declared.
 
 [STATUS]:
 
@@ -124,6 +155,7 @@ Guarantee reads populate `BooleanReceipt` and `ManifoldStatus` without a second 
 [TOPOLOGY]:
 - Every op folds through the `void* mem` sizing ABI with deterministic release; Manifold guarantees manifold output at float precision, the managed exact arrangement retaining exact signs, implicit-point crossings, and cell classification.
 - `manifold_status` forces eagerly onto the single `BooleanReceipt`/`ManifoldStatus` evidence rail.
+- Lane infix rides the SYMBOL, never the handle type the C# side declares: `nint` erases `ManifoldMeshGL` and `ManifoldMeshGL64` to one shape, so nothing but the entry-point spelling keeps the two lanes apart and a mis-suffixed `LibraryImport` fails at first call rather than at compile. Kernel bindings declare the `meshgl64` lane only.
 
 [STACKING]:
 - Arrangement engine split: the managed arrangement owns exact signs, implicit-point crossings, and cell welds; Manifold owns throughput above `ArrangementPolicy.ScaleCeiling`; `ArrangementOp.MeshBoolean` discriminates engine from policy so consumers compose one operation.
@@ -137,6 +169,6 @@ Guarantee reads populate `BooleanReceipt` and `ManifoldStatus` without a second 
 
 [RAIL_LAW]:
 - Package: `manifoldc`
-- Owns: guaranteed-manifold boolean throughput above `ArrangementPolicy.ScaleCeiling`, its lazy CSG evaluation, float and double `MeshGL` ingest and extraction, the native `manifold_hull`/`manifold_slice`/`manifold_project` surfaces, the genus/area/volume/bounds guarantee reads, and the deterministic-release `void* mem` ABI with `ManifoldExecutionContext` cancellation and progress.
-- Accept: high-scale booleans routed above `ArrangementPolicy.ScaleCeiling`, the kernel SoA `double` lane lowered through `meshgl64`, `ManifoldError` folded into `GeometryFault`, and cancellation through the execution-context rail.
-- Reject: a NuGet reference, the in-repo binding owning no package and the `Manifold`/`ManifoldNET` NuGet IDs naming unrelated projects; the unrouted `manifold_union`/`manifold_difference`/`manifold_intersection` twins in place of `manifold_boolean`; a second correctness rail beside the managed exact arrangement; an exception in place of the `Fin` boundary fold.
+- Owns: guaranteed-manifold boolean throughput above `ArrangementPolicy.ScaleCeiling`, its lazy CSG evaluation, float and double `MeshGL` ingest and extraction, the run-and-face-id source-attribution channel with its `manifold_reserve_ids`/`manifold_as_original` seating, the native `manifold_hull`/`manifold_slice`/`manifold_project` surfaces, the genus/area/volume/bounds guarantee reads, and the deterministic-release `void* mem` ABI with `ManifoldExecutionContext` cancellation and progress.
+- Accept: high-scale booleans routed above `ArrangementPolicy.ScaleCeiling`, the kernel SoA `double` lane lowered through `meshgl64`, `ManifoldError` folded into `GeometryFault`, cancellation through the execution-context rail, and every entry point spelled at the lane its handle carries.
+- Reject: a NuGet reference, the in-repo binding owning no package and the `Manifold`/`ManifoldNET` NuGet IDs naming unrelated projects; an unsuffixed accessor over a `meshgl64` handle, or the two lanes' entry points mixed in one binding; the unrouted `manifold_union`/`manifold_difference`/`manifold_intersection` twins in place of `manifold_boolean`; a second correctness rail beside the managed exact arrangement; an exception in place of the `Fin` boundary fold.

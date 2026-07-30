@@ -31,6 +31,7 @@
 |  [03]   | `message.ToCloudEvent(formatter, IEnumerable<extensions>)`   | ingress map | decode; `IEnumerable<CloudEventAttribute>` attrs  |
 
 - `ce.ToMqttApplicationMessage`: throws `ArgumentOutOfRangeException("contentMode", …)` on any `ContentMode` but `Structured`.
+- `message.ToCloudEvent`: decodes `PayloadSegment` through `formatter.DecodeStructuredModeMessage` under a null `ContentType`; the `params` overload forwards to the `IEnumerable` one, and both gate message and formatter through `Validation.CheckNotNull`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -43,6 +44,7 @@
 - `api-mqtt`(`libs/csharp/.api/api-mqtt.md`): `ToMqttApplicationMessage`'s result is the exact `MqttApplicationMessage` an `IMqttClient.PublishAsync` sends at QoS-1 whose PUBACK is the `DeliveryAck`; the W3C `traceparent`/`tracestate` pair rides `MqttApplicationMessage.UserProperties` (`List<MqttUserProperty>`), stamped beside the encode and read beside the decode by the AppHost `TraceContext` adapter, symmetric with the NATS-header and AMQP application-property carriers.
 - `Version/egress` rail: the `Version/ledger#CHANGEFEED` `OpLogEntry` → `CloudEvent` via the `Egress.Envelope` projector → `ce.ToMqttApplicationMessage(ContentMode.Structured, formatter, topic)` → the QoS-1 publish; the CloudEvents `id` is the only dedup handle, so receiver-side id-dedup is the MQTT sink's whole dedup story.
 - ownership splits at the message: this binding owns the structured-mode CloudEvents body over `PayloadSegment`, while `Topic`, `MqttQualityOfServiceLevel`, and the `UserProperties` trace pair are `EgressSink.Mqtt` subscription policy.
+- `api-cloudevents-mqtt`(`libs/csharp/Rasm.Compute/.api/api-cloudevents-mqtt.md`): the Compute partition registers this catalogue as the binding owner and adds only the twin capture-INGEST direction — the `IMqttClient` subscription decoding one sample per `MqttApplicationMessage` onto the `WorkLane.CaptureIngest` DropOldest row; the two directions share one `MqttExtensions` surface and one `CloudEvent` vocabulary, so a Compute-side member roster or a second envelope shape is the fork this split forecloses.
 
 [LOCAL_ADMISSION]:
 - egress pins `cloudEvent.ToMqttApplicationMessage(ContentMode.Structured, formatter, topic)` at the single `EgressSink.Mqtt` call site; a `ContentMode.Binary` call is compile-legal and run-time-throwing.

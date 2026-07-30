@@ -2,17 +2,17 @@
 
 `sharp` is the libvips image processor the `object` plane folds for content-addressed derivative generation: one `sharp(input?, options?)` factory ingests every source through a `SharpOptions` ingress, returns a chainable `Sharp` `Duplex`, and dispatches the whole codec space through `toFormat(format, options)`.
 
-Native and server-bound, its Promise and stream terminals lift into the `Effect` rail at the `object/presign` boundary, where `failOn` and `sharp.block` gate untrusted uploads before decode.
+Native and server-bound, its Promise and stream terminals lift into the `Effect` rail at the `object/file` boundary, where `failOn` and `sharp.block` gate untrusted uploads before decode.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `sharp`
 - package: `sharp` (Apache-2.0)
 - module: `export = sharp` CJS default (`import sharp from "sharp"`), ESM `dist/index.mjs`, types `dist/index.d.mts`
-- runtime: server-only node/bun native libvips; a browser `lane/wasm` path never imports the binding
+- runtime: server-only node/bun native libvips; no browser or wasm lane imports the binding
 - native: libvips through prebuilt N-API binaries `@img/sharp-<platform>`; `sharp.versions` reports the linked codec versions
 - depends: `@img/colour` runtime dependency — its `ColorLike` parses every `background`/`tint`/overlay colour value
-- rail: the `store` `object/presign` codec fan-out, lifted into the `Effect` rail at the boundary
+- rail: the `data` `object/file` codec fan-out, lifted into the `Effect` rail at the boundary
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -122,16 +122,16 @@ Every fold member returns `Sharp`, so the chain is one polymorphic fold.
 [STACKING]:
 - `effect`(`.api/effect.md`): `Effect.tryPromise` lifts each terminal — `pipeline.toBuffer({ resolveWithObject: true })` returns `{ data, info }` on the success channel, and `metadata`/`stats` become `Effect`s feeding a `Match` on `Metadata.format`.
 - `@aws-sdk/client-s3`(`.api/aws-sdk-client-s3.md`): the `GetObjectCommand` response `Body` (`SdkStream<Readable>`) reads once via `Body.transformToByteArray()` into a `Buffer` that opens `sharp(buffer)`, then `clone()` fans per derivative-spec row; each derivative writes back through `PutObjectCommand{ IfNoneMatch: "*", ChecksumSHA256 }`, a 412 status resolving an idempotent noop.
-- `@aws-sdk/s3-request-presigner`(`.api/aws-sdk-s3-request-presigner.md`): each derivative row mints one `getSignedUrl` `GetObject` URL, TTL-bounded like the source, for browser-direct delivery.
-- `object/presign` + `object/key`: the fan-out is `clone()` + `resize(row.resize)` + `toFormat(row.format, row.options)` over a derivative-spec ROW roster, each derivative content-keyed through kernel `ContentKey` so its conditional-put stays idempotent; `stats().dominant` seeds a placeholder colour and `metadata()` decides the per-row format and geometry.
+- `@aws-sdk/s3-request-presigner`(`.api/aws-sdk-s3-request-presigner.md`): a derivative row whose OWN `grant` policy asks mints one `getSignedUrl` `GetObject` URL bounded by the store's presign TTL; every other row answers `Option.none()` and its key, because a signature nothing reads is paid for at every fan-out.
+- `object/file`: the fan-out is `clone()` + `resize(row.resize)` + `toFormat(row.format, row.options)` over a derivative-spec ROW roster, each derivative content-keyed through the core `ContentKey` mint so its conditional-put stays idempotent; `metadata()` decides the per-row format and geometry while ONE `stats()` lift serves the placeholder colour, the proven-opacity retirement, and the entropy grade ladder.
 
 [LOCAL_ADMISSION]:
 - Every terminal wraps in `Effect.tryPromise` with a tagged fault at the `object` boundary, so no raw Promise or sharp throw reaches domain code.
-- `object/presign` runs the fan-out as `toFormat(row.format, row.options)` over a derivative-spec roster on one `clone()`d decode; a new derivative is a roster row keyed through `object/key` (kernel `ContentKey`).
+- `object/file` runs the fan-out as `toFormat(row.format, row.options)` over a derivative-spec roster on one `clone()`d decode; a new derivative is a roster row keyed through the core `ContentKey` mint over the ENCODED bytes.
 - `SharpOptions.failOn` + `sharp.block` + `SharpOptions.limitInputPixels` gate untrusted uploads before decode, and `unlimited: false` bounds decompression-bomb exposure.
 
 [RAIL_LAW]:
 - Package: `sharp`
 - Owns: libvips image decode, transform, and encode — the polymorphic `sharp(input, options)` ingress, the chained `Sharp` `Duplex` fold grammar (resize, operation, channel, colour, composite), `toFormat` with the codec terminals and `tile`, `metadata`/`stats` introspection, metadata-keep controls, and process governance
-- Accept: server-plane use in `object/presign`, `Effect`-lifted terminals with tagged faults, `toFormat`-over-spec-rows fan-out on one `clone()`d decode, untrusted-input gating (`failOn`/`block`/`limitInputPixels`), content keys minted by `object/key`
-- Reject: a browser/`lane/wasm` import, a raw Promise or throw crossing into domain code, a hardcoded per-format encoder ladder, unbounded or untrusted decode, sharp owning content addressing or upload idempotency
+- Accept: server-plane use in `object/file`, `Effect`-lifted terminals with tagged faults, `toFormat`-over-spec-rows fan-out on one `clone()`d decode, untrusted-input gating (`failOn`/`block`/`limitInputPixels`), content keys minted by the core `ContentKey` owner
+- Reject: a browser or wasm-lane import, a raw Promise or throw crossing into domain code, a hardcoded per-format encoder ladder, unbounded or untrusted decode, sharp owning content addressing or upload idempotency

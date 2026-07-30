@@ -79,6 +79,8 @@
 
 [TOPOLOGY]:
 - One event carries a `Mapping[str, Any]` attribute algebra over arbitrary `data`; every binding lowers that one shape to transport parts and reverses it, never re-implementing the spec attribute contract or JSON codec.
+- `create` validates the attribute map and stores values verbatim, so every conversion trap is an ATTRIBUTE-VALUE trap the constructor never catches: `to_structured` `json.dumps` the whole map and raises a bare `TypeError` — not a `GenericException` — on a live `datetime`, while `to_binary` copies each value into the header map untouched, so a non-string extension leaves an `int` where the HTTP binary binding admits strings alone. An attribute enters already spelled for the wire, and the header map renders at the composing owner.
+- `create` defaults an absent `id` to a random UUID and an absent `time` to the current UTC instant in RFC-3339 spelling, so a caller supplies either only to REPLACE that default — a time-ordered `uuid7` id is that replacement, a re-derived `time` is not.
 
 [STACKING]:
 - `opentelemetry-api`(`.api/opentelemetry-api.md`): `propagate.inject(carrier, context, setter)` writes the active W3C trace and baggage into a carrier dict the notice owner folds into the `create(attributes, data)` extension keys; the SDK carries no OpenTelemetry dependency, so the wiring lives in the notice owner.

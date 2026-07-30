@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `@effect/sql-mssql`
 - package: `@effect/sql-mssql` (MIT)
-- rail: `lane/mssql` — the read-oriented SQL Server interop ingress row
+- rail: `read/query` — the read-oriented SQL Server interop ingress row
 - effect-peer: `effect`, `@effect/sql` (the `SqlClient` core this extends; `.api/effect-sql.md`), `@effect/experimental` (`Reactivity`, required by `make`; `.api/effect-experimental.md`), `@effect/platform`
 - backing: `tedious` (SQL Server TDS wire + connection pool)
 - runtime: `runtime:node`/bun; `tedious` is a node-native TDS driver, never the browser plane
@@ -19,7 +19,7 @@
 
 | [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY]       | [CONSUMER_BOUNDARY]                                 |
 | :-----: | :----------------------------------------------------- | :------------------ | :-------------------------------------------------- |
-|  [01]   | `MssqlClient` (Tag) / `interface MssqlClient`          | service Tag         | `lane/mssql` interop row; only ctor reaches Tag     |
+|  [01]   | `MssqlClient` (Tag) / `interface MssqlClient`          | service Tag         | `read/query` interop row; only ctor reaches Tag     |
 |  [02]   | `MssqlClient.config: MssqlClientConfig`                | resolved config     | span/transform/parameter-type introspection         |
 |  [03]   | `MssqlClient.param(type, value, options?)`             | typed fragment      | `DataType`-bound `Fragment`; T-SQL parameter splice |
 |  [04]   | `MssqlClient.call(procedure)`                          | stored-proc invoke  | run a `ProcedureWithValues` → typed output + rows   |
@@ -76,13 +76,13 @@
 
 [STACKING]:
 - `@effect/sql`(`.api/effect-sql.md`): inherits every query/transaction/typed-IO surface — `SqlSchema` decodes interop rows into `Schema` models, `SqlResolver` batches the read side, `withTransaction` scopes a multi-statement read; the `dialect: "mssql"` compiler realizes the `sql.onDialect({ sqlite, pg, mysql, mssql, clickhouse })` `mssql` arm, emitting T-SQL from the shared definition rather than a parallel journal.
-- `data` folder: one `lane/mssql` interop row whose typed `param`/`call` serve read-side procedure ingress; reactive read-your-writes and LISTEN/NOTIFY stay pg-spine capabilities absent on this lane.
+- `data` folder: one `read/query` interop row whose typed `param`/`call` serve read-side procedure ingress; reactive read-your-writes and LISTEN/NOTIFY stay pg-spine capabilities absent on this lane.
 
 [LOCAL_ADMISSION]:
 - Provide the layer at the app root only; interop rows yield the neutral `SqlClient` and reach the concrete `MssqlClient` Tag solely for construction and the `param`/`call` surface.
 - `password` rides `Config.redacted`; pool sizing, `encrypt`/`trustServer` TLS posture, and named-instance auth are `Config`/`iac` facts, never row literals.
 - Stored procedures compose `Procedure.make`→`param`/`outputParam`/`withRows`→`compile` and run via `MssqlClient.call`; inline typed values splice through `MssqlClient.param` naming a `MssqlTypes` `DataType`, never a raw string-built parameter.
-- `MssqlMigrator` is banned branch-wide — DDL is `iac`↔`store` declarative ensure, runtime never mutates.
+- `MssqlMigrator` is banned branch-wide — DDL is `iac`↔`data` declarative ensure, runtime never mutates.
 
 [RAIL_LAW]:
 - Package: `@effect/sql-mssql`

@@ -29,14 +29,18 @@ Only an attribute-carrying wire type enters this row; an attribute-free seam gra
 |  [07]   | `MessagePackSecurity`               | class         | depth, decompressed-size, and hashing ceilings  |
 |  [08]   | `MessagePackCompression`            | enum          | `None`, `Lz4Block` ext99, `Lz4BlockArray` ext98 |
 |  [09]   | `MessagePackSerializationException` | class         | contract and decode failure                     |
+|  [10]   | `FormatterNotRegisteredException`   | class         | no formatter resolved for the requested type    |
+|  [11]   | `MessagePackCode`                   | static class  | the format-byte constants a raw token write uses |
 
-- value types: `MessagePackType` the next-token discriminant, `Nil`, `ExtensionHeader` a `(sbyte TypeCode, uint Length)` pair, and `ExtensionResult` that code with its payload sequence
+- value types: `MessagePackType` the next-token discriminant, `Nil` (`Nil.Default` the sole instance), `ExtensionHeader` a `(sbyte TypeCode, uint Length)` pair, and `ExtensionResult` that code with its payload sequence
 
 [RESOLVER_TYPES]: formatter-lookup families a profile chain composes
 - contract: `StandardResolver` `ContractlessStandardResolver` `TypelessContractlessStandardResolver` `StandardResolverAllowPrivate` `ContractlessStandardResolverAllowPrivate`
 - composition: `IFormatterResolver` `IMessagePackFormatter<T>` `CompositeResolver` `StaticCompositeResolver` `FormatterResolverExtensions`
 - generated: `SourceGeneratedFormatterResolver` `AttributeFormatterResolver` `BuiltinResolver` `PrimitiveObjectResolver`
 - encoding: `NativeDateTimeResolver` `NativeGuidResolver` `NativeDecimalResolver` `DynamicEnumAsStringResolver` `DynamicEnumAsStringIgnoreCaseResolver`
+- reflection-emit: `DynamicObjectResolver` `DynamicObjectResolverAllowPrivate` `DynamicEnumResolver` `TypelessObjectResolver` — the runtime IL-emit families `StandardResolver` falls through to; an AOT or IL-emit-free profile composes the generated resolver alone and never names one.
+- callback: `IMessagePackSerializationCallbackReceiver` (`OnBeforeSerialize`/`OnAfterDeserialize`) is the per-type hook the codec invokes around a contract type's own encode and decode.
 
 [ANNOTATION_TYPES]: contract and generator attributes
 - contract: `MessagePackObjectAttribute` `KeyAttribute` `IgnoreMemberAttribute` `UnionAttribute` `SerializationConstructorAttribute` `MessagePackFormatterAttribute`
@@ -45,6 +49,7 @@ Only an attribute-carrying wire type enters this row; an attribute-free seam gra
 - `StandardResolver` falls through to runtime reflection emit, so a published-AOT profile composes the generated resolver alone.
 - `Native*Resolver` rows emit .NET-native `DateTime`, `Guid`, and `decimal` encodings a non-.NET peer cannot read; a cross-runtime wire keeps the portable formatters.
 - `KeyAttribute(int)` encodes an array slot and `KeyAttribute(string)` a map key; `MessagePackObjectAttribute.KeyAsPropertyName` selects map mode wholesale and `AllowPrivate` admits non-public members.
+- `SerializationConstructorAttribute` picks the decode constructor where more than one matches, and `MessagePackSerializerOptions` carries no map-mode switch — map encoding is the contract's own `KeyAsPropertyName` or a contractless resolver.
 - `UnionAttribute(int, Type)` tags one polymorphic case on the base declaration, and the tag sequence is the wire contract.
 - `CompositeResolverAttribute(params Type[])` generates a resolver from resolver TYPES; a standalone `IMessagePackFormatter<T>` instance seats through `CompositeResolver.Create` instead.
 - `MessagePackKnownFormatterAttribute` admits a hand-written formatter into the generated resolver, `ExcludeFormatterFromSourceGeneratedResolverAttribute` withholds one for `[MessagePackFormatter]` selection, and `MessagePackAssumedFormattableAttribute` declares a type the program registers itself.
@@ -76,7 +81,9 @@ Only an attribute-carrying wire type enters this row; an attribute-free seam gra
 |  [10]   | `StaticCompositeResolver.Register(params IFormatterResolver[])` | instance | mutates the process singleton                  |
 |  [11]   | `FormatterResolverExtensions.GetFormatterWithVerify<T>()`       | static   | resolves or throws where lookup returns null   |
 
-- profile mutators: `WithResolver(IFormatterResolver)` `WithSecurity(MessagePackSecurity)` `WithCompression(MessagePackCompression)` `WithCompressionMinLength(int)` `WithSuggestedContiguousMemorySize(int)` `WithOmitAssemblyVersion(bool)` `WithPool(SequencePool)`
+- profile mutators: `WithResolver(IFormatterResolver)` `WithSecurity(MessagePackSecurity)` `WithCompression(MessagePackCompression)` `WithCompressionMinLength(int)` `WithSuggestedContiguousMemorySize(int)` `WithOmitAssemblyVersion(bool)` `WithAllowAssemblyVersionMismatch(bool)` `WithOldSpec(bool?)` `WithPool(SequencePool)`
+- `MessagePackSerializer.DefaultOptions` is the process-wide profile every options-free overload reads; a per-call `MessagePackSerializerOptions` argument is the composing form and a mutated default is the process-global fork.
+- `IFormatterResolver.GetFormatter<T>()` returns `null` on a miss, so `GetFormatterWithVerify<T>()` is the throwing form every lookup takes.
 - security mutators: `WithMaximumObjectGraphDepth(int)` `WithMaximumDecompressedSize(int)` `WithHashCollisionResistant(bool)`
 - resolver statics: `StandardResolver.Instance` `StandardResolver.Options` `ContractlessStandardResolver.Options` `TypelessContractlessStandardResolver.Options` `SourceGeneratedFormatterResolver.Instance` `AttributeFormatterResolver.Instance` `StaticCompositeResolver.Instance`
 
@@ -123,6 +130,7 @@ Only an attribute-carrying wire type enters this row; an attribute-free seam gra
 - Typeless payloads carry a CLR type header, so `LoadType` and `ThrowIfDeserializingTypeIsDisallowed` override to a profile-local allowlist before an untrusted header names a type.
 
 [STACKING]:
+- `api-messagepack`(`libs/csharp/Rasm.Materials/.api/api-messagepack.md`): the Materials partition registers this catalogue as the codec owner and adds only its appearance-interchange PROFILE — the `[GeneratedMessagePackResolver]` chain over the `[Union]`-modelled `BsdfLobe`/appearance hierarchy with its UnitsNet and Unicolour member formatters; the two profiles differ in resolver chain and security preset alone, never in codec spelling.
 - `api-messagepack-analyzer`: its generator emits the `[GeneratedMessagePackResolver]` partial and its `MsgPack###` diagnostics reject an unattributed, unkeyed, or key-colliding contract at build, so `[Key]` drift breaks the compile rather than the decode.
 - `api-thinktecture-messagepack`(`libs/csharp/.api/api-thinktecture-messagepack.md`): `ThinktectureMessageFormatterResolver.Instance` sits in the composed chain and derives one formatter per generated `[ValueObject]`, `[SmartEnum]`, and `[Union]` owner, so a `NodeId` or `ContentAddress` crosses as its bare key with no hand-written codec.
 - `api-hashing`: `Version/commits#CRDT_WIRE` `CrdtWire.ContentKey` hashes the `None`-compression companion encoding through the kernel `ContentHash.Of` entry, so the at-rest `Lz4BlockArray` framing stays out of the key and the Python and TypeScript replicas reproduce it byte-for-byte.

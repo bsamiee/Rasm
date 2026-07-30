@@ -36,19 +36,23 @@ Six Labors' Split License grants Apache-2.0 unconditionally to an open-source co
 
 [PUBLIC_TYPE_SCOPE]: pixel formats spanning the texture depth ladder — `SixLabors.ImageSharp.PixelFormats`
 
-| [INDEX] | [SYMBOL]      | [TYPE_FAMILY] | [CAPABILITY]                                  |
-| :-----: | :------------ | :------------ | :-------------------------------------------- |
-|  [01]   | `IPixel<T>`   | interface     | the closed self-constrained pixel contract    |
-|  [02]   | `L8` / `L16`  | struct        | single-channel 8-bit and 16-bit scalar plane  |
-|  [03]   | `La32`        | struct        | 16-bit luminance plus alpha                   |
-|  [04]   | `Rgb24`       | struct        | 8-bit three-component color                   |
-|  [05]   | `Rgba32`      | struct        | 8-bit color with alpha                        |
-|  [06]   | `Bgra32`      | struct        | 8-bit host-order color with alpha             |
-|  [07]   | `Rgb48`       | struct        | 16-bit three-component color                  |
-|  [08]   | `Rgba64`      | struct        | 16-bit color with alpha                       |
-|  [09]   | `HalfVector4` | struct        | half-float four-component HDR texel           |
-|  [10]   | `RgbaVector`  | struct        | float32 `R`/`G`/`B`/`A` fields, the HDR texel |
-|  [11]   | `Rgba1010102` | struct        | packed 10-bit-per-channel wide-gamut texel    |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                  |
+| :-----: | :------------------------ | :------------ | :-------------------------------------------- |
+|  [01]   | `IPixel<T>`               | interface     | the closed self-constrained pixel contract    |
+|  [02]   | `L8` / `L16`              | struct        | single-channel 8-bit and 16-bit scalar plane  |
+|  [03]   | `La32`                    | struct        | 16-bit luminance plus alpha                   |
+|  [04]   | `Rgb24`                   | struct        | 8-bit three-component color                   |
+|  [05]   | `Rgba32`                  | struct        | 8-bit color with alpha                        |
+|  [06]   | `Bgra32`                  | struct        | 8-bit host-order color with alpha             |
+|  [07]   | `Rgb48`                   | struct        | 16-bit three-component color                  |
+|  [08]   | `Rgba64`                  | struct        | 16-bit color with alpha                       |
+|  [09]   | `HalfVector4`             | struct        | half-float four-component HDR texel           |
+|  [10]   | `RgbaVector`              | struct        | float32 `R`/`G`/`B`/`A` fields, the HDR texel |
+|  [11]   | `Rgba1010102`             | struct        | packed 10-bit-per-channel wide-gamut texel    |
+|  [12]   | `PixelOperations<TPixel>` | class         | the SIMD bulk conversion owner per format     |
+
+- `PixelOperations<TPixel>.Instance` is the per-format singleton and the ONLY vectorized conversion rail: `ToVector4(Configuration, ReadOnlySpan<TPixel>, Span<Vector4>, PixelConversionModifiers)` and `FromVector4Destructive(Configuration, Span<Vector4>, Span<TPixel>, PixelConversionModifiers)` each ship a two-argument peer passing `PixelConversionModifiers.None`, and on `Rgba64` that default is byte-identical to a per-texel `ToScaledVector4` loop because `Rgba64.ToScaledVector4` IS a direct `ToVector4` call. `From<TSourcePixel>`/`To<TDestinationPixel>` convert bulk across two pixel formats without staging through `Vector4`, and the per-format `FromL8`/`ToL16`/`ToBgra32` family with its `…Bytes(…, int count)` peers reads and writes a raw byte window. `GetPixelTypeInfo()` reports the format's own component layout.
+- `FromVector4Destructive` earns its name: it may overwrite the SOURCE vector span in place while converting, so a caller reusing those vectors after the call reads mutated values — the staging span is spent, never a reusable input.
 
 [PUBLIC_TYPE_SCOPE]: format rows — `SixLabors.ImageSharp.Formats.*`
 
@@ -182,6 +186,9 @@ Six Labors' Split License grants Apache-2.0 unconditionally to an open-source co
 |  [08]   | `Image<TPixel>.DangerousTryGetSinglePixelMemory(out Memory<TPixel>) -> bool`             | instance | probe for one contiguous buffer    |
 |  [09]   | `Image<TPixel>.this[int, int]`                                                           | indexer  | single-texel read and write        |
 |  [10]   | `Image.CloneAs<TPixel2>() -> Image<TPixel2>`                                             | instance | depth and channel conversion       |
+|  [11]   | `PixelOperations<TPixel>.Instance.ToVector4(Configuration, …, modifiers)`                | instance | bulk texel span to float span      |
+|  [12]   | `PixelOperations<TPixel>.Instance.FromVector4Destructive(Configuration, …)`              | instance | bulk float span to texel span      |
+|  [13]   | `PixelOperations<TPixel>.Instance.To<TDestinationPixel>(Configuration, …)`               | instance | bulk cross-format texel conversion |
 
 - `DangerousTryGetSinglePixelMemory`: returns false whenever the allocator split the plane into discontiguous groups; `Configuration.PreferContiguousImageBuffers` set before decode is what makes it hold.
 - `WrapMemory(Configuration, IMemoryOwner<TPixel>, …)` TRANSFERS ownership — the image disposes the rental — while the `Memory<TPixel>` overload borrows and disposes nothing; the two differ only in that transfer and picking the wrong one either double-returns the rental or leaks it.
@@ -277,7 +284,7 @@ Six Labors' Split License grants Apache-2.0 unconditionally to an open-source co
 - `TextureCompressor`(`.api/api-texturecompressor.md`): an `Image<Rgba32>`/`Image<RgbaVector>` plane crosses into block compression as a `BitmapView<Rgba8UNorm>`/`BitmapView<Rgba32Float>` over the shared pooled span — `CopyPixelDataTo(Span<byte>)` fills the peer's `ArrayBitmap<TPixel>.PixelSpan` and `ITextureCoder.Encode` consumes it, so PNG/TIFF/WebP containers and BCn/ASTC/UASTC payloads never mint two arenas for one plane.
 - `System.IO.Hashing`(`libs/csharp/.api/api-hashing.md`): the encoded byte stream feeds `XxHash128.Append` incrementally and `GetCurrentHashAsUInt128` closes the plane's content key, so identity derives from the encoded file the object store holds rather than from a re-encode.
 - `Wacton.Unicolour`(`libs/csharp/.api/api-unicolour.md`): perceptual and spectral color work stays on the `Unicolour` owner and this surface contributes container-level ICC carriage alone; `ColorSpaceConverter` runs only where an ingested asset declares a working space the appearance rail must reconcile, and never as a second color authority.
-- within-lib: the raster codec fold binds one `Configuration` per encode profile — allocator, `PreferContiguousImageBuffers`, `MaxDegreeOfParallelism`, registered format rows — reused across every plane rather than constructed per call, and each `RasterFormat` row names its encoder instance beside the explicit depth its declared plane demands.
+- within-lib: the raster codec fold binds one `Configuration` per encode profile — allocator, `PreferContiguousImageBuffers`, `MaxDegreeOfParallelism`, registered format rows — reused across every plane rather than constructed per call, and each `RasterFormat` row names its encoder instance beside the explicit depth its declared plane demands. That same `Configuration` is the FIRST argument of every `PixelOperations` call, so the codec bridge crosses in one spelling: `PixelOperations<Rgba64>.Instance.ToVector4(profile, decoded, staging, PixelConversionModifiers.None)` on the read side and `FromVector4Destructive` on the write side, the modifier stated because a linear plane must not be rescaled or companded. Hand-rolling a per-texel `ToScaledVector4`/`FromScaledVector4` loop beside that call is the deleted form — same arithmetic, no vectorization, and one more place the modifier decision goes unstated.
 - within-lib, the PROCESSING BOUNDARY LAW: the plane algebra (`Raster/filter#PLANE_OP`) runs on the `TexturePlane` typed-texel arena over TinyEXR span folds and owns resample, convolve, remap, and the height correspondence there — crossing a 16k plane into `Image<TPixel>` and back costs a full copy each way, so Processing NEVER substitutes for a `PlaneOp`. Processing pays where the bytes are already an `Image`: inside the `Raster/codec#RASTER_CODEC` decode-encode window — `Quantize`+`Dither` for palette/preview egress, `Resize` for display thumbnails, `AutoOrient` on ingest, `HistogramEqualization` on a display proof — and for `CalculateIntegralImage` where an ingest probe wants local statistics before any plane admission.
 - `ProcessPixelRowsAsVector4` + `SRgbCompanding` + the `BorderWrappingMode.Wrap` convolution edge make the pipeline float-correct end to end on `Image<RgbaVector>`: `PixelConversionModifiers.None` on a linear plane (Scale/SRgbCompand would rescale or linearize what is already linear), `Wrap` on a seamless tile so the seam survives a blur.
 
@@ -291,5 +298,5 @@ Six Labors' Split License grants Apache-2.0 unconditionally to an open-source co
 [RAIL_LAW]:
 - Package: `SixLabors.ImageSharp`
 - Owns: the managed raster container estate — format detection, decode and encode across PNG through 16-bit, TIFF through 16-bit integer, WebP, QOI, JPEG, BMP, GIF, TGA, and Netpbm; the `IPixel` depth ladder from `L8` to `RgbaVector`; ICC, EXIF, XMP, and CICP metadata carriage; the `ColorSpaceConverter` space and chromatic-adaptation transform; and the in-image processing pipeline — resamplers, wrap-mode convolution, histogram equalization, quantization and dithering, `ColorMatrix` filters, affine/projective warps, swizzles, integral images, the float row seam, and the parallel row iterator.
-- Accept: `Load<TPixel>` naming the demanded plane depth; `WrapMemory` over a pooled `MemoryOwner<T>` arena with the ownership form chosen deliberately; the four bulk rails per their own contracts; Processing inside the codec's own `Image` domain — preview, palette egress, ingest normalization — with `PixelConversionModifiers` stated explicitly on every float pass; one reused `Configuration` per encode profile; encoder instances declaring depth, compression, and filter policy explicitly; `CloneAs<TPixel2>` as the one depth conversion.
-- Reject: an 8-bit pixel type on a texture channel plane; `Quantize`/`Dither` on a channel plane (a ≤256-entry palette collapse belongs to preview and palette-container egress alone); a `PlaneOp` re-routed through `Image<TPixel>` for a plane the arena already holds; an inferred encoder depth on a 16-bit or float plane; a second arena where `WrapMemory` binds the existing one; `DangerousTryGetSinglePixelMemory` without `PreferContiguousImageBuffers`; an EXR expectation against this surface; a hand-rolled block-compression or KTX2 writer over it; a decode assumed to have color-managed anything.
+- Accept: `Load<TPixel>` naming the demanded plane depth; `WrapMemory` over a pooled `MemoryOwner<T>` arena with the ownership form chosen deliberately; the five bulk rails per their own contracts, `PixelOperations<TPixel>.Instance` owning every bulk conversion with its modifiers stated; Processing inside the codec's own `Image` domain — preview, palette egress, ingest normalization — with `PixelConversionModifiers` stated explicitly on every float pass; one reused `Configuration` per encode profile; encoder instances declaring depth, compression, and filter policy explicitly; `CloneAs<TPixel2>` as the one depth conversion.
+- Reject: a hand-rolled per-texel conversion loop where `PixelOperations<TPixel>.Instance` owns the fold, and any `ToVector4`/`FromVector4Destructive` call leaving its `PixelConversionModifiers` unstated on a linear plane; an 8-bit pixel type on a texture channel plane; `Quantize`/`Dither` on a channel plane (a ≤256-entry palette collapse belongs to preview and palette-container egress alone); a `PlaneOp` re-routed through `Image<TPixel>` for a plane the arena already holds; an inferred encoder depth on a 16-bit or float plane; a second arena where `WrapMemory` binds the existing one; `DangerousTryGetSinglePixelMemory` without `PreferContiguousImageBuffers`; an EXR expectation against this surface; a hand-rolled block-compression or KTX2 writer over it; a decode assumed to have color-managed anything.

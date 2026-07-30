@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_ML_TOKENIZERS]
 
-`Microsoft.ML.Tokenizers` owns deterministic offline token counting for the grant-broker cost preview: the abstract `Tokenizer` surface and its `sealed` `TiktokenTokenizer` BPE implementation price a prompt with no network round trip. `CountTokens` feeds `CostModel.Variable` a per-prompt `CostUnit.ModelTokens` count before a model draw charges the budget, and `GetIndexByTokenCount` truncates a prompt to its model context window in place. Only the offline counting and truncation surface binds; encode-for-inference and custom tokenization stages stay out of the cost rail.
+`Microsoft.ML.Tokenizers` owns deterministic offline token counting for the grant-broker cost preview: the abstract `Tokenizer` surface and its `sealed` `TiktokenTokenizer` BPE implementation price a prompt with no network round trip. `CountTokens` feeds `CostModel.Variable` a per-prompt `CostUnit.ModelTokens` count before a model draw charges the budget, and the `GetIndexByTokenCount` family trims a turn to its model context window in place. Only the offline counting and truncation surface binds; encode-for-inference and custom tokenization stages stay out of the cost rail.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -89,6 +89,7 @@ Every factory carries optional `extraSpecialTokens`, `cacheSize` (default `8192`
 [STACKING]:
 - `api-ml-tokenizers-o200k.md`, `api-ml-tokenizers-cl100k.md`: the two data-only `*.Data.*` companions embed the `o200k_base`/`cl100k_base` `.tiktoken` rank tables, and `CreateForModel`/`CreateForEncoding` reads the embedded vocabulary from whichever companion the model or encoding routes to, air-gapped.
 - grant-broker cost model: `CostModel.Variable` folds `CountTokens(prompt)` into `CostUnit.ModelTokens` before `CostModel.Estimate` charges a model draw, and the dry-run `Simulate` path prices off the same `CountTokens` call without charging.
+- model-governance window bound: the `Agent/reasoning#MODEL_GOVERNANCE` `WindowReducer` measures each turn with `CountTokens` against the routed window share and trims the newest turn's text carriers through `GetIndexByTokenCountFromEnd`, so an over-window turn keeps an exact token-bounded suffix off one encoder pass and the same instance answers both the pre-flight price and the bound.
 
 [LOCAL_ADMISSION]:
 - AppHost capability-agent constructs one `TiktokenTokenizer` per model encoding through `CreateForModel`/`CreateForEncoding`, resolving the embedded vocab from the referenced `*.Data.*` assembly.

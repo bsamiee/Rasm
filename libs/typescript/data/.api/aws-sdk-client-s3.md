@@ -90,10 +90,10 @@
 [STACKING]:
 - `effect`(`.api/effect.md`): `Layer.scoped` holds the `S3Client` via `acquireRelease`; `Effect.tryPromise` with `{ abortSignal }` lifts each `send`; the `S3ServiceException` hierarchy maps through `Match` to `Data.TaggedError` (`ObjectMissing`/`ObjectConflict`/`ObjectFault`); `Stream.fromAsyncIterable` lifts a paginator; `Config.redacted` supplies credentials; `Schedule` composes with `maxAttempts`/`retryMode`.
 - `@aws-sdk/lib-storage`(`.api/aws-sdk-lib-storage.md`): a streaming or unknown-length body rides `Upload`, which spreads the same `IfNoneMatch: "*"` + checksum members across its put and multipart-complete legs; bounded bytes stay on this client's hand-composed multipart.
-- `@aws-sdk/s3-request-presigner`(`.api/aws-sdk-s3-request-presigner.md`): `getSignedUrl(client, command, { expiresIn })` mints a presigned URL from the SAME client + command, inheriting `credentials`/`region`/`endpoint`/`forcePathStyle` — the `object/presign` browser-direct rows.
+- `@aws-sdk/s3-request-presigner`(`.api/aws-sdk-s3-request-presigner.md`): `getSignedUrl(client, command, { expiresIn })` mints a presigned URL from the SAME client + command, inheriting `credentials`/`region`/`endpoint`/`forcePathStyle` — the `object/store` `[06]-[GRANT_MINT]` browser-direct rows.
 - `sharp`(`.api/sharp.md`): the codec fan-out reads the `GetObjectCommand` `Body` once via `transformToByteArray()` into a `Buffer`, `sharp(buffer).clone()` per derivative-spec row, and writes each back through this client's conditional-put row (`PutObjectCommand{ Key: derivativeContentKey, IfNoneMatch: "*", ChecksumSHA256 }`, 412 ⇒ noop) — every derivative content-addressed like its source.
 - `@effect/opentelemetry`: `Effect.withSpan("s3.putObject", { attributes: { bucket, key } })` wraps each `send` on the same exporter Layer as the SQL spans, correlating an object write to its journal event.
-- `kernel`/`security`: `ObjectKey` = kernel `ContentKey` (the digest that is the S3 Key); `credentials` and `SSECustomerKey` are `Redacted` from `host/config`; a presigned URL is a bounded-TTL capability token `security` reasons about.
+- `kernel`/`security`: `ObjectKey` = kernel `ContentKey` (the digest that is the S3 Key); `credentials` and `SSECustomerKey` are `Redacted` from the composition root's `Config`; a presigned URL is a bounded-TTL capability token `security` reasons about.
 
 [LOCAL_ADMISSION]:
 - target any S3-compatible provider by `endpoint` + `forcePathStyle` as `Config` facts; `credentials` and SSE-C keys stay `Redacted`, never a hardcoded AWS region.

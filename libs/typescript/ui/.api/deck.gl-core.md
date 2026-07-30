@@ -132,7 +132,7 @@
 ## [05]-[PICKING_EFFECTS_WIDGETS]
 
 [TYPE_SCOPE]: `PickingInfo` (the pick result), the `Effect` compositing pipeline, and the `Widget` HUD base.
-- `PickingInfo<DataT,ExtraInfo>` is generic — `object: DataT` is the picked row and layers extend `ExtraInfo` (e.g. `MVTLayerPickingInfo` adds the tile). `Effect` is the pre/post-render pass interface: `LightingEffect` composites lights + shadows, `PostProcessEffect` wraps a shadertools `ShaderPass` for screen-space effects. `Widget` is the imperative HUD base — core ships the base only.
+- `PickingInfo<DataT,ExtraInfo>` is generic — `object: DataT` is the picked row and layers extend `ExtraInfo` (e.g. `MVTLayerPickingInfo` adds the tile). `Effect` is the pre/post-render pass interface: `LightingEffect` composites lights + shadows, `PostProcessEffect` wraps a shadertools `ShaderPass` for screen-space effects — the pinned `@luma.gl/shadertools` ships NO post-process pass roster (the image passes live in the unadmitted `@luma.gl/effects`), so every pass this host runs is viewer-authored `ShaderModule` data. `Widget` is the imperative HUD base — core ships the base only.
 - `PickingInfo` fields `ExtraInfo & {object?:DataT,index,picked,layer,sourceLayer?,coordinate?,pixel?,devicePixel?,x,y,viewport?,pixelRatio,color}`; `Effect` fields `{id,props,order?,useInPicking?,preRender,postRender?,getShaderModuleProps?,setup,setProps?,cleanup}`; `Widget<PropsT,ViewsT>` lifecycle `onAdd`/`onRemove`/`onRenderHTML`/`onViewportChange`/`onRedraw`/`onHover`/`onClick`/`onDrag`/`onDragStart`/`onDragEnd`, props `WidgetProps` = `{id,style,className,_container}` with `placement:WidgetPlacement` abstract. `LightingEffect({ambient,dir1,point1,…})` builds the rig from a `Record<string,Light>`.
 
 | [INDEX] | [SYMBOL]                                    | [SIGNATURE]                            | [CONSUMER_BOUNDARY]                           |
@@ -143,7 +143,7 @@
 |  [04]   | `LightingEffect` / `LightingEffectProps`    | ctor above                             | shadows + PBR for extruded/3D layers          |
 |  [05]   | `AmbientLight` / `DirectionalLight`         | light instances (+ `*Options`)         | ambient + directional rig                     |
 |  [06]   | `PointLight` / `_SunLight` / `_CameraLight` | light instances                        | point, geo sun, headlight                     |
-|  [07]   | `PostProcessEffect<ShaderPassT>`            | `new PostProcessEffect(module, props)` | screen-space passes (blur, outline)           |
+|  [07]   | `PostProcessEffect<ShaderPassT>`            | `new PostProcessEffect(module, props)` | screen-space pass host; both args REQUIRED    |
 |  [08]   | `Widget<PropsT,ViewsT>`                     | lifecycle above                        | imperative HUD overlays (base only)           |
 
 ## [06]-[IMPLEMENTATION_LAW]

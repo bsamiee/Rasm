@@ -32,7 +32,9 @@
 
 [DISK_FAULT]: `H3.Algorithms.HexRingException` (abstract base) → `H3.Algorithms.HexRingPentagonException` `H3.Algorithms.HexRingKSequenceException`
 
-[H3INDEX_DECODE]: `Resolution` `Mode` `BaseCell` `BaseCellNumber` `Direction` `IsValidCell` `IsValidIndex` `IsPentagon` `LeadingNonZeroDirection` `MaximumFaceCount` `ReservedBits` `HighBit` (`IsValidCell` gates cell mode, `IsValidIndex` any mode)
+[H3INDEX_DECODE]: `Resolution` `Mode` `BaseCell` `BaseCellNumber` `Direction` `IsValidCell` `IsValidIndex` `IsPentagon` `LeadingNonZeroDirection` `MaximumFaceCount` `ReservedBits` `HighBit` (`IsValidCell` gates cell mode, `IsValidIndex` any mode; the mode field sits at `H3.Constants.H3_MODE_OFFSET` 59)
+
+[EXTENSION_HOSTS]: every `this H3Index` surface below is a static extension class — `H3.Extensions.H3HierarchyExtensions` (parent, child, neighbour), `H3GeometryExtensions` (coordinate bridge, boundary, cell metrics), `H3SetExtensions` (cover algebra), `H3DirectedEdgeExtensions`, `H3VertexExtensions`, `H3LocalIJExtensions`, and `H3.Algorithms.Rings`/`Lines`/`Polyfill` — so a resolution failure names the missing `using`, never a missing member.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -132,7 +134,7 @@
 
 [VERTEX_DIRECTION]: `GetVertexNumberForDirection(Direction) -> int` `GetDirectionForVertexNumber(int) -> Direction`
 
-[CELL_METRIC]: `CellAreaInMSquared` `CellAreaInKmSquared` `CellAreaInRadiansSquared` `EdgeLengthMeters` `EdgeLengthKilometers` `EdgeLengthRadians` `GetRadiusInKm` `GetFaces`
+[CELL_METRIC]: `CellAreaInMSquared` `CellAreaInKmSquared` `CellAreaInRadiansSquared` `EdgeLengthMeters` `EdgeLengthKilometers` `EdgeLengthRadians` `GetExactEdgeLengthInRadians` `GetRadiusInKm` `GetFaces`
 
 [GRID_STATISTIC]: static resolution grids on `H3Index` — `GetNumberOfCells(int)` `GetRes0Cells()` `GetPentagons(int)` `GetHexagonAreaAverageInKmSquared(int)` `GetHexagonAreaAverageInMSquared(int)` `GetHexagonEdgeLengthAverageInKm(int)` `GetHexagonEdgeLengthAverageInM(int)`
 
@@ -150,7 +152,8 @@
 - `api-h3-pg`(`.api/api-h3-pg.md`): `H3Index.FromPoint(point, res)` at ingest and `h3_latlng_to_cell` server-side return the identical 64-bit value, so the `h3_cell` generated column and the managed key agree bit-for-bit; `CompactCells` collapses a managed cover before it lands as the `h3_cell = ANY(@cells)` btree/brin membership test.
 - `NetTopologySuite`(`libs/csharp/.api/api-nettopologysuite.md`): `Point`, `Polygon`, `MultiPolygon`, `LineString`, `Coordinate`, and `GeometryFactory` are the whole geometry vocabulary of this surface, so a cell and a PostGIS geometry column round-trip through one object model with no second coordinate type.
 - `api-npgsql-nts`(`.api/api-npgsql-nts.md`): the codec `UseNetTopologySuite` admits binds the same `Point` instance `H3Index.FromPoint` consumes, so a row's geometry parameter and its cell derive from one materialized geometry.
-- `api-nts-io`(`.api/api-nts-io.md`): `GetCellBoundaries` returns one `MultiPolygon` per cover, the shape the `GeoJSON4STJ` writer serializes as a single GeoJSON document and the GeoPackage writer stores as one blob.
+- `api-nts-geojson4stj`(`.api/api-nts-geojson4stj.md`) / `api-nts-geopackage`(`.api/api-nts-geopackage.md`): `GetCellBoundaries` returns one `MultiPolygon` per cover, the shape the GeoJSON4STJ writer serializes as a single GeoJSON document and the GeoPackage writer stores as one blob.
+- `api-h3`(`libs/csharp/Rasm.Bim/.api/api-h3.md`): the Bim partition registers this catalogue as the cell-algebra owner and adds only its `Semantics/geospatial#GEOSPATIAL_SEAM` keyer arm — the site-context cell minted off a ProjNET-reprojected `GeoFeature` centroid and the coarse DGGS bucket a `GeoModel` joins on beside its `STRtree`; both halves therefore key one cell vocabulary and neither re-derives the other's.
 - `api-pgrouting`(`.api/api-pgrouting.md`): `GridPathCells` and `GridDistance` mint cell-id nodes and edge weights over the same id space `pgr_dijkstra` traverses in `Query/cypher`, so in-process and in-database routing share one node vocabulary.
 - within-lib: one pipeline folds `Fill` or `GridDiskDistancesSafe` through `CompactCells` into an `H3Cell[]` cover — `Element/identity` wraps each result as `H3Cell.Of(index)` and widens a radius through `Nearby`, and the `Query/lane` `SetPredicate.Spatial` leg runs its `Geometry` refine only over rows the cell-set membership test survived.
 

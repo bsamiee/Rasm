@@ -84,6 +84,7 @@
 - `*Async` members are `System.Data.Common` base schedulers over a synchronous engine, a mirror never a native async path; `SqliteConnection`/`SqliteCommand`/`SqliteDataReader`/`SqliteTransaction` implement `IAsyncDisposable`.
 
 [STACKING]:
+- `api-sqlite`(`libs/csharp/Rasm.Compute/.api/api-sqlite.md`): the Compute partition binds one read-only ADO fold over the EnergyPlus `eplusout.sql` results database — a bracketed `Mode=ReadOnly` connection and a parameterized SELECT family, nothing else; this partition owns the durable embedded-store rail (raw `Handle` interop, blob streams, UDF and collation registration, backup and checkpoint) and neither grows a second SQLite rail beside the other.
 - `api-sqlitepcl`(`.api/api-sqlitepcl.md`): `Handle` carries every raw `sqlite3_*` call; paged `sqlite3_backup_*` over `Handle` subsumes the whole-file `BackupDatabase`.
 - `api-ef-sqlite`(`.api/api-ef-sqlite.md`): the EF provider maps the model over this transport; `api-thinktecture-ef`(`.api/api-thinktecture-ef.md`) adds value-object conversions — this package owns transport, EF owns mapping.
 - `Store/provisioning#ENGINE_OPERATIONS` capsules the ADO + raw-interop ceremony: pins typed `SqliteType` on `SqliteParameter` for `Checkpoint`/`Backup` binds, streams blobs through the constructed `SqliteBlob` write and `GetStream` read, and steps paged `sqlite3_backup_*` over `Handle`.

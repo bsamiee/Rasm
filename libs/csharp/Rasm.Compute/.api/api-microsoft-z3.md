@@ -59,7 +59,7 @@
 | [INDEX] | [SURFACE]                                                        | [SHAPE]  | [CAPABILITY]                                           |
 | :-----: | :--------------------------------------------------------------- | :------- | :----------------------------------------------------- |
 |  [01]   | `Assert(params BoolExpr[]) / AssertAndTrack(BoolExpr, BoolExpr)` | instance | add constraints; the tracked form feeds the unsat core |
-|  [02]   | `Check(params Expr[]) -> Status`                                 | instance | SAT/UNSAT/UNKNOWN verdict; assumptions scope a query   |
+|  [02]   | `Check(params Expr[]) / (IEnumerable<BoolExpr>) -> Status`       | instance | SAT/UNSAT/UNKNOWN verdict; assumptions scope a query   |
 |  [03]   | `Model -> Model`                                                 | property | witnessing assignment after `SATISFIABLE`              |
 |  [04]   | `UnsatCore -> BoolExpr[]`                                        | property | minimal conflicting literals — violated rule names     |
 |  [05]   | `Push() / Pop(uint n = 1)`                                       | instance | backtrackable assertion frame for what-if checks       |

@@ -1,125 +1,51 @@
 # [RASM_RHINO_API_ETO_RUNTIME]
 
-`Eto.Forms` is the cross-platform UI framework the Rhino host binds; this catalog owns its ambient runtime — the process-wide singletons and static device/display state that sit beside the control tree rather than inside it. `Application` is the UI-thread marshalling and message-loop boundary every background producer crosses, and the transfer, timer, input, and tray surfaces ride the same runtime rail; control construction, painting, output, and platform hosting are the sibling `eto` catalogs.
+`Eto.Forms` ambient runtime is a process-wide singleton set, so this boundary registers it whole and adds no carrier: one Rhino process holds one application instance and one clipboard, shared with the Grasshopper boundary rather than partitioned from it. This partition states how the Rhino host boundary reaches that runtime — the dispatch every background producer crosses, the keyed payload a document transfer carries, the tray and toast a long-running operation reports through, and the screen capture a boundary read takes.
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `Eto.Forms`
-- package: `Eto.Forms` — host-provided, resolved from the Rhino host assembly set, never a central `PackageReference`
-- assembly: `Eto`
+[PACKAGE_SURFACE]: `Eto.Forms` — Rhino host-boundary runtime reach
+- package: `Eto.Forms` (host-provided; resolved from the Rhino host assembly set, never a central `PackageReference`)
+- assembly: `Eto` (`Eto.dll`)
 - namespace: `Eto.Forms`
 - asset: the `Eto` assembly the Rhino host loads; `macOS`, `WinForms`, and `Wpf` platform handlers back one managed surface
 - rail: eto-runtime
 
-## [02]-[PUBLIC_TYPES]
+## [02]-[BOUNDARY_REACH]
 
-[PUBLIC_TYPE_SCOPE]: application dispatch and clock — `Application` is the process singleton reached through `Application.Instance`, and UI-thread affinity routes every control mutation through one of its dispatch shapes.
+- Registers the `Eto.Forms` ambient runtime (`libs/csharp/.api/api-eto-runtime.md`): `Application` dispatch and lifecycle, `UITimer`, `Keyboard`/`Mouse`/`Cursors` live input, `Clipboard`/`DataObject`/`IDataObject`/`DataFormats` typed transfer, `Notification`/`TrayIndicator`, and `Screen` display state carry their algebra there. A process singleton admits no per-folder partition, so this boundary adds no carrier and states its reach and composition law over the registered surface.
 
-| [INDEX] | [SYMBOL]      | [TYPE_FAMILY] | [CAPABILITY]                                                            |
-| :-----: | :------------ | :------------ | :---------------------------------------------------------------------- |
-|  [01]   | `Application` | class         | singleton UI-thread dispatch, message-loop iteration, notification hook |
-|  [02]   | `UITimer`     | class         | widget-free repeating UI-thread clock with `Interval`/`Elapsed`         |
+| [INDEX] | [BOUNDARY_CONCERN]           | [REGISTERED_MEMBERS]                                                                 |
+| :-----: | :--------------------------- | :----------------------------------------------------------------------------------- |
+|  [01]   | background-producer crossing | `Application.Invoke`, `AsyncInvoke`, `InvokeAsync`, `EnsureUIThread`, `RunIteration` |
+|  [02]   | portable clock fallback      | `UITimer(EventHandler<EventArgs>)`, `Start()`, `Stop()`, `Interval`                  |
+|  [03]   | keyed document transfer      | `Clipboard.Instance` `Set*`/`Get*` pairs, `Contains(type)`, `Clear()`                |
+|  [04]   | drag negotiation             | `IDataObject`, `DragEventArgs.Data`/`AllowedEffects`/`Effects`, `SetDropDescription` |
+|  [05]   | operation completion notice  | `TrayIndicator.SetMenu`/`Show`/`Hide`, `Notification.Show`, `UserData`               |
+|  [06]   | display resolution and grab  | `Screen.FromPoint`, `Screen.FromRectangle`, `Screen.GetImage(RectangleF)`            |
+|  [07]   | pointer and modifier probe   | `Mouse.IsSupported`, `IsAnyButtonPressed`, `SetCursor`, `Keyboard.IsKeyLocked`       |
 
-[PUBLIC_TYPE_SCOPE]: input and display state — static projections of live device and display state; `Cursors` is the closed handle roster.
-
-| [INDEX] | [SYMBOL]       | [TYPE_FAMILY] | [CAPABILITY]                                                 |
-| :-----: | :------------- | :------------ | :----------------------------------------------------------- |
-|  [01]   | `Screen`       | class         | display enumeration, bounds, `LogicalPixelSize`, screen grab |
-|  [02]   | `Mouse`        | static class  | pointer position, pressed buttons, cursor override           |
-|  [03]   | `Keyboard`     | static class  | modifier state, lock-key query, `ModifiersChanged`           |
-|  [04]   | `MouseButtons` | flags enum    | pressed-button set                                           |
-|  [05]   | `Keys`         | flags enum    | key + modifier vocabulary                                    |
-|  [06]   | `Cursor`       | class         | a cursor handle applied to a control or the pointer          |
-|  [07]   | `Cursors`      | static class  | built-in cursor handle roster                                |
-
-[PUBLIC_TYPE_SCOPE]: typed data transfer and drag — `Clipboard` (via `Clipboard.Instance`) and `DataObject` share one typed-payload contract keyed by a MIME `type`; `DragEventArgs` carries a `DataObject` through the drag protocol.
-
-| [INDEX] | [SYMBOL]        | [TYPE_FAMILY] | [CAPABILITY]                                                           |
-| :-----: | :-------------- | :------------ | :--------------------------------------------------------------------- |
-|  [01]   | `Clipboard`     | class         | singleton typed clipboard read/write and `Clear`, keyed by MIME `type` |
-|  [02]   | `DataObject`    | class         | drag-scoped typed payload keyed by MIME `type`                         |
-|  [03]   | `IDataObject`   | interface     | the keyed get+set contract both carriers implement                     |
-|  [04]   | `DragEffects`   | flags enum    | `Copy`/`Move`/`Link` allowed-effect negotiation                        |
-|  [05]   | `DragEventArgs` | class         | drop location, `Data`, `AllowedEffects`, resolved `Effects`            |
-
-[PUBLIC_TYPE_SCOPE]: notification and tray — `TrayIndicator` owns persistent tray presence, `Notification` the transient toast optionally anchored to it.
-
-| [INDEX] | [SYMBOL]        | [TYPE_FAMILY] | [CAPABILITY]                                         |
-| :-----: | :-------------- | :------------ | :--------------------------------------------------- |
-|  [01]   | `TrayIndicator` | class         | persistent tray icon with a `ContextMenu`, show/hide |
-|  [02]   | `Notification`  | class         | transient system toast, optionally tray-anchored     |
-
-## [03]-[ENTRYPOINTS]
-
-[ENTRYPOINT_SCOPE]: UI-thread dispatch and iteration
-
-| [INDEX] | [SURFACE]                                     | [SHAPE]  | [CAPABILITY]                                   |
-| :-----: | :-------------------------------------------- | :------- | :--------------------------------------------- |
-|  [01]   | `Application.Invoke(Action)`                  | instance | synchronous marshal onto the UI thread         |
-|  [02]   | `Application.Invoke(Func<T>) -> T`            | instance | synchronous marshalled read of a UI value      |
-|  [03]   | `Application.AsyncInvoke(Action)`             | instance | fire-and-forget post to the UI thread          |
-|  [04]   | `Application.InvokeAsync(Action) -> Task`     | instance | awaitable marshalled action                    |
-|  [05]   | `Application.InvokeAsync(Func<T>) -> Task<T>` | instance | awaitable marshalled read                      |
-|  [06]   | `Application.EnsureUIThread()`                | instance | throws off the UI thread — the affinity assert |
-|  [07]   | `Application.IsUIThread -> bool`              | property | tests current-thread affinity                  |
-|  [08]   | `Application.RunIteration()`                  | instance | pump one message-loop pass                     |
-|  [09]   | `UITimer(EventHandler<EventArgs>)`            | ctor     | construct a clock bound to an elapsed handler  |
-|  [10]   | `UITimer.Start()` / `UITimer.Stop()`          | instance | run and halt the repeating clock               |
-
-[ENTRYPOINT_SCOPE]: display, input, and cursor state
-
-| [INDEX] | [SURFACE]                                        | [SHAPE]  | [CAPABILITY]                          |
-| :-----: | :----------------------------------------------- | :------- | :------------------------------------ |
-|  [01]   | `Screen.Screens -> IEnumerable<Screen>`          | static   | the connected-display roster          |
-|  [02]   | `Screen.PrimaryScreen -> Screen`                 | static   | the primary display                   |
-|  [03]   | `Screen.FromPoint(PointF) -> Screen`             | static   | the display containing a point        |
-|  [04]   | `Screen.FromRectangle(RectangleF) -> Screen`     | static   | the display best covering a rectangle |
-|  [05]   | `Screen.GetImage(RectangleF) -> Image`           | instance | screen-region capture                 |
-|  [06]   | `Mouse.IsSupported -> bool`                      | static   | platform pointer-state availability   |
-|  [07]   | `Mouse.IsAnyButtonPressed(MouseButtons) -> bool` | static   | pressed-button test                   |
-|  [08]   | `Mouse.SetCursor(Cursor)`                        | static   | override the pointer cursor           |
-|  [09]   | `Keyboard.IsKeyLocked(Keys) -> bool`             | static   | lock-key state                        |
-
-[ENTRYPOINT_SCOPE]: typed transfer, drag, and tray
-
-| [INDEX] | [SURFACE]                                          | [SHAPE]  | [CAPABILITY]                               |
-| :-----: | :------------------------------------------------- | :------- | :----------------------------------------- |
-|  [01]   | `Clipboard.SetString(string, string)`              | instance | write a typed text payload                 |
-|  [02]   | `Clipboard.SetData(byte[], string)`                | instance | write a typed byte payload                 |
-|  [03]   | `Clipboard.SetDataStream(Stream, string)`          | instance | write a typed stream payload               |
-|  [04]   | `Clipboard.SetObject(object, string)`              | instance | write a typed boxed payload                |
-|  [05]   | `Clipboard.GetString(string) -> string`            | instance | read a typed text payload                  |
-|  [06]   | `Clipboard.GetData(string) -> byte[]`              | instance | read a typed byte payload                  |
-|  [07]   | `Clipboard.GetDataStream(string) -> Stream`        | instance | read a typed stream payload                |
-|  [08]   | `Clipboard.GetObject<T>(string) -> T`              | instance | read a typed boxed payload                 |
-|  [09]   | `Clipboard.Contains(string) -> bool`               | instance | presence probe for a MIME type             |
-|  [10]   | `Clipboard.Clear()`                                | instance | empty the clipboard                        |
-|  [11]   | `DataObject.SetString(string, string)`             | instance | write onto the drag payload                |
-|  [12]   | `DataObject.GetObject<T>(string) -> T`             | instance | read from the drag payload                 |
-|  [13]   | `DragEventArgs.SetDropDescription(string, string)` | instance | annotate the OS drop cursor                |
-|  [14]   | `Notification.Show(TrayIndicator)`                 | instance | deliver a toast, optionally anchored       |
-|  [15]   | `TrayIndicator.SetMenu(ContextMenu)`               | instance | bind the tray context menu                 |
-|  [16]   | `TrayIndicator.Show()` / `TrayIndicator.Hide()`    | instance | show and hide the tray presence            |
-|  [17]   | `Application.NotificationActivated`                | event    | route notification activation by user data |
-|  [18]   | `Notification.UserData`                            | property | carry the activation correlation value     |
-|  [19]   | `Notification.RequiresTrayIndicator`               | property | declare whether delivery needs a tray host |
-
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Every control-tree read or write executes on the UI thread; a background producer crosses through exactly one `Application` dispatch shape. `Invoke`/`Invoke<T>` block the caller and return the UI-side result, `AsyncInvoke` posts without completion, `InvokeAsync`/`InvokeAsync<T>` return an off-thread awaited `Task`. `EnsureUIThread` guards a UI-only method; `RunIteration` pumps the loop for a hand-rolled synchronous wait.
-- `UITimer` fires `Elapsed` on the UI thread as the portable pace where a platform exposes no higher-fidelity display-link; `api-macos-native` owns the macOS display-link pace.
-- `Clipboard` and `DataObject` are one typed-payload shape under two lifetimes — the clipboard process-external and persistent, the data object drag-scoped. Every payload keys by a MIME `type` string, and `SetString`/`SetData`/`SetDataStream`/`SetObject` pair one-to-one with the `Get*` readers and the `Contains` probe. `IDataObject` carries the whole keyed contract so one interface-typed body serves both lifetimes; only the stream pair (`GetDataStream`/`SetDataStream`) is class-level on each carrier and off the interface. Drag negotiation carries the `DataObject` on `DragEventArgs.Data`, declares `AllowedEffects`, and resolves the committed `Effects`.
+- Every control-tree read or write at this boundary executes on the UI thread and a background producer crosses through exactly one registered dispatch shape; `EnsureUIThread` guards a UI-only method and `RunIteration` pumps the loop where a synchronous wait is unavoidable.
+- Transfer keys on a MIME type across both lifetimes, and one `IDataObject`-typed body serves the clipboard and the drag payload alike; the stream pair is class-level on each carrier and off the interface, so a stream transfer names its carrier.
+- Tray presence and toast delivery are one pair: a toast declaring `RequiresTrayIndicator` needs a live tray host, and activation correlates back through `UserData` rather than a boundary-side pending map.
+- The registered `UITimer` is the portable pace this boundary falls back to; the macOS display-link pace supersedes it under the host gate (`api-macos-native.md`).
 
 [STACKING]:
-- `LanguageExt`(`.api/api-languageext`): a UI-thread dispatch wraps into `Eff<A>`/`IO<A>` and folds its outcome to `Fin<A>`, so `Application.Invoke<T>`/`InvokeAsync<T>` compose as effectful reads rather than raw blocking calls threaded through domain code. `Option<A>` lifts every nullable transfer read (`Clipboard.GetString(type)`, `DataObject.GetObject<T>(type)` gated by `Contains(type)`) so an absent MIME payload is `None`. `UITimer` and `TrayIndicator` acquire and release through the `use` rail — `Start`/`Show` acquire, `Stop`/`Hide` release — so the clock and tray icon never leak past their owning scope.
-- `Thinktecture.Runtime.Extensions`(`.api/api-thinktecture-runtime-extensions`): `Cursors`, `DragEffects`, and `MouseButtons` bind as `[SmartEnum]`/flag owners routed by generated `Switch`/`Map` instead of raw static-field reads and bitwise tests; a clipboard MIME `type` binds as `[ValueObject<string>]` so transfer access is keyed by a validated owner, never a bare `string type` argument.
+- `api-eto-runtime`(`../../.api/api-eto-runtime.md`): the registered singleton algebra; this boundary composes it and re-tables none of it.
+- `api-eto-forms`(`api-eto-forms.md`): dialog presentation and control invalidation are the construction-side consumers that marshal through the registered application singleton.
+- `api-rhino-ui`(`api-rhino-ui.md`): the Rhino host marshal owner is the outer seam — an Eto-level thread-affinity test never replaces it, and a document-touching callback marshals there first.
+- `LanguageExt.Core`(`../../.api/api-languageext.md`): a dispatch wraps into `Eff<A>`/`IO<A>` and folds to `Fin<A>`, `Option<A>` lifts every nullable transfer read gated by the presence probe, and the clock and tray acquire and release through the `use` rail so neither leaks past its owning scope.
+- `Thinktecture.Runtime.Extensions`(`../../.api/api-thinktecture-runtime-extensions.md`): the cursor roster, drag effects, and button masks bind as `[SmartEnum]` and flag owners routed by generated dispatch, and a MIME type binds as `[ValueObject<string>]` so transfer access is keyed by a validated owner.
 
 [LOCAL_ADMISSION]:
-- `Eto.Forms` runtime state is host-provided and never re-declared; a Rasm owner internalizes a dispatch, transfer, timer, or tray concern behind one canonical rail so downstream code composes a marshalled effect or a keyed payload.
+- Runtime state is host-provided and never re-declared; this boundary internalizes a dispatch, transfer, timer, or tray concern behind one canonical rail so downstream code composes a marshalled effect or a keyed payload.
+- The application singleton and a stringy MIME key never cross into a domain signature.
 
 [RAIL_LAW]:
-- Package: `Eto.Forms`
-- Owns: UI-thread dispatch and loop iteration, clock pacing, live input/display projection, typed clipboard and drag payloads, tray presence and toast delivery
-- Accept: marshalled effects, keyed transfer payloads, resource-scoped clocks and tray icons composed through the canonical rail
-- Reject: control/layout/window/menu construction (`api-eto-forms`), custom painting (`api-eto-drawing`), document output (`api-eto-printing`), platform selection and native hosting (`api-eto-platform`), and leaking `Application.Instance` or a stringy MIME key past the owning rail
+- Partition: `Eto.Forms` ambient runtime, Rhino host-boundary reach
+- Owns: the composition law placing background-producer dispatch, keyed document transfer, tray and toast reporting, and display resolution on the registered singletons
+- Accept: marshalled effects, keyed transfer payloads, resource-scoped clocks and tray icons, display resolution and region capture
+- Reject: a re-tabling of the registered singleton algebra, control and window construction (`api-eto-forms.md`), custom painting (`api-eto-drawing.md`), document output (`api-eto-printing.md`), platform selection and native hosting (`api-eto-platform.md`), and leaking the application singleton or a stringy MIME key past the owning rail

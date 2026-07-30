@@ -114,7 +114,8 @@
 [STACKING]:
 - (none): `CadDocument`/entity outputs feed the `BimIo` boundary directly, composing with no sibling `.api` at the member level; the format table dispatches DWG/DXF here as a peer codec, never a member hand-off.
 - `BimIo.AcadGeometry`: folds the mesh-family entities off `CadDocument.Entities` into the `ImportedGeometry` triangle-soup, subscribing `ICadReader.OnNotification` into its degradation log and firing the `BimHooks` progress observe point off the instance readers' `OnProgress`.
-- `Rasm.Fabrication`: reads the SAME `CadDocument` projecting the 2D-profile families (`LwPolyline`/`Polyline2D`/`Arc`/`Circle`/`Spline`) into its `Loop` vocabulary — one drawing admitted into two folders, each projecting the entity families its domain owns.
+- `ACadSharp`(`libs/csharp/Rasm.Fabrication/.api/api-acadsharp.md`): the Fabrication READ partition reads the SAME `CadDocument` and projects the 2D-profile families (`LwPolyline`/`Polyline2D`/`Arc`/`Circle`/`Ellipse`/`Spline`) into its `Loop` vocabulary beside the annotation entities it lowers into markings — one drawing admitted into two READ folders, each projecting the entity families its domain owns.
+- `ACadSharp`(`libs/csharp/Rasm.AppUi/.api/api-drafting-export.md`): the WRITE partition is AppUi's, carried as the `ACadSharp` surface block inside that multi-package catalogue — `DwgWriter`/`DxfWriter`/`SvgWriter` over one authored `CadDocument`; Bim admits, AppUi emits, and the three partitions share one document model across the READ/WRITE split.
 
 [LOCAL_ADMISSION]:
 - A DWG/DXF stream or filename enters through `CadReaderFactory`/`DxfReader`/`DwgReader` under a tuned config, then folds onto `ImportedGeometry` in `Exchange/import`; `CadReaderConfiguration.Failsafe` (default true) keeps recoverable section/entity defects as `OnNotification` events, and `DxfReader.Read`/`DwgReader.Read` throwing on a malformed file lowers to `BimFault.ModelRejected` once at the `BimIo` boundary.

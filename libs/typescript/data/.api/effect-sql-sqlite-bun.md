@@ -9,7 +9,7 @@
 - effect-peer: `effect`, `@effect/sql` (the `SqlClient` core; `.api/effect-sql.md`), `@effect/experimental` (`Reactivity` for `make`/`reactive`; `.api/effect-experimental.md`), `@effect/platform` (`FileSystem`/`Path` for the banned `SqliteMigrator`; `.api/effect-platform.md`)
 - module: ESM + CJS dual (`dist/dts` typings); subpaths `@effect/sql-sqlite-bun/SqliteClient`, `/SqliteMigrator`; `sideEffects: []`
 - runtime: `runtime:node`/bun only — imports `bun:sqlite`, Bun's built-in synchronous SQLite with no npm dependency and no native addon (WAL, FTS5, JSON1 compiled in); the node peer lane is `@effect/sql-sqlite-node`, the browser lane `@effect/sql-sqlite-wasm`
-- rail: the `store` `lane/sqlite` bun dialect — the PG spine's journal/projection contracts under the sqlite capability-degradation table
+- rail: the `data` `lane/sqlite` bun dialect — the PG spine's journal/projection contracts under the sqlite capability-degradation table
 - modules: `SqliteClient`, `SqliteMigrator` (banned re-export)
 
 ## [02]-[PUBLIC_TYPES]
@@ -21,7 +21,7 @@
 | :-----: | :----------------------------------------------------------------- | :-------------- | :----------------------------------------------- |
 |  [01]   | `SqliteClient.SqliteClient` (Tag) / `interface SqliteClient`       | service Tag     | `lane/sqlite` journal/projection rows            |
 |  [02]   | `SqliteClient.export: Effect<Uint8Array, SqlError>`                | serialize       | `journal/retain` whole-db backup; snapshot bytes |
-|  [03]   | `SqliteClient.loadExtension(path: string): Effect<void, SqlError>` | extension       | `retrieve` `sqlite-vec`/FTS; `capability/row`    |
+|  [03]   | `SqliteClient.loadExtension(path: string): Effect<void, SqlError>` | extension       | `retrieve` `sqlite-vec`/FTS; `lane/capability`    |
 |  [04]   | `SqliteClient.updateValues: never`                                 | degradation     | anchor of the `lane/sqlite` degradation table    |
 |  [05]   | `SqliteClient.config: SqliteClientConfig`                          | resolved config | `filename`/WAL introspection                     |
 
@@ -44,7 +44,7 @@
 | [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                               |
 | :-----: | :------------------------------------------------------------------ | :------------- | :------------------------------------------------ |
 |  [01]   | `SqliteClient.layer(config: SqliteClientConfig)`                    | lane layer     | `lane/sqlite` app-root row (fixed `filename`)     |
-|  [02]   | `SqliteClient.layerConfig(config: Config.Wrap<SqliteClientConfig>)` | lane layer     | `host/config` file/mode resolution; standing row  |
+|  [02]   | `SqliteClient.layerConfig(config: Config.Wrap<SqliteClientConfig>)` | lane layer     | the composition root's `Config` file/mode resolution; standing row  |
 |  [03]   | `SqliteClient.make(config)`                                         | scoped make    | scoped construction inside a larger acquire graph |
 |  [04]   | `client.export` → `Uint8Array`                                      | snapshot       | `journal/retain` ship/restore; `":memory:"` dump  |
 |  [05]   | `client.loadExtension(vecPath)`                                     | extension      | `retrieve/index` `vec0` virtual table             |

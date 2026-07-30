@@ -191,19 +191,20 @@
 |  [18]   | `FromPixelCopy`                    | `SKImage`            | `(SKImageInfo, ReadOnlySpan<byte>)` copy                               |
 |  [19]   | `FromPixels`                       | `SKImage`            | `(SKPixmap, releaseProc)` adopt                                        |
 |  [20]   | `ToTextureImage` / `ToRasterImage` | `SKImage`            | `(GRContext, mipmapped, budgeted)` upload/download                     |
-|  [21]   | `ApplyImageFilter`                 | `SKImage`            | `(GRContext?, SKImageFilter, subset, clip, out outSubset, out offset)` |
-|  [22]   | `Encode`                           | `SKImage`            | `()` PNG or `(SKEncodedImageFormat, quality)` -> `SKData`              |
-|  [23]   | `ReadPixels` / `ScalePixels`       | `SKImage`/`SKPixmap` | `(SKPixmap, SKSamplingOptions)` GPU/CPU readback                       |
-|  [24]   | `Decode`                           | `SKBitmap`           | `(SKCodec)` / `(SKData)` / `(byte[], SKImageInfo)`                     |
-|  [25]   | `Resize`                           | `SKBitmap`           | `(SKImageInfo, SKSamplingOptions)`                                     |
-|  [26]   | `InstallPixels` / `PeekPixels`     | `SKBitmap`           | adopts pixels / exposes a view                                         |
-|  [27]   | `Create`                           | `SKCodec`            | `(SKStream)` / `(Stream, out SKCodecResult)`                           |
-|  [28]   | `FrameCount` / `RepetitionCount`   | `SKCodec`            | animated-image frame metadata                                          |
-|  [29]   | `GetFrameInfo`                     | `SKCodec`            | returns `SKCodecFrameInfo`                                             |
-|  [30]   | `StartIncrementalDecode`           | `SKCodec`            | starts progressive decode                                              |
-|  [31]   | `IncrementalDecode`                | `SKCodec`            | continues decode with `out int rowsDecoded`                            |
-|  [32]   | `CreateCopy`                       | `SKVertices`         | `(SKVertexMode, SKPoint[], SKPoint[] texs, SKColor[])`                 |
-|  [33]   | `Span` / `Size` / `ToArray`        | `SKData`             | `Span<byte>` zero-copy view / `long` length / `byte[]` copy            |
+|  [21]   | `ApplyImageFilter`                 | `SKImage`            | `(SKImageFilter, subset, clip, out SKRectI, out SKPoint)`              |
+|  [22]   | `ApplyImageFilter`                 | `SKImage`            | twin `out SKPointI`; `GRContext`/`GRRecordingContext` prefixed twins   |
+|  [23]   | `Encode`                           | `SKImage`            | `()` PNG or `(SKEncodedImageFormat, quality)` -> `SKData`              |
+|  [24]   | `ReadPixels` / `ScalePixels`       | `SKImage`/`SKPixmap` | `(SKPixmap, SKSamplingOptions)` GPU/CPU readback                       |
+|  [25]   | `Decode`                           | `SKBitmap`           | `(SKCodec)` / `(SKData)` / `(byte[], SKImageInfo)`                     |
+|  [26]   | `Resize`                           | `SKBitmap`           | `(SKImageInfo, SKSamplingOptions)`                                     |
+|  [27]   | `InstallPixels` / `PeekPixels`     | `SKBitmap`           | adopts pixels / exposes a view                                         |
+|  [28]   | `Create`                           | `SKCodec`            | `(SKStream)` / `(Stream, out SKCodecResult)`                           |
+|  [29]   | `FrameCount` / `RepetitionCount`   | `SKCodec`            | animated-image frame metadata                                          |
+|  [30]   | `GetFrameInfo`                     | `SKCodec`            | returns `SKCodecFrameInfo`                                             |
+|  [31]   | `StartIncrementalDecode`           | `SKCodec`            | starts progressive decode                                              |
+|  [32]   | `IncrementalDecode`                | `SKCodec`            | continues decode with `out int rowsDecoded`                            |
+|  [33]   | `CreateCopy`                       | `SKVertices`         | `(SKVertexMode, SKPoint[], SKPoint[] texs, SKColor[])`                 |
+|  [34]   | `Span` / `Size` / `ToArray`        | `SKData`             | `Span<byte>` zero-copy view / `long` length / `byte[]` copy            |
 
 [TRANSFORM_VALUE_ENTRYPOINTS]: affine and similarity transform construction
 
@@ -316,6 +317,7 @@
 - Every render, capture, drafting, and evidence op draws through an `SKCanvas` — leased from the Avalonia backend on the live path, allocated from a raster or GPU `SKSurface` off it.
 - Every `SKObject` (`SKSurface`/`SKImage`/`SKBitmap`/`SKCodec`/`SKData`/`GRContext`/`SKStream`) is one lifecycle-scoped disposable joining a managed binding to its unmanaged `libSkiaSharp` handle, freed by `using` or explicit `Dispose`; `SKSurface.Canvas` yields a surface-owned cached `SKCanvas` — stable across reads, never disposed by the caller.
 - One `SKPaint` composes the whole effect pipeline: a shadowed, tone-mapped, gradient-filled draw sets `Shader`/`MaskFilter`/`ColorFilter`/`BlendMode` on one paint and draws once through `SaveLayer(in SKCanvasSaveLayerRec)`.
+- `SKImage.ApplyImageFilter` overloads split on receiver context AND on the out-offset type — the context-free form carries an `out SKPoint` twin and an `out SKPointI` twin differing in nothing else, so `out var` is ambiguous and the offset type spells explicitly; the `GRContext` and `GRRecordingContext` forms both fix `out SKPointI`, and every overload returns `out SKRectI outSubset` beside it.
 
 [STACKING]:
 - `Avalonia.Skia`(`api-avalonia-skia.md`): `ISkiaSharpApiLeaseFeature.Lease()` yields the live `SKCanvas`/`GRContext`/`SKSurface` a custom control draws through, sharing Avalonia's GPU context and presenting in-airspace; `SkiaSharpExtensions.ToSKRect`/`ToSKMatrix`/`ToSKColor`/`ToSKSamplingOptions` bridge Avalonia value types at the boundary, interior math staying `SKMatrix`/`SKPath`/`SKRect`.

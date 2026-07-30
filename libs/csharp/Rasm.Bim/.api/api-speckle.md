@@ -136,6 +136,7 @@ Every subtype extends `DataObject`, inheriting `name`/`displayValue`/`properties
 
 [STACKING]:
 - `dotbim`(`.api/api-dotbim`), `SharpGLTF`(`.api/api-sharpgltf`), `AssimpNetter`(`.api/api-assimpnetter`): every display `Mesh` fans to the shared canonical triangle carrier these codecs decode into, so a received Speckle model re-exports through any of them.
+- `api-speckle`(`libs/csharp/Rasm.Persistence/.api/api-speckle.md`): the Persistence partition of `Speckle.Sdk`/`Speckle.Objects` owns the SEND half — the detach/chunk serialiser, the DI-resolved `IOperations` surface, the transport family, and the GraphQL `IClient` — driving the `Version/ledger#SYNC_TRANSPORTS` `SyncTransport.SpeckleLikeDiff` case whose `rootObjId` becomes the `UInt128 ContentKey`; this partition holds the RECEIVE-side graph alone and mints no transport.
 - `Exchange/import` seam: `root.Flatten()` splits to `OfType<Mesh>` geometry and `OfType<DataObject>` semantics onto the canonical carriers, `Units.GetConversionFactor(mesh.units, Units.Meters)` scaling every mesh to the kernel metre frame; a `displayValue`-less `Brep`/`Surface`/`Curve` hands to the Compute tessellation companion.
 
 [LOCAL_ADMISSION]:

@@ -30,6 +30,7 @@ Each of `SwiftBVH`/`SwiftOctree`/`SwiftSpatialHash` ships a built-in `<TKey>` fo
 |  [09]   | `ISpatialHashCellMapper<TVolume>`   | interface     | pluggable spatial-hash cell-mapping strategy                            |
 
 - `IBoundVolume<TVolume>` is `where TVolume : struct, IBoundVolume<TVolume>` (CRTP); `BoundVolume` is the built-in `IBoundVolume<BoundVolume>`/`IEquatable<BoundVolume>` volume every `<TKey>` structure defaults to.
+- Key constraints diverge: `SwiftOctree` binds `where TKey : notnull, IEquatable<TKey>` against `SwiftBVH`'s `where TKey : notnull`, so a key type usable in the BVH is not automatically admissible to the octree.
 
 [PUBLIC_TYPE_SCOPE]: handle-stable backing collections
 
@@ -50,19 +51,24 @@ Each backing collection holds the `BimElement` GlobalId→AABB mapping under sta
 
 `TKey` is the element handle and `TVolume` the AABB; the design binds this shared surface, not a concrete structure.
 
-| [INDEX] | [SURFACE]                                                                    | [SHAPE]  | [CAPABILITY]                             |
-| :-----: | :--------------------------------------------------------------------------- | :------- | :--------------------------------------- |
-|  [01]   | `new SwiftBVH(int)`                                                          | ctor     | pre-sized BVH node pool                  |
-|  [02]   | `new SwiftOctree(TVolume, SwiftOctreeOptions, IOctreeBoundsPartitioner)`     | ctor     | bounded subdivision, pluggable partition |
-|  [03]   | `new SwiftSpatialHash(int, ISpatialHashCellMapper, SwiftSpatialHashOptions)` | ctor     | uniform grid, pluggable cell mapper      |
-|  [04]   | `Insert(TKey, TVolume) -> bool`                                              | instance | index an element AABB                    |
-|  [05]   | `UpdateEntryBounds(TKey, TVolume)`                                           | instance | in-place refit of a moved element        |
-|  [06]   | `Query(TVolume, ICollection<TKey>)`                                          | instance | sink of overlapping entries — candidates |
-|  [07]   | `SwiftSpatialHash.QueryNeighborhood(TVolume, ICollection<TKey>)`             | instance | widen the query by the padded cell ring  |
-|  [08]   | `Remove(TKey) -> bool`                                                       | instance | drop an element from the index           |
-|  [09]   | `TryGetBounds(TKey, out TVolume) -> bool`                                    | instance | read back a stored AABB (octree/hash)    |
-|  [10]   | `Contains(TKey) -> bool` / `Count`                                           | instance | membership and entry count               |
-|  [11]   | `EnsureCapacity(int)` / `Clear()`                                            | instance | pre-grow the node pool / reset           |
+| [INDEX] | [SURFACE]                                                                    | [SHAPE]  | [CAPABILITY]                                   |
+| :-----: | :--------------------------------------------------------------------------- | :------- | :--------------------------------------------- |
+|  [01]   | `new SwiftBVH(int)`                                                          | ctor     | pre-sized BVH node pool                        |
+|  [02]   | `new SwiftOctree(TVolume, SwiftOctreeOptions, IOctreeBoundsPartitioner)`     | ctor     | bounded subdivision, pluggable partition       |
+|  [03]   | `new SwiftOctree<TKey>(BoundVolume, SwiftOctreeOptions, float)`              | ctor     | built-in-volume form, minimum node size        |
+|  [04]   | `new SwiftSpatialHash(int, ISpatialHashCellMapper, SwiftSpatialHashOptions)` | ctor     | uniform grid, pluggable cell mapper            |
+|  [05]   | `Insert(TKey, TVolume) -> bool`                                              | instance | index an element AABB                          |
+|  [06]   | `UpdateEntryBounds(TKey, TVolume) -> void\|bool`                             | instance | in-place refit; return diverges per structure  |
+|  [07]   | `Query(TVolume, ICollection<TKey>)`                                          | instance | sink of overlapping entries — candidates       |
+|  [08]   | `SwiftSpatialHash.QueryNeighborhood(TVolume, ICollection<TKey>)`             | instance | widen the query by the padded cell ring        |
+|  [09]   | `Remove(TKey) -> bool`                                                       | instance | drop an element from the index                 |
+|  [10]   | `TryGetBounds(TKey, out TVolume) -> bool`                                    | instance | read back a stored AABB (octree/hash)          |
+|  [11]   | `Contains(TKey) -> bool` / `Count`                                           | instance | membership and entry count                     |
+|  [12]   | `SwiftBVH.FindEntry(TKey) -> int`                                            | instance | leaf index of an indexed key                   |
+|  [13]   | `EnsureCapacity(int)` / `Clear()`                                            | instance | pre-grow the node pool / reset                 |
+
+- `UpdateEntryBounds` is the ONE surface whose return shape diverges across the three structures: `SwiftBVH<TKey,TVolume>` declares it `void` while `SwiftSpatialHash<TKey,TVolume>` and `SwiftOctree<TKey,TVolume>` both declare it `bool`, so a structure-generic refit delegate wraps the BVH leg in a block returning `true` and passes the other two as a bare method group.
+- `TryGetBounds` is octree and hash only; the BVH reads a stored volume through `FindEntry` and its leaf pool instead.
 
 [ENTRYPOINT_SCOPE]: BoundVolume — AABB algebra
 

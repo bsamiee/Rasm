@@ -1,6 +1,6 @@
 # [RASM_BIM_API_NTS_GEOJSON4STJ]
 
-`NetTopologySuite.IO.GeoJSON4STJ` is the `System.Text.Json`-native GeoJSON (RFC 7946) codec for `NetTopologySuite`: one `GeoJsonConverterFactory` on `JsonSerializerOptions.Converters` makes `Geometry`, `Feature`, and `FeatureCollection` first-class to `JsonSerializer`, carrying BBox emit, feature-`id`↔property mapping, ring-orientation enforcement, and a lazy attribute table that pulls typed property bags out of feature JSON on demand.
+`NetTopologySuite.IO.GeoJSON4STJ` is the `System.Text.Json`-native GeoJSON (RFC 7946) codec for `NetTopologySuite`: one `GeoJsonConverterFactory` on `JsonSerializerOptions.Converters` makes `Geometry`, `Feature`, and `FeatureCollection` first-class to `JsonSerializer`, carrying BBox emit, feature-`id`↔property mapping, ring-orientation enforcement, and a lazy attribute table that pulls typed property bags out of feature JSON on demand. It serves the `Semantics/geospatial#GEOSPATIAL_SEAM` codec leg; `libs/csharp/Rasm.Persistence/.api/api-nts-geojson4stj.md` is the peer partition serving the `Ingest/geospatial#FEATURE_ROWS` `GeoContainer`/`GeoWire` seam, one catalogue per package on both tiers.
 
 This factory is the STJ GeoJSON leg of the geospatial seam, distinct from the Newtonsoft `NetTopologySuite.IO.GeoJSON` (`api-flatgeobuf` closure): it holds every web-payload and PostGIS-projection boundary, the Newtonsoft codec serving only the FlatGeobuf dependency.
 

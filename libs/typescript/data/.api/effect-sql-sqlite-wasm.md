@@ -9,7 +9,7 @@
 - effect-peer: `effect`, `@effect/experimental`, `@effect/sql`, `@effect/wa-sqlite` — the WASM sqlite engine, no `better-sqlite3`, no native dependency
 - module: ESM + CJS dual; subpaths `/SqliteClient`, `/SqliteMigrator`, `/OpfsWorker`, `/sqlite-wasm.d`; `sideEffects: []`
 - runtime: browser only — Web Worker + OPFS + Web Crypto; the OPFS sync access handle binds a worker thread
-- rail: the `store` `lane/wasm` browser dialect — server-lane journal/projection contracts under the deepest capability-degradation tier
+- rail: the `data` `lane/sqlite` wasm-profile browser dialect — server-lane journal/projection contracts under the deepest capability-degradation tier
 - modules: `SqliteClient`, `OpfsWorker`, `SqliteMigrator` (banned re-export)
 
 ## [02]-[PUBLIC_TYPES]
@@ -47,22 +47,22 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SQLITE_WASM_TOPOLOGY]:
-- `SqliteClient extends SqlClient`, so every journal/projection/retrieve row runs in the browser against OPFS yielding only the abstract `SqlClient` Tag; `lane/wasm` is a `Layer` selection on the `./wasm` subpath, no row browser-specific.
+- `SqliteClient extends SqlClient`, so every journal/projection/retrieve row runs in the browser against OPFS yielding only the abstract `SqlClient` Tag; the wasm profile is a `Layer` selection on the `./wasm` subpath, no row browser-specific.
 - OPFS sync access handles bind a Web Worker, so the durable lane splits: the main thread holds `SqliteClient` and the `config.worker` Effect spawns the worker running `OpfsWorker.run({ port, dbName })` that owns the OPFS file. `makeMemory` is the no-worker ephemeral variant, persisting only through an explicit `export`/`import` round-trip.
 - `export → Uint8Array` and `import(Uint8Array)` seed a fresh browser DB from a server snapshot or an EventLog replay and persist the memory lane across sessions; `withTransferables` moves those blobs to the worker zero-copy through the structured-clone transfer list.
-- `updateValues: never`, no RLS, no server extensions, and single-writer OPFS put the wasm lane at the bottom of the `capability/matrix` table; tenancy is database-per-origin, cross-row set operations branch through `sql.onDialect`, and `installReactivityHooks` restores `sql.reactive` for local read-your-writes.
+- `updateValues: never`, no RLS, no server extensions, and single-writer OPFS put the wasm lane at the bottom of the `lane/capability` table; tenancy is database-per-origin, cross-row set operations branch through `sql.onDialect`, and `installReactivityHooks` restores `sql.reactive` for local read-your-writes.
 
 [INTEGRATION_LAW]:
 - Stack on `@effect/sql` (`.api/effect-sql.md`): the neutral surface — `sql` DSL, `SqlSchema`/`SqlResolver`/`Model`, `withTransaction`, `reactive` — runs unchanged; this package supplies the sqlite `Compiler` + wa-sqlite acquirer as the `SqlClient.MakeOptions` the neutral `make` folds, and `make`/`makeMemory` carry `Reactivity` so `sql.reactive` works in the browser.
 - Stack on `@effect/experimental` (`.api/effect-experimental.md`): this lane is the queryable projection store beneath the EventLog local-first overlay — `EventJournal.layerIndexedDb` owns the append-only local journal, this lane holds the SQL projections `browser/persist` reads, `export`/`import` seed the DB from an EventLog replay `[OVERLAY_BOUNDARY_RULING]`, and `installReactivityHooks` feeds the `Reactivity` invalidation the browser read lanes wake on.
 - Stack on `@effect/platform-browser` (`.api/effect-platform-browser.md`): `config.worker`'s `Worker | SharedWorker | MessagePort` is exactly the spawn shape `BrowserWorker.layer(spawn)` yields, `OpfsWorker.run`'s `port` is the message-port side `BrowserWorkerRunner.layerMessagePort(port)` binds, and `EventLogEncryption.layerSubtle` rides Web Crypto for the encrypted sync overlay.
-- Stack across `store`: the neutral `SqlClient` port matches the server lanes, so `journal`/`project`/`retrieve` code is runtime-blind, the wasm degradation is a `lane/wasm` + `capability/matrix` row, and snapshot `export`/`import` interlocks with the content-addressed `object` plane for browser-side blob seeding.
+- Stack across `data`: the neutral `SqlClient` port matches the server lanes, so `journal`/`project`/`retrieve` code is runtime-blind, the wasm degradation is a `lane/sqlite` profile row proven through `lane/capability`, and snapshot `export`/`import` interlocks with the content-addressed `object` plane for browser-side blob seeding.
 
 [LOCAL_ADMISSION]:
 - Provide `SqliteClient.layer`/`layerConfig` on the `./wasm` subpath at the browser app root; a neutral journal/projection/retrieve row yields the abstract `SqlClient`.
 - Run `OpfsWorker.run` in the worker thread and hold `SqliteClient` on the main thread — the OPFS sync access handle is worker-only.
 - Use `export`/`import` for seed/restore and memory-lane persistence, moving blobs zero-copy with `withTransferables`.
-- Express dialect variance through `sql.onDialect`: the `updateValues: never` gap and single-writer OPFS are one `capability/matrix` degradation row, never a per-runtime journal/projection fork.
+- Express dialect variance through `sql.onDialect`: the `updateValues: never` gap and single-writer OPFS are one `lane/capability` degradation row, never a per-runtime journal/projection fork.
 - Browser schema is `iac`-owned declarative ensure verified at lane startup; the `SqliteMigrator` re-export stays banned.
 
 [RAIL_LAW]:

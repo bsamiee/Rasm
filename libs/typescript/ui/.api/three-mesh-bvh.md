@@ -66,6 +66,7 @@
 |  [04]   | `computeBatchedBoundsTree(number?, BVHOptions?)`       | function | `BatchedMesh.prototype` — per-instance `boundsTrees`  |
 |  [05]   | `disposeBatchedBoundsTree(number?)`                    | function | `BatchedMesh.prototype` — free per-instance trees     |
 
+- `geometry.boundsTree` TYPES as `GeometryBVH` — the triangle-callback `shapecast` and every `MeshBVH`-only query need the `MeshBVH` type, and the shipped declaration says so (`@deprecated geometry.boundsTree must be cast to "MeshBVH" in order to use "intersectsTriangle" callback`); a consumer holds trees as `MeshBVH`, never the parked property's wider type.
 - `computeBatchedBoundsTree` returns one `GeometryBVH` for a given index, or the full `GeometryBVH[]` when called without one.
 - `ComputeBVHOptions` extends `BVHOptions` with `type?: typeof GeometryBVH`, selecting the leaf class the extension builds.
 - `declare module 'three'` merges add `BufferGeometry.boundsTree`/`computeBoundsTree`/`disposeBoundsTree`, `BatchedMesh.boundsTrees`/`computeBoundsTree`/`disposeBoundsTree`, and `Raycaster.firstHitOnly`.
@@ -144,6 +145,8 @@
 |  [07]   | `OrientedBox.closestPointToPoint(Vector3, Vector3?) -> number`                | instance | nearest point                        |
 |  [08]   | `OrientedBox.distanceToBox(Box3, number?, Vector3?, Vector3?) -> number`      | instance | box distance with threshold          |
 |  [09]   | `getTriangleHitPointInfo(Vector3, BufferGeometry, number, HitTriangleInfo?)`  | function | hit → `face`/`uv`/`barycoord`        |
+
+- `OrientedBox` typed surface: the declared constructor takes `(min, max)` alone and refresh is `needsUpdate = true` — no `update()` member ships in the `.d.ts`, and no `intersectsSphere`/`containsPoint` exist on this class (those are `ExtendedTriangle`/`MeshBVH` members).
 
 [MERGE_AND_DEBUG]: the geometry-consolidation and tree-inspection surfaces `scene` section/measure and BVH validation consume.
 

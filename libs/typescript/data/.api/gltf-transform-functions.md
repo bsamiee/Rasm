@@ -40,7 +40,7 @@ Every heavy codec is injected, never imported: `meshopt` and `reorder` take a `M
 
 `[GEOMETRY_FIELD]: `PaletteOptions` `blockSize` `min` `keepAttributes` `cleanup` · `JoinOptions` `keepMeshes` `keepNamed` `cleanup` `filter` · `CenterOptions` `pivot` · `InstanceOptions` `min` · `ResampleOptions` `ready` `resample` `tolerance` `cleanup` · `PartitionOptions` `animations` `meshes``
 
-`[OVERWRITE_ONLY]: `WeldOptions` `UnweldOptions` `NormalsOptions` `FlattenOptions` `UninstanceOptions` `UnpartitionOptions` `DequantizeOptions` `SequenceOptions` `MetalRoughOptions`` — `overwrite` or `cleanup` alone, with `TangentsOptions` adding a `generateTangents` callback.
+`[OVERWRITE_ONLY]: `WeldOptions` `UnweldOptions` `NormalsOptions` `FlattenOptions` `UninstanceOptions` `UnpartitionOptions` `DequantizeOptions` `SequenceOptions` `MetalRoughOptions`` — `overwrite` or `cleanup` alone, with `TangentsOptions` adding a `generateTangents(pos, norm, uv)` callback — REFUSED as the branch's tangent path: the three-argument mikktspace shape carries no index array (forcing an unweld) and admits a second unadmitted wasm lineage, so the branch-owned `createTransform` row over `meshoptimizer/tangents` is the shape.
 
 `[DEFAULTS_CONSTANT]: `PRUNE_DEFAULTS` `QUANTIZE_DEFAULTS` `MESHOPT_DEFAULTS` `DRACO_DEFAULTS` `SIMPLIFY_DEFAULTS` `WELD_DEFAULTS` `JOIN_DEFAULTS` `FLATTEN_DEFAULTS` `INSTANCE_DEFAULTS` `PALETTE_DEFAULTS` `UNWRAP_DEFAULTS` `TEXTURE_COMPRESS_DEFAULTS`` — one exported default record per row, merged by `assignDefaults(defaults, options)`.
 

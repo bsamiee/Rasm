@@ -1,6 +1,6 @@
-# [RASM_GRASSHOPPER_API_ETO_BINDING]
+# [RASM_API_ETO_BINDING]
 
-`Eto.Forms` owns the two-way data-binding rail for GH2-hosted panels: a control property fused to a `DataContext` model through the `IBindable` seam, one projection chain reshaping and guarding the value, and the data-store carriers backing grid, list, and tree views. One `DataContext` assignment walks the control tree, so every bound descendant resolves against it.
+`Eto.Forms` owns the two-way data-binding rail both host boundaries compose: a control property fused to a `DataContext` model through the `IBindable` seam, one projection chain reshaping and guarding the value, and the data-store carriers backing grid, list, and tree views. One `DataContext` assignment walks the control tree, so every bound descendant resolves against it. Branch-tier owner under the dual-home law — `Rasm.Grasshopper` and `Rasm.Rhino` both register this catalogue and add no binding carrier of their own.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -106,7 +106,22 @@ Each projection returns a `BindableBinding<T,TNew>`, so the chain composes.
 
 - `BindableBinding.Convert`: a null `fromValue` (the parameter's default) makes the projection one-way, read-only to the model.
 - `BindableBinding.Child` also admits an `Expression<Func<T,TNewValue>>` property path; both overloads return `BindableBinding<T,TNewValue>`.
-- `BindableBinding.CatchException`: a non-generic `Func<Exception,bool>` overload traps every fault; a handler returning `true` swallows the conversion or access fault.
+- `CatchException<TException>(Func<TException,bool>)` is DECLARED on `DirectBinding<T>`/`IndirectBinding<T>` and returns that binding shape; `BindableBinding` reaches it only as the inherited `DirectBinding` form, so the guard attaches on the source side of a dual link and the fluent `BindableBinding` chain ends at the trap. A non-generic `Func<Exception,bool>` overload traps every fault; a handler returning `true` swallows the conversion or access fault.
+
+[ENTRYPOINT_SCOPE]: accessor factories, value seam, and propagation control
+
+| [INDEX] | [SURFACE]                                              | [SHAPE]  | [CAPABILITY]                    |
+| :-----: | :----------------------------------------------------- | :------- | :------------------------------ |
+|  [01]   | `Binding.Property<T,TValue>(Expression<Func<T,TValue>>)` | static | property-path accessor factory  |
+|  [02]   | `Binding.Delegate<TValue>(get, set, add, remove)`      | static   | callback accessor factory       |
+|  [03]   | `Binding.Delegate<T,TValue>(get, set, add, remove, …)` | static   | item-callback accessor factory  |
+|  [04]   | `IndirectBinding<T>.GetValue` / `.SetValue`            | instance | data-item value seam            |
+|  [05]   | `IndirectBinding<T>.AfterDelay(TimeSpan, bool)`        | instance | debounced write propagation     |
+|  [06]   | `DirectBinding<T>.DataValue` / `.DataValueChanged`     | property | source value and change event   |
+|  [07]   | `DualBinding<T>.Unbind` / `.Update`                    | instance | link teardown and forced push   |
+|  [08]   | `IBindable.UpdateBindings(BindingUpdateMode)`          | instance | tree-wide propagation           |
+
+- `Bind`/`BindDataContext` `Expression<Func<…>>` selector forms default to `DualBindingMode.TwoWay`; `Convert`/`Delegate` setters receive the source value — or the data item on the two-generic `Delegate` — never a binding instance.
 
 [ENTRYPOINT_SCOPE]: data-store collection binding
 
@@ -130,9 +145,9 @@ Each projection returns a `BindableBinding<T,TNew>`, so the chain composes.
 [STACKING]:
 - `api-languageext`(`libs/csharp/.api/api-languageext.md`): a model-bound field validates in the `Convert` to-source direction through a `Validation<Error,A>` gate exiting `.ToFin()` before the model accepts; `CatchException<TException>` traps a conversion fault the folder re-lands as an `Error` on `Fin<A>`; a `DataContext` swap is an `Eff` marshalled onto the UI thread
 - `api-thinktecture-runtime-extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): a bound model field is a `[ValueObject<T>]` and `BindableBinding.Convert` maps the control primitive to and from it; a `[SmartEnum<TKey>]` case binds to a `DropDown`/`SegmentedButton` selection through `Convert`, the smart enum owning the display-label projection
-- `api-eto-forms`(`libs/csharp/Rasm.Grasshopper/.api/api-eto-forms.md`): every control `*Binding` is the `BindableBinding` this rail consumes, and the grid/list/tree `DataStore` properties are the `IDataStore<T>` sinks it fills
-- `api-eto-runtime`(`libs/csharp/Rasm.Grasshopper/.api/api-eto-runtime.md`): `DataContext` propagation and binding update run on the UI thread through `Application.Instance`
-- one panel `DataContext` drives every editable field through `BindDataContext`, so a component's parameter model feeds its whole inspector without per-field source wiring
+- `api-eto-forms`(`libs/csharp/.api/api-eto-forms.md`): every control `*Binding` is the `BindableBinding` this rail consumes, and the grid/list/tree `DataStore` properties are the `IDataStore<T>` sinks it fills
+- `api-eto-runtime`(`libs/csharp/.api/api-eto-runtime.md`): `DataContext` propagation and binding update run on the UI thread through `Application.Instance`
+- one panel `DataContext` drives every editable field through `BindDataContext`, so a model feeds its whole inspector without per-field source wiring
 
 [LOCAL_ADMISSION]:
 - binding is host-provided and composed directly — a field binds through its `*Binding` and `BindDataContext`
@@ -141,6 +156,6 @@ Each projection returns a `BindableBinding<T,TNew>`, so the chain composes.
 
 [RAIL_LAW]:
 - Package: `Eto`
-- Owns: the two-way data-binding rail and data-store collection binding for GH2-hosted panels
+- Owns: the two-way data-binding rail and data-store collection binding for host-embedded panels, at the branch tier both boundaries register
 - Accept: control-to-model property binding, `DataContext` propagation, two-way modes with conversion and exception guarding, grid/list/tree collection binding
 - Reject: a hand-rolled property-change observer beside the Eto binding, a stringly round-trip past a typed `Convert`, a per-row control rebuild past `IDataStore<T>`

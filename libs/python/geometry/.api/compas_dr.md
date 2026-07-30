@@ -109,7 +109,7 @@ Base `project`/`update`/`compute_*`/`update_location_at_param` raise `NotImpleme
 
 [STACKING]:
 - `compas`(`.api/compas.md`): `InputData` and every `Constraint` extend `compas.data.Data`, graduating through `compas.json_dumps`/`json_loads`, and `InputData.from_mesh` consumes a `compas.datastructures.Mesh`; the numpy solvers offload out of process through `compas.rpc.Proxy.function("compas_dr.solvers.dr_numpy")` across the runtime THREAD band under `RetryClass.RPC`, the eager reconnect-or-spawn Proxy lifecycle owned by `compas.md`.
-- `compas-tna`(`.api/compas-tna.md`): the two COMPAS solver companions share the one form-finding fault rail (`RetryClass.RPC`) and ride the same `compas` `Mesh`/`json_*` spine, selected apart by the algebra owner's `FormEngine` sub-enum.
+- `compas_tna`(`.api/compas_tna.md`): the two COMPAS solver companions share the one form-finding fault rail (`RetryClass.RPC`) and ride the same `compas` `Mesh`/`json_*` spine, selected apart by the algebra owner's `FormEngine` sub-enum.
 - `graph/algebra#ALGEBRA`: selects this solver on the one form-finding case, threads the `solver_proxy` async-resource scope so a fan of solves shares one reconnected worker, and decodes constraint geometry through `json_loads` so `Constraint(decoded_geometry)` dispatches on the real decoded type.
 
 [LOCAL_ADMISSION]:
@@ -117,7 +117,7 @@ Base `project`/`update`/`compute_*`/`update_location_at_param` raise `NotImpleme
 - `Mesh` seam: `InputData.from_mesh` and `ResultData.update_mesh` are the only `Mesh` touch-points; the solver never reads mesh topology directly.
 
 [RAIL_LAW]:
-- Package: `compas-dr`
+- Package: `compas_dr`
 - Owns: dynamic-relaxation form-finding, geometric constraint projection by registered geometry type, tributary-area selfweight loads
 - Accept: `InputData` from a `compas` `Mesh`, constraint sequences built via `Constraint(geometry)`, numpy position arrays
 - Reject: hand-rolled dynamic-relaxation or RK-integration loops, direct scipy sparse assembly outside this package, parallel `*Constraint` selection that bypasses the `Constraint(geometry)` registry factory

@@ -69,7 +69,8 @@
 - `[EFLOAT_ARITHMETIC]`: `Add` `Subtract` `Multiply` `Divide` — `EFloat`/`int`/`long` operands with optional `EContext`; no context or `Unlimited` stays exact, a finite context rounds.
 - `[EFLOAT_ANALYTIC]`: `Sqrt` `Pow` `Exp` `Log` `Log10` `LogN` — irrational results require a finite `EContext`.
 - `[EFLOAT_ROUNDING]`: `RoundToExponent` `RoundToExponentExact` `RoundToIntegerExact` `RoundToPrecision` `Quantize` — directed rounding forms the interval bracket with `ERounding.Floor`/`Ceiling`.
-- `[EFLOAT_ADJACENCY]`: `ScaleByPowerOfTwo` `Ulp` `NextPlus` `NextMinus` `Increment` `Decrement` — binary scaling and adjacent-value traversal construct interval endpoints.
+- `[EFLOAT_ADJACENCY]`: `Ulp()` `Increment()` `Decrement()` `ScaleByPowerOfTwo(int|EInteger[, EContext])` — context-free binary scaling and unit-step traversal, exact at every precision.
+- `[EFLOAT_NEIGHBOUR]`: `NextPlus(EContext)` `NextMinus(EContext)` — the context is REQUIRED and decides the answer, because the neighbour of a value exists only against a declared precision and exponent range. Both signal `FlagInvalid` and return NaN on a null context, a zero precision, or an UNLIMITED exponent range — so `EContext.Unlimited`, the context `[04]-[LOCAL_ADMISSION]` seats the predicate ladder on, yields a silent NaN with no throw. Their working context is the interval bracket's own `EContext.ForPrecisionAndRounding(53, …).WithPrecisionInBits(true)`.
 - `[EFLOAT_NARROWING]`: `ToEInteger` `ToEIntegerIfExact` `ToSizedEInteger` `ToDouble` `ToSingle` `ToEDecimal` — exact integer conversions return null for non-integers; `ToDouble`/`ToSingle` are lossy readouts.
 - `[EFLOAT_CLASSIFY]`: `IsZero` `IsNegative` `IsFinite` `IsNaN()` `IsInfinity()` `IsSignalingNaN()` — exact sign and IEEE classification.
 - `[EFLOAT_ANCHORS]`: `Zero` `One` `Ten` `NaN` `SignalingNaN` `PositiveInfinity` `NegativeInfinity` `NegativeZero` — canonical finite and non-finite fields.
@@ -134,14 +135,14 @@
 - `api-doubledouble`(`.api/api-doubledouble.md`): `ddouble` is the fixed 106-bit tier below, its `TwoProduct`/`TwoSum` transforms matching the `Expansion` kernel; only sub-106-bit-indeterminate residue promotes to `EFloat`/`ERational`, confining heap cost to the degenerate set.
 - `api-bigrational`(`.api/api-bigrational.md`): `Fraction` is the `System.Numerics.BigInteger`-backed exact oracle at the same altitude; `ERational` is the independent-representation twin and `EFloat` the exact binary adjudicator, cross-checking rather than collapsing onto one implementation.
 - Geometry `Expansion` kernel: the in-house adaptive Shewchuk expansion and `EFloat` evaluate one determinant sign through unrelated arithmetic; a `CsCheck` differential test compares `Expansion.Sign`, `EFloat.Sign`, `Fraction.Sign`, and `ERational.Sign` as a four-way invariant.
-- Interval bracket: `ERounding.Floor`/`Ceiling` with `ForPrecisionAndRounding(53, …).WithPrecisionInBits(true)` and `RoundToExponentExact` bracket the software-rounded interval endpoints of the sign filter.
+- Interval bracket: `ERounding.Floor`/`Ceiling` with `ForPrecisionAndRounding(53, …).WithPrecisionInBits(true)` and `RoundToExponentExact` bracket the software-rounded interval endpoints of the sign filter — the form `Numerics/predicates.md` `Interval` composes at its `Down`/`Up` statics, and the SAME finite bounded context `NextPlus`/`NextMinus` require to answer at all.
 
 [LOCAL_ADMISSION]:
-- `EFloat` under `EContext.Unlimited` is the arbitrary-precision binary tier of the predicate ladder above interior `double`, 106-bit `ddouble`, and exact `Expansion`.
+- `EFloat` under `EContext.Unlimited` is the arbitrary-precision binary tier of the predicate ladder above interior `double`, 106-bit `ddouble`, and exact `Expansion`. `Unlimited` carries an unlimited exponent range, so it governs the accumulate-and-read-sign path ALONE — the adjacency neighbours and every analytic operation take the bracket's finite bounded context instead, and reusing the ladder's own context there returns NaN or raises `FlagInvalid` rather than refusing.
 - `EDecimal` carries General Decimal Arithmetic and IEEE-754 decimal semantics for exact human-readable I/O and banker's rounding; geometry adjudication uses `EFloat` and `ERational`.
 
 [RAIL_LAW]:
 - Package: `PeterO.Numbers`
 - Owns: arbitrary-precision binary, decimal, rational, and integer arithmetic (`EFloat`/`EDecimal`/`ERational`/`EInteger`); `EContext` and `ERounding` own precision, rounding, exponents, traps, flags, directed rounding, and exactness proof.
 - Accept: determinants lifted through `EFloat.FromDouble`, accumulated under `Unlimited`, read through `EFloat.Sign`; the cross-tier, four-way differential, and interval-bracket compositions its `[STACKING]` seams own; exact decimal I/O through `EDecimal`.
-- Reject: generic-math or span-parsing bindings absent from the ABI; finite-context analytic operations inside predicate adjudication; `double` or `EDecimal` readouts substituted for exact sign verdicts; single-oracle collapse of differential checks; `IRadixMathHelper` interface plumbing presented as consumer API.
+- Reject: generic-math or span-parsing bindings absent from the ABI; finite-context analytic operations inside predicate adjudication; `EContext.Unlimited` threaded into `NextPlus`/`NextMinus`, or either called with an unread `Flags`; `double` or `EDecimal` readouts substituted for exact sign verdicts; single-oracle collapse of differential checks; `IRadixMathHelper` interface plumbing presented as consumer API.

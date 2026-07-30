@@ -11,7 +11,7 @@
 - binding types: `@cloudflare/workers-types` is a hard dependency this package installs, so no consumer manifest carries a row for it
 - module format: ESM + CJS dual (`dist/dts` typings); subpath `@effect/sql-d1/D1Client`; `sideEffects: []`
 - runtime: Cloudflare Workers only — node/bun ride `-sqlite-node`/`-sqlite-bun`, the browser `-sqlite-wasm`
-- rail: the `store` `lane/sqlite` managed-edge dialect — the pg spine's journal and projection contracts minus interactive transactions
+- rail: the `data` `lane/sqlite` managed-edge dialect — the pg spine's journal and projection contracts minus interactive transactions
 - modules: `D1Client`
 
 ## [02]-[PUBLIC_TYPES]

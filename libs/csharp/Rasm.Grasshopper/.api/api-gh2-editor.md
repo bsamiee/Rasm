@@ -147,7 +147,7 @@
 |  [08]   | `Bar.AddCoolColours(Nomen, Family, Action<Family>)`                                       | instance | appends cool colours            |
 |  [09]   | `Bar.AddWarmColours(Nomen, Family, Action<Family>)`                                       | instance | appends warm colours            |
 |  [10]   | `Bar.AddColours(Nomen, Family[], Family, Action<Family>)`                                 | instance | appends custom colours          |
-|  [11]   | `Bar.CreateStandardColourBars(Nomen, Family, Action<Family>) -> (Bar, Bar, Bar)`          | static   | emits life/cool/warm bars       |
+|  [11]   | `Bar.CreateStandardColourBars(Nomen, Family, Action<Family>, out Bar, out Bar, out Bar)`  | static   | emits life/cool/warm bars       |
 |  [12]   | `Bar.Layout()`                                                                            | instance | lays out items                  |
 |  [13]   | `Bar.Render(Context)`                                                                     | instance | draws items                     |
 |  [14]   | `Bar.ShowTooltipAt(PointF) -> bool`                                                       | instance | shows item tooltip              |

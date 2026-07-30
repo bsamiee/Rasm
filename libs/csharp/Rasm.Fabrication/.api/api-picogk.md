@@ -142,6 +142,7 @@
 |  [21]   | `Voxels.Smoothen(float)`                                 | instance | curvature smoothing   |
 |  [22]   | `Voxels.Trim(BBox3)`                                     | instance | bounding-box crop     |
 |  [23]   | `Voxels.ProjectZSlice(float, float)`                     | instance | Z-band projection     |
+|  [24]   | `Voxels.voxProjectZSlice(float, float) -> Voxels`        | instance | copied Z projection   |
 
 - `Voxels.voxShell`: also `(float, float, float)` for asymmetric walls with inner smoothing.
 
@@ -160,6 +161,20 @@
 |  [09]   | `Voxels.bIsEqual(in Voxels) -> bool`                                    | instance | structural equality |
 |  [10]   | `Voxels.nMemUsage() -> long`                                            | instance | native footprint    |
 |  [11]   | `Voxels.voxDuplicate() -> Voxels`                                       | instance | deep copy           |
+|  [12]   | `Voxels.vecSurfaceNormal(in Vector3) -> Vector3`                        | instance | SDF gradient normal |
+|  [13]   | `Voxels.bClosestPointOnSurface(in Vector3, out Vector3) -> bool`        | instance | nearest-hit status  |
+|  [14]   | `Voxels.vecClosestPointOnSurface(in Vector3) -> Vector3`                | instance | nearest-hit point   |
+|  [15]   | `Voxels.fVoxelSize -> float`                                            | property | grid pitch in mm    |
+|  [16]   | `Voxels.GetVoxelDimensions(out int, out int, out int)`                  | instance | grid extent         |
+|  [17]   | `Voxels.GetVoxelDimensions(out int ×3 origin, out int ×3 size)`         | instance | origin plus extent  |
+|  [18]   | `Voxels.vecZSliceOrigin(int nZSlice = 0) -> Vector3`                    | instance | slice world origin  |
+|  [19]   | `Mesh.mshCreateMirrored(Vector3 point, Vector3 normal) -> Mesh`         | instance | mirrored copy       |
+|  [20]   | `Mesh.bFindTriangleFromSurfacePoint(Vector3, out int) -> bool`          | instance | point-to-triangle   |
+|  [21]   | `Mesh.bPointLiesOnTriangle(Vector3 p, Vector3 a, Vector3 b, Vector3 c)` | static   | barycentric test    |
+|  [22]   | `VectorField(Voxels, Vector3 value, float fSdThreshold = 0.5f)`         | ctor     | seeded from a field |
+
+- The nearest-surface trio is the query floor a clearance, keep-out, or contact test reads: `bClosestPointOnSurface` returns the status a distance query needs and `vecClosestPointOnSurface` the point alone, and `vecSurfaceNormal` answers the SDF gradient at a point already ON the surface, never at an arbitrary sample.
+- `fVoxelSize` with `GetVoxelDimensions` and `vecZSliceOrigin` is the grid FRAME: a slice raster or `ImageGrayScale.m_afValues` payload is addressable — and its content key reproducible across voxel sizes — only with the origin and pitch beside it. The six-`out` overload answers the grid origin, the three-`out` overload the extent alone.
 
 [ENTRYPOINT_SCOPE]: AM layer stack — grayscale slices and vector `.cli` program
 
@@ -174,8 +189,11 @@
 |  [07]   | `Vdb2Cli.Convert(string, float, string, string, IProgress)`                             | static   | direct `.cli` posting |
 |  [08]   | `PolySlice.SaveToSvgFile(string, bool)`                                                 | instance | layer SVG             |
 |  [09]   | `PolyContour.AsSvgPath(out string)`                                                     | instance | contour SVG path      |
+|  [10]   | `Voxels.SaveToCliFile(string, float, CliIo.EFormat, bool, IProgress?)`                  | instance | direct `.cli` write   |
+|  [11]   | `Voxels.SaveToVdbFile(string)`                                                          | instance | direct VDB write      |
 
 - TWO output paths from a finished `Voxels`: grayscale mask slices (`GetVoxelSlice` -> `ImageGrayScale`) for SLA/DLP/MSLA exposure, and vector contour slices (`oVectorize` -> `PolySliceStack` -> `CliIo`/`Vdb2Cli`) for `.cli`/SVG.
+- `Voxels.SaveToCliFile` collapses the vectorize-then-write pair into one call, its four trailing arguments all defaulted (`fLayerHeight = 0f`, `eFormat = CliIo.EFormat.FirstLayerWithContent`, `bUseAbsXYOrigin = false`, `xProgress = null`); `SaveToVdbFile(path)` is the write twin of `Voxels.voxFromVdbFile`. Both are the direct egress where no `PolySliceStack` or `OpenVdbFile` container is inspected between the field and the file.
 
 [ENTRYPOINT_SCOPE]: VDB field I/O and the runtime library
 

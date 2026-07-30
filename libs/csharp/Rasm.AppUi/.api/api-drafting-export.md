@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_DRAFTING_EXPORT]
 
-`ACadSharp` (WRITE-scoped) and `DocumentFormat.OpenXml` supply AppUi's drafting and document-export rail. `ACadSharp` folds one `CadDocument` typed-entity graph to DWG, DXF, and SVG through `DwgWriter`/`DxfWriter`/`SvgWriter`, and AppUi holds CAD WRITE authority alone — the Bim catalog owns the `DwgReader`/`DxfReader` READ surface over the same document model. `DocumentFormat.OpenXml` authors OOXML docx/xlsx/pptx through the `WordprocessingDocument`/`SpreadsheetDocument`/`PresentationDocument` part graph.
+`ACadSharp` (WRITE-scoped) and `DocumentFormat.OpenXml` supply AppUi's drafting and document-export rail. `ACadSharp` folds one `CadDocument` typed-entity graph to DWG, DXF, and SVG through `DwgWriter`/`DxfWriter`/`SvgWriter`, and AppUi holds CAD WRITE authority alone — this `ACadSharp` surface block IS the AppUi folder partition of the package, the third beside the Bim mesh-import READ partition (`libs/csharp/Rasm.Bim/.api/api-acadsharp.md`) and the Fabrication profile-import READ partition (`libs/csharp/Rasm.Fabrication/.api/api-acadsharp.md`). `DocumentFormat.OpenXml` authors OOXML docx/xlsx/pptx through the `WordprocessingDocument`/`SpreadsheetDocument`/`PresentationDocument` part graph.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,6 +9,7 @@
 - assembly: `ACadSharp`
 - namespace: `ACadSharp`, `ACadSharp.Entities`, `ACadSharp.Tables`, `ACadSharp.IO`, `ACadSharp.IO.SVG`
 - asset: managed runtime library; geometry points are `CSMath.XYZ`/`XY` (depends `CSMath`, `CSUtilities`)
+- partition: AppUi WRITE — the `ACadSharp.IO` writer family and the `ACadSharp.IO.SVG` emitter alone; every reader spelling belongs to the two READ partitions
 - rail: drafting
 
 [PACKAGE_SURFACE]: `DocumentFormat.OpenXml`
@@ -145,7 +146,8 @@
 - OOXML authoring flows root-first over one disposable package: `Create` mints it, `AddWorkbookPart`/`AddMainDocumentPart` mints the root part, `GetIdOfPart` supplies the relationship id a `Sheet` binds, content appends through `Append`/`AppendChild`, and `Save` under a `using` scope commits the byte stream.
 
 [STACKING]:
-- `ACadSharp`(`Rasm.Bim/.api/api-acadsharp.md`): the Bim catalog owns the `DwgReader`/`DxfReader` READ surface over the same `CadDocument` root — AppUi emits, Bim admits, one document model shared across the WRITE/READ split.
+- `ACadSharp`(`libs/csharp/Rasm.Bim/.api/api-acadsharp.md`): the Bim READ partition owns `DwgReader`/`DxfReader` over the same `CadDocument` root, folding the mesh-bearing entity families into `ImportedGeometry`.
+- `ACadSharp`(`libs/csharp/Rasm.Fabrication/.api/api-acadsharp.md`): the Fabrication READ partition projects the 2D-profile and annotation entities of that same document into `Loop` values and markings — AppUi emits, both peers admit, one document model shared across the WRITE/READ split.
 - `Render/drafting.md`: composes the DWG+DXF two-format write leg over one `CadDocument` populated from `ACadSharp.Entities` and `ACadSharp.Tables`.
 - `Document/export.md`: composes the OOXML part-graph arm through the three `DocumentFormat.OpenXml` document roots.
 

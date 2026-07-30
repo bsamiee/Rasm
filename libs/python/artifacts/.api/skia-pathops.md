@@ -65,7 +65,7 @@ Three runtime owners carry the whole concern: `Path` is the one mutable geometry
 |  [05]   | `pathops.xor(…)`                           | pen-form   | symmetric difference into `outpen`                                           |
 |  [06]   | `pathops.operations.reverse_difference(…)` | pen-form   | clip − subject into `outpen` (top-level: `op(…, PathOp.REVERSE_DIFFERENCE)`) |
 |  [07]   | `OpBuilder(…)`                             | construct  | N-way boolean accumulator                                                    |
-|  [08]   | `OpBuilder.add(path, operator)`            | accumulate | stage one `Path` operand under a `PathOp` (first add seeds the base)         |
+|  [08]   | `OpBuilder.add(path, operator)`            | accumulate | stage one `Path` operand under a `PathOp`; the accumulator starts EMPTY, so the first operand adds under `UNION` — a first add under `INTERSECTION` intersects with nothing and resolves empty |
 |  [09]   | `OpBuilder.resolve() -> Path`              | resolve    | fold every staged operand into one result `Path`                             |
 
 [ENTRYPOINT_SCOPE]: simplify, stroke-to-outline, conic flatten
@@ -104,7 +104,7 @@ Three runtime owners carry the whole concern: `Path` is the one mutable geometry
 
 | [INDEX] | [MEMBER]                                               | [KIND]     | [ROLE]                                                     |
 | :-----: | :----------------------------------------------------- | :--------- | :--------------------------------------------------------- |
-|  [01]   | `Path.transform(…)`                                    | transform  | apply a 3×3 affine/perspective in place                    |
+|  [01]   | `Path.transform(…)`                                    | transform  | apply a 3×3 affine/perspective, RETURNING a new `Path` — the receiver is untouched, so an unbound call is a silent identity |
 |  [02]   | `Path.reverse()`                                       | transform  | reverse contour direction (flip winding)                   |
 |  [03]   | `Path.area` (property)                                 | query      | signed/absolute enclosed area (sign encodes winding)       |
 |  [04]   | `Path.bounds` / `Path.controlPointBounds` (properties) | query      | tight bbox / control-hull bbox `(xmin, ymin, xmax, ymax)`  |

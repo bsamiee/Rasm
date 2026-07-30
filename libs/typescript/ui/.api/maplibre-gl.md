@@ -131,6 +131,8 @@
 |  [25]   | `getCanvas()` / `getContainer()`                               | lifecycle       | the DOM/canvas handles                               |
 
 - `Map.setMissingStyleImageResolver`: supplies an absent style image on demand, sync or async; the `styleimagemissing` event is notify-only.
+- Row [19] arities: `setSky(sky: SkySpecification, options?: StyleSetterOptions): this` / `setLight(light: LightSpecification, options?: StyleSetterOptions): this`.
+- Row [21] arities: `addImage(id: string, image: StyleImageSource, options?: Partial<StyleImageMetadata>): this`; `loadImage(url: string): Promise<GetResourceResponse<HTMLImageElement | ImageBitmap>>` where `GetResourceResponse<T> = ExpiryData & { data: T }` — the load resolves data the caller then registers, so a glyph mint is `loadImage` → `hasImage` guard → `addImage`, idempotent by the guard.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

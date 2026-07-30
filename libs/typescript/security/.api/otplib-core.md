@@ -109,6 +109,7 @@ Validators throw a typed family error; asserters narrow an optional field to pre
 
 [TOPOLOGY]:
 - Ports carry every environment fact: `CryptoPlugin` supplies HMAC, entropy, and constant-time compare while `Base32Plugin` supplies the secret codec, so one plugin object re-targets the whole rail.
+- `CryptoPlugin.constantTimeEqual` is called by every strategy verify with the two TOKEN STRINGS, never bytes, so its declared `string | Uint8Array` domain is load-bearing: a byte-domain primitive bound straight to that slot type-checks under method-shorthand bivariance and then indexes characters, whose XOR is `NaN` outside the digit alphabet — an `OTPHooks` dialect then compares equal on every character and any same-length token passes. A plugin normalizes to bytes at the slot or takes the shipped `constantTimeEqual`, which already does.
 - `HashAlgorithm` is an argument, never a call family — `getDigestSize` and every HMAC path take the algorithm as a value.
 - `OTPHooks` intercepts truncation and encoding, so a non-numeric dialect is three optional functions on the option record.
 - `createGuardrails` folds an override map over the constant caps and marks the result, so `hasGuardrailOverrides` separates a policy cap from a default at runtime.
@@ -116,7 +117,7 @@ Validators throw a typed family error; asserters narrow an optional field to pre
 [STACKING]:
 - `otplib`(`.api/otplib.md`): `OTPHooks` rides the `hooks?` option field and a `createGuardrails` record rides `guardrails` on `generate`/`verify`; that root owns the strategy discriminant and the `VerifyResult` algebra.
 - `effect`(`.api/effect.md`): `OTPError` and its families are the `Effect.try` catch discriminants a `Match.value(...)` fold routes onto the credential fault rail, and secret bytes stay `Redacted` until `normalizeSecret`.
-- `@oslojs/crypto`(`.api/oslojs-crypto.md`): `hmac` and `constantTimeEqual` are the values `createCryptoPlugin({ hmac, randomBytes, constantTimeEqual })` names, so OTP HMAC rides the primitive `sign/crypto` owns.
+- `@oslojs/crypto`(`.api/oslojs-crypto.md`): `hmac` is the value `createCryptoPlugin({ hmac, … })` names directly, so OTP HMAC rides the primitive `sign/crypto` owns; `constantTimeEqual` is NOT — oslo's is byte-domain while the port's admits `string | Uint8Array`, so the plugin's compare lifts both operands to bytes and then calls it.
 - `@oslojs/encoding`(`.api/oslojs-encoding.md`): `encodeBase32UpperCaseNoPadding` and `decodeBase32` are the values `createBase32Plugin({ encode, decode })` names, keeping base32 on one owner.
 - within-lib: `CryptoContext`/`Base32Context` bind a port once per subject so a per-call plugin lookup disappears, and `wrapResult`/`wrapResultAsync` convert a throwing kernel call into `OTPResult` ahead of the Effect boundary.
 
@@ -128,4 +129,4 @@ Validators throw a typed family error; asserters narrow an optional field to pre
 - Package: `@otplib/core`
 - Owns: the hook seam, the plugin port types with their factories and context wrappers, the guardrail cap algebra, the RFC-4226 primitive kernel, and the `OTPError` class tree
 - Accept: type-only hook and port imports, `createCryptoPlugin`/`createBase32Plugin` for named construction, `createGuardrails` for policy caps, error classes as `Effect.try` catch discriminants
-- Reject: a truncation, digit render, or secret normalization re-implemented beside the kernel row; a second guardrail constant set; a direct `@otplib/totp`/`@otplib/hotp` sub-import
+- Reject: a truncation, digit render, or secret normalization re-implemented beside the kernel row; a second guardrail constant set; a byte-domain compare bound bare to the port's `constantTimeEqual` slot; a direct `@otplib/totp`/`@otplib/hotp` sub-import

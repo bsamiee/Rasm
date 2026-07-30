@@ -9,7 +9,7 @@
 - effect-peer: `effect`, `@effect/sql` (the `SqlClient` core this extends), `@effect/experimental` (`Reactivity`), `@effect/platform`
 - backing: `mysql2` pool via `Mysql.PoolOptions`
 - runtime: `runtime:node`/bun services — `mysql2` is a node-native wire driver, never the browser plane
-- rail: read-only `lane/mysql` interop row — typed MySQL ingress folded into the journal, never authority
+- rail: read-only `read/query` interop row — typed MySQL ingress folded into the journal, never authority
 - modules: `MysqlClient`, `MysqlMigrator` (banned)
 
 ## [02]-[PUBLIC_TYPES]
@@ -18,7 +18,7 @@
 
 | [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]       | [CONSUMER_BOUNDARY]                               |
 | :-----: | :------------------------------------------------------- | :------------------ | :------------------------------------------------ |
-|  [01]   | `MysqlClient` (Tag) / `interface MysqlClient`            | service Tag         | `lane/mysql` interop row; only ctor reaches Tag   |
+|  [01]   | `MysqlClient` (Tag) / `interface MysqlClient`            | service Tag         | `read/query` interop row; only ctor reaches Tag   |
 |  [02]   | `MysqlClient.config: MysqlClientConfig`                  | resolved config     | span/transform introspection                      |
 |  [03]   | `MysqlClientConfig.url` (`Redacted.Redacted`)            | connection          | URI override of discrete fields; `Config`-sourced |
 |  [04]   | `MysqlClientConfig.host`/`.port`/`.database`/`.username` | connection          | discrete DSN; `port` defaults `3306`              |
@@ -44,12 +44,12 @@
 
 [STACKING]:
 - `@effect/sql`(`.api/effect-sql.md`): the driver Layer satisfies the neutral `SqlClient` Tag, so every `SqlSchema` decode, `SqlResolver` batch, and `withTransaction` scope runs on this pool; the `dialect: "mysql"` compiler makes `sql.onDialect({ sqlite, pg, mysql, mssql, clickhouse })` emit MySQL SQL from the shared definition, the `mysql` arm realized.
-- within-`data`: one read-only `lane/mysql` interop row folds enterprise-MySQL facts INTO the append-only journal, never authority — reactive read-your-writes and LISTEN/NOTIFY are pg-spine capabilities absent on this lane.
+- within `data`: one read-only `read/query` interop row folds enterprise-MySQL facts INTO the append-only journal, never authority — reactive read-your-writes and LISTEN/NOTIFY are pg-spine capabilities absent on this lane.
 
 [LOCAL_ADMISSION]:
 - Provide the Layer at the app root only; a neutral row yields `SqlClient` and reaches the concrete `MysqlClient` Tag solely for construction.
 - `url`/`password` ride `Config.redacted`; pool sizing (`maxConnections`/`connectionTTL`) and `poolConfig` are `Config`/`iac` facts, never row literals.
-- `MysqlMigrator` is banned branch-wide — an interop source is read, never schema-owned; DDL is `iac`↔`store` declarative ensure.
+- `MysqlMigrator` is banned branch-wide — an interop source is read, never schema-owned; DDL is `iac`↔`data` declarative ensure.
 
 [RAIL_LAW]:
 - Package: `@effect/sql-mysql2`

@@ -1,8 +1,8 @@
-# [TS_CORE_API_MITATA]
+# [TS_BRANCH_API_MITATA]
 
 `mitata` mints the benchmark measurement shape — the `stats` percentile ladder, the optional `gc`/`heap` timing bands, and the addon-gated CPU hardware-counter block `measure` returns per run — and the state-free `measure` kernel a caller reaches for one raw sample.
 
-`bench`/`group`/`run` and the plot wrappers mutate a module-global registration list and render a report; core composes the measurement shape derived off `measure` and the state-free kernel, fencing the global surface to the runtime/tests bench lane.
+`bench`/`group`/`run` and the plot wrappers mutate a module-global registration list and render a report. The split is the branch's admission line: the measurement SHAPE derives off `measure` and lands in the interchange claim family, while the global registration surface is fenced to the bench lane the runtime and proof estates own.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -54,16 +54,16 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `measure` returns a pure `stats` record; the registration/render layer mutates a module-global list, so core composes the measurement shape alone.
+- `measure` returns a pure `stats` record; the registration/render layer mutates a module-global list, so a domain folder composes the measurement shape alone.
 - Every enrichment band is honestly optional at the boundary: `counters` populates only under the `@mitata/counters` addon and process counter access (Linux root, macOS Xcode toolchain), `gc`/`heap` only on a runtime exposing manual GC and heap metrics (`node --expose-gc`, bun); timing fields carry nanoseconds, `heap` bytes.
 
 [STACKING]:
-- `interchange/codec`(`BenchmarkClaimWire`): `run({ format: { json: { samples: true } } })` feeds the codec, which folds each `stats` rung into the claim band's measured-rung map and pairs the document with `HostFingerprintWire` so a claim compares within one host print; the package computes neither `p95` nor a standard deviation, so those two rungs stay unmeasured on every mitata-minted claim while a C#-side sweep fills them.
+- `interchange/codec`(`core/.planning/interchange/codec.md`, the benchmark claim family): `run({ format: { json: { samples: true } } })` feeds the codec, which folds each `stats` rung into the claim band's measured-rung map and pairs the document with the host fingerprint so a claim compares within one host print; the package computes neither `p95` nor a standard deviation, so those two rungs stay unmeasured on every mitata-minted claim while a C#-side sweep fills them.
 - `observe/board`(bench pack): trends landed claims through a percentile-ladder panel per alias, a GC-timing panel where `gc` is present, and an IPC/cache/branch panel over the counter block; claim-shaped rows ride the shared pack dispatch.
 - `observe/board`(regression fold): a pure fold grades a candidate against the `baseline`-flagged claim on the one rung its tolerance names, yielding a gate-read verdict; a cross-fingerprint pair and an unmeasured rung each yield the refusal verdict.
 
 [LOCAL_ADMISSION]:
-- Core type-imports `measure` alone and derives the measurement shape off its return type; the registration/render surface stays in the runtime/tests bench lane, never `scope:core` domain code.
+- A domain folder type-imports `measure` alone and derives the measurement shape off its return type; the registration/render surface stays in the bench lane, never in domain code.
 
 [RAIL_LAW]:
 - Package: `mitata`

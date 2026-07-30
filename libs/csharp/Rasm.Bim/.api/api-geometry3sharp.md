@@ -120,8 +120,9 @@
 
 [STACKING]:
 - `Openize.Drako`(`.api/api-openize-drako.md`): the boundary's projected vertex/normal/index triple loads `PointAttribute.Wrap(AttributeType, Span<Vector3>)` as the `KHR_draco_mesh_compression` encode intake, with no second projection.
-- `Alimer.Bindings.MeshOptimizer`(`.api/api-alimer-meshoptimizer.md`): the same triple passes as `ReadOnlySpan<TVertex>` into the meshopt remap/optimize and `EncodeVertexBuffer<TVertex>` compression leg.
+- `Alimer.Bindings.MeshOptimizer`(`libs/csharp/.api/api-alimer-meshoptimizer.md`): the same triple passes as `ReadOnlySpan<TVertex>` into the meshopt remap/optimize and `EncodeVertexBuffer<TVertex>` compression leg.
 - `SharpGLTF`(`.api/api-sharpgltf.md`): a decoded `DMesh3` re-emits through the glTF schema and toolkit builders as the export counterpart to this decode leg.
+- `geometry3Sharp`(`libs/csharp/Rasm.Fabrication/.api/api-geometry3sharp.md`): the Fabrication partition reaches ONE disjoint surface of the same distribution — `g3.BiArcFit2`, the line-sourced biarc fitter feeding `G2`/`G3` arc emit — and its `Reject` excludes the `DMesh3` mesh family whole, so the mesh-text decode leg stays this partition's and neither reads the other's types.
 - within-lib: `StandardMeshReader.Read(Stream, string, ReadOptions.Defaults)` folds one `MeshText` `InterchangeCodec` row keyed by bare extension into a `DMesh3Builder`, then the import boundary projects `DMesh3` to the canonical triangle-soup and wraps `IOReadResult.code != IOCode.Ok` and the `warningEvent` callbacks onto the project `Fin`/`Eff` telemetry rail.
 
 [LOCAL_ADMISSION]:

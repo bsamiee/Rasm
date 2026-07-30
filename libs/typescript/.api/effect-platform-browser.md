@@ -28,6 +28,7 @@
 [PUBLIC_TYPE_SCOPE]: Web-API capability services
 - rail: platform/browser
 - Each is a `Context.Tag` + `layer` over a browser Web API with a tagged error rail (`ClipboardError`/`GeolocationError`/`PermissionsError`); `ui` declares the capability port, this package binds the `Layer`.
+- The position value carries the whole `GeolocationCoordinates` member set — `latitude`, `longitude`, `accuracy`, plus the nullable `altitude`, `altitudeAccuracy`, `heading`, `speed`, and the `timestamp` instant — so the layer satisfying the ui `Geo.Fix` port (`altitude`/`altitudeAccuracy`/`heading`/`speed` as `Option`, `at` as `DateTime.Utc`) projects every field from the native reading; a projection dropping the nullable half narrows the port it satisfies.
 
 | [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY] | [CAPABILITY]                            |
 | :-----: | :----------------------------------------------------- | :------------ | :-------------------------------------- |

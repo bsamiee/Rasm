@@ -278,7 +278,7 @@ Column selectors are composable expression-like objects accepted anywhere an exp
 - `pyarrow`(`.api/pyarrow.md`), `polars`(`.api/polars.md`), `pandas`(`.api/pandas.md`): `to_arrow`/`to_polars`/`to_pandas` lower a wrapped frame to the concrete backend at egress, and `from_native` re-wraps any of them.
 - `msgspec`(`libs/python/.api/msgspec.md`): `iter_rows(named=True)`/`to_dict(as_series=False)` feed a `Struct` decode, and `from_dicts(rows, schema=)` is the validated inverse that enforces the schema once.
 - `numpy`(`libs/python/.api/numpy.md`): `from_numpy(arr, schema, backend=)` and `Series.from_numpy` lift the raw NumPy buffers a mesh or point-cloud decode produces into a typed frame/column, dtype precise rather than `Object`.
-- within-lib: `data/tabular/interop` `FrameAdmission`/`FrameInterop` own the intake/export boundary that `compute` studies consume; a plane builds one `LazyFrame` graph (`scan_parquet -> with_columns(Expr) -> group_by.agg -> sort`) and calls `collect(backend=)` once, the backend a leaf parameter, never an `if Implementation` branch around parallel paths.
+- within-lib: `data/tabular/interop` `FrameInterop` owns the backend-agnostic intake/export boundary and `data/tabular/contract` `FrameAdmission` the structural gate over it — the pair `compute` studies import as the S1 tabular contract; a plane builds one `LazyFrame` graph (`scan_parquet -> with_columns(Expr) -> group_by.agg -> sort`) and calls `collect(backend=)` once, the backend a leaf parameter, never an `if Implementation` branch around parallel paths.
 
 [LOCAL_ADMISSION]:
 - `@narwhalify` at a function boundary accepts any backend frame and returns the same backend type.

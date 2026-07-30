@@ -175,6 +175,7 @@ Every overload is `IServiceCollection AddSpeckleSdk(this IServiceCollection, …
 
 [STACKING]:
 - `api-thinktecture-json`/`api-thinktecture-messagepack`(`libs/csharp/.api/`) and `api-messagepack`(`.api/api-messagepack.md`): parallel codec rails, never composed inline. Speckle owns its own `Base`-graph serialiser (`SpeckleObjectSerializer`, the V2 pipeline, content hashing) and never routes through the snapshot codecs; a Rasm owner marshals to a Speckle `Base`/`DataObject` (or `displayValue` geometry) at the `Version/ledger#SYNC_TRANSPORTS` `SpeckleSend` seam, then Speckle's serialiser hashes and stores it — no double-encoding.
+- `api-speckle`(`libs/csharp/Rasm.Bim/.api/api-speckle.md`): the Bim partition owns the RECEIVE-side `Base` object-graph — the deduplicating `Flatten` traversal, the display-mesh geometry, `Units.GetConversionFactor` metre scaling, and the `DataObject` typed-parameter family folding onto the canonical Bim carriers at the exchange import seam; this partition owns the SEND half and never re-projects a received graph.
 - within-lib: the rail composes `Send` over a `ServerTransport` + `SQLiteTransport` pair for remote-plus-local-cache, or `Send2` for the URL pipeline; `SyncPump.Offer` maps the resulting `rootObjId` to the existing `UInt128 ContentKey`.
 
 [LOCAL_ADMISSION]:
