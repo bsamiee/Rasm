@@ -48,7 +48,3 @@ One fable writer per synthesized scope (typically per branch + one cross-tier), 
 - QUALITY BAR: `docs/stacks/<language>/` read in full by the writer before any edit; collapse over addition, full parameterization, both `.api` tiers stacked into the strongest owning fence, strata sinks landed at the lowest reachable stratum.
 - DELEGATION: opus recon legs freely (findings only, never code); up to 8 opus sub-writers on disjoint-file territories — the coordinator adjudicates the partition — each carrying the full doctrine stack and an exact row slice; the fable coordinator keeps single-writer surfaces and cross-territory seams, reviews and repairs each returning territory to its own bar, and closes with a terminal integration pass — smoothing, aligning, collapsing until the whole reads as one hand.
 - RECEIPT: typed per-row disposition; the orchestrator reconciles against the roster, re-dispatches gaps in-session, and reports each dispatch's improvements to the user.
-
-## [05]-[CLOSE]
-
-Roster reconciliation proves every row IMPLEMENTED or REFUTED-with-evidence; `/custodian` dispatched; nominated lessons land through the `docs/laws/README.md` admission ladder; the ledger closes.
