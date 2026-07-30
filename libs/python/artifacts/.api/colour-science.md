@@ -68,7 +68,7 @@
 |  [02]   | `cctf_encoding(value, function, **kwargs)`              | OETF/CCTF encode  | method-dispatched gamma/log CCTF encoding             |
 |  [03]   | `cctf_decoding(value, function, **kwargs)`              | OETF/CCTF decode  | method-dispatched CCTF decoding                       |
 |  [04]   | `delta_E(a, b, method, **kwargs)`                       | colour difference | CIE 2000 and other ΔE metrics                         |
-|  [05]   | `read_LUT(path, **kwargs)`                              | LUT import        | `.cube`, `.clf`, `.csp` and other LUT formats         |
+|  [05]   | `read_LUT(path, **kwargs)`                              | LUT import        | `.csp`/`.cube`/`.spi1d`/`.spi3d`/`.spimtx` alone — `.clf`/`.ctf` raise `KeyError` and route through OCIO |
 |  [06]   | `write_LUT(LUT, path, **kwargs)`                        | LUT export        | serialise a LUT to disk                               |
 |  [07]   | `read_image(path, bit_depth, method, **kwargs)`         | image import      | float32/uint8/uint16 image read (Imageio/OpenImageIO) |
 |  [08]   | `write_image(image, path, bit_depth, method, **kwargs)` | image export      | multi-bit-depth image write                           |
@@ -141,13 +141,13 @@ CCT rows share `(coords, method)`; `dominant_wavelength`/`complementary_waveleng
 - Domain-range scale binds once at the boundary through the `domain_range_scale` context manager or `set_domain_range_scale`; interior calls never toggle it. Modes: `'reference'`, `'1'`, `'100'`.
 - `RGB_to_RGB` bakes chromatic adaptation and optional CCTF into one call, so an HDR or wide-gamut RGB→RGB conversion is one call rather than a hand-chained XYZ round-trip; `colour_correction` derives and applies a measured-to-reference CCM keyed by `method=`.
 - Named registries are looked up, never reconstructed: `RGB_COLOURSPACES` carries primaries, whitepoint, encode/decode CCTFs, and derivable XYZ matrices; `MSDS_CMFS`/`SDS_ILLUMINANTS`/`CCS_ILLUMINANTS`/`SDS_LIGHT_SOURCES` carry the CMFS, illuminant, and light-source datasets.
-- `SpectralShape(start, end, interval)` drives wavelength grids; SPDs align via `SpectralDistribution.align(shape)` and interpolate through the registered interpolator family, `.copy()` cloning before a mutating `align`; `.domain`/`.values` expose the wavelength and sample axes. LUTs compose into a `LUTSequence`; `read_LUT`/`write_LUT` own `.cube`/`.clf`/`.csp`.
+- `SpectralShape(start, end, interval)` drives wavelength grids; SPDs align via `SpectralDistribution.align(shape)` and interpolate through the registered interpolator family, `.copy()` cloning before a mutating `align`; `.domain`/`.values` expose the wavelength and sample axes. LUTs compose into a `LUTSequence`; `read_LUT`/`write_LUT` register `.csp`/`.cube`/`.spi1d`/`.spi3d`/`.spimtx` alone — `.clf`/`.ctf` raise `KeyError` on both, and the OCIO `FileTransform`/`Baker` pair owns those containers.
 - SciPy and Matplotlib are optional accelerators: interpolation degrades and `plot_*` surfaces raise `ColourUsageWarning` when absent.
 
 [LOCAL_ADMISSION]:
 - Colour-model conversion enters via `convert` or a named transform; method selection is the `method=`/registry-key row, never a wrapper re-exposing an individual transform.
 - Domain-range mode sets once at the boundary; interior calls hold it fixed.
-- LUT pipelines persist as `LUTSequence` objects; `.cube`/`.clf`/`.csp` files read through `read_LUT`.
+- LUT pipelines persist as `LUTSequence` objects; the registered container set (`.csp`/`.cube`/`.spi1d`/`.spi3d`/`.spimtx`) reads through `read_LUT`, and a `.clf`/`.ctf` container reads through OCIO `FileTransform`, never here.
 - SPD construction uses `SpectralDistribution(data, domain)` with an explicit `SpectralShape`; raw dict intake is the data-ingestion-boundary fallback.
 
 [STACKING]:

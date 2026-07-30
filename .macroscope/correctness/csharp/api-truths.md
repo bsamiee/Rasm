@@ -63,7 +63,7 @@ Verified library and host truths a generic reviewer misjudges — each listed sh
 - `SafeHandle` + `[LibraryImport]` + `DangerousAddRef`/`DangerousRelease` + `unsafe` inside a capsule kernel is the named platform-forced exemption, marked `// Exemption:` — not unsafe-code smell.
 - DuckDB.NET exposes no public zero-copy column span; per-chunk materialization into Arrow builders is the honest pattern — demanding zero-copy there is illusory.
 - `Complex` lacks `IMultiplyOperators<Complex, double, Complex>`; separate real and complex method bodies are correct, not duplication to unify via generic math.
-- Extern aliases (`Triangle` as `TriangleNet`, `SharpVoronoiLib` as `Voronoi`) are preventive collision fixes — never demand renames of the colliding domain types or blanket suppressions.
+- Extern aliases (`Triangle` as `TriangleNet`) are preventive collision fixes — never demand renames of the colliding domain types or blanket suppressions.
 - CsCheck generators filter with `Gen.Where(predicate).Select(transform)`; a throwing `Select` breaks shrinking — flag the throw, never "simplify" the pair back into one.
 - Admitted-package rulings are settled: QuikGraph stays admitted; MathNet, CSparse, Riok.Mapperly, and Generator.Equals are core substrate to compose at depth, never to wrap.
 - Wire-shape and carrier-arity claims settle at the owning constructor: a normalizing constructor folding array and `Seq<T>` into one payload while publishing the array slot shape, and an anchor-row carrier keeping one outer row per query anchor with its complete set within, are contract shapes — read the owner before flagging.

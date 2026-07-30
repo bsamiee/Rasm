@@ -296,6 +296,7 @@ Every surface below is an `unsafe` instance method on the `WebGPU.GetApi()` func
 - `Silk.NET.WebGPU.Native.WGPU` supplies the one native `wgpu_native` asset this binding P/Invokes across the win/linux/osx RIDs; the device-tick and every other wgpu-native entrypoint lives in `Silk.NET.WebGPU.Extensions.WGPU`, never in the native-asset package.
 - Silk.NET 2.x is maintenance-mode and 3.x reshapes the binding, so each composing folder confines the raw table to ONE narrow internal seam — the swap-point is that seam, never a call site spread across pages.
 - Device ownership is single-writer per plane: a folder composing another folder's device never issues `AdapterRequestDevice`, and a folder needing a device where no viewport exists acquires a surfaceless one rather than forcing a window open.
+- Buffers mint through `DeviceCreateBuffer` alone: the binding exposes no external-memory import, adopt, or shared-handle entrypoint, so a foreign device allocation reaches a `Buffer*` only by host copy through `QueueWriteBuffer`.
 
 [RAIL_LAW]:
 - Package: `Silk.NET.WebGPU` + `Silk.NET.WebGPU.Native.WGPU` (native binaries)

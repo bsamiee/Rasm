@@ -166,7 +166,9 @@
 
 [MATERIAL_LAYER_MEMBERS]: Each `IfcMaterialLayerSet.MaterialLayers` entry extends `IfcMaterialDefinition`, constructs from `(IfcMaterial, double thickness, string name)`, and carries `Material`, `LayerThickness`, `Priority`, `Category`, and `IsVentilated`.
 
-[MATERIAL_CONSTITUENT_MEMBERS]: Each `IfcMaterialConstituentSet.MaterialConstituents` entry extends `IfcMaterialDefinition`, constructs from `(string name, IfcMaterial)`, and carries `Material`, `Name`, and `Fraction`.
+[MATERIAL_CONSTITUENT_MEMBERS]: Each `IfcMaterialConstituentSet.MaterialConstituents` entry extends `IfcMaterialDefinition`, constructs from `(string name, IfcMaterial)`, and carries `Material`, `Name`, `Category`, and `Fraction`.
+
+[MATERIAL_OFFSET_MEMBERS]: `IfcMaterialProfileWithOffsets.OffsetValues` is a `public double[]` of arity one or two behind public constructors; `IfcMaterialLayerWithOffsets` keeps `mOffsetValues` internal behind internal constructors and publishes no accessor.
 
 [SIMPLE_QUANTITY_TYPES]: `IfcPhysicalSimpleQuantity` covers `IfcQuantityLength` `IfcQuantityArea` `IfcQuantityVolume` `IfcQuantityWeight` `IfcQuantityCount` `IfcQuantityTime`.
 
@@ -462,10 +464,19 @@
 |  [15]   | `IfcMaterialDefinitionRepresentation` | links an `IfcMaterial` to its `IfcStyledRepresentation` set                     |
 |  [16]   | `IfcColourRgb`                        | normalized RGB colour value                                                     |
 |  [17]   | `IfcColourRgbList`                    | packed list of RGB colour triples for indexed colour sets                       |
+|  [18]   | `IfcIndexedColourMap`                 | per-face colour index binding a palette onto a tessellated face set             |
+|  [19]   | `IfcTextureCoordinate`                | abstract UV-parameterization root; `Maps` names the textures it serves          |
+|  [20]   | `IfcIndexedTextureMap`                | abstract face-set-bound UV map; `MappedTo`, `TexCoords`                         |
+|  [21]   | `IfcIndexedTriangleTextureMap`        | per-triangle UV index triples over a triangulated face set                      |
+|  [22]   | `IfcIndexedPolygonalTextureMap`       | per-face UV index rows over a polygonal face set                                |
+|  [23]   | `IfcTextureVertexList`                | packed 2D texture-vertex list a UV map parameterizes through                    |
+|  [24]   | `IfcTextureCoordinateIndices`         | one polygonal face's UV index row and its owning face back-reference            |
 
-[COLOUR_RGB_MEMBERS]: `IfcColourRgb` carries normalized double `Red`, `Green`, and `Blue`, and constructs from `(DatabaseIfc, double red, double green, double blue)` or `(DatabaseIfc, System.Drawing.Color)`. `IfcColourRgbList` constructs from `(DatabaseIfc, IEnumerable<System.Drawing.Color>)` and exposes NO public read of its triples — `mColourList` and `ColorList()` are both `internal` — so an ingested packed colour list authors but never decodes.
+[COLOUR_RGB_MEMBERS]: `IfcColourRgb` carries normalized double `Red`, `Green`, and `Blue`, and constructs from `(DatabaseIfc, double red, double green, double blue)` or `(DatabaseIfc, System.Drawing.Color)`. `IfcColourRgbList` constructs from `(DatabaseIfc, IEnumerable<System.Drawing.Color>)`, which divides each channel by 255 so the stored `List<Tuple<double, double, double>>` is unit-valued; the triples carry no public read (`mColourList` is `internal` and `ColorList()` is an `internal` method), so a consumer decodes them through the `[INTERNAL_ACCESS_LAW]` binding.
 
-[INDEXED_COLOUR_MEMBERS]: `IfcIndexedColourMap` (an `IfcPresentationItem`) carries `IfcTessellatedFaceSet MappedTo`, `double Opacity`, and `IfcColourRgbList Colours`, constructing from `(IfcTessellatedFaceSet, IfcColourRgbList, IEnumerable<int> colourindex)`; the per-vertex colour INDEX run has no public accessor, so the WRITE path is total while the READ path resolves the map and stops at its payload — the mirror of the `IfcIndexedTriangleTextureMap` asymmetry, which reads freely and cannot be authored.
+[INDEXED_COLOUR_MEMBERS]: `IfcIndexedColourMap` (an `IfcPresentationItem`) carries `IfcTessellatedFaceSet MappedTo` — whose setter self-registers the map as the face set's `HasColours` — plus `double Opacity` (`NaN` the unset sentinel the schema reads as fully opaque) and `IfcColourRgbList Colours`, constructing from `(IfcTessellatedFaceSet, IfcColourRgbList, IEnumerable<int> colourindex)`. The index run is ONE-BASED with one entry per FACE of the face set, parallel to `CoordIndex`, and carries no public accessor, so a consumer reads it through the `[INTERNAL_ACCESS_LAW]` binding.
+
+[TEXTURE_COORDINATE_MEMBERS]: `IfcTextureCoordinate` carries read-only `Maps` as `LIST<IfcSurfaceTexture>` mutated through `AddRange`, naming which textures a parameterization serves. `IfcIndexedTextureMap` extends it with public settable `MappedTo` (`IfcTessellatedFaceSet`, whose setter appends the map to that face set's `HasTextures`) and `TexCoords` (`IfcTextureVertexList`), and is abstract over the two concrete subtypes. `IfcTextureVertexList` constructs from the public `(DatabaseIfc, IEnumerable<Tuple<double, double>>)` and exposes `TexCoordsList` as `List<Tuple<double, double>>`. `IfcIndexedTriangleTextureMap` declares every constructor `internal` and holds its per-triangle index triples in `internal List<Tuple<int, int, int>> mTexCoordList` with no public accessor — both reached through the `[INTERNAL_ACCESS_LAW]` binding — and its `BuildStringSTEP` writes `$` for an empty run. `IfcIndexedPolygonalTextureMap` also declares every constructor `internal`, but its `TexCoordIndices` is a PUBLIC get/set `LIST<IfcTextureCoordinateIndices>`; each `IfcTextureCoordinateIndices` is fully public — `TexCoordIndex` (`List<int>`), `TexCoordsOf` (`IfcIndexedPolygonalFace`), `ToTexMap`, and the `(IEnumerable<int>, IfcIndexedPolygonalFace)` ctor.
 
 [SURFACE_RENDERING_MEMBERS]: `IfcSurfaceStyleRendering` extends shading with PBR `DiffuseColour`, `SpecularColour`, and `ReflectanceMethod` as `IfcReflectanceMethodEnum`.
 
@@ -762,6 +773,14 @@
 - `sharpgltf`(`api-sharpgltf.md`): the same tessellated face-set stream feeds `SceneBuilder.AddRigidMesh(IMeshBuilder<M>, ...)` -> `ToGltf2` glTF export.
 - `honeybee-schema`(`api-honeybee-schema.md`): the `IfcSpace`/`IfcBuildingStorey` spatial graph maps to `HoneybeeSchema.Room` on the energy-exchange rail.
 - Bim `Exchange` owner: composes `DatabaseIfc` import/export and `BaseClassIfc.Extract<T>` traversal as the IFC leg of the model-exchange owner feeding the geometry-interchange rail.
+
+[INTERNAL_ACCESS_LAW]:
+- Four presentation payloads are PRESENT on a parsed graph with no public read or mint, and each binds through exactly one `System.Runtime.CompilerServices.UnsafeAccessor` extern: the field `IfcColourRgbList.mColourList` (`List<Tuple<double, double, double>>`, unit-valued), the field `IfcIndexedColourMap.mColourIndex` (`List<int>`, one-based, one entry per face), the `IfcIndexedTriangleTextureMap(DatabaseIfc)` constructor, and the field `IfcIndexedTriangleTextureMap.mTexCoordList` (`List<Tuple<int, int, int>>`, one triple per triangle).
+- `UnsafeAccessor` is the sanctioned binding: the compiler resolves the field or constructor at build time by name and signature, so the path carries no reflection and no IL emit and stays trim-safe and NativeAOT-safe, and a release that moves a member fails LOUDLY at the first call with `MissingFieldException`/`MissingMethodException` rather than degrading to a silent wrong render.
+- The binding is PINNED to the `Directory.Packages.props` `GeometryGymIFC_Core` version: a version bump re-probes all four members before the bump lands, and a failed probe is an upstream issue naming the sealed payload.
+- One consumer capsule owns every binding — a second copy of any accessor forks the version pin — and callers receive detached values, never the live `List<T>` field of a live entity.
+- A hand-emitted STEP fragment injected beside the authored database and a vendored fork of the assembly are the two rejected alternatives; each mints a second IFC reader or writer beside `DatabaseIfc`.
+- The public surface covers the remaining payloads whole: `IfcIndexedPolygonalTextureMap.TexCoordIndices`, `IfcTextureVertexList`, `IfcIndexedColourMap`'s three-argument constructor, and `IfcColourRgbList(DatabaseIfc, IEnumerable<System.Drawing.Color>)`, so authoring a per-face colour map needs no accessor at all.
 
 [LOCAL_ADMISSION]:
 - IFC import enters through `new DatabaseIfc(path\|stream)` or the format-explicit `Read*` calls.

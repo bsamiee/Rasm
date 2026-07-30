@@ -72,14 +72,20 @@
 |  [08]   | `MortonIndex.GetMortonIndexAsBytes[3D](List<Tile[3D]>) -> (byte[] tile, content)`      | packed-byte availability buffers     |
 |  [09]   | `Availability.GetLevelAvailability(string, int, ImplicitSubdivisionScheme) -> string`  | slice one subdivision level          |
 |  [10]   | `Level.GetLevel` / `LevelOffset.GetLevelOffset(int, ImplicitSubdivisionScheme) -> int` | length-to-level, level-to-offset     |
-|  [11]   | `BitstreamReader.Read(byte[], int, int) -> BitArray`                                   | bitstream slice from the buffer      |
-|  [12]   | `BufferPadding.AddPadding` / `AddBinaryPadding(byte[], int) -> byte[]`                 | 8-byte padding (3D-Tiles layout)     |
+|  [11]   | `LevelOffset.GetNumberOfLevels(string availability, ImplicitSubdivisionScheme) -> int` | availability length to level count   |
+|  [12]   | `BitstreamReader.Read(byte[], int, int) -> BitArray`                                   | bitstream slice from the buffer      |
+|  [13]   | `BitArrayExtensions.ToByteArray(BitArray) -> byte[]` / `AsString(…) -> string`         | packed bytes; the bit-string render  |
+|  [14]   | `BitArrayExtensions.Count(this BitArray, bool whereClause = false) -> int`             | counts bits EQUAL to whereClause     |
+|  [15]   | `BufferPadding.AddPadding` / `AddBinaryPadding(byte[], int) -> byte[]`                 | 8-byte padding (3D-Tiles layout)     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every availability op folds through the Morton index `ImplicitSubdivisionScheme` selects; a tile is available exactly when its Morton bit is set in the `.subtree` bitstream.
 - `Subtree` is the record root; subdivision scheme, level count, and available-tile count are the receipt facts the EXPORT fold records.
+- `LevelOffset.GetNumberOfLevels` derives the level count from the availability string LENGTH alone by walking `GetLevelOffset` until the string falls inside one level's span, so a receipt reads its depth off the bitstream rather than a caller-carried count.
+- `BitArrayExtensions.Count(bool whereClause = false)` counts bits EQUAL to `whereClause`, so the parameterless call answers the UNSET count — an available-tile tally spells `Count(true)`, and the bare call is the inverted-tally trap.
+- `ToByteArray` sizes its buffer `(bits.Length - 1) / 8 + 1` and `CopyTo`s, so a bitstream round-trips index-for-index through `new BitArray(byte[])` and the trailing pad bits of the final byte read as unset.
 
 [STACKING]:
 - `SharpGLTF.Ext.3DTiles`(`.api/api-sharpgltf-3dtiles`): SharpGLTF owns per-tile glTF CONTENT and `EXT_structural_metadata`, `subtree` the tileset AVAILABILITY bitstream; both key off the shared `MortonOrder` index, so a tile is "available with content" exactly when both bitstreams set the same Morton bit.

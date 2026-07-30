@@ -51,4 +51,4 @@ One fable writer per synthesized scope (typically per branch + one cross-tier), 
 
 ## [05]-[CLOSE]
 
-Roster reconciliation proves every row IMPLEMENTED or REFUTED-with-evidence; docs gate clean over the touched set; `/custodian` dispatched; nominated lessons land through the `docs/laws/README.md` admission ladder; the ledger closes.
+Roster reconciliation proves every row IMPLEMENTED or REFUTED-with-evidence; `/custodian` dispatched; nominated lessons land through the `docs/laws/README.md` admission ladder; the ledger closes.

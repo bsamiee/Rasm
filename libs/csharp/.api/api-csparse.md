@@ -79,8 +79,9 @@
 |  [06]   | `SparseMatrix(int, int, double[], int[], int[])`             | ctor     | wrap CSC buffers with zero copy                |
 |  [07]   | `SparseMatrix(int, int, int)`                                | ctor     | pre-size CSC storage at an nz budget           |
 |  [08]   | `MatrixMarketReader.ReadMatrix<T>(string)`                   | static   | read Matrix Market text into CSC               |
-|  [09]   | `MatrixMarketReader.ReadStorage<T>(TextReader, bool)`        | static   | read Matrix Market text into COO               |
-|  [10]   | `MatrixMarketWriter.WriteMatrix<T>(string, Matrix<T>, bool)` | static   | write any matrix as Matrix Market text         |
+|  [09]   | `MatrixMarketReader.ReadMatrix<T>(Stream)`                   | static   | read a Matrix Market stream into CSC           |
+|  [10]   | `MatrixMarketReader.ReadStorage<T>(TextReader, bool)`        | static   | read Matrix Market text into COO               |
+|  [11]   | `MatrixMarketWriter.WriteMatrix<T>(string, Matrix<T>, bool)` | static   | write any matrix as Matrix Market text         |
 
 [ENTRYPOINT_SCOPE]: `CompressedColumnStorage<T>` instance algebra and structure
 
@@ -187,6 +188,8 @@
 - `Solve` overwrites a caller-owned buffer, so an iterate reuses one result array across every step and `AutoTrimStorage = false` holds the factor buffers with it.
 - `IProgress<double>` reports the symbolic and numeric phases of `Create`; `Refactorize` carries none, its symbolic phase already cached.
 - `Helper.ValidateStorage` gates any CSC assembled by direct buffer surgery, and `Helper.SortIndices` restores the row invariant it checks.
+- `MatrixMarketWriter.WriteMatrix<T>` honours `symmetric` on the `StreamWriter` overload ALONE; the `string` and `Stream` overloads drop the argument on their way to it and emit a `general` header.
+- `ReadStorage<T>(TextReader, bool autoExpand = true)` reads the coordinate form only and throws `NotSupportedException` on a Matrix Market ARRAY file; `autoExpand: false` returns one stored triangle of a symmetric file, which reads as structural rank deficiency downstream.
 - `CSparse` stays a referenced assembly under its LGPL-2.1-only license — never IL-merged, statically embedded, or source-vendored into a Rasm assembly.
 
 [RAIL_LAW]:

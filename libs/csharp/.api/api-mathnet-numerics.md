@@ -110,7 +110,9 @@
 [DENSE_FACTORIZATION]: `LU<T>` `QR<T>` `Cholesky<T>` `Svd<T>` `Evd<T>` `GramSchmidt<T>` — each an `MathNet.Numerics.LinearAlgebra.Factorization` owner a `Matrix<T>` instance member builds. `SparseMatrix` declares NO `Cholesky()` override — a sparse operator routed there factorizes DENSELY through `UserCholesky.Create` with no fill-reducing ordering; sparse direct stays the CSparse peer's.
 [ITERATIVE_SOLVER]: `BiCgStab` `GpBiCg` `TFQMR` `MlkBiCgStab` — `MathNet.Numerics.LinearAlgebra.Double.Solvers` owners; each precision plane (`Single`, `Double`, `Complex`, `Complex32`) carries its own closed set (`IncompleteLU` exists on NO plane — the spellings are the `ILU*Preconditioner` trio), so the solver and its preconditioner spell the plane's namespace and never a shared generic.
 [PRECONDITIONER_CTOR]: `MILU0Preconditioner(bool modified = true)` exposing `UseModified` · `ILUTPPreconditioner()` and `ILUTPPreconditioner(double fillLevel, double dropTolerance, double pivotTolerance)` over defaults `200.0`/`1e-4`/`0.0`, pivoting off at zero.
-[STOP_CRITERION]: `IterationCountStopCriterion<T>` `ResidualStopCriterion<T>` `DivergenceStopCriterion<T>` `FailureStopCriterion<T>` `DelegateStopCriterion<T>`
+[STOP_CRITERION]: `IterationCountStopCriterion<T>` `ResidualStopCriterion<T>` `DivergenceStopCriterion<T>` `FailureStopCriterion<T>` `DelegateStopCriterion<T>` — `DelegateStopCriterion<T>(Func<int, Vector<T>, Vector<T>, Vector<T>, IterationStatus> determine)` mirrors `Iterator<T>.DetermineStatus` exactly; `Reset()` clears only its held status, so a criterion closing over an absolute start instant survives a per-rung reset.
+[COMPOSITE_LADDER]: `CompositeSolver.Solve` runs the setups in enumeration order under ONE shared `Iterator<T>` it `Reset()`s per rung — `Converged` copies out and returns, `StoppedWithoutConvergence` copies out and CONTINUES, every other verdict restores the input and continues, and a thrown rung is swallowed, so an all-rungs-failed ladder returns no exception and `Iterator.Status` carries only the LAST rung's verdict; the ctor's `preconditioner` argument is dead — a null setup preconditioner substitutes `UnitPreconditioner<T>`, so a fallback preconditioner never fires.
+[SOLVER_SETUP]: `IIterativeSolverSetup<T>` — `SolverType` `PreconditionerType` `SolutionSpeed` `Reliability` `CreateSolver()` `CreatePreconditioner()`; MathNet ships NO concrete implementation — `SolverSetup<T>.LoadFromAssembly(Assembly, bool, params Type[])` reflection-scans for them and orders by `SolutionSpeed / Reliability`, and a consumer authoring its own setups reads neither figure.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -155,7 +157,7 @@
 |  [08]   | `Integrate.OnCuboid(F3, double, double, double, double, double, double, int)` | static  | 3-D Legendre product rule                  |
 
 - `F1`, `F2`, and `F3` abbreviate `Func<double,double>`, `Func<double,double,double>`, and `Func<double,double,double,double>`; every surface returns `double`.
-- `Integrate.GaussKronrod`: a second overload seats `out double` error and L1-norm estimates ahead of the optional tail.
+- `Integrate.GaussKronrod` seats `out double` error and L1-norm estimates ahead of the optional tail in its second overload.
 
 [ENTRYPOINT_SCOPE]: root finding via `MathNet.Numerics.RootFinding`
 
@@ -279,7 +281,7 @@
 |  [08]   | `Hartley.NaiveForward(double[], HartleyOptions) -> double[]` | static  | real-valued Hartley transform       |
 |  [09]   | `ComplexExtensions.MagnitudeSquared(this Complex) -> double` | ext     | per-bin power with no square root   |
 
-- The `[04]`-`[06]` multidim rows route to `FourierTransformControl.Provider.ForwardMultidim`/`BackwardMultidim`, and the MANAGED provider throws `NotSupportedException` on both — they run only under a native FFT provider, which the admitted MKL/OpenBLAS rows do not supply on this platform. The `[01]`-`[03]` 1D rows are managed-complete (Radix-2 at a power of two, Bluestein otherwise), and `FourierOptions.Default` symmetric scaling composes per axis (`1/√w · 1/√h = 1/√(w·h)`), so a row-column fold over the 1D pair IS the platform-total 2D transform and the multidim rows never reach a fence without a native-provider gate.
+- Multidim rows `[04]`-`[06]` route to `FourierTransformControl.Provider.ForwardMultidim`/`BackwardMultidim`, and the MANAGED provider throws `NotSupportedException` on both — they run only under a native FFT provider, which the admitted MKL/OpenBLAS rows do not supply on this platform. The `[01]`-`[03]` 1D rows are managed-complete (Radix-2 at a power of two, Bluestein otherwise), and `FourierOptions.Default` symmetric scaling composes per axis (`1/√w · 1/√h = 1/√(w·h)`), so a row-column fold over the 1D pair IS the platform-total 2D transform and the multidim rows never reach a fence without a native-provider gate.
 
 [ENTRYPOINT_SCOPE]: window tapers via `Window`, every factory returning a `double[]` of the requested width
 
@@ -359,7 +361,7 @@
 - `IIterativeSolver<T>.Solve` returns `void` and writes into the `result` vector, so the convergence verdict reads from `Iterator<T>.Status` alone; the solver, its preconditioner, and its stop criteria all bind at one precision, and a plane switch re-spells the whole triple.
 - `Solve` calls `preconditioner.Initialize(matrix)` ITSELF on every invocation — the factorization cannot amortize across right-hand sides through this seam, so a multi-RHS solve re-pays the incomplete factor per call; null `iterator`/`preconditioner` arguments substitute `new Iterator<double>()` / `new UnitPreconditioner<double>()`.
 - `MILU0Preconditioner.Initialize` REQUIRES `matrix.Storage is SparseCompressedRowMatrixStorage<double>` — a dense matrix throws — and is the only ILU whose cost tracks nnz (the Saad MSR kernel over raw CSR buffers); `ILU0Preconditioner` runs an indexer triple-loop and materializes a dense row per `Approximate`, so the MODIFIED row is the production spelling on any real grid.
-- The canonical production stop set (what the parameterless `Iterator<double>()` seeds, order semantic — `DetermineStatus` short-circuits on the first non-`Continue`): `FailureStopCriterion<double>()`, `DivergenceStopCriterion<double>()`, `IterationCountStopCriterion<double>(1000)`, `ResidualStopCriterion<double>(1e-12)`. `ResidualStopCriterion` tests `‖r‖∞ ≤ tolerance · ‖b‖∞` — infinity-norm RELATIVE, never absolute L2.
+- Production's canonical stop set (what the parameterless `Iterator<double>()` seeds, order semantic — `DetermineStatus` short-circuits on the first non-`Continue`): `FailureStopCriterion<double>()`, `DivergenceStopCriterion<double>()`, `IterationCountStopCriterion<double>(1000)`, `ResidualStopCriterion<double>(1e-12)`. `ResidualStopCriterion` tests `‖r‖∞ ≤ tolerance · ‖b‖∞` — infinity-norm RELATIVE, never absolute L2.
 
 [ENTRYPOINT_SCOPE]: statistics, differentiation, and the numeric-utility owners
 

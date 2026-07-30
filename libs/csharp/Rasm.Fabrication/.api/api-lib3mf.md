@@ -28,14 +28,14 @@
 
 [PUBLIC_TYPE_SCOPE]: beam-lattice + additive property groups
 
-| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                              |
-| :-----: | :------------------------ | :------------ | :-------------------------------------------------------- |
-|  [01]   | `CBeamLattice`            | class         | beams + balls on a mesh object (the PicoGK `Lattice` map) |
-|  [02]   | `CBeamSet`                | class         | named beam-index subset                                   |
-|  [03]   | `CBaseMaterialGroup`      | class         | base-material rows (name + display color)                 |
-|  [04]   | `CMultiPropertyGroup`     | class         | layered/blended property mapping                          |
-|  [05]   | `CSliceStack : CResource` | class         | resin/powder planar layer stack (`AddSlice`)              |
-|  [06]   | `CSlice`                  | class         | one Z-layer polygon set + top-Z                           |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                                |
+| :-----: | :------------------------ | :------------ | :---------------------------------------------------------- |
+|  [01]   | `CBeamLattice`            | class         | beams + balls on a mesh object (the PicoGK `Lattice` map)   |
+|  [02]   | `CBeamSet`                | class         | named beam-index subset                                     |
+|  [03]   | `CBaseMaterialGroup`      | class         | base-material rows (name + display color)                   |
+|  [04]   | `CMultiPropertyGroup`     | class         | layered/blended property mapping                            |
+|  [05]   | `CSliceStack : CResource` | class         | resin/powder planar layer stack (`AddSlice`)                |
+|  [06]   | `CSlice`                  | class         | one Z-layer vertex table, its index-run polygons, and top-Z |
 
 [PUBLIC_TYPE_SCOPE]: serialization + value types
 
@@ -113,18 +113,35 @@
 |  [15]   | `mesh.GetTriangleIndices(out sTriangle[])`              | instance | bulk triangle detachment                        |
 |  [16]   | `beamSet.SetReferences(uint[])` / `SetBallReferences`   | instance | bind beam and ball indices to a named subset    |
 
-[ENTRYPOINT_SCOPE]: serialization — `CWriter` / `CReader` / `CSliceStack`
+[ENTRYPOINT_SCOPE]: serialization — `CWriter` / `CReader`
 
-| [INDEX] | [SURFACE]                                                       | [SHAPE]  | [CAPABILITY]                                        |
-| :-----: | :-------------------------------------------------------------- | :------- | :-------------------------------------------------- |
-|  [01]   | `writer.WriteToFile(path)`                                      | instance | serialize to a `.3mf`/`.stl` file                   |
-|  [02]   | `writer.WriteToBuffer(out byte[])` / `GetStreamSize()`          | instance | serialize to an in-memory buffer (content-key seed) |
-|  [03]   | `writer.SetDecimalPrecision(n)` / `SetStrictModeActive(b)`      | instance | precision + strict-mode toggles                     |
-|  [04]   | `writer.GetWarning(i, …)` / `GetWarningCount()`                 | instance | non-fatal write warnings                            |
-|  [05]   | `reader.ReadFromFile(path)` / `ReadFromBuffer(byte[])`          | instance | parse a package into the model                      |
-|  [06]   | `reader.AddRelationToRead(relType)` / `SetStrictModeActive`     | instance | selective-relation + strict parse                   |
-|  [07]   | `sliceStack.AddSlice(topZ)` / `GetSlice(i)` / `GetSliceCount()` | factory  | build/read planar layer stacks                      |
-|  [08]   | `reader.GetWarning(i, out code)` / `GetWarningCount()`          | instance | non-fatal read warning evidence                     |
+| [INDEX] | [SURFACE]                                                   | [SHAPE]  | [CAPABILITY]                                        |
+| :-----: | :---------------------------------------------------------- | :------- | :-------------------------------------------------- |
+|  [01]   | `writer.WriteToFile(path)`                                  | instance | serialize to a `.3mf`/`.stl` file                   |
+|  [02]   | `writer.WriteToBuffer(out byte[])` / `GetStreamSize()`      | instance | serialize to an in-memory buffer (content-key seed) |
+|  [03]   | `writer.SetDecimalPrecision(n)` / `SetStrictModeActive(b)`  | instance | precision + strict-mode toggles                     |
+|  [04]   | `writer.GetWarning(i, …)` / `GetWarningCount()`             | instance | non-fatal write warnings                            |
+|  [05]   | `reader.ReadFromFile(path)` / `ReadFromBuffer(byte[])`      | instance | parse a package into the model                      |
+|  [06]   | `reader.AddRelationToRead(relType)` / `SetStrictModeActive` | instance | selective-relation + strict parse                   |
+|  [07]   | `reader.GetWarning(i, out code)` / `GetWarningCount()`      | instance | non-fatal read warning evidence                     |
+
+[ENTRYPOINT_SCOPE]: planar layer stacks — `CSliceStack` / `CSlice` and the object-side binding on `CObject`
+- note: a slice owns ONE vertex table and every polygon is an index run into it, so `SetVertices` precedes `AddPolygon` and the run's closing index repeats its head — the native validates closure and refuses an open polygon on a model or solid-support object.
+- note: the stack binds by HANDLE, and the full-versus-low mesh-resolution discriminant is its own member, so the pair is two calls on `CObject` and never one id-plus-enum call.
+
+| [INDEX] | [SURFACE]                                                        | [SHAPE]  | [CAPABILITY]                                  |
+| :-----: | :--------------------------------------------------------------- | :------- | :-------------------------------------------- |
+|  [01]   | `sliceStack.AddSlice(topZ) -> CSlice`                            | factory  | append one Z-layer                            |
+|  [02]   | `sliceStack.GetSlice(i)` / `GetSliceCount()` / `GetBottomZ()`    | instance | read the stack's layers and datum plane       |
+|  [03]   | `sliceStack.GetSliceStackReference(i)`                           | instance | referenced stack (slicerefs exclude slices)   |
+|  [04]   | `slice.SetVertices(sPosition2D[])` / `GetVertices(out …)`        | instance | the slice's one vertex table                  |
+|  [05]   | `slice.AddPolygon(uint[]) -> UInt64`                             | instance | closed index-run polygon, returns its ordinal |
+|  [06]   | `slice.SetPolygonIndices(i, uint[])` / `GetPolygonIndices(i, …)` | instance | rewrite or read one polygon's run             |
+|  [07]   | `slice.GetVertexCount()` / `GetPolygonCount()`                   | instance | slice census                                  |
+|  [08]   | `slice.GetPolygonIndexCount(i)` / `GetZTop()`                    | instance | polygon length and layer plane                |
+|  [09]   | `object.AssignSliceStack(CSliceStack)` / `GetSliceStack()`       | instance | bind the stack handle to a mesh or components |
+|  [10]   | `object.SetSlicesMeshResolution(eSlicesMeshResolution)`          | instance | full-versus-low slice resolution              |
+|  [11]   | `model.GetSliceStackByID(id)` / `GetSliceStacks()`               | instance | resolve or iterate the model's stacks         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -135,11 +152,12 @@
 
 [STACKING]:
 - `api-picogk`(`.api/api-picogk.md`): a PicoGK `Lattice` (`AddBeam`/`AddSphere`) lowers its beam and node sets onto the build mesh's `BeamLattice()` through `lattice.SetBeams(sBeam[])` + `lattice.SetBalls(sBall[])`, and a `Voxels.mshAsMesh()` extraction marshals to `mesh.SetGeometry(sPosition[], sTriangle[])` — the beam-lattice extension is the native carrier over any STL tessellation
-- `Additive/production#DELIVERY`: marshals the oriented `MeshSpace` result to `mesh.SetGeometry`, drives `model.SetUnit` and base-material rows from the machine profile, places the oriented part through `model.AddBuildItem`, and produces the content-keyed package through `model.QueryWriter("3mf").WriteToBuffer`
+- `Additive/production#DELIVERY`: marshals the oriented `MeshSpace` result to `mesh.SetGeometry`, drives `model.SetUnit` and base-material rows from the machine profile, places the oriented part through `model.AddBuildItem`, lowers each `ThreeMfSliceLayer` onto one slice's vertex table and index runs, and produces the content-keyed package through `model.QueryWriter("3mf").WriteToBuffer`
 
 [LOCAL_ADMISSION]:
 - solid ingress traverses `model.GetBuildItems`, composes nested component transforms, and detaches resources through `mesh.GetVertices`/`GetTriangleIndices` before canonical mesh admission
 - resin/powder planar layer stacks route through `CSliceStack.AddSlice` only when the 3MF slice extension is the hand-off target; the PicoGK `.cli`/grayscale vector path stays `Additive/implicit`
+- each layer writes as one `SetVertices` over every contour's points followed by one `AddPolygon` index run per contour, the run closing on its own head index; the stack then binds through `object.AssignSliceStack(stack)` beside `object.SetSlicesMeshResolution`, and the native refuses an unclosed polygon, a one-point polygon, a duplicate or missing top-Z, and a non-increasing layer order — each raising through the same `Lib3MFException` the boundary lowers
 - `ContentKey.Of(EgressKind.ThreeMf, bytes)` over `writer.WriteToBuffer` is the sole 3MF content-key mint site
 - `CWriter` admits only against a committed per-RID round-trip golden fixture — write, `CReader.ReadFromFile`, structural compare
 

@@ -85,33 +85,36 @@
 
 [PROFILE_LIFECYCLE]: create, open, save, and introspect on `Profile` — the transform operands (input device, output print, proofing target)
 
-| [INDEX] | [SURFACE]                                                                                  | [SHAPE]  | [CAPABILITY]               |
-| :-----: | :----------------------------------------------------------------------------------------- | :------- | :------------------------- |
-|  [01]   | `Open(string, string)`                                                                     | factory  | file ingress, path+access  |
-|  [02]   | `Open(byte[])`                                                                             | factory  | in-memory ingress          |
-|  [03]   | `Open(Context, IOHandler, bool)`                                                           | factory  | handler ingress, writeable |
-|  [04]   | `Create_sRGB / Create_OkLab / CreateXYZ / CreateLab2 / CreateLab4`                         | factory  | built-in working spaces    |
-|  [05]   | `CreateRGB(in CIExyY, in CIExyYTRIPLE, ToneCurve[])`                                       | factory  | RGB space from primaries   |
-|  [06]   | `CreateGray(in CIExyY, ToneCurve)`                                                         | factory  | gray space from white/TRC  |
-|  [07]   | `CreateInkLimitingDeviceLink(ColorSpaceSignature, double)`                                 | factory  | ink-limit device link      |
-|  [08]   | `CreateLinearizationDeviceLink(ColorSpaceSignature, ToneCurve[])`                          | factory  | linearization device link  |
-|  [09]   | `CreateDeviceLink(Transform, double, CmsFlags)`                                            | factory  | bake transform to link     |
-|  [10]   | `CreateDeviceLinkFromCubeFile(string)`                                                     | factory  | `.cube` device link        |
-|  [11]   | `CreateBCHSWabstract(int, double, double, double, double, int, int)`                       | factory  | BCHS abstract profile      |
-|  [12]   | `CreateNull / CreatePlaceholder(Context?)`                                                 | factory  | null / empty shell         |
-|  [13]   | `Save(string / byte[], out uint / IOHandler)`                                              | instance | file/memory/handler egress |
-|  [14]   | `ReadTag(TagSignature) / ReadTag<T> / WriteTag<T>(TagSignature, in T)`                     | instance | tag read/write             |
-|  [15]   | `HasTag / LinkTag / TagLinkedTo / GetTag(uint) / TagCount`                                 | instance | tag presence and enumerate |
-|  [16]   | `ColorSpace / PCS / DeviceClass / Version / EncodedICCVersion`                             | property | space and version header   |
-|  [17]   | `HeaderRenderingIntent / HeaderFlags / HeaderManufacturer / HeaderModel / HeaderProfileID` | property | header metadata            |
-|  [18]   | `IsIntentSupported(Intent, UsedDirection) / IsCLUT(...) / IsMatrixShaper`                  | instance | pipeline-form probe        |
-|  [19]   | `DetectBlackPoint / DetectDestinationBlackPoint(out CIEXYZ, Intent, CmsFlags)`             | instance | black-point detection      |
-|  [20]   | `TotalAreaCoverage / DetectRGBGamma(double) / ComputeMD5`                                  | instance | TAC, gamma, MD5 id         |
-|  [21]   | `GetProfileInfo(InfoType, string, string) / GetProfileInfoASCII`                           | instance | localized profile info     |
-|  [22]   | `GetPostScriptColorSpaceArray / GetPostScriptColorRenderingDictionary`                     | instance | PostScript emission        |
+| [INDEX] | [SURFACE]                                                                                     | [SHAPE]  | [CAPABILITY]               |
+| :-----: | :-------------------------------------------------------------------------------------------- | :------- | :------------------------- |
+|  [01]   | `Open(string, string)`                                                                        | factory  | file ingress, path+access  |
+|  [02]   | `Open(byte[])`                                                                                | factory  | in-memory ingress          |
+|  [03]   | `Open(Context, IOHandler, bool)`                                                              | factory  | handler ingress, writeable |
+|  [04]   | `Create_sRGB / Create_OkLab / CreateXYZ / CreateLab2 / CreateLab4`                            | factory  | built-in working spaces    |
+|  [05]   | `CreateRGB(in CIExyY, in CIExyYTRIPLE, ToneCurve[])`                                          | factory  | RGB space from primaries   |
+|  [06]   | `CreateGray(in CIExyY, ToneCurve)`                                                            | factory  | gray space from white/TRC  |
+|  [07]   | `CreateInkLimitingDeviceLink([Context, ]ColorSpaceSignature, double)`                         | factory  | ink-limit device link      |
+|  [08]   | `CreateLinearizationDeviceLink(ColorSpaceSignature, ToneCurve[])`                             | factory  | linearization device link  |
+|  [09]   | `CreateDeviceLink(Transform, double, CmsFlags)`                                               | factory  | bake transform to link     |
+|  [10]   | `CreateDeviceLinkFromCubeFile(string)`                                                        | factory  | `.cube` device link        |
+|  [11]   | `CreateBCHSWabstract(int, double, double, double, double, int, int)`                          | factory  | BCHS abstract profile      |
+|  [12]   | `CreateNull / CreatePlaceholder(Context?)`                                                    | factory  | null / empty shell         |
+|  [13]   | `Save(string / byte[], out uint / IOHandler)`                                                 | instance | file/memory/handler egress |
+|  [14]   | `ReadTag(TagSignature) / ReadTag<T> / WriteTag<T>(TagSignature, in T)`                        | instance | tag read/write             |
+|  [15]   | `HasTag / LinkTag / TagLinkedTo / GetTag(uint) / TagCount`                                    | instance | tag presence and enumerate |
+|  [16]   | `ColorSpace / PCS / DeviceClass / Version / EncodedICCVersion`                                | property | space and version header   |
+|  [17]   | `HeaderRenderingIntent / HeaderFlags / HeaderManufacturer / HeaderModel / HeaderProfileID`    | property | header metadata            |
+|  [18]   | `IsIntentSupported(Intent, UsedDirection) / IsCLUT(...) / IsMatrixShaper`                     | instance | pipeline-form probe        |
+|  [19]   | `DetectBlackPoint / DetectDestinationBlackPoint(out CIEXYZ, Intent, CmsFlags = None) -> bool` | instance | black-point detection      |
+|  [20]   | `TotalAreaCoverage / DetectRGBGamma(double) / ComputeMD5`                                     | instance | TAC, gamma, MD5 id         |
+|  [21]   | `GetProfileInfo(InfoType, string, string) / GetProfileInfoASCII`                              | instance | localized profile info     |
+|  [22]   | `GetPostScriptColorSpaceArray / GetPostScriptColorRenderingDictionary`                        | instance | PostScript emission        |
+
+- Every `Context`-scoped overload binds the returned handle to that scope, so an ink-limit link minted for a proofing chain inherits the chain's own alarm and adaptation state instead of the process-global pair.
 
 [TRANSFORM_BUILD_EXECUTE]: one polymorphic `Create` fold and buffer execution on `Transform`
 - `Create` is one name discriminating on argument shape; K-preservation rides a `PreserveK*` `Intent` and gamut warning rides `CmsFlags.GamutCheck` with the alarm color set on the `Context`.
+- Row `[04]` is the only build exposing per-link policy: `bool[] bpc`, `Intent[]`, and `double[] adaptationStates` are positional per profile in the chain, while its `Profile gamut` operand admits null and it and `int gamutPCSPosition` are read ONLY when `flags` includes `CmsFlags.GamutCheck`, so a chain built without that flag carries no proofing operand at all.
 
 | [INDEX] | [SURFACE]                                                                                    | [SHAPE]  | [CAPABILITY]               |
 | :-----: | :------------------------------------------------------------------------------------------- | :------- | :------------------------- |
@@ -133,13 +136,33 @@
 [PRINT_FORMATS]: `TYPE_CMYK_8` `TYPE_CMYK_16` `TYPE_CMYK_DBL`
 [PRECISION_FORMATS]: `TYPE_GRAY_8` `TYPE_GRAY_16` `TYPE_GRAY_HALF_FLT` `TYPE_Lab_8` `TYPE_Lab_16` `TYPE_XYZ_16` `TYPE_XYZ_FLT` `TYPE_RGB_DBL`
 
-| [INDEX] | [SURFACE]                                                                            | [SHAPE]  | [CAPABILITY]            |
-| :-----: | :----------------------------------------------------------------------------------- | :------- | :---------------------- |
-|  [01]   | `ToColorSpaceSignature(PixelType) / ToPixelType(ColorSpaceSignature)`                | static   | space <-> pixel mapping |
-|  [02]   | `ChannelsOf(ColorSpaceSignature)`                                                    | static   | channel count           |
-|  [03]   | `WhitePointFromTemp(out CIExyY, double) / TempFromWhitePoint(out double, in CIExyY)` | static   | white-point <-> temp    |
-|  [04]   | `AlarmCodes / AdaptationState / SupportedIntents / EncodedCMMVersion`                | property | context governance      |
-|  [05]   | `SetErrorHandler(ErrorHandler)`                                                      | static   | error routing           |
+| [INDEX] | [SURFACE]                                                                            | [SHAPE]  | [CAPABILITY]              |
+| :-----: | :----------------------------------------------------------------------------------- | :------- | :------------------------ |
+|  [01]   | `ToColorSpaceSignature(PixelType) / ToPixelType(ColorSpaceSignature)`                | static   | space <-> pixel mapping   |
+|  [02]   | `ChannelsOf(ColorSpaceSignature)`                                                    | static   | channel count             |
+|  [03]   | `WhitePointFromTemp(out CIExyY, double) / TempFromWhitePoint(out double, in CIExyY)` | static   | white-point <-> temp      |
+|  [04]   | `AlarmCodes / AdaptationState / SupportedIntents`                                    | property | global-context governance |
+|  [05]   | `EncodedCMMVersion`                                                                  | property | native CMM version        |
+|  [06]   | `SetErrorHandler(ErrorHandler)`                                                      | static   | error routing             |
+
+[CONTEXT_SCOPE]: the instance twin of the `Cms` statics on `Context` — one governance scope per transform chain
+- Every `Profile`, `Transform`, and device-link factory taking a `Context` accepts null for the global context, so the instance scope is opt-in and a process-wide alarm or adaptation write is the form a per-chain scope refuses.
+
+| [INDEX] | [SURFACE]                                     | [SHAPE]  | [CAPABILITY]               |
+| :-----: | :-------------------------------------------- | :------- | :------------------------- |
+|  [01]   | `Create(nint plugin, nint userData)`          | factory  | context mint               |
+|  [02]   | `FromHandle(nint)`                            | factory  | handle adopt               |
+|  [03]   | `Duplicate(nint userData)`                    | instance | context clone              |
+|  [04]   | `AlarmCodes`                                  | property | out-of-gamut marks         |
+|  [05]   | `AdaptationState`                             | property | absolute-intent adaptation |
+|  [06]   | `UserData`                                    | property | attached data              |
+|  [07]   | `ID`                                          | property | handle identity            |
+|  [08]   | `SupportedIntents`                            | property | intent census              |
+|  [09]   | `RegisterPlugins(nint) / UnregisterPlugins()` | instance | plugin scope               |
+|  [10]   | `SetErrorHandler(ErrorHandler)`               | instance | error routing              |
+
+- `AlarmCodes` reads back a fresh 16-entry vector on every get; the setter throws `ArgumentException` on null or on any length but 16, so alarm width reads off the vector rather than asserted at the call site.
+- `AdaptationState` governs absolute-colorimetric adaptation for the scope, and the extended `Transform.Create` overload ignores it — that build carries a per-link `double[] adaptationStates` instead.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -148,13 +171,13 @@
 - `Profile`, `Transform`, and `Context` are `CmsHandle<T> : IDisposable`; the teardown frees the native object, so an undisposed handle leaks native memory.
 
 [STACKING]:
-- `api-pdfsharp.md`: a color-managed `TYPE_CMYK_*` buffer feeds `XGraphics`/`XImage` as the pixel source for the vector PDF, and `PdfDocumentOptions.ColorMode` carries the CMYK intent PDFsharp does not compute — `lcmsNET` the color authority, PDFsharp the page authority.
+- `api-pdfsharp.md`: `XGraphics`/`XImage` consume a color-managed `TYPE_CMYK_*` buffer as the pixel source for the vector PDF, and `PdfDocumentOptions.ColorMode` carries the CMYK intent PDFsharp does not compute — `lcmsNET` the color authority, PDFsharp the page authority.
 - `api-avalonia-color.md` (`Wacton.Unicolour`): OKLCH owns screen-perceptual token color and `lcmsNET` owns profiled device-color egress; the two meet only at a resolved color, never overlapping.
 - `api-drafting-export.md`: DXF/OOXML export codecs stay color-agnostic; the ICC transform applies to raster/print content before hand-off, never re-implemented inside a codec.
 - within-lib: the drafting/export path composes `Profile.Open` operands, one `Transform.Create` keyed to the output profile, and `DoTransform` over the render raster.
 
 [LOCAL_ADMISSION]:
-- Native `lcms2` (`liblcms2`) provisions at the app-host distribution layer as the `FFmpeg`/`libmpv` natives do; this assembly binds it through P/Invoke and ships no native binary. A missing runtime surfaces through `Cms.SetErrorHandler` and the `LcmsNETException` rail, never a silent null transform.
+- Native `lcms2` (`liblcms2`) provisions at the app-host distribution layer as the `FFmpeg`/`libmpv` natives do; this assembly binds it through P/Invoke and ships no native binary. `Cms.SetErrorHandler` and the `LcmsNETException` rail surface a missing runtime, never a silent null transform.
 
 [RAIL_LAW]:
 - Package: `lcmsNET`

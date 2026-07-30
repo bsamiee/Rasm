@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_API_CAVALIERCONTOURS]
 
-`CavalierContours` owns arc-native (bulge) 2D polyline algebra — offset, closed-polyline Boolean, containment, measure, and spatial indexing. A circular arc rides as one `PlineVertex<T>` pair carrying `Bulge = tan(theta/4)`, so the offset and Boolean engine runs in exact arc-space where the line-only `Clipper2` (`api-clipper2`) cannot. It produces the kerf, lead-arc, and morphed-spiral adaptive-clearing paths in arc-space, retiring the post-hoc `Clipper2`-offset-then-`g3.BiArcFit2`-refit on the `Toolpath` and `Posting` arc rails.
+`CavalierContours` owns arc-native (bulge) 2D polyline algebra — offset, closed-polyline Boolean, containment, measure, and spatial indexing. Each circular arc rides as one `PlineVertex<T>` pair carrying `Bulge = tan(theta/4)`, so the offset and Boolean engine runs in exact arc-space where the line-only `Clipper2` (`api-clipper2`) cannot. It produces the kerf, lead-arc, and morphed-spiral adaptive-clearing paths in arc-space, retiring the post-hoc `Clipper2`-offset-then-`g3.BiArcFit2`-refit on the `Toolpath` and `Posting` arc rails.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -52,14 +52,14 @@
 |  [15]   | `ClosestPointResult<T>`        | result struct  | closest projection  |
 
 [PUBLIC_TYPE_SCOPE]: spatial index and geometry primitives (`CavalierContours.Spatial`, `.Core`)
-- note: `StaticAABB2DIndex<T>` is a flatbush packed-Hilbert R-tree built once from a polyline's segment AABBs; the offset and Boolean engines consume it to prune the self-intersection scan. `Core` structs are the value-type math floor.
+- note: `StaticAABB2DIndex<T>` is a flatbush packed-Hilbert R-tree built once from a polyline's segment AABBs; the offset and Boolean engines consume it to prune the self-intersection scan. Both visitor contracts bind a plain `struct`, never a `ref struct`. `Core` structs are the value-type math floor.
 
 | [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]       | [CAPABILITY]      |
 | :-----: | :---------------------------- | :------------------ | :---------------- |
 |  [01]   | `StaticAABB2DIndex<T>`        | spatial index       | segment lookup    |
 |  [02]   | `StaticAABB2DIndexBuilder<T>` | index builder       | staged build      |
-|  [03]   | `IQueryVisitor`               | ref-struct visitor  | query callback    |
-|  [04]   | `INeighborVisitor<T>`         | ref-struct visitor  | neighbor callback |
+|  [03]   | `IQueryVisitor`               | struct contract     | query callback    |
+|  [04]   | `INeighborVisitor<T>`         | struct contract     | neighbor callback |
 |  [05]   | `DelegateQueryVisitor`        | adapter struct      | query adapter     |
 |  [06]   | `DelegateNeighborVisitor<T>`  | adapter struct      | neighbor adapter  |
 |  [07]   | `Vector2<T>`                  | readonly struct     | vector algebra    |
@@ -76,7 +76,7 @@
 |  [01]   | `Shape<T>`              | multi-loop owner | topology offset |
 |  [02]   | `OffsetLoop<T>`         | loop carrier     | parent lineage  |
 |  [03]   | `ShapeOffsetOptions<T>` | options record   | offset policy   |
-|  [04]   | `IndexedPolyline<T>`    | indexed loop     | cached polyline |
+|  [04]   | `IndexedPolyline<T>`    | indexed loop     | loop plus index |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -167,25 +167,62 @@
 |  [09]   | `VisitGlobalSelfIntersects<T>(...)`                                          | indexed global scan   |
 |  [10]   | `AllSelfIntersectsAsBasic<T>(...) -> List<PlineBasicIntersect<T>>`           | materialized scan     |
 
+[ENTRYPOINT_SCOPE]: multi-loop shape offset — `Shape<T>` over `IndexedPolyline<T>` loops, each loop caching its own index so a repeated offset pass rebuilds none
+- shape: instance unless marked; `Shape<T>` splits CCW outer from CW hole loops and holds one index over both sets
+- note: `IndexedPolyline<T>` pairs a `Polyline<T>` with the index its constructor derives through `CreateApproxAabbIndex()`; both members are settable, so a mutated polyline re-binds its own index rather than minting a second carrier.
+
+| [INDEX] | [SURFACE]                                                                            | [CAPABILITY]                 |
+| :-----: | :----------------------------------------------------------------------------------- | :--------------------------- |
+|  [01]   | `IndexedPolyline<T>(Polyline<T>)`                                                    | ctor, approx-index pairing   |
+|  [02]   | `IndexedPolyline<T>.Polyline` / `.SpatialIndex`                                      | settable loop and index      |
+|  [03]   | `IndexedPolyline<T>.ParallelOffsetForShape(T, ShapeOffsetOptions<T>)`                | self-intersect-free offset   |
+|  [04]   | `Shape<T>.FromPlines(IEnumerable<Polyline<T>>)`                                      | static, winding partition    |
+|  [05]   | `Shape<T>.Empty()`                                                                   | static, empty shape          |
+|  [06]   | `Shape<T>(List<IndexedPolyline<T>>, List<IndexedPolyline<T>>, StaticAABB2DIndex<T>)` | ctor, pre-indexed shape      |
+|  [07]   | `Shape<T>.CcwPlines` / `.CwPlines` / `.PlinesIndex`                                  | outer, hole, and shape index |
+|  [08]   | `Shape<T>.ParallelOffset(T, ShapeOffsetOptions<T>)`                                  | island-preserving offset     |
+|  [09]   | `Shape<T>.CreateOffsetLoopsWithIndex(T, ShapeOffsetOptions<T>)`                      | raw loops plus their index   |
+|  [10]   | `Shape<T>.FindIntersectsBetweenOffsetLoops(...)`                                     | inter-loop slice points      |
+|  [11]   | `OffsetLoop<T>.ParentLoopIdx` / `.IndexedPline`                                      | lineage and indexed loop     |
+|  [12]   | `ShapeOffsetOptions<T>(T, T, T)`                                                     | ctor, three epsilon rows     |
+
+[ENTRYPOINT_SCOPE]: index traversal and visitor callbacks — `StaticAABB2DIndex<T>` with the two visitor contracts it dispatches on
+- shape: instance; the visitor rides `ref V` and every callback returns `bool` — `true` continues the descent, `false` stops it
+- note: the generic slot is `where V : struct` with NO `allows ref struct`, so a visitor is a plain `struct`; a `ref struct` visitor is a compile rejection at the call, not a lifetime choice.
+
+| [INDEX] | [SURFACE]                                                           | [CAPABILITY]              |
+| :-----: | :------------------------------------------------------------------ | :------------------------ |
+|  [01]   | `IQueryVisitor.Visit(int indexPos) -> bool`                         | the query callback        |
+|  [02]   | `INeighborVisitor<T>.Visit(int indexPos, T distSquared) -> bool`    | the neighbor callback     |
+|  [03]   | `DelegateQueryVisitor(Func<int, bool>)`                             | ctor, delegate adapter    |
+|  [04]   | `VisitQuery<V>(T, T, T, T, ref V) -> bool`                          | pruned box descent        |
+|  [05]   | `VisitQueryWithStack<V>(T, T, T, T, ref V, List<int>) -> bool`      | descent over a lent stack |
+|  [06]   | `VisitQuery(T, T, T, T, Func<int, bool>) -> bool`                   | delegate box descent      |
+|  [07]   | `VisitNeighbors<V>(T, T, ref V) -> bool`                            | nearest-first walk        |
+|  [08]   | `VisitNeighborsWithQueue<V>(T, T, ref V, PriorityQueue<…>) -> bool` | walk over a lent queue    |
+|  [09]   | `Query(T, T, T, T) -> List<int>` / `QueryIter(...)`                 | materialized box hits     |
+|  [10]   | `Bounds` / `Count` / `NodeSize` / `ItemBoxes` / `ItemIndices`       | index shape and spans     |
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - each vertex is `(X, Y, Bulge)` where `Bulge = tan(theta/4)` of the arc to the next vertex: `0` straight, `> 0` sweeps CCW, `< 0` sweeps CW, `|Bulge| == 1` a semicircle. One constant-radius arc is one vertex pair — the whole reason to choose this owner over `Clipper2` for an arc-walled profile.
 - instantiate `Polyline<double>` and `Vector2<double>`; the engine assumes no float width internally, so a `Half`/`float` `T` is type-legal but `double` is the fabrication rail.
-- a closed CCW polyline has positive `Area()` and `CounterClockwise` `Orientation()`; the offset sign follows, so a positive offset of a CCW closed loop inflates outward. `Orientation()` returns `Open` for an open polyline.
+- closed CCW polylines carry positive `Area()` and `CounterClockwise` `Orientation()`; the offset sign follows, so a positive offset of a CCW closed loop inflates outward. `Orientation()` returns `Open` for an open polyline.
 - `WindingNumber`, `ClosestPoint`, `Area`, and `PathLength` integrate over the true arc; only `ArcsToApproxLines(errorDistance)` chord-approximates, the explicit bridge when a line-only consumer cannot accept bulge.
 
 [LOCAL_ADMISSION]:
 - build a profile as `Polyline<double>` carrying bulge straight from the `Ingress/profile` `ACadSharp` arc/`Spline` entities, one `PlineVertex` pair per arc.
 - offset through the single-call `PlineOffset.ParallelOffset<Polyline<double>, double>(src, offset, options) -> List<Polyline<double>>`; a single inward offset of a concave loop returns several loops. `CreateRawOffsetPolyline` and `SlicesFromRawOffset` serve only an adaptive-clearing walk needing the untrimmed intermediate.
 - difference through `PlineBoolean.PolylineBoolean<Polyline<double>, double>(p1, p2, op, options)` keyed on `BooleanOp { Or, And, Not, Xor }`; `Not` is the kerf-inflated arc-space remnant the `Nesting/nfp` `Remnant` producer consumes.
-- clear a pocket with islands through `Shape<T>.FromPlines(loops).ParallelOffset(offset, ShapeOffsetOptions<T>)`, offsetting CCW outer and CW hole loops together; a per-loop `PlineOffset.ParallelOffset` loses the hole nesting.
+- clear a pocket with islands through `Shape<T>.FromPlines(loops).ParallelOffset(offset, ShapeOffsetOptions<T>)`, offsetting CCW outer and CW hole loops together; a per-loop `PlineOffset.ParallelOffset` loses the hole nesting. Each loop travels as an `IndexedPolyline<T>` carrying its own approximate index, so a multi-pass adaptive walk re-offsets through `ParallelOffsetForShape` with no index rebuild, and `OffsetLoop<T>.ParentLoopIdx` is the island lineage the next pass reads.
 - build the `StaticAABB2DIndex<T>` once via `CreateAabbIndex()` and thread it through `PlineOffsetOptions<T>.AabbIndex` / `PlineBooleanOptions<T>.Pline1AabbIndex`, reusing it across the repeated inward offsets of an adaptive-clearing pass.
-- traverse the index with a `ref struct V : IQueryVisitor` (`VisitQuery<V>`/`VisitNeighbors<V>`) inside the offset and nesting sweep, where the query runs per candidate position; the `Func<int,bool>` overload is the convenience form.
+- traverse the index with a plain `readonly struct V : IQueryVisitor` whose `bool Visit(int indexPos)` returns `false` at the first blocker, so the descent stops inside the tree rather than materializing the candidates behind it; the visitor slot is `where V : struct` with no `allows ref struct`, so a `ref struct` visitor is a compile rejection and a span-carrying probe copies into owned fields first.
+- lend the traversal state: `VisitQueryWithStack`/`VisitNeighborsWithQueue` take the caller's own `List<int>`/`PriorityQueue`, so one pooled stack serves every test in a pass, while the `Func<int,bool>` overload and `DelegateQueryVisitor` are the allocating convenience forms.
 - sample lead-in and feed points through `FindPointAtPathLength(targetPathLength)`, whose result carries the segment index and accumulated length as true arc parameters.
 
 [STACKING]:
-- `Clipper2` (`api-clipper2`, substrate): its `PathD` Boolean and `ClipperOffset` line offset own pure-polygon clip and Minkowski-NFP; the arc/line bridge in either direction is `ArcsToApproxLines(errorDistance)` to a `PathD`, and a `PathD` result refits to arcs only when the source was line-only. An arc-walled profile stays here and skips the refit.
+- `Clipper2` (`api-clipper2`, substrate): its `PathD` Boolean and `ClipperOffset` line offset own pure-polygon clip and Minkowski-NFP; the arc/line bridge in either direction is `ArcsToApproxLines(errorDistance)` to a `PathD`, and a `PathD` result refits to arcs only when the source was line-only. Arc-walled profiles stay here and skip the refit.
 - `geometry3Sharp` (`api-geometry3sharp`): `g3.BiArcFit2` refits a genuinely line-sourced path to biarcs; a bulge-carried offset skips it, so `g3.BiArcFit2` owns only that residual case.
 - `Posting/program`: `PlineVertex<T>.Bulge` maps to a `G2`/`G3` arc move — center and radius derive from the vertex pair, and `Move.ArcCenter` reads straight from the segment with no refit.
 - `Nesting/nfp`: `PlineBoolean` `Not` mints the kerf-inflated `Remnant` in arc-space; the remnant's bulge threads into the next pass's `StaticAABB2DIndex` placement scan.

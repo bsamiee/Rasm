@@ -143,6 +143,7 @@ Every `*Extras` opens with a `Chain:ChainedStruct` header.
 [LOCAL_ADMISSION]:
 - `Wgpu` carries no native runtime of its own, P/Invoking the `wgpu_native` binaries `Silk.NET.WebGPU.Native.WGPU` already restores, so admission adds the vendor function table at zero native-asset cost.
 - Every `*Extras` rides the owning standard descriptor's `NextInChain`: `InstanceExtras` selects backend, D3D12 compiler, and validation on `InstanceDescriptor`; `DeviceExtras` carries the trace path; `SurfaceConfigurationExtras` carries present latency.
+- The ten `NativeSType` chain tags cover device, limits, pipeline-layout, GLSL shader, instance, bind-group, bind-group-layout, query-set, and surface extras; none tags a buffer import, so the `next` chain cannot adopt a foreign allocation onto a `BufferDescriptor`.
 
 [RAIL_LAW]:
 - Package: `Silk.NET.WebGPU.Extensions.WGPU`

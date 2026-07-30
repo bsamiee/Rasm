@@ -76,13 +76,13 @@
 |  [26]   | `CSharpIndentationStrategy`     | class          | C# indenter          |
 
 - `FoldingSection`: `IsFolded` `Title`
-- `NewFolding`: `StartOffset` `EndOffset` `Name` `DefaultClosed`
+- `NewFolding`: `StartOffset` `EndOffset` `Name` `DefaultClosed` `IsDefinition` (settable; `: ISegment`; `NewFolding(int start, int end)` throws on `start > end`)
 - `HighlightingManager`: `Instance` `GetDefinition` `RegisterHighlighting`
 - `IHighlightingDefinition`: `MainRuleSet` `GetNamedColor` `Properties`
 - `HighlightingLoader`: `Load(XmlReader, IHighlightingDefinitionReferenceResolver)`
 - `DocumentColorizingTransformer`: `ColorizeLine`
 - `IBackgroundRenderer`: `Layer` `Draw(TextView, DrawingContext)`
-- `ICompletionData`: `Image` `Text` `Content` `Description` `Priority` `Complete`
+- `ICompletionData`: `Image` `Text` `Content` `Description` `Priority` `Complete` (every member get-only; `Priority` is `double`, so rank is a float and an `int` tier scale cannot express a tie-break)
 - `IOverloadProvider`: `SelectedIndex` `Count` `CurrentHeader` `CurrentContent`
 
 [RENDERING_TYPES]: the `TextView` extension surface for custom visuals (`AvaloniaEdit.Rendering`)
@@ -180,36 +180,44 @@
 
 [FOLDING_ENTRYPOINTS]: `FoldingManager` lifecycle and query
 
-| [INDEX] | [SURFACE]                             | [SHAPE]  | [CAPABILITY]    |
-| :-----: | :------------------------------------ | :------- | :-------------- |
-|  [01]   | `Install(TextArea) -> FoldingManager` | static   | margin install  |
-|  [02]   | `Uninstall(FoldingManager)`           | static   | margin removal  |
-|  [03]   | `UpdateFoldings(NewFolding[], int)`   | instance | folding refresh |
-|  [04]   | `CreateFolding(int, int)`             | instance | manual fold     |
-|  [05]   | `GetFoldingsContaining(int)`          | instance | fold query      |
-|  [06]   | `GetFoldingsAt(int)`                  | instance | fold query      |
-|  [07]   | `GetNextFolding(int)`                 | instance | fold query      |
-|  [08]   | `AllFoldings`                         | property | fold set        |
-|  [09]   | `Clear()`                             | instance | fold set        |
-|  [10]   | `RemoveFolding(FoldingSection)`       | instance | fold set        |
+| [INDEX] | [SURFACE]                                      | [SHAPE]  | [CAPABILITY]    |
+| :-----: | :--------------------------------------------- | :------- | :-------------- |
+|  [01]   | `Install(TextArea) -> FoldingManager`          | static   | margin install  |
+|  [02]   | `Uninstall(FoldingManager)`                    | static   | margin removal  |
+|  [03]   | `UpdateFoldings(IEnumerable<NewFolding>, int)` | instance | folding refresh |
+|  [04]   | `CreateFolding(int, int)`                      | instance | manual fold     |
+|  [05]   | `GetFoldingsContaining(int)`                   | instance | fold query      |
+|  [06]   | `GetFoldingsAt(int)`                           | instance | fold query      |
+|  [07]   | `GetNextFolding(int)`                          | instance | fold query      |
+|  [08]   | `AllFoldings`                                  | property | fold set        |
+|  [09]   | `Clear()`                                      | instance | fold set        |
+|  [10]   | `RemoveFolding(FoldingSection)`                | instance | fold set        |
 
-- `UpdateFoldings`: its `int firstErrorOffset` drops folds past a syntax error; pass `-1` when the whole range is valid. A custom strategy produces `NewFolding` rows and calls it — `XmlFoldingStrategy` is the built-in example.
+- `UpdateFoldings` is the whole-set resync, not an append: the manager walks `AllFoldings` in start order, reuses the live `FoldingSection` whose `StartOffset` the pass repeats — assigning `Length` then `Title`, so user `IsFolded` state survives — removes the sections the pass skipped, and `CreateFolding`s only new starts. It refuses a sequence out of ascending `StartOffset` order with `ArgumentException`, skips a zero-length row silently, and binds `DefaultClosed` only on the manager's first update, so a later pass cannot force a region closed. Its `int firstErrorOffset` drops folds past a syntax error and normalizes a negative to `int.MaxValue`; pass `-1` when the whole range is valid. `XmlFoldingStrategy` is the built-in producer; a custom strategy emits `NewFolding` rows and calls it.
+- `CreateFolding` is the manual-fold entry with no dedup and no removal, so a per-region re-parse loop through it doubles the margin and orphans fold state where the resync converges; it throws on `startOffset >= endOffset` and on `endOffset > Document.TextLength`.
 
 [COMPLETION_ENTRYPOINTS]: IntelliSense popup and item contract
 
-| [INDEX] | [SURFACE]                         | [SHAPE]  | [CAPABILITY]   |
-| :-----: | :-------------------------------- | :------- | :------------- |
-|  [01]   | `CompletionWindow(TextArea)`      | ctor     | popup creation |
-|  [02]   | `CompletionWindow.Show()`         | instance | popup open     |
-|  [03]   | `CompletionList.CompletionData`   | property | item source    |
-|  [04]   | `ICompletionData.Complete(...)`   | instance | item insertion |
-|  [05]   | `CloseAutomatically`              | property | dismissal      |
-|  [06]   | `CloseWhenCaretAtBeginning`       | property | dismissal      |
-|  [07]   | `OverloadInsightWindow(TextArea)` | ctor     | popup creation |
-|  [08]   | `Provider`                        | property | overload list  |
-|  [09]   | `OverloadInsightWindow.Show()`    | instance | popup open     |
+| [INDEX] | [SURFACE]                                         | [SHAPE]  | [CAPABILITY]     |
+| :-----: | :------------------------------------------------ | :------- | :--------------- |
+|  [01]   | `CompletionWindow(TextArea)`                      | ctor     | popup creation   |
+|  [02]   | `CompletionWindowBase.StartOffset / EndOffset`    | property | insertion span   |
+|  [03]   | `CompletionWindowBase.ExpectInsertionBeforeStart` | property | span anchoring   |
+|  [04]   | `CompletionWindowBase.Show() / Hide()`            | instance | popup lifetime   |
+|  [05]   | `CompletionWindow.CloseAutomatically`             | property | dismissal        |
+|  [06]   | `CompletionWindow.CloseWhenCaretAtBeginning`      | property | dismissal        |
+|  [07]   | `CompletionWindow.CompletionList`                 | property | list accessor    |
+|  [08]   | `CompletionList.CompletionData`                   | property | item source      |
+|  [09]   | `CompletionList.SelectedItem`                     | property | selection state  |
+|  [10]   | `CompletionList.IsFiltering`                      | property | prefix narrowing |
+|  [11]   | `ICompletionData.Complete(...)`                   | instance | item insertion   |
+|  [12]   | `OverloadInsightWindow(TextArea)`                 | ctor     | popup creation   |
+|  [13]   | `OverloadInsightWindow.Provider`                  | property | overload list    |
+|  [14]   | `OverloadInsightWindow.Show()`                    | instance | popup open       |
 
-- `ICompletionData.Complete(TextArea, ISegment, EventArgs)`: mutates the `TextArea` over the trigger `ISegment` — insertion runs here, never direct document mutation. Implement one per suggestion, add rows to `CompletionList.CompletionData`, then `Show()`; the shell command rail feeds the rows.
+- `StartOffset` IS the insertion contract: the window synthesizes the segment itself, calling `CompletionList.SelectedItem?.Complete(TextArea, new AnchorSegment(TextArea.Document, StartOffset, EndOffset - StartOffset), e)` on an insertion request, after `Hide()`. `CompletionWindowBase`'s ctor seeds both offsets from `TextArea.Caret.Offset`, so a popup mounted after the trigger prefix is typed replaces nothing unless the mount assigns `StartOffset` back to the trigger start; document edits then move `StartOffset` `BeforeInsertion` and `EndOffset` `AfterInsertion`, and `ExpectInsertionBeforeStart` flips one pending caret-position insert to `AfterInsertion` so a committed prefix keystroke widens the span instead of preceding it.
+- `IsFiltering` defaults `true` and is the built-in prefix narrowing over the mounted rows — a camel-case and substring match quality fold that re-selects the best row per keystroke — so per-keystroke re-population of `CompletionData` is the deleted form; `false` degrades it to starts-with selection.
+- `ICompletionData.Complete(TextArea, ISegment, EventArgs)`: mutates the `TextArea` over the synthesized trigger `ISegment` — insertion runs here, never direct document mutation. Implement one per suggestion, add rows to `CompletionList.CompletionData` (a mutable `IList<ICompletionData>`), then `Show()`; the shell command rail feeds the rows.
 - `OverloadInsightWindow`: construct over `TextArea`, set `Provider`, then `Show()` for multi-signature insight.
 
 [SEARCH_ENTRYPOINTS]: regex search/replace panel and strategy

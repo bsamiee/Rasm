@@ -126,7 +126,7 @@
 |  [14]   | `UsdStage.Load(SdfPath, UsdLoadPolicy)`                                      | payload load | stage-level payload load               |
 
 [ENTRYPOINT_SCOPE]: attribute and primvar authoring + value IO
-- note: surfaces are `UsdPrim`/`UsdAttribute` methods; `CreateAttribute` takes a `SdfValueTypeName`, `Set`/`Get` exchange through `VtValue` at an optional `UsdTimeCode`, and the typed `Vt*Array` is the bulk payload
+- note: surfaces are `UsdPrim`/`UsdAttribute`/`UsdRelationship` methods; `CreateAttribute` takes a `SdfValueTypeName`, `Set`/`Get` exchange through `VtValue` at an optional `UsdTimeCode`, the typed `Vt*Array` is the bulk payload, and a relationship's targets arrive as an `SdfPathVector` whose managed `Count` wraps the native `size()`
 
 | [INDEX] | [SURFACE]                                                                   | [SHAPE]     | [CAPABILITY]                              |
 | :-----: | :-------------------------------------------------------------------------- | :---------- | :---------------------------------------- |
@@ -141,6 +141,8 @@
 |  [09]   | `UsdGeomPrimvarsAPI.CreatePrimvar(TfToken, SdfValueTypeName, TfToken, int)` | primvar     | per-vertex/face/uniform interpolated data |
 |  [10]   | `new SdfPath(string)` / `AppendChild(TfToken)` / `AppendProperty(TfToken)`  | path build  | scene-graph path construction             |
 |  [11]   | `IsPrimPath()` / `GetAsString()`                                            | path build  | path predicate and string form            |
+|  [12]   | `UsdRelationship.GetTargets() -> SdfPathVector`                             | read        | the relationship's target paths           |
+|  [13]   | `SdfPathVector.Count` / `this[int]`                                         | access      | path-vector size and indexer              |
 
 [ENTRYPOINT_SCOPE]: typed geometry/shading schema authoring
 - note: each schema `Define(stage, path)`s the prim and exposes `Get*Attr`/`Create*Attr`; `new UsdGeom*(UsdPrim)` wraps a traversed prim on import; material binding is `UsdShadeMaterialBindingAPI.Apply(prim).Bind(...)`
@@ -161,6 +163,11 @@
 |  [12]   | `UsdShadeMaterialBindingAPI.Bind(UsdShadeMaterial, TfToken, TfToken)`        | shade       | material bind                     |
 |  [13]   | `UsdGeomXformCache.GetLocalToWorldTransform(UsdPrim)` → `GfMatrix4d`         | compute     | cached world transform            |
 |  [14]   | `UsdGeomBBoxCache.ComputeWorldBound(UsdPrim)` → `GfBBox3d`                   | compute     | cached world bound                |
+|  [15]   | `UsdGeomPointInstancer.Define(UsdStage, SdfPath)` / `new …(UsdPrim)`         | define/wrap | instancer define + typed wrap     |
+|  [16]   | `UsdGeomPointInstancer.GetPrototypesRel()` / `GetProtoIndicesAttr()`         | instancer   | prototype rel; per-instance slot  |
+|  [17]   | `UsdGeomPointInstancer.GetPositionsAttr()` / `…Orientations` / `…Scales`     | instancer   | the per-instance TRS triple       |
+|  [18]   | `UsdGeomPointInstancer.GetInvisibleIdsAttr()`                                | instancer   | the per-instance visibility mask  |
+|  [19]   | `ComputeInstanceTransformsAtTime(VtMatrix4dArray, UsdTimeCode, UsdTimeCode)` | instancer   | composed per-instance matrices    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -175,6 +182,7 @@
 - `GeometryGym.Ifc`(`.api/api-geometrygym-ifc`): USD carries the geometry/shading/instancing scene while the IFC graph carries the BIM element vocabulary (`Model/elements#IFC_CLASS` `BimElement`/`IfcClass`); the two coexist at one `format#FORMAT_AXIS` row, and `BimElement`/`IfcClass` derive from the IFC graph, never USD prim type names.
 - `format#FORMAT_AXIS`: `usd`/`usdz` `InterchangeFormat` rows and the `InterchangeCodec.UsdStage` slot drive `import#IMPORT_RAIL` `BimIo` and `export#EXPORT_RAIL` `BimExport` by row data, never an `if (usd)` call-site branch; the `FrameNormalization` row coerces the imported Y-up op stack (`UsdGeomXformable` / `UsdGeomXformCache.GetLocalToWorldTransform` `GfMatrix4d`) onto the canonical Z-up kernel frame.
 - mesh bridge: a kernel mesh crosses `UsdGeomMesh` through the typed-array seam — `GetPointsAttr().Get(VtValue)` yields a `VtVec3fArray` of `GfVec3f` and `GetFaceVertexIndicesAttr()`/`GetFaceVertexCountsAttr()` the topology; export builds `VtVec3fArray`/`VtIntArray` and writes them through the attribute `Set` (never a `Set*Attr`), with `UsdGeomPrimvarsAPI.CreatePrimvar` carrying uv/color.
+- instancer bridge: `UsdGeomPointInstancer` IS the interchange carrier's block-and-instance overlay authored in USD — `GetPrototypesRel().GetTargets()` names the geometry, `GetProtoIndicesAttr()` the per-instance slot, and `ComputeInstanceTransformsAtTime` composes positions, orientations, scales AND each prototype's xform under the `invisibleIds` mask, so a hand-multiplied TRS triple beside it drops mask and xform together; prototype subtrees leave the mesh pass, so no stage bakes them twice.
 - shading seam: `UsdShadeMaterial`/`UsdShadeShader` (UsdPreviewSurface), read and authored through `UsdShadeMaterialBindingAPI`, map to the `Semantics/appearance#APPEARANCE_PROJECTION` `AppearanceSummary` host-neutral PBR record, reconciled with the `csharp:Rasm.Materials` OpenPBR owner at the content-key seam.
 - federation: USD references/payloads/variants are the layered-federation mechanism — a per-discipline model is a sublayer or reference, a design option a variant set — so `Review/diff#MODEL_DIFF` and `AppUi` variant switching compose on USD's native arcs, and `OpenMasked`/`UsdStageLoadRules` stream partial stages for large scenes.
 

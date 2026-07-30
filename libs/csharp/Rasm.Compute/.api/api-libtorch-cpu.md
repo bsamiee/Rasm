@@ -21,12 +21,14 @@
 
 [OPENMP_THREADING_FLOOR]:
 - osx-arm64 bundles `libomp.dylib`, and ATen CPU intra-op parallelism rides that OpenMP pool, never the .NET thread pool; `api-torchsharp.md` owns the `torch.set_num_threads`/`set_num_interop_threads` knobs that drive it, with `OMP_NUM_THREADS`/`MKL_NUM_THREADS` the only out-of-band override.
+- osx-arm64 `libtorch_cpu.dylib` links that OpenMP runtime by the ABSOLUTE install name `/opt/homebrew/opt/libomp/lib/libomp.dylib` (`otool -L`), a Homebrew path a Nix-managed machine does not carry, so the bundled sibling `libomp.dylib` satisfies the dependency ONLY while the platform dylib search path includes the consolidated payload directory. Measured on osx-arm64 at `libtorch-cpu` 2.10.0 / `TorchSharp` 0.107.0: with the payload staged and both packages referenced, TorchSharp's own two-step loader fails (`Failed to load native component .../cpu/libLibTorchSharp.dylib`) and `torch` type-init throws; a direct `libtorch-cpu-osx-arm64` `PackageReference` does NOT change that outcome; the same binary loads once `DYLD_LIBRARY_PATH` names the payload directory. A composition root therefore seats the payload directory on the loader path before the first `torch` touch, and the ATen residency gate is a real LOAD probe — a file-presence or RID check publishes a route that throws at first tensor.
+- Explicitly loading BOTH `libtorch_cpu.dylib` and `libtorch.dylib` aborts the process with `Key already registered with the same priority: C10`; `libtorch.dylib` already carries the CPU library, so the rejected shortcut is preloading the pair rather than fixing the search path.
 - ATen GEMM and factorization on Apple silicon dispatch through the macOS Accelerate BLAS/LAPACK backend compiled into `libtorch_cpu.dylib`, so osx-arm64 carries no separate MKL native asset — the reason TorchSharp is the native dense-LA substrate for the osx-arm64 `Tensor/blas` lane.
 
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Every `torch.*` op resolves `libLibTorchSharp` → `libtorch_cpu`/`libtorch`/`libc10` at native init; a missing RID payload faults the first entry-point load, never silently degrading.
+- Every `torch.*` op resolves `libLibTorchSharp` → `libtorch_cpu`/`libtorch`/`libc10` at native init; a missing RID payload faults the first entry-point load, never silently degrading. A PRESENT payload faults the same way when the OpenMP install-name dependency is unresolvable, so the fault names a load failure and never proves the payload absent — `[OPENMP_THREADING_FLOOR]` carries the measured contract.
 - `libtorch-cpu.targets` injects `CheckOneTorchSharpRuntime` (`AfterTargets=ResolveReferences`, `BeforeTargets=PrepareForBuild`), sets `$(TorchSharpCpuPackage)`, and emits a hard `<Error>` when `$(TorchSharpCudaPackage)` is also set — one project binds exactly one runtime.
 - `buildTransitive` props/targets flow to any downstream project, so a referenced `<PackageReference>` propagates the native-copy behavior without the leaf re-declaring it; the RID sub-packages stage `runtimes/<rid>/native/*` beside the managed output through standard NuGet RID-asset copy, authoring no `<NativeReference>` or manual dylib copy.
 

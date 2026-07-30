@@ -18,7 +18,7 @@
 
 [DOCUMENT_AND_CONTAINERS]: the document root and its six container kinds
 - rail: collaboration
-- every container is `class Loro* : ILoro*, IDisposable`; bind to the interface, hold the handle, dispose on detach. A container is created by `LoroDoc.Get<Kind>(ContainerIdLike)` (attach-or-create) or nested via a parent's `Insert*Container`/`GetOrCreate*Container`/`EnsureMergeable*`.
+- every container is `class Loro* : ILoro*, IDisposable`; bind to the interface, hold the handle, dispose on detach. `LoroDoc.Get<Kind>(ContainerIdLike)` creates a container (attach-or-create), and a parent nests one through `Insert*Container`/`GetOrCreate*Container`/`EnsureMergeable*`.
 
 | [INDEX] | [SYMBOL]                                          | [ROLE]             |
 | :-----: | :------------------------------------------------ | :----------------- |
@@ -63,13 +63,14 @@
 - [04]-[CONTAINER_TYPE]: `Text`, `Map`, `List`, `MovableList`, `Tree`, `Counter`, and `Unknown(byte Kind)` discriminate the kind inside `ContainerId`.
 - [05]-[CONTAINER_ID]: `Root(string Name, ContainerType)` identifies named roots, and `Normal(ulong Peer, int Counter, ContainerType)` identifies op-created containers.
 - [06]-[TREE_PARENT_ID]: `Root`, `Node(TreeId)`, `Deleted`, and `Unexist` represent a tree node's parent slot.
-- [07]-[INDEX]: `Key(string)`, `Seq(uint)`, and `Node(TreeId)` represent one `GetByPath(Index[])` hop.
+- [07]-[INDEX]: `Key(string KeyValue)`, `Seq(uint Index)`, and `Node(TreeId Target)` represent one `GetByPath(Index[])` hop; the case parameter names are the named-argument surface, and `LoroCs.Index` collides with `System.Index` under implicit usings, so a consuming fence opens with a `using LoroIndex = LoroCs.Index;` alias and spells every hop through it.
 - [08]-[TEXT_DELTA]: `Insert(string, Dictionary<string,LoroValue>? Attributes)`, `Delete(uint)`, and `Retain(uint, Dictionary<string,LoroValue>? Attributes)` form Quill-style rich-text delta operations.
 - [09]-[LIST_DIFF_ITEM]: `Insert(ValueOrContainer[], bool IsMove)`, `Delete(uint)`, and `Retain(uint)` form list-change operations.
 - [10]-[TREE_EXTERNAL_DIFF]: `Create(TreeParentId, uint, string)`, `Move(...)`, and `Delete(TreeParentId, uint)` form tree-change operations inside `TreeDiff`.
 
 [VALUE_CARRIERS_AND_HELPERS]: the version/identity/option value records and the collaboration helpers
 - rail: collaboration
+- `ValueOrContainer` wraps a Rust pointer, so a resolve frees the wrapper the instant its narrowed handle is taken and the handle outlives it under its own scope.
 
 | [INDEX] | [SYMBOL]                                              | [ROLE]          |
 | :-----: | :---------------------------------------------------- | :-------------- |
@@ -88,7 +89,7 @@
 - [01]-[VERSION_VECTOR]: `VersionVector` carries the per-peer op frontier and forms the `Export(Updates(vv))` delta base.
 - [02]-[FRONTIERS]: `Frontiers` carries a DAG cut of op ids for `Checkout`, `Fork`, and `Revert`.
 - [03]-[CURSOR]: `Cursor` carries a text or list position across concurrent edits through `GetCursor` and `GetCursorPos`.
-- [04]-[VALUE_OR_CONTAINER]: A `Get` returns either a `LoroValue` leaf or a live nested-container handle.
+- [04]-[VALUE_OR_CONTAINER]: `Get` yields a `LoroValue` leaf or a live container handle, and the wrapper narrows itself — `IsValue()`/`IsContainer()` discriminate, `ContainerType()` reads the kind, `AsValue()` takes the leaf, `AsContainer()` yields the `ContainerId` identity rather than a handle, and `AsLoroText`/`AsLoroMap`/`AsLoroList`/`AsLoroMovableList`/`AsLoroTree`/`AsLoroCounter`/`AsLoroUnknown` each take a handle or null, so a kind narrow is table dispatch, never a cast ladder.
 - [05]-[SUBSCRIPTION]: `Subscription` holds a live subscription and detaches it on disposal.
 - [06]-[UNDO_MANAGER]: `new UndoManager(LoroDoc)` owns local undo and redo while skipping remote operations.
 - [07]-[EPHEMERAL_STORE]: `new EphemeralStore(long timeoutMs)` holds TTL-expiring cursor and selection state.
@@ -293,8 +294,8 @@
 [DURABLE_TRUTH]:
 - Stream: Persistence owns the typed edit-intent stream projected from AppUi domain operations onto `OpLogEntry` and `SyncOpKind` rows through the `Version/ledger` changefeed, generalizing the `RevertibleOp` to `SyncOpKind` discipline.
 - Accelerator: `LoroDoc.Export(Snapshot)` persists only as a derivable, deletable, content-keyed cold-start blob composed through `ContentHash.Of`, reconstructible from the op log, and never authoritative.
-- Hashing: A direct `System.IO.Hashing` `XxHash128` mint over snapshot bytes remains outside the design.
-- Load: A cold load decodes the ledger replay window into a fresh `LoroDoc` in log order, while `ExportShallowSnapshot(Frontiers)` bounds retained history.
+- Hashing: `System.IO.Hashing` `XxHash128` minted directly over snapshot bytes remains outside the design.
+- Load: cold load decodes the ledger replay window into a fresh `LoroDoc` in log order, while `ExportShallowSnapshot(Frontiers)` bounds retained history.
 
 [PRESENCE]:
 - Cursor: `EphemeralStore` publishes TTL-expiring `Cursor` state, and `GetCursorPos(cursor)` returns `PosQueryResult` for remote caret and selection rendering.
