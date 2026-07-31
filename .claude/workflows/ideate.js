@@ -2,16 +2,16 @@ export const meta = {
     name: 'ideate',
     whenToUse: 'Rebuild a folder IDEAS and TASK pool to world-class when the deferred idea or task pool is stale or thin.',
     description:
-        'Rebuild a folder IDEAS + TASKS card pool to world-class: survey the realized corpus and research the real domain, author the genuinely-deferred idea/task pool, then fix-in-place constructive critique + hostile adversarial redteam. Language-agnostic (cards are markdown governed by the card schema). Authors NO design pages (that is the rebuild-* workflows) and aligns nothing pre-existing for its own sake (that is align-cards) — this is the greenfield/expansion pool generator. Every agent call takes a slot in one agent-level scheduler so the true in-flight agent count stays at cap while all folder chains run concurrently; within a folder the survey -> ideate -> critique -> redteam chain holds because each stage consumes the prior stage\'s landed cards, and a folder above the survey page cap runs two page-slice survey agents whose maps merge before the ideate stage. Survey lanes (including the page-slice splits) run as dispatched recon lanes; ideate and redteam stay native writers, and critique runs as ONE dispatched write lane per folder (cardlog to disk, receipt on the wire; the redteam reads it from disk as refutation targets and folds its verified files into the folder record). Every stage writes BOTH ends of every Ripple itself — a cross-folder counterpart is authored or repaired directly in the sibling folder\'s card files in the same pass under the current-state law; nothing routes to a later phase. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest, folded forward through the redteam and the orphan drain; one terminal doctrine lander then adjudicates the pooled harvest against the docs/laws admission bar (land-nothing legal) before the run closes. The terminal stays the single fold-forward orphan drain, not a round-based DRAIN LOOP: Ripples land both ends in-pass by design and the cardlog carries no {files, claim} backlog, so nothing pools across stages. args = optional scope (e.g. "libs/python/geometry"); empty = all of libs.',
+        'Rebuild a folder IDEAS + TASKS card pool to world-class: survey the realized corpus and research the real domain, author the genuinely-deferred idea/task pool, then fix-in-place constructive critique + hostile adversarial redteam. Language-agnostic (cards are markdown governed by the card schema). Authors NO design pages (that is the rebuild-* workflows) and aligns nothing pre-existing for its own sake (that is align-cards) — this is the greenfield/expansion pool generator. Every agent call takes a slot in one agent-level scheduler so the true in-flight agent count stays at cap while all folder chains run concurrently; within a folder the survey -> ideate -> critique -> redteam chain holds because each stage consumes the prior stage\'s landed cards, and a folder above the survey page cap runs two page-slice survey agents whose maps merge before the ideate stage. Survey delegates (including the page-slice splits) run as dispatched recon delegates; ideate and redteam stay native writers, and critique runs as ONE dispatched write delegate per folder (cardlog to disk, receipt on the wire; the redteam reads it from disk as refutation targets and folds its verified files into the folder record). Every stage writes BOTH ends of every Ripple itself — a cross-folder counterpart is authored or repaired directly in the sibling folder\'s card files in the same pass under the current-state law; nothing routes to a later phase. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest, folded forward through the redteam and the orphan drain; one terminal doctrine lander then adjudicates the pooled harvest against the docs/laws admission bar (land-nothing legal) before the run closes. The terminal stays the single fold-forward orphan drain, not a round-based DRAIN LOOP: Ripples land both ends in-pass by design and the cardlog carries no {files, claim} backlog, so nothing pools across stages. args = optional scope (e.g. "libs/python/geometry"); empty = all of libs.',
     phases: [
         {
             title: 'Survey',
-            detail: 'discover card-owning folders with page counts, then per folder: a dispatched recon lane maps realized capability + current pool + researched domain-completeness gaps + cross-folder seams; a folder above the survey page cap splits the survey across two page-slice recon lanes merged before ideate',
+            detail: 'discover card-owning folders with page counts, then per folder: a dispatched recon delegate maps realized capability + current pool + researched domain-completeness gaps + cross-folder seams; a folder above the survey page cap splits the survey across two page-slice recon delegates merged before ideate',
         },
         { title: 'Ideate', detail: 'author/rebuild the IDEAS + TASKS pool grounded in the survey, genuinely-deferred only, both Ripple ends landed' },
         {
             title: 'Critique',
-            detail: 'fix-in-place write lane: pull the pool up — density, domain-completeness, anchors, ripples; cardlog to disk',
+            detail: 'fix-in-place write delegate: pull the pool up — density, domain-completeness, anchors, ripples; cardlog to disk',
         },
         { title: 'Redteam', detail: 'fix-in-place hostile reviewer: attack redundancy, mis-carding, dangling ripples, under-ideation' },
     ],
@@ -21,7 +21,7 @@ export const meta = {
 
 const CAP = 14;
 const SURVEY_PAGE_CAP = 12;
-const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute working root; codex cwd + native terminal lanes resolve relative scratch paths against it
+const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute working root; codex cwd + native terminal delegates resolve relative scratch paths against it
 const RETRY_ATTEMPTS = 2;
 
 // --- [INPUTS] --------------------------------------------------------------------------
@@ -38,7 +38,7 @@ const input =
         : args;
 const rawScope = typeof input === 'string' ? input.trim() : input && typeof input === 'object' && input.target ? String(input.target).trim() : '';
 const SWEEP = !rawScope || rawScope === 'ALL' ? 'libs' : rawScope;
-// Per-instance scratch dir for the lane report files — minted deterministically from the normalized scope (clock/randomness would break
+// Per-instance scratch dir for the delegate report files — minted deterministically from the normalized scope (clock/randomness would break
 // resume): one FLAT dir under .claude/scratch/, a human-readable basename slug and an FNV-1a tail forking distinct scopes and rehydrating on resume.
 const fnv1a = (s) => {
     let h = 0x811c9dc5;
@@ -120,7 +120,7 @@ const SURVEY_SCHEMA = {
     },
 };
 
-// Thin wire receipt: the survey lane's PRODUCT stays on disk at `report`; only status + count + headline travel inline.
+// Thin wire receipt: the survey delegate's PRODUCT stays on disk at `report`; only status + count + headline travel inline.
 const RECEIPT = {
     type: 'object',
     additionalProperties: false,
@@ -290,9 +290,9 @@ const makeSlots = (cap) => {
     };
 };
 const slot = makeSlots(CAP);
-// Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death): attempt-counted with a retry before each
-// attempt sized to a limit reset; the final death isolates the lane, NEVER the chain — every downstream stage runs against disk.
-const retryLane = async (fn) => {
+// Bounded re-dispatch for a dead CRITICAL delegate (usage-limit or transport death): attempt-counted with a retry before each
+// attempt sized to a limit reset; the final death isolates the delegate, NEVER the chain — every downstream stage runs against disk.
+const retryDelegate = async (fn) => {
     for (let a = 0; a < RETRY_ATTEMPTS; a++) {
         const r = await fn();
         if (r) return r;
@@ -301,12 +301,12 @@ const retryLane = async (fn) => {
 };
 const nameOf = (f) => f.split('/').pop() || f;
 
-// Codex dispatch: the wrapper runs one blocking supervised CLI process, writes its content to the lane report, and returns mechanical
-// orchestration data. Lane law rides developer-instructions (role split — recon law for the survey lanes, fix law for the in-place critique
-// lane); the prompt carries only the task; the output contract sits LAST. surveyPrompt/critiquePrompt feed dispatched lanes and carry a neutral
-// register (a hostile stance makes a dispatched lane over-probe); the native ideatePrompt/redteamPrompt keep the estate register — same substance.
+// Codex dispatch: the wrapper runs one blocking supervised CLI process, writes its content to the delegate report, and returns mechanical
+// orchestration data. Delegate law rides developer-instructions (role split — recon law for the survey delegates, fix law for the in-place critique
+// delegate); the prompt carries only the task; the output contract sits LAST. surveyPrompt/critiquePrompt feed dispatched delegates and carry a neutral
+// register (a hostile stance makes a dispatched delegate over-probe); the native ideatePrompt/redteamPrompt keep the estate register — same substance.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
-const laneLaw = (schema, o) =>
+const delegateLaw = (schema, o) =>
     (o.fix
         ? '<completion_bar>\nDone is every card in your named pool audited to full depth with its fix landed — proof-complete, ' +
           'never effort-spent, never early. Complete every named move before yielding; do not stop at analysis or a partial ' +
@@ -329,7 +329,7 @@ const laneLaw = (schema, o) =>
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
 // Sandbox decides authorship: a read-only delegate cannot write, so --out materializes the product; a writing delegate lands its own.
-const LANE_SCRIPT = ROOT + '/.claude/skills/codex/scripts/codex-lane.sh';
+const DELEGATE_SCRIPT = ROOT + '/.claude/skills/codex/scripts/codex-delegate.sh';
 const flagsOf = (o) =>
     [o.model && '--model ' + o.model, o.codexEffort && '--effort ' + o.codexEffort, o.web && '--web']
         .filter(Boolean)
@@ -339,7 +339,7 @@ const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
     const root = ROOT;
     const report = root + '/' + base + '-report.json';
-    const lane = report + '.lane';
+    const delegate = report + '.delegate';
     const authored = !!o.writes;
     const sandbox = authored ? 'workspace-write' : 'read-only';
     const hl = o.hl || { arr: 'entries', group: 'kind' };
@@ -351,41 +351,41 @@ const codexPrompt = (label, task, schema, o) => {
               ' yourself.'
             : '');
     return (
-        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised lane run; never perform, edit, judge, soften, ' +
-        'summarize, or relay the work yourself. (1) Write the LANE LAW block below VERBATIM to ' +
-        lane +
+        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised delegate run; never perform, edit, judge, soften, ' +
+        'summarize, or relay the work yourself. (1) Write the DELEGATE LAW block below VERBATIM to ' +
+        delegate +
         '/law.md and the TASK block below VERBATIM to ' +
-        lane +
+        delegate +
         '/task.md, composing neither. ' +
         (authored
             ? 'Delete any leftover file at ' + report + ' with one Bash rm -f (a stale product there passes the verify probe as a false success). '
             : '') +
         '(2) Run ONE Bash call with run_in_background true: ' +
-        LANE_SCRIPT +
+        DELEGATE_SCRIPT +
         ' --task ' +
-        lane +
+        delegate +
         '/task.md --law ' +
-        lane +
+        delegate +
         '/law.md --dir ' +
-        lane +
+        delegate +
         ' --cwd ' +
         root +
         ' --sandbox ' +
         sandbox +
         flagsOf(o) +
         (authored ? '' : ' --out ' + report) +
-        '; the harness re-invokes you when the lane exits — Read ' +
-        lane +
+        '; the harness re-invokes you when the delegate exits — Read ' +
+        delegate +
         '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
-        'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
+        'alone (the session persisted on disk) overwrites the task file with "continue and complete the delegate, then land the receipt" and ' +
         're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
         'refusal) re-runs the same command untouched. (3) ' +
         (authored
             ? 'The delegate lands the product itself at ' + report + ' as its final act.'
-            : 'The lane lands the product at ' + report + ' via --out.') +
+            : 'The delegate lands the product at ' + report + ' via --out.') +
         ' (4) Verify with one Bash call: jq -e . ' +
         report +
-        ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the lane ' +
+        ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the delegate ' +
         'events.jsonl (jq -rs to the last agent_message item text, Write that), re-probe, and a second miss returns ok=false with the ' +
         'probe output. (5) Return ok=true, report=' +
         base +
@@ -395,18 +395,18 @@ const codexPrompt = (label, task, schema, o) => {
         hl.arr +
         (hl.group ? ' | <' + hl.group + ' tallies>' : '') +
         '", and failure empty. On a failed receipt return ok=false, entries=0, report and headline empty, and failure equal to the ' +
-        'receipt reason and failure text VERBATIM.\n\nLANE LAW:\n\n' +
-        laneLaw(schema, o) +
+        'receipt reason and failure text VERBATIM.\n\nDELEGATE LAW:\n\n' +
+        delegateLaw(schema, o) +
         '\n\nTASK:\n\n' +
         taskFull
     );
 };
-// Every dispatched lane routes here: the config default unless o.model names a deviation. QUOTA FALLBACK: a
+// Every dispatched delegate routes here: the config default unless o.model names a deviation. QUOTA FALLBACK: a
 // receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's native twin
 // — the caller owns the re-dispatch, the wrapper never executes work itself. The roster row carries `scope` from the
-// ORCHESTRATOR (never the lane's self-report) so a failed lane's unmapped territory is exact even when the lane died before writing anything.
+// ORCHESTRATOR (never the delegate's self-report) so a failed delegate's unmapped territory is exact even when the delegate died before writing anything.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
-const nativeLane = (task, o) =>
+const nativeDelegate = (task, o) =>
     agent(
         task +
             '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
@@ -426,15 +426,15 @@ const recon = (task, o) =>
         effort: 'low',
         schema: RECEIPT,
     })
-        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
+        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeDelegate(task, o) : r))
         .then((r) => ({
-            lane: o.label,
+            delegate: o.label,
             scope: o.scope || [],
             ok: !!(r && r.ok && r.report),
             report: (r && r.report) || '',
             entries: (r && r.entries) || 0,
             headline: (r && r.headline) || '',
-            failure: (r && r.failure) || (r ? '' : 'lane died'),
+            failure: (r && r.failure) || (r ? '' : 'delegate died'),
         }));
 const surveyPrompt = (folder, slice) =>
     [
@@ -529,7 +529,7 @@ const redteamPrompt = (folder, critOk, critReport) =>
         '',
         (critOk
             ? 'PRIOR CLAIMS (UNVERIFIED): the critique cardlog is ON DISK at ' + critReport
-            : 'PRIOR CLAIMS (UNVERIFIED): the critique wrapper died, but the lane writes its cardlog before any ceiling can ' +
+            : 'PRIOR CLAIMS (UNVERIFIED): the critique wrapper died, but the delegate writes its cardlog before any ceiling can ' +
               'kill the call — check ' +
               critReport +
               ' FIRST; absent or unparseable, your cold attack is the only review this pool gets, judged from CURRENT disk alone. ' +
@@ -607,7 +607,7 @@ const ideateFolder = async (u) => {
     const roster = (await Promise.all(surveyors)).filter(Boolean);
     const mapped = roster.filter((r) => r.ok);
     const total = mapped.reduce((a, r) => a + r.entries, 0);
-    const unmapped = roster.filter((r) => !r.ok).flatMap((r) => r.scope.map((sc) => ({ lane: r.lane, scope: sc })));
+    const unmapped = roster.filter((r) => !r.ok).flatMap((r) => r.scope.map((sc) => ({ delegate: r.delegate, scope: sc })));
     log(
         nameOf(folder) +
             ': ' +
@@ -616,17 +616,17 @@ const ideateFolder = async (u) => {
             mapped.length +
             '/' +
             roster.length +
-            ' lane(s)' +
+            ' delegate(s)' +
             (mapped.length < roster.length
                 ? ' — FAILED: ' +
                   roster
                       .filter((r) => !r.ok)
-                      .map((r) => r.lane)
+                      .map((r) => r.delegate)
                       .join(', ')
                 : ''),
     );
-    // CHAIN CONTINUATION: the ideate writer is critical (primary authoring) — it earns retryLane, but its death isolates the
-    // lane, NEVER the chain: the critique (a writer) and the redteam still audit and extend the pool as it stands on disk,
+    // CHAIN CONTINUATION: the ideate writer is critical (primary authoring) — it earns retryDelegate, but its death isolates the
+    // delegate, NEVER the chain: the critique (a writer) and the redteam still audit and extend the pool as it stands on disk,
     // and the ideate log simply arrives absent.
     const ideateOpts = (suffix) => ({
         label: 'ideate:' + nameOf(folder) + suffix,
@@ -637,8 +637,8 @@ const ideateFolder = async (u) => {
     });
     const authored =
         (await slot(() => agent(ideatePrompt(folder, roster, unmapped), ideateOpts('')))) ||
-        (await retryLane(() => slot(() => agent(ideatePrompt(folder, roster, unmapped), ideateOpts(':a1')))));
-    // Critique: a dispatched lane fixing the pool in place; cardlog to disk, receipt on the wire; the redteam
+        (await retryDelegate(() => slot(() => agent(ideatePrompt(folder, roster, unmapped), ideateOpts(':a1')))));
+    // Critique: a dispatched delegate fixing the pool in place; cardlog to disk, receipt on the wire; the redteam
     // folds its verified operational rows and the doctrine lander reads its nominations directly from the deterministic path.
     const crit = await slot(() =>
         recon(critiquePrompt(folder), {
@@ -655,7 +655,7 @@ const ideateFolder = async (u) => {
     // Deterministic critique-report path from the folder alone — set even when the critique wrapper dies, so the redteam, the
     // terminal drain, and the doctrine lander reach a written cardlog off the path, never a receipt a dead wrapper never returned.
     const critReport = SCRATCH + '/' + fileTag('crit:' + nameOf(folder)) + '-report.json';
-    // The redteam is the terminal review and sole card-status owner — critical, so it too earns retryLane.
+    // The redteam is the terminal review and sole card-status owner — critical, so it too earns retryDelegate.
     const rtOpts = (suffix) => ({
         label: 'redteam:' + nameOf(folder) + suffix,
         phase: 'Redteam',
@@ -665,7 +665,7 @@ const ideateFolder = async (u) => {
     });
     const rt =
         (await slot(() => agent(redteamPrompt(folder, !!(crit && crit.ok), critReport), rtOpts('')))) ||
-        (await retryLane(() => slot(() => agent(redteamPrompt(folder, !!(crit && crit.ok), critReport), rtOpts(':a1')))));
+        (await retryDelegate(() => slot(() => agent(redteamPrompt(folder, !!(crit && crit.ok), critReport), rtOpts(':a1')))));
     return { folder, logs: { ideate: authored, redteam: rt }, critReport, ok: !!(authored || rt) };
 };
 
@@ -701,7 +701,7 @@ const failed = done.filter((r) => !r.ok).map((r) => r.folder);
 // disk-dedupe in the sweep. No round-based DRAIN LOOP: Ripples land BOTH ends in-pass by the RIPPLE law and CARDLOG
 // carries no {files, claim} backlog, so nothing pools across stages — the single fold-forward drain is the whole terminal.
 const ORPHANS = done.filter((r) => r.critReport).map((r) => r.critReport);
-// The terminal drain gets retryLane and stays OPERATIONAL: it consolidates the critique cardlogs' `files`/`beyondFolder`
+// The terminal drain gets retryDelegate and stays OPERATIONAL: it consolidates the critique cardlogs' `files`/`beyondFolder`
 // (a redteam that died left its critique cardlog unfolded), never their `harvest` — the doctrine lander is the sole nomination
 // transport, reading each critique cardlog from its deterministic path directly, so a dead drain never loses a nomination.
 const fireDrain = (suffix) =>
@@ -718,7 +718,7 @@ const fireDrain = (suffix) =>
             { label: 'drain:orphans' + suffix, phase: 'Redteam', model: 'fable', effort: 'high', schema: CARDLOG_SCHEMA },
         ),
     );
-const drained = ORPHANS.length ? (await fireDrain('')) || (await retryLane(() => fireDrain(':a1'))) : null;
+const drained = ORPHANS.length ? (await fireDrain('')) || (await retryDelegate(() => fireDrain(':a1'))) : null;
 const stages = ['ideate', 'redteam']; // the critique cardlog lives on disk; the redteam folds its rows into the folder record
 const folded = drained ? [{ folder: 'orphans', logs: { redteam: drained }, ok: true }] : [];
 const touched = [...new Set(complete.concat(folded).flatMap((r) => stages.flatMap((k) => (r.logs[k] && r.logs[k].files) || [])))];

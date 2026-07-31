@@ -1,9 +1,9 @@
 export const meta = {
     name: 'density',
     whenToUse:
-        'Per-file density pass over any landed libs/ planning corpus: pass targets (file / sub-folder / package root, any number, any language mix). Runs on demand over a corpus that is already correct — it collapses shape and entry count, inlines single-caller helpers, demotes rosters to generators, rebuilds flat bodies expression-shaped, and replaces hand-rolled capability with strata composition, losing zero functionality. Roster: one plan lane, one law-pack lane per language, LOC-bounded mappers, one fixer per file, one closer.',
+        'Per-file density pass over any landed libs/ planning corpus: pass targets (file / sub-folder / package root, any number, any language mix). Runs on demand over a corpus that is already correct — it collapses shape and entry count, inlines single-caller helpers, demotes rosters to generators, rebuilds flat bodies expression-shaped, and replaces hand-rolled capability with strata composition, losing zero functionality. Roster: one plan delegate, one law-pack delegate per language, LOC-bounded mappers, one fixer per file, one closer.',
     description:
-        'Language-agnostic per-file density engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, and its member-verification rail from its owning package. Plan enumerates every design page under the targets with its real line count. Map fans LOC-bounded mappers per package, each writing one map per page — logic threads, shape census with collapse discriminants, entry/knob/helper sprawl, strata leverage, flat code, unexploited api depth, 10x growth stress, exact doctrine shards — grounded in the branch and package ARCHITECTURE.md ledgers, beside one audit-law-pack lane per landed language extracting the doctrine checklist verbatim. Pass runs ONE fixer per file (law pack + its map + its file, nothing more) executing a single ground-up density pass in place, single-file write territory, every cross-file need routed as a typed row. Close runs one drainer over the pooled rows — cross-file seam counterparts, catalog appends, index and IDEAS rows. Capability conservation is absolute: LOC and shape count fall only through stronger owners, never through deletion or extraction. Stage law lives in the prompt blocks.',
+        'Language-agnostic per-file density engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, and its member-verification rail from its owning package. Plan enumerates every design page under the targets with its real line count. Map fans LOC-bounded mappers per package, each writing one map per page — logic threads, shape census with collapse discriminants, entry/knob/helper sprawl, strata leverage, flat code, unexploited api depth, 10x growth stress, exact doctrine shards — grounded in the branch and package ARCHITECTURE.md ledgers, beside one audit-law-pack delegate per landed language extracting the doctrine checklist verbatim. Pass runs ONE fixer per file (law pack + its map + its file, nothing more) executing a single ground-up density pass in place, single-file write territory, every cross-file need routed as a typed row. Close runs one drainer over the pooled rows — cross-file seam counterparts, catalog appends, index and IDEAS rows. Capability conservation is absolute: LOC and shape count fall only through stronger owners, never through deletion or extraction. Stage law lives in the prompt blocks.',
     phases: [
         {
             title: 'Plan',
@@ -11,7 +11,7 @@ export const meta = {
         },
         {
             title: 'Map',
-            detail: 'LOC-bounded mapper sets per package write one map per page (logic flow, shape census, strata leverage, flat code, api depth, growth stress, doctrine route), beside one audit-law-pack lane per landed language extracting the binding checklist sections verbatim into the artifact every fixer reads instead of the atlas',
+            detail: 'LOC-bounded mapper sets per package write one map per page (logic flow, shape census, strata leverage, flat code, api depth, growth stress, doctrine route), beside one audit-law-pack delegate per landed language extracting the binding checklist sections verbatim into the artifact every fixer reads instead of the atlas',
         },
         {
             title: 'Pass',
@@ -57,7 +57,7 @@ const fnv1a = (s) => {
     return (h >>> 0).toString(16).padStart(8, '0').slice(0, 6);
 };
 // Prefix is THIS workflow's name, never a shared stem; ROOT_DIR joins the hash because it retargets an isolated
-// checkout, so two runs over equal targets in different checkouts never share a data plane.
+// checkout, so two runs over equal targets in different checkouts never share a data pdelegate.
 const SCRATCH =
     '.claude/scratch/' +
     ('density-' + TARGETS.map((t) => t.split('/').pop().toLowerCase()).join('-')).replace(/[^a-z0-9.-]+/g, '-').slice(0, 60) +
@@ -69,7 +69,7 @@ const SCRATCH =
 const S = { type: 'string' };
 
 const RECEIPT = {
-    // Thin wire receipt: the lane's PRODUCT stays on disk at `report`; only status + count + headline travel inline.
+    // Thin wire receipt: the delegate's PRODUCT stays on disk at `report`; only status + count + headline travel inline.
     type: 'object',
     additionalProperties: false,
     required: ['ok', 'report', 'entries', 'headline', 'failure'],
@@ -307,7 +307,7 @@ const LANG = {
             'against the real cross-page owners it imports, then hunt these defect classes at their owning doctrine sites and fix ' +
             'each by growing the existing owner: FENCE-PARSES (`language.md` CLOSED_MATCH_SITE) · MODEL-COHERENCE (README ' +
             'CORPUS_LAW) · TOTAL-DISPATCH (`shapes.md` families) · SINGLE-FACT-EVIDENCE (`rails-and-effects.md` STATE_RECEIPTS + ' +
-            '`boundaries.md` BYTE_IDENTITY) · LOOP-OFFLOAD (`concurrency.md` OFFLOAD_LANE) · HANDLE-LIFETIME + BINARY-KERNEL ' +
+            '`boundaries.md` BYTE_IDENTITY) · LOOP-OFFLOAD (`concurrency.md` OFFLOAD_DELEGATE) · HANDLE-LIFETIME + BINARY-KERNEL ' +
             '(`boundaries.md` CAPSULE_OWNER) · IDENTITY-REGIME (`boundaries.md` MEMO_KEY) · TEMPLATE-SAFETY (`language.md` ' +
             'TEMPLATE_STRUCTURE_SITE) · STREAM-OVER-MATERIALIZE (`iteration.md` LAZY_COMBINATORS) · NO-EXCEPTION-HOTLOOP ' +
             '(`rails-and-effects.md` EXPRESSION_SPINE) · DERIVED-NOT-PARALLEL + PER-MODE PAYLOADS (README DERIVED_LOGIC). The ' +
@@ -342,8 +342,7 @@ const LANG = {
             '`<folder>/.api/*.md`, cross-checked against the published node_modules types — the shared Effect ecosystem layered ' +
             'ON TOP OF the area packages, never the folder set alone.',
         verify:
-            'the published types in node_modules (`uv run python -m tools.assay api` over node_modules ' +
-            'declarations where a member is novel)',
+            'the published types in node_modules (`uv run python -m tools.assay api` over node_modules ' + 'declarations where a member is novel)',
         vocab: '(`Schema.Class`/`TaggedClass` families, tagged unions, `Effect`/`Layer`, value-derived vocabulary tables)',
         slur: 'naive JavaScript-in-TypeScript dressed in the right vocabulary',
         illusion: '`any`/unsafe `as`/non-null `!` smuggled under a confident surface; a member cited but unverifiable against node_modules',
@@ -405,10 +404,10 @@ const wopts = (label, phase, model, schema, over) => Object.assign({ label, phas
 const ropts = (label, phase, schema, scope, hl, over) => Object.assign({ label, phase, schema, scope, hl }, over);
 
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
-// Read/write discipline, split from the output contract so BOTH dispatch paths carry it: a natively executed lane needs
+// Read/write discipline, split from the output contract so BOTH dispatch paths carry it: a natively executed delegate needs
 // the same territory bound, budget, and verification duty as a dispatched one, and inlining it only in the codex prompt
-// left every native lane running unbounded.
-const laneDiscipline = (o) =>
+// left every native delegate running unbounded.
+const delegateDiscipline = (o) =>
     o.fix
         ? '<persistence>\nComplete every named move before yielding; do not stop at analysis or a partial edit. If the chosen ' +
           'approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely ' +
@@ -420,7 +419,7 @@ const laneDiscipline = (o) =>
           're-open a span you authored this turn to re-locate an anchor, and never re-read a page mid-rebuild.\n</work_cadence>' +
           '\n\n<read_discipline>\nA stable input — a doctrine page, dossier, census, catalog, charter — is read ONCE: extract ' +
           'what you need into your plan notes and re-open only the exact line span behind an edit, never the whole file again. ' +
-          'Read in large windows (400+ lines per command), never 200-line paging. Your context compacts on a long lane; only ' +
+          'Read in large windows (400+ lines per command), never 200-line paging. Your context compacts on a long delegate; only ' +
           'plan notes, the seam ledger, and landed edits survive it — a fact left only in context is lost. Budget: at most ' +
           (o.calls || 300) +
           ' tool calls total; at the budget, land what is derived and record every remaining row in the product `deferred` ' +
@@ -432,7 +431,7 @@ const laneDiscipline = (o) =>
           'task-named catalog/assay rail only.\n</verification>'
         : '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it; ' +
           'instruction files (.claude/, CLAUDE.md, AGENTS.md) and skill bundles are always out of scope for a read/review ' +
-          'lane, and discovery commands stay scoped to the territory — never `rg --files` or `tree` from the repo root.' +
+          'delegate, and discovery commands stay scoped to the territory — never `rg --files` or `tree` from the repo root.' +
           '\nBudget: at most ' +
           (o.calls || 60) +
           ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
@@ -441,14 +440,14 @@ const laneDiscipline = (o) =>
           'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +
           'spelling appears verbatim in the cited file; anything unconfirmed is recorded as a gap, never asserted.\n' +
           '</verification>';
-const laneLaw = (schema, o) =>
-    laneDiscipline(o) +
+const delegateLaw = (schema, o) =>
+    delegateDiscipline(o) +
     '\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
     JSON.stringify(schema) +
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
 // Sandbox decides authorship: a read-only delegate cannot write, so --out materializes the product; a writing delegate lands its own.
-const LANE_SCRIPT = ROOT_DIR + '/.claude/skills/codex/scripts/codex-lane.sh';
+const DELEGATE_SCRIPT = ROOT_DIR + '/.claude/skills/codex/scripts/codex-delegate.sh';
 const flagsOf = (o) =>
     [o.model && '--model ' + o.model, o.codexEffort && '--effort ' + o.codexEffort, o.web && '--web']
         .filter(Boolean)
@@ -458,7 +457,7 @@ const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
     const root = ROOT_DIR;
     const report = root + '/' + base + '-report.json';
-    const lane = report + '.lane';
+    const delegate = report + '.delegate';
     const authored = !!o.writes;
     const sandbox = authored ? 'workspace-write' : 'read-only';
     const taskFull =
@@ -468,47 +467,47 @@ const codexPrompt = (label, task, schema, o) => {
               report +
               ' yourself.'
             : '');
-    // Stale purge BEFORE the lane: SCRATCH derives from targets alone, so a prior run over the same targets left its report here.
-    // A lane that dies without writing leaves that file in place, the probe passes it, and a dead run's product is consumed as this
+    // Stale purge BEFORE the delegate: SCRATCH derives from targets alone, so a prior run over the same targets left its report here.
+    // A delegate that dies without writing leaves that file in place, the probe passes it, and a dead run's product is consumed as this
     // run's — the one failure this whole receipt path cannot otherwise detect.
     return (
-        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised lane run; never perform, edit, judge, soften, ' +
-        'summarize, or relay the work yourself. (1) Write the LANE LAW block below VERBATIM to ' +
-        lane +
+        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised delegate run; never perform, edit, judge, soften, ' +
+        'summarize, or relay the work yourself. (1) Write the DELEGATE LAW block below VERBATIM to ' +
+        delegate +
         '/law.md and the TASK block below VERBATIM to ' +
-        lane +
+        delegate +
         '/task.md, composing neither, then delete any leftover report with one Bash call: rm -f ' +
         report +
         " — a stale file from a prior run over these targets otherwise passes the verify probe as this run's product. " +
         '(2) Run ONE Bash call with run_in_background true: ' +
-        LANE_SCRIPT +
+        DELEGATE_SCRIPT +
         ' --task ' +
-        lane +
+        delegate +
         '/task.md --law ' +
-        lane +
+        delegate +
         '/law.md --dir ' +
-        lane +
+        delegate +
         ' --cwd ' +
         root +
         ' --sandbox ' +
         sandbox +
         flagsOf(o) +
         (authored ? '' : ' --out ' + report) +
-        '; the harness re-invokes you when the lane exits — Read ' +
-        lane +
+        '; the harness re-invokes you when the delegate exits — Read ' +
+        delegate +
         '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
-        'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
+        'alone (the session persisted on disk) overwrites the task file with "continue and complete the delegate, then land the receipt" and ' +
         're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
         'refusal) re-runs the same command untouched. (3) ' +
         (authored
             ? 'The delegate lands the product itself at ' + report + ' as its final act.'
-            : 'The lane lands the product at ' + report + ' via --out.') +
+            : 'The delegate lands the product at ' + report + ' via --out.') +
         " (4) Verify with one Bash call: jq -e '." +
         o.hl.arr +
         "' " +
         report +
         ' >/dev/null — probe that contract key, never bare parseability, which any wrong-shaped JSON passes; on a miss re-derive the ' +
-        'product once from the lane events.jsonl (jq -rs to the last agent_message item text, Write that), re-probe, and a second miss ' +
+        'product once from the delegate events.jsonl (jq -rs to the last agent_message item text, Write that), re-probe, and a second miss ' +
         'returns ok=false with the probe output. (5) Return ok=true, report=' +
         base +
         '-report.json, entries = the length of the "' +
@@ -517,8 +516,8 @@ const codexPrompt = (label, task, schema, o) => {
         o.hl.arr +
         (o.hl.group ? ' | <' + o.hl.group + ' tallies>' : '') +
         ' | top: <most frequent first file or none>", and failure empty. On a failed receipt return ok=false, entries=0, report and ' +
-        'headline empty, and failure equal to the receipt reason and failure text VERBATIM.\n\nLANE LAW:\n\n' +
-        laneLaw(schema, o) +
+        'headline empty, and failure equal to the receipt reason and failure text VERBATIM.\n\nDELEGATE LAW:\n\n' +
+        delegateLaw(schema, o) +
         '\n\nTASK:\n\n' +
         taskFull
     );
@@ -526,12 +525,12 @@ const codexPrompt = (label, task, schema, o) => {
 
 // QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's native twin (twinOf owns
 // the mapping) — the caller owns the re-dispatch, the wrapper never executes work itself. The roster row carries `scope` from the
-// ORCHESTRATOR (never the lane's self-report) so a failed lane's unmapped territory is exact even when the lane died before writing anything.
+// ORCHESTRATOR (never the delegate's self-report) so a failed delegate's unmapped territory is exact even when the delegate died before writing anything.
 const twinOf = (m) => (/-luna/.test(m || '') ? 'sonnet' : 'opus');
-const nativeLane = (task, o) => {
+const nativeDelegate = (task, o) => {
     const report = SCRATCH + '/' + fileTag(o.label) + '-report.json';
     return agent(
-        laneDiscipline(o) +
+        delegateDiscipline(o) +
             '\n\n' +
             task +
             '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
@@ -540,7 +539,7 @@ const nativeLane = (task, o) => {
             JSON.stringify(o.schema) +
             ' — then return ONLY the receipt: ok, report = ' +
             report +
-            ' (this repo-relative form, matching codex-lane receipts), entries count, one-line mechanical headline, failure empty.',
+            ' (this repo-relative form, matching codex-delegate receipts), entries count, one-line mechanical headline, failure empty.',
         { label: o.label, phase: o.phase, model: o.nativeModel || twinOf(o.model), effort: 'high', schema: RECEIPT },
     );
 };
@@ -554,19 +553,19 @@ const recon = (taskOf, o) => {
         effort: 'low',
         schema: RECEIPT,
     };
-    // `native` runs the lane on the estate model directly — no dispatch wrapper or transport hop; the executing agent IS the
-    // reader. Chosen per lane by product weight: an artifact every downstream writer reads in full, or a judgment the run
+    // `native` runs the delegate on the estate model directly — no dispatch wrapper or transport hop; the executing agent IS the
+    // reader. Chosen per delegate by product weight: an artifact every downstream writer reads in full, or a judgment the run
     // never re-derives, earns the stronger reader; navigation legwork stays dispatched. Receipt shape is identical either way.
-    return (o.native ? nativeLane(task('claude'), o) : agent(codexPrompt(o.label, task('codex'), o.schema, o), wrapper))
-        .then((r) => (r && !r.ok && !o.native && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task('claude'), o) : r))
+    return (o.native ? nativeDelegate(task('claude'), o) : agent(codexPrompt(o.label, task('codex'), o.schema, o), wrapper))
+        .then((r) => (r && !r.ok && !o.native && /usage|quota|limit/i.test(r.failure || '') ? nativeDelegate(task('claude'), o) : r))
         .then((r) => ({
-            lane: o.label,
+            delegate: o.label,
             scope: o.scope || [],
             ok: !!(r && r.ok && r.report),
             report: (r && r.report) || '',
             entries: (r && r.entries) || 0,
             headline: (r && r.headline) || '',
-            failure: (r && r.failure) || (r ? '' : 'lane died'),
+            failure: (r && r.failure) || (r ? '' : 'delegate died'),
         }));
 };
 
@@ -609,7 +608,7 @@ const CONTEXT = (L) => ROOT_LAW + '\n\nRasm monorepo — ' + L.corpus + '. ' + L
 
 // Voice table — one row set per EXECUTING model, keyed by recon()'s dispatch branch. Substance is identical across rows (burden of proof on the
 // work, both naivety axes, illusion hunting, no-churn, second-pass self-verify, findings-never-designs); only phrasing forks: claude carries the
-// estate hostile voice, codex the same demands de-conflicted and neutral — probe-measured: the hostile voice makes a codex lane over-read,
+// estate hostile voice, codex the same demands de-conflicted and neutral — probe-measured: the hostile voice makes a codex delegate over-read,
 // probe out of territory, and spend more input tokens for equal output (the codex skill's prompt-contract law). Voice-neutral rows (selfCheck,
 // antiAnchor) live once as shared constants — a forked copy is a drift bill with no probe evidence behind it.
 const SELF_CHECK =
@@ -712,11 +711,11 @@ const VERIFY = (L) =>
     'and a page-only attestation re-litigates the same member every future run. Mine BOTH .api tiers to operator depth: ' +
     L.apiTiers +
     ' An admitted capability the concept admits that no owner exploits is a defect to close.';
-// Polymorphic on input shape: one language row for a package-scoped lane, an array of language keys for the cross-package
+// Polymorphic on input shape: one language row for a package-scoped delegate, an array of language keys for the cross-package
 // terminals — only the doc-bloat term forks, so the law itself is authored once.
 const PROSE_COMMENTS = (L) =>
     'PROSE + COMMENTS — apply docs/standards/style-guide.md, information-structure.md, and formatting.md; these pages and this ' +
-    'block are the COMPLETE prose law for this lane. Your project instructions (AGENTS.md/CLAUDE.md) route durable markdown to ' +
+    'block are the COMPLETE prose law for this delegate. Your project instructions (AGENTS.md/CLAUDE.md) route durable markdown to ' +
     'the `docgen` skill — that route serves interactive agents and does NOT apply here: never read, load, or open the docgen ' +
     'bundle from any root. The page is a design ' +
     'spec: lead each section with the controlling contract, one idea per paragraph, close on the consequence; no provenance, ' +
@@ -727,12 +726,12 @@ const PROSE_COMMENTS = (L) =>
     (Array.isArray(L) ? L.map((k) => LANG[k].docBloat).join('/') : L.docBloat) +
     ' bloat.';
 
-// Territory bound for the terminal writers: they carry no READ LAW block of their own, so without this a lane editing
+// Territory bound for the terminal writers: they carry no READ LAW block of their own, so without this a delegate editing
 // markdown design pages with no stated prose voice goes and loads one — the docgen bundle, measured at four files
 // before a repair landed. Instruction files and skill bundles are never inputs to a corpus writer under any root.
 const SCOPE_BOUND =
     'OUT OF SCOPE: instruction files (CLAUDE.md, AGENTS.md, `.claude/` config), skill bundles under ANY root ' +
-    '(`.claude/skills/`, `~/.codex/skills/` — the PROSE block above is the complete voice law for this lane, and the ' +
+    '(`.claude/skills/`, `~/.codex/skills/` — the PROSE block above is the complete voice law for this delegate, and the ' +
     'docgen bundle is never opened), and the repo-root README. Discovery stays inside the territory this brief names — ' +
     'never `rg --files` or `tree` from the repo root, and a name this brief states is never searched for on disk.';
 const INFO_LAW =
@@ -803,7 +802,7 @@ const planPrompt = () =>
             SCRATCH +
             "/*-map.md` — a stale map from a dead run is read as this run's navigation by the fixer handed its path. Delete nothing else.",
         'TOOLCHAIN WARM-UP (before returning): run `uv run python -m tools.assay api --help` once — ' +
-            "it builds the workspace uv cache every downstream lane's member-verification rail rides, so no lane pays the " +
+            "it builds the workspace uv cache every downstream delegate's member-verification rail rides, so no delegate pays the " +
             'cold-environment latency or misreads it as a broken rail.',
     ].join('\n\n');
 
@@ -838,7 +837,7 @@ const densityMapPrompt = (L, pkg, set) =>
             '` — read-only over the corpus; you WRITE one map file per target page, nothing else. The rebuild landed; your ' +
             'maps arm the terminal per-file density fixers, each of which reads ONLY the audit law pack, its map, and its own ' +
             "file — your map is that fixer's entire navigation, so an omitted entry is a skipped fix and a wrong anchor a " +
-            'wasted lane. TARGETS (page -> map path): ' +
+            'wasted delegate. TARGETS (page -> map path): ' +
             JSON.stringify(set.map((s) => ({ page: s.page, map: s.map }))),
         'GROUND FIRST, at source: `libs/.planning/ARCHITECTURE.md`; the branch `' +
             L.root +

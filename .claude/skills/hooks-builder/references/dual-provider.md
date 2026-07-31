@@ -70,7 +70,7 @@ statusMessage = "Checking command"
 
 Trust is recorded against the hook's SHA: a new or changed hook is marked for review and skipped until trusted through the `/hooks` browser; `--dangerously-bypass-hook-trust` runs enabled hooks once without persisting trust, and managed (policy-trusted) hooks cannot be user-disabled.
 
-`Bash|apply_patch` is the portable file-and-shell matcher, since Codex's `apply_patch` is the tool Claude calls `Edit`/`Write`. Codex runs `Stop`/`SubagentStop` on the hook bus at turn scope, so a dual-provider completion hook ports directly; `notify = ["prog", "lane"]` is a separate legacy channel beside the bus, spawning `prog` with one JSON argument at turn end for a desktop or attention signal, never the turn-done hook.
+`Bash|apply_patch` is the portable file-and-shell matcher, since Codex's `apply_patch` is the tool Claude calls `Edit`/`Write`. Codex runs `Stop`/`SubagentStop` on the hook bus at turn scope, so a dual-provider completion hook ports directly; `notify = ["prog", "label"]` is a separate legacy channel beside the bus, spawning `prog` with one JSON argument at turn end for a desktop or attention signal, never the turn-done hook.
 
 ## [05]-[COMPONENT_HOOK_PORT]
 

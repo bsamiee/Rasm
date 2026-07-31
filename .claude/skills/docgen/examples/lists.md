@@ -11,7 +11,7 @@ One hyphen fusing a law, its mechanism, two consequences, an exception, and an e
 - Detection: One entry past the char budget or three sentences carrying more than one fragment class — a law plus mechanism, consequence, exception, or example — chained by semicolons, em dashes, and parentheticals that hide the section it has become.
 - Rejected:
     ```markdown rejected
-    - Boundary: `Compose` is the lane capsule and each `Codec` arm carries the decode form the foreign row needs; the `mesh` arm reads `Reader.Decode` materializing one contiguous `Shape` vertex/normal/index triple at the boundary because the accessor contract admits no zero-copy span, so the one boundary allocation is the point and a per-row `float[]` proliferation is the deleted form; the `scene` arm folds `Variant` graphs onto the same triple through one disposable `Context.Import(...)` over the `Triangulate | JoinVertices | GenerateNormals` steps, the leaked provider types never crossing past this capsule per the boundary-mapping law; the rejected reader picks stand — a native decoder and a closed commercial one both refused, the managed `Reader` shipping its own runtime admitted as the one owner — and a second hand-rolled tokenizer beside it is the deleted form; each arm materializes exactly one `Shape` allocation and a per-format `MeshImporter`/`SceneImporter`/`RowImporter` service family is the deleted form.
+    - Boundary: `Compose` is the dispatch capsule and each `Codec` arm carries the decode form the foreign row needs; the `mesh` arm reads `Reader.Decode` materializing one contiguous `Shape` vertex/normal/index triple at the boundary because the accessor contract admits no zero-copy span, so the one boundary allocation is the point and a per-row `float[]` proliferation is the deleted form; the `scene` arm folds `Variant` graphs onto the same triple through one disposable `Context.Import(...)` over the `Triangulate | JoinVertices | GenerateNormals` steps, the leaked provider types never crossing past this capsule per the boundary-mapping law; the rejected reader picks stand — a native decoder and a closed commercial one both refused, the managed `Reader` shipping its own runtime admitted as the one owner — and a second hand-rolled tokenizer beside it is the deleted form; each arm materializes exactly one `Shape` allocation and a per-format `MeshImporter`/`SceneImporter`/`RowImporter` service family is the deleted form.
     ```
 - Accepted:
 
@@ -36,7 +36,7 @@ Entries whose fragments are all load-bearing at this tier are not bullets: each 
 - Detection: Flag a single entry carrying three or more co-equal facts about one owner — a shape, its fields, its policy, its receipt — where none governs a sibling and none demotes to a fence, so every fragment must survive at this tier.
 - Rejected:
     ```markdown rejected
-    - Owner: `Plan` folds the `Work` graph into admission units carrying the pre-minted `key`, the `work` thunk the plan schedules but never invokes, the `parents` upstream keys, the `cost` weight the forward pass sums into earliest-finish, and its `admission` case union, so a node is its key and a dependency is a key edge; the closed `Admission` union selects the lane case (`keyed` the cache-eligible default, `bare` a forced-live one-shot, `retried` a transient offload carrying its class), the `Schedule` computes the critical path once over the graph, and a flat unit list losing the front structure is the deleted form.
+    - Owner: `Plan` folds the `Work` graph into admission units carrying the pre-minted `key`, the `work` thunk the plan schedules but never invokes, the `parents` upstream keys, the `cost` weight the forward pass sums into earliest-finish, and its `admission` case union, so a node is its key and a dependency is a key edge; the closed `Admission` union selects the scheduling case (`keyed` the cache-eligible default, `bare` a forced-live one-shot, `retried` a transient offload carrying its class), the `Schedule` computes the critical path once over the graph, and a flat unit list losing the front structure is the deleted form.
     ```
 - Accepted:
     ```markdown accepted
@@ -128,7 +128,7 @@ Numbered markers claim an ordered sequence; peers wearing numbers de-number to b
     The plan folds the graph into fronts, each draining under one policy the runtime threads forward as receipts.
     ```
 
-- Reason: Numbers claim an order the lane cases do not carry, so they read as peer bullets; the second run is one sentence broken at its commas, so it reflows to prose where the bullet markers add no parallel structure.
+- Reason: Numbers claim an order the union cases do not carry, so they read as peer bullets; the second run is one sentence broken at its commas, so it reflows to prose where the bullet markers add no parallel structure.
 - Reframe: De-number peers to bullets and de-list a continuous narrative to a paragraph; reserve ordinals for genuine sequence or data dependence.
 
 ## [06]-[ROSTER_EXEMPTION]
@@ -181,7 +181,7 @@ Child entries nested under a parent that is not their governing rule are peers m
 - Detection: Children owning a different concern than the parent's rule — codec records, registries, protocol rows beneath a boundary bullet — or one entry whose semicolons, dashes, and parentheticals encode a tree the render flattens.
 - Rejected:
     ```markdown rejected
-    - Boundary: `Compose` closes the lane and prepares each arm, never authoring content.
+    - Boundary: `Compose` closes the dispatch and prepares each arm, never authoring content.
         - [MESH_CODECS]: The `mesh` arm names `Reader` as its package and grounds the `stl`/`obj`/`off` rows, import-only, the writer family out of scope.
         - [SCENE_CODECS]: The `scene` arm folds `Context.Import` over the triangulate steps, the leaked types never crossing the seam.
         - [PROTOCOL]: The `step` rows split a managed leg and a companion geometry leg keyed on the row.
@@ -189,7 +189,7 @@ Child entries nested under a parent that is not their governing rule are peers m
 - Accepted:
 
     ```markdown accepted
-    `Compose` closes the lane and prepares each arm, never authoring content.
+    `Compose` closes the dispatch and prepares each arm, never authoring content.
 
     | [INDEX] | [CODEC] | [ARM]            | [SCOPE]     |
     | :-----: | :------ | :--------------- | :---------- |

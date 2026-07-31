@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'The standing hostile rebuild pass for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number, any language mix); it maps every .planning sub-folder, ideates per package, hostile-rebuilds every page batch concurrently at the owning-language doctrine bar, and closes with a finder fan and one terminal fixer.',
     description:
-        'Language-agnostic hostile-rebuild engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, casing, and its member-verification rail from its owning package. Plan expands targets to pages in dependency + seam-cohesion order under the owning-package charter. Map fans one deep-map lane and one two-tier .api inventory lane per .planning sub-folder unit — an oversize sub-folder splits into ceiling-bounded segments, so map and batch seams stay congruent — each writing a per-unit dossier the batches reuse. Ideate runs two lanes per package with disjoint charters: a corrections census (the non-binding fix addendum) and a bigger-ideas worklist (new capability beyond correction). Build packs whole sub-folder units into batches under the packing ceiling, all concurrent under one slot scheduler; per batch a doctrine-bar lens, then implement, critique (write lane, fixlog to disk), and redteam folding the critique rows forward — every writer under the own-pass-first input ladder (own blind hostile pass primary, map dossiers grounding, census addendum, ideas ambition) with libs-wide ripple authority under the four bounds and seam-ledger coordination; handoffs carry navigation facts only. Each package chain closes with one ideas-realization writer implementing the bigger-ideas worklist against its landed corpus, gated entries carded via indexRows. The spine is per-package pipelined: each package advances Map -> Ideate -> Build the moment its own inputs land, never waiting on the slowest sibling package, and Close is the one whole-run barrier. Close: a read-only finder fan and one governance finder per language, then ONE terminal fixer draining findings, the deferred backlog, and unclaimed census rows in a fixpoint loop, then two concurrent terminals — an ideas-disposition writer giving every bigger-ideas dossier entry exactly one outcome (realized on disk, carded into the owning IDEAS.md, or rejected with reason) and a doctrine lander adjudicating pooled harvest nominations. Stage law lives in the prompt blocks.',
+        'Language-agnostic hostile-rebuild engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, casing, and its member-verification rail from its owning package. Plan expands targets to pages in dependency + seam-cohesion order under the owning-package charter. Map fans one deep-map delegate and one two-tier .api inventory delegate per .planning sub-folder unit — an oversize sub-folder splits into ceiling-bounded segments, so map and batch seams stay congruent — each writing a per-unit dossier the batches reuse. Ideate runs two delegates per package with disjoint charters: a corrections census (the non-binding fix addendum) and a bigger-ideas worklist (new capability beyond correction). Build packs whole sub-folder units into batches under the packing ceiling, all concurrent under one slot scheduler; per batch a doctrine-bar lens, then implement, critique (write delegate, fixlog to disk), and redteam folding the critique rows forward — every writer under the own-pass-first input ladder (own blind hostile pass primary, map dossiers grounding, census addendum, ideas ambition) with libs-wide ripple authority under the four bounds and seam-ledger coordination; handoffs carry navigation facts only. Each package chain closes with one ideas-realization writer implementing the bigger-ideas worklist against its landed corpus, gated entries carded via indexRows. The spine is per-package pipelined: each package advances Map -> Ideate -> Build the moment its own inputs land, never waiting on the slowest sibling package, and Close is the one whole-run barrier. Close: a read-only finder fan and one governance finder per language, then ONE terminal fixer draining findings, the deferred backlog, and unclaimed census rows in a fixpoint loop, then two concurrent terminals — an ideas-disposition writer giving every bigger-ideas dossier entry exactly one outcome (realized on disk, carded into the owning IDEAS.md, or rejected with reason) and a doctrine lander adjudicating pooled harvest nominations. Stage law lives in the prompt blocks.',
     phases: [
         {
             title: 'Plan',
@@ -11,11 +11,11 @@ export const meta = {
         },
         {
             title: 'Map',
-            detail: 'per sub-folder unit segment: a deep-map lane (ownership, seams, cross-folder relevance, domain gaps — information, never code) beside a two-tier .api inventory lane, each writing the per-unit dossier the batches reuse; one audit-law-pack lane per landed language rides the wave, extracting the critique checklist sections verbatim into the scratch artifact every critique reads instead of re-assembling the atlas',
+            detail: 'per sub-folder unit segment: a deep-map delegate (ownership, seams, cross-folder relevance, domain gaps — information, never code) beside a two-tier .api inventory delegate, each writing the per-unit dossier the batches reuse; one audit-law-pack delegate per landed language rides the wave, extracting the critique checklist sections verbatim into the scratch artifact every critique reads instead of re-assembling the atlas',
         },
         {
             title: 'Ideate',
-            detail: 'per package, two disjoint lanes fired the moment that package map lanes land: the corrections census (the deduped disk-verified fix addendum) and the bigger-ideas worklist (new capability beyond correction under the value bar)',
+            detail: 'per package, two disjoint delegates fired the moment that package map delegates land: the corrections census (the deduped disk-verified fix addendum) and the bigger-ideas worklist (new capability beyond correction under the value bar)',
         },
         {
             title: 'Build',
@@ -23,7 +23,7 @@ export const meta = {
         },
         {
             title: 'Close',
-            detail: 'a read-only finder fan and one governance finder per language over the landed corpus and seam ledger, with two consolidation lanes riding the fan concurrently — a backlog verifier pre-verifying every deferred/census/orphan row into one deduped stale-free work list, and an ideas collator statusing every bigger-ideas entry against disk into one ledger; ONE terminal fixer drains the verified work list and findings, then realizes the ledger remainder; then two concurrent terminals — an ideas-disposition writer giving every bigger-ideas entry one outcome (realized, carded into the owning IDEAS.md, or rejected with reason) and a doctrine lander adjudicating pooled harvest nominations',
+            detail: 'a read-only finder fan and one governance finder per language over the landed corpus and seam ledger, with two consolidation delegates riding the fan concurrently — a backlog verifier pre-verifying every deferred/census/orphan row into one deduped stale-free work list, and an ideas collator statusing every bigger-ideas entry against disk into one ledger; ONE terminal fixer drains the verified work list and findings, then realizes the ledger remainder; then two concurrent terminals — an ideas-disposition writer giving every bigger-ideas entry one outcome (realized, carded into the owning IDEAS.md, or rejected with reason) and a doctrine lander adjudicating pooled harvest nominations',
         },
     ],
 };
@@ -33,7 +33,7 @@ export const meta = {
 const CAP = 14;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no shrinkage -> stop) is the real bound
 const BATCH_MAX = 8; // unit-segment + batch-packing ceiling; per-segment maps + census legwork carry the navigation, so a writer holds a full dense batch
-const BATCH_LOC = 3400; // size ceiling beside the count ceiling: a batch's pages must also fit one review context window with room to edit — page tonnage, not page count, is what overflows a lane
+const BATCH_LOC = 3400; // size ceiling beside the count ceiling: a batch's pages must also fit one review context window with room to edit — page tonnage, not page count, is what overflows a delegate
 const FINDER_PAGES = 8; // landed pages per close-phase finder
 
 // --- [INPUTS] --------------------------------------------------------------------------
@@ -206,7 +206,7 @@ const BAR_SCHEMA = {
                 additionalProperties: false,
                 required: ['claimKey', 'page', 'law', 'severity', 'claim', 'mechanism', 'owner', 'reject', 'acceptance', 'files', 'anchors'],
                 properties: {
-                    claimKey: S, // <law>|<owner>|<primary symbol> — stable across lanes, never lane wording
+                    claimKey: S, // <law>|<owner>|<primary symbol> — stable across delegates, never delegate wording
                     page: S,
                     law: S,
                     severity: { type: 'string', enum: ['blocker', 'major', 'minor'] }, // bound to consequence, never prose confidence
@@ -227,7 +227,7 @@ const BAR_SCHEMA = {
 };
 
 const RECEIPT = {
-    // Thin wire receipt: the lane's PRODUCT stays on disk at `report`; only status + count + headline travel inline.
+    // Thin wire receipt: the delegate's PRODUCT stays on disk at `report`; only status + count + headline travel inline.
     type: 'object',
     additionalProperties: false,
     required: ['ok', 'report', 'entries', 'headline', 'failure'],
@@ -366,7 +366,7 @@ const FINDINGS_SCHEMA = {
                     'acceptance',
                 ],
                 properties: {
-                    claimKey: S, // <class>|<owner>|<primary symbol or absence route> — stable across lanes, never lane wording
+                    claimKey: S, // <class>|<owner>|<primary symbol or absence route> — stable across delegates, never delegate wording
                     target: S, // short display label for the defect
                     files: { type: 'array', items: S }, // files the fixer must open or edit first
                     class: { type: 'string', enum: ['missing', 'wrong', 'faked', 'naive', 'drift', 'phantom'] },
@@ -611,7 +611,7 @@ const LANG = {
             'against the real cross-page owners it imports, then hunt these defect classes at their owning doctrine sites and fix ' +
             'each by growing the existing owner: FENCE-PARSES (`language.md` CLOSED_MATCH_SITE) · MODEL-COHERENCE (README ' +
             'CORPUS_LAW) · TOTAL-DISPATCH (`shapes.md` families) · SINGLE-FACT-EVIDENCE (`rails-and-effects.md` STATE_RECEIPTS + ' +
-            '`boundaries.md` BYTE_IDENTITY) · LOOP-OFFLOAD (`concurrency.md` OFFLOAD_LANE) · HANDLE-LIFETIME + BINARY-KERNEL ' +
+            '`boundaries.md` BYTE_IDENTITY) · LOOP-OFFLOAD (`concurrency.md` OFFLOAD_DELEGATE) · HANDLE-LIFETIME + BINARY-KERNEL ' +
             '(`boundaries.md` CAPSULE_OWNER) · IDENTITY-REGIME (`boundaries.md` MEMO_KEY) · TEMPLATE-SAFETY (`language.md` ' +
             'TEMPLATE_STRUCTURE_SITE) · STREAM-OVER-MATERIALIZE (`iteration.md` LAZY_COMBINATORS) · NO-EXCEPTION-HOTLOOP ' +
             '(`rails-and-effects.md` EXPRESSION_SPINE) · DERIVED-NOT-PARALLEL + PER-MODE PAYLOADS (README DERIVED_LOGIC). The ' +
@@ -632,8 +632,7 @@ const LANG = {
             '`<folder>/.api/*.md`, cross-checked against the published node_modules types — the shared Effect ecosystem layered ' +
             'ON TOP OF the area packages, never the folder set alone.',
         verify:
-            'the published types in node_modules (`uv run python -m tools.assay api` over node_modules ' +
-            'declarations where a member is novel)',
+            'the published types in node_modules (`uv run python -m tools.assay api` over node_modules ' + 'declarations where a member is novel)',
         vocab: '(`Schema.Class`/`TaggedClass` families, tagged unions, `Effect`/`Layer`, value-derived vocabulary tables)',
         slur: 'naive JavaScript-in-TypeScript dressed in the right vocabulary',
         illusion: '`any`/unsafe `as`/non-null `!` smuggled under a confident surface; a member cited but unverifiable against node_modules',
@@ -695,7 +694,7 @@ const wopts = (label, phase, model, schema, over) => Object.assign({ label, phas
 const ropts = (label, phase, schema, scope, hl, over) => Object.assign({ label, phase, schema, scope, hl }, over);
 
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
-const laneLaw = (schema, o) =>
+const delegateLaw = (schema, o) =>
     (o.fix
         ? '<persistence>\nComplete every named move before yielding; do not stop at analysis or a partial edit. If the chosen ' +
           'approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely ' +
@@ -704,7 +703,7 @@ const laneLaw = (schema, o) =>
           'fully materialized before its first edit forfeits its earliest findings to context compaction.\n</work_cadence>' +
           '\n\n<read_discipline>\nA stable input — a doctrine page, dossier, census, catalog, charter — is read ONCE: extract ' +
           'what you need into your plan notes and re-open only the exact line span behind an edit, never the whole file again. ' +
-          'Read in large windows (400+ lines per command), never 200-line paging. Your context compacts on a long lane; only ' +
+          'Read in large windows (400+ lines per command), never 200-line paging. Your context compacts on a long delegate; only ' +
           'plan notes, the seam ledger, and landed edits survive it — a fact left only in context is lost. Budget: at most ' +
           (o.calls || 300) +
           ' tool calls total; at the budget, land what is derived and record every remaining row in the product `deferred` ' +
@@ -715,7 +714,7 @@ const laneLaw = (schema, o) =>
           'task-named catalog/assay rail only.\n</verification>'
         : '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it; ' +
           'instruction files (.claude/, CLAUDE.md, AGENTS.md) and skill bundles are always out of scope for a read/review ' +
-          'lane, and discovery commands stay scoped to the territory — never `rg --files` or `tree` from the repo root.' +
+          'delegate, and discovery commands stay scoped to the territory — never `rg --files` or `tree` from the repo root.' +
           '\nBudget: at most ' +
           (o.calls || 60) +
           ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
@@ -729,7 +728,7 @@ const laneLaw = (schema, o) =>
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
 // Sandbox decides authorship: a read-only delegate cannot write, so --out materializes the product; a writing delegate lands its own.
-const LANE_SCRIPT = ROOT_DIR + '/.claude/skills/codex/scripts/codex-lane.sh';
+const DELEGATE_SCRIPT = ROOT_DIR + '/.claude/skills/codex/scripts/codex-delegate.sh';
 const flagsOf = (o) =>
     [o.model && '--model ' + o.model, o.codexEffort && '--effort ' + o.codexEffort, o.web && '--web']
         .filter(Boolean)
@@ -739,7 +738,7 @@ const flagsOf = (o) =>
 const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
     const report = ROOT_DIR + '/' + base + '-report.json';
-    const lane = report + '.lane';
+    const delegate = report + '.delegate';
     const authored = !!o.writes;
     const sandbox = authored ? 'workspace-write' : 'read-only';
     const taskFull =
@@ -750,52 +749,52 @@ const codexPrompt = (label, task, schema, o) => {
               ' yourself.'
             : '');
     return (
-        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised lane run; never perform, edit, judge, soften, ' +
-        'summarize, or relay the work yourself. (1) Write the LANE LAW block below VERBATIM to ' +
-        lane +
+        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised delegate run; never perform, edit, judge, soften, ' +
+        'summarize, or relay the work yourself. (1) Write the DELEGATE LAW block below VERBATIM to ' +
+        delegate +
         '/law.md and the TASK block below VERBATIM to ' +
-        lane +
+        delegate +
         '/task.md, composing neither. ' +
         (authored
             ? 'Delete any leftover file at ' + report + ' with one Bash rm -f (a stale product there passes the verify probe as a false success). '
             : '') +
         '(2) Run ONE Bash call with run_in_background true: ' +
-        LANE_SCRIPT +
+        DELEGATE_SCRIPT +
         ' --task ' +
-        lane +
+        delegate +
         '/task.md --law ' +
-        lane +
+        delegate +
         '/law.md --dir ' +
-        lane +
+        delegate +
         ' --cwd ' +
         ROOT_DIR +
         ' --sandbox ' +
         sandbox +
         flagsOf(o) +
         (authored ? '' : ' --out ' + report) +
-        '; the harness re-invokes you when the lane exits — Read ' +
-        lane +
+        '; the harness re-invokes you when the delegate exits — Read ' +
+        delegate +
         '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
-        'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
+        'alone (the session persisted on disk) overwrites the task file with "continue and complete the delegate, then land the receipt" and ' +
         're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
         'refusal) re-runs the same command untouched. (3) ' +
         (authored
             ? 'The delegate lands the product itself at ' + report + ' as its final act.'
-            : 'The lane lands the product at ' + report + ' via --out.') +
+            : 'The delegate lands the product at ' + report + ' via --out.') +
         ' (4) Verify with one Bash call: jq -e . ' +
         report +
-        ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the lane ' +
+        ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the delegate ' +
         'events.jsonl (jq -rs to the last agent_message item text, Write that), re-probe, and a second miss returns ok=false with the ' +
         'probe output. (5) Return ok=true, report=' +
         base +
-        '-report.json (this repo-relative form, matching codex-lane receipts), entries = the length of the "' +
+        '-report.json (this repo-relative form, matching codex-delegate receipts), entries = the length of the "' +
         o.hl.arr +
         '" array in the product, headline="<entries> ' +
         o.hl.arr +
         (o.hl.group ? ' | <' + o.hl.group + ' tallies>' : '') +
         ' | top: <most frequent first file or none>", and failure empty. On a failed receipt return ok=false, entries=0, report and ' +
-        'headline empty, and failure equal to the receipt reason and failure text VERBATIM.\n\nLANE LAW:\n\n' +
-        laneLaw(schema, o) +
+        'headline empty, and failure equal to the receipt reason and failure text VERBATIM.\n\nDELEGATE LAW:\n\n' +
+        delegateLaw(schema, o) +
         '\n\nTASK:\n\n' +
         taskFull
     );
@@ -803,9 +802,9 @@ const codexPrompt = (label, task, schema, o) => {
 
 // QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's native twin (twinOf owns
 // the mapping) — the caller owns the re-dispatch. The roster row carries `scope` from the
-// ORCHESTRATOR (never the lane's self-report) so a failed lane's unmapped territory is exact even when the lane died before writing anything.
+// ORCHESTRATOR (never the delegate's self-report) so a failed delegate's unmapped territory is exact even when the delegate died before writing anything.
 const twinOf = (m) => (/-terra/.test(m || '') ? 'opus' : /-luna/.test(m || '') ? 'sonnet' : 'fable');
-const nativeLane = (task, o) => {
+const nativeDelegate = (task, o) => {
     const report = SCRATCH + '/' + fileTag(o.label) + '-report.json';
     return agent(
         task +
@@ -815,13 +814,13 @@ const nativeLane = (task, o) => {
             JSON.stringify(o.schema) +
             ' — then return ONLY the receipt: ok, report = ' +
             report +
-            ' (this repo-relative form, matching codex-lane receipts), entries count, one-line mechanical headline, failure empty.',
+            ' (this repo-relative form, matching codex-delegate receipts), entries count, one-line mechanical headline, failure empty.',
         { label: o.label, phase: o.phase, model: o.nativeModel || twinOf(o.model), effort: 'high', schema: RECEIPT },
     );
 };
 
 const recon = (taskOf, o) => {
-    // o.native forces the native branch (the deep-map lane rides it).
+    // o.native forces the native branch (the deep-map delegate rides it).
     const task = typeof taskOf === 'function' ? taskOf : () => taskOf;
     const wrapper = {
         label: (o.model && o.model.indexOf('-terra') >= 0 ? 'terra:' : 'sol:') + o.label,
@@ -833,17 +832,17 @@ const recon = (taskOf, o) => {
     return (
         !o.native
             ? agent(codexPrompt(o.label, task('codex'), o.schema, o), wrapper).then((r) =>
-                  r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task('claude'), o) : r,
+                  r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeDelegate(task('claude'), o) : r,
               )
-            : nativeLane(task('claude'), o)
+            : nativeDelegate(task('claude'), o)
     ).then((r) => ({
-        lane: o.label,
+        delegate: o.label,
         scope: o.scope || [],
         ok: !!(r && r.ok && r.report),
         report: (r && r.report) || '',
         entries: (r && r.entries) || 0,
         headline: (r && r.headline) || '',
-        failure: (r && r.failure) || (r ? '' : 'lane died'),
+        failure: (r && r.failure) || (r ? '' : 'delegate died'),
     }));
 };
 const chunk = (arr, n) => {
@@ -852,7 +851,7 @@ const chunk = (arr, n) => {
     return o;
 };
 // Dual-ceiling split: segment count from BOTH ceilings (page count AND page tonnage), then near-even LOC fill in
-// order — no runt tail, and no segment whose pages alone overflow a review lane's context window.
+// order — no runt tail, and no segment whose pages alone overflow a review delegate's context window.
 const sizeChunk = (pages) => {
     const loc = (ps) => ps.reduce((a, s) => a + s.lines, 0);
     const k = Math.max(Math.ceil(pages.length / BATCH_MAX), Math.ceil(loc(pages) / BATCH_LOC), 1);
@@ -888,7 +887,7 @@ const subOf = (p) => {
     return rest.includes('/') ? rest.split('/')[0] : '_root';
 };
 const Lof = (pkg) => LANG[langOf(pkg)] || LANG.cs;
-// Scratch paths follow one grammar: SCRATCH + '/' + fileTag(<label>) + '-<artifact>'. Seam ledgers key on the batch tag; dossiers key on their recon lane label
+// Scratch paths follow one grammar: SCRATCH + '/' + fileTag(<label>) + '-<artifact>'. Seam ledgers key on the batch tag; dossiers key on their recon delegate label
 const scratchBase = (pkg, i) => SCRATCH + '/' + fileTag(pkg.split('/').pop() + ':b' + i);
 const dossierPath = (lensLabel) => SCRATCH + '/' + fileTag(lensLabel) + '-dossier.md';
 const normalizePages = (pl) => {
@@ -928,7 +927,7 @@ const CONTEXT = (L) => ROOT_LAW + '\n\nRasm monorepo — ' + L.corpus + '. ' + L
 
 // Voice table — one row set per EXECUTING model, keyed by recon()'s dispatch branch. Substance is identical across rows (burden of proof on the
 // work, both naivety axes, illusion hunting, no-churn, second-pass self-verify, findings-never-designs); only phrasing forks: claude carries the
-// estate hostile voice, codex the same demands de-conflicted and neutral — probe-measured: the hostile voice makes a codex lane over-read,
+// estate hostile voice, codex the same demands de-conflicted and neutral — probe-measured: the hostile voice makes a codex delegate over-read,
 // probe out of territory, and spend more input tokens for equal output (the codex skill's prompt-contract law). Voice-neutral rows (selfCheck,
 // antiAnchor) live once as shared constants — a forked copy is a drift bill with no probe evidence behind it.
 const SELF_CHECK =
@@ -1119,7 +1118,7 @@ const EVIDENCE_LAW =
     'and not found); `owner` names the canonical owner that must absorb the resolution (the owning axis, roster, registry, or ' +
     'seam vocabulary — never a new local shape); `reject` lists forms the repair must not take; `acceptance` the signals ' +
     'proving resolution. NEVER write add/replace/implement/promote/delete as instruction — the writer owns the design, you the ' +
-    'constraint boundary. `claimKey` is identical for the same defect regardless of lane or wording. `severity` binds to ' +
+    'constraint boundary. `claimKey` is identical for the same defect regardless of delegate or wording. `severity` binds to ' +
     'consequence (blocker = run-blocking, major = corpus correctness, minor = local cleanup), never prose confidence. OUTPUT ' +
     'BOUNDS: the finding count follows the territory, never a target — a typical page yields 0-2 retained findings and a clean ' +
     'page yields none; 0 across the whole scope only when the second hostile pass returns empty, `summary` then naming the ' +
@@ -1147,7 +1146,7 @@ const CORRECTIONS = (path) =>
     path
         ? 'CORRECTIONS CENSUS (ladder rung 3) — `' +
           path +
-          '` carries the folder-wide fix census consolidated from the map lanes, sectioned per sub-folder: drift, phantoms, ' +
+          '` carries the folder-wide fix census consolidated from the map delegates, sectioned per sub-folder: drift, phantoms, ' +
           'catalog-true spelling repairs, seam and wire mismatches, wiring gaps. ADDITIONAL, never the plan: after your own pass, ' +
           'land every row that intersects your pages (re-verified on disk — a row disk already resolves is dropped) and leave ' +
           'foreign rows alone; the terminal fixer drains the remainder. A pass that only lands census rows has failed OWN PASS FIRST.'
@@ -1196,7 +1195,7 @@ const readFirst = (L, pkg, dossiers) =>
               '` — carry verified two-tier extracts: Tier-1 verbatim member/seam extracts with `file:line` anchors (read fully; ' +
               'SPOT-VERIFY the anchors — a fake anchor goes in `dossierPhantoms`), Tier-2 pointer rows (path + one-line scope) ' +
               'for the long tail — resolve a pointer with a real read the moment an edit touches its territory, never guess past ' +
-              'it. Hunt PAST both lanes — members composed beyond them are enumerated in `beyondMap`. Absent or stale, run the ' +
+              'it. Hunt PAST both delegates — members composed beyond them are enumerated in `beyondMap`. Absent or stale, run the ' +
               'full two-tier `ls`+read yourself.'
             : '',
         '(3) SCOPE — read the owning-package charter (ARCHITECTURE.md + README.md + IDEAS.md) as the INTENT authority for what ' +
@@ -1272,7 +1271,7 @@ const planPrompt = () =>
             'owner, seam, or wire contract ADJACENT within their group (the engine batches contiguous runs of your order, so ' +
             'adjacency keeps coupled pages inside one writer); alphabetical only as the final tiebreak. The engine never re-sorts.',
         'TOOLCHAIN WARM-UP (before returning): run `uv run python -m tools.assay api --help` once — ' +
-            "it builds the workspace uv cache every downstream lane's member-verification rail rides, so no lane pays the cold " +
+            "it builds the workspace uv cache every downstream delegate's member-verification rail rides, so no delegate pays the cold " +
             'environment latency or misreads it as a broken rail.',
     ].join('\n\n');
 
@@ -1287,13 +1286,13 @@ const correctionsPrompt = (L, pkg, mapIndex, dossier) =>
             JSON.stringify(mapIndex),
         'AUTHOR `' +
             dossier +
-            '` — one markdown census, a section per sub-folder. Consolidate every CORRECTION the map lanes surfaced or your own ' +
+            '` — one markdown census, a section per sub-folder. Consolidate every CORRECTION the map delegates surfaced or your own ' +
             'verification finds: drift between surfaces (page vs sibling vs index doc vs manifest vs .api), phantom members, ' +
             'catalog-true spelling repairs, seam and wire mismatches, contradicted analyzer law, and WIRING GAPS (an uncomposed ' +
             'admitted member the page concept plainly demands). Each row: the owning page, the exact `file:line` anchor, the ' +
             'defect as fact, and the catalog or doctrine coordinate proving it. DEDUPE across dossiers; VERIFY each row on ' +
             'current disk before writing it — a row disk already resolves is dropped. FORBIDDEN: new-capability ambitions (the ' +
-            'ideas lane owns them — a row that widens what the package IS is dropped here, not diluted into a fix), ' +
+            'ideas delegate owns them — a row that widens what the package IS is dropped here, not diluted into a fix), ' +
             'prescriptions, fence sketches, removal framing.',
         REG.claude.selfCheck,
         'Return ONLY the receipt: ok, report = the census path (repo-relative), entries = the row count, a one-line headline, failure empty.',
@@ -1447,9 +1446,9 @@ const implementPrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped) =
 
 // Critique read law — the audit's binding checklist names its laws, so doctrine reads scope to those sites instead of the
 // full-atlas writer ladder; dossiers and recon reports demote to on-disk navigation. Telemetry ground: the full ladder
-// overflows the lane window before the first edit and every compaction re-buys the reads.
+// overflows the delegate window before the first edit and every compaction re-buys the reads.
 const CRIT_READ = (L, pkg, dossiers, roster, unmapped, pack) =>
-    'READ LAW — scoped at-source reads; each stable input is read ONCE per the lane read discipline. ' +
+    'READ LAW — scoped at-source reads; each stable input is read ONCE per the delegate read discipline. ' +
     '(1) DOCTRINE' +
     (pack
         ? ': the audit law pack `' +
@@ -1539,7 +1538,7 @@ const redteamPrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, nav
                   'settled record. FOLD-FORWARD DUTY: its surviving `seamsTouched`, `deltas`, `deferred`, `beyondMap`, ' +
                   '`indexRows`, and `harvest` rows fold into YOUR return, re-verified against current disk and deduped — your ' +
                   "fix-log is the batch's consolidated record; a dropped critique row is a silent loss."
-                : 'PRIOR CLAIMS: the critique lane did not land — your cold attack is the only review this batch gets; judge ' +
+                : 'PRIOR CLAIMS: the critique delegate did not land — your cold attack is the only review this batch gets; judge ' +
                   'from CURRENT disk alone.',
             GIT_GROUND,
             'TASK: ADVERSARIAL ARCHITECT RED-TEAM; fix EACH page in place: ' +
@@ -1772,7 +1771,7 @@ const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages, orph
             '(3) FINDER REPORTS — products ON DISK as JSON report files; the ROSTER receipts are navigation, never the product. ' +
             "CONSUMPTION, in order: (a) UNMAPPED scope is your direct-hunt queue — a failed finder's territory gets your own " +
             'cold read first; (b) read every ok report IN FULL from disk, governance finders before page slices — group findings ' +
-            'by `claimKey` (the same key across lanes is ONE defect with corroborating evidence) and order work by `severity` ' +
+            'by `claimKey` (the same key across delegates is ONE defect with corroborating evidence) and order work by `severity` ' +
             'then `owner` (shared owners and registries before consumers, cross-folder seams before local prose); (c) each ' +
             'finding is a SIGNAL, not law: re-open its anchors before editing — anchors behind an edit, cited members, seams, ' +
             'and manifest rows re-verify MANDATORY; (d) `mechanism`/`owner`/`reject`/`acceptance` are the constraint boundary — ' +
@@ -1877,11 +1876,11 @@ if (!PAGES.length) {
 }
 
 // Static run topology — the unit split, batch packing, and cross-batch scope ledger derive from page paths
-// alone, before any lane runs, so every package chain launches against the full SCOPES map.
+// alone, before any delegate runs, so every package chain launches against the full SCOPES map.
 const PKGS = [...new Set(PAGES.map((p) => pkgOf(p.page)))];
-// An oversize sub-folder splits into SEGMENTS under the dual ceiling (page count AND LOC tonnage) here, once — map lanes and
+// An oversize sub-folder splits into SEGMENTS under the dual ceiling (page count AND LOC tonnage) here, once — map delegates and
 // batches both consume the segmented units, so every batch's dossiers cover exactly its pages, the mapper fan scales with the
-// writer fan, and no unit's pages alone can overflow a downstream review lane's context window.
+// writer fan, and no unit's pages alone can overflow a downstream review delegate's context window.
 const UNITS = PKGS.flatMap((pkg) => {
     const pkgPages = PAGES.filter((p) => pkgOf(p.page) === pkg);
     return [...new Set(pkgPages.map((p) => subOf(p.page)))].flatMap((sub) => {
@@ -1924,10 +1923,10 @@ const BATCHES = PKGS.flatMap((pkg) =>
 );
 const SCOPES = JSON.stringify(BATCHES.map((b) => ({ batch: b.pkg.split('/').pop() + ':b' + b.i, pages: b.pages.map((p) => p.page) })));
 
-// AUDIT LAW PACKS — one per landed language, compiled ONCE and reused by every critique lane: the audit checklist's
+// AUDIT LAW PACKS — one per landed language, compiled ONCE and reused by every critique delegate: the audit checklist's
 // binding sections extracted VERBATIM with source anchors into one scratch artifact, read in a few large windows
 // instead of re-assembled from the atlas per batch. Verbatim extraction keeps the at-source law intact — the pack IS
-// the source text, never a summary. A dead pack lane falls back to at-source scoped reads in CRIT_READ.
+// the source text, never a summary. A dead pack delegate falls back to at-source scoped reads in CRIT_READ.
 const PACK_SCHEMA = {
     type: 'object',
     additionalProperties: false,
@@ -1986,12 +1985,12 @@ phase('Map');
 phase('Ideate');
 phase('Build');
 // PER-PACKAGE PIPELINE — Map, Ideate, and Build are package-local stages, never run barriers: a package's
-// ideate fires the moment ITS unit lanes land and its batch chains the moment its ideate lands, so no
-// package waits on a sibling's slowest lane. Every agent carries its explicit phase label, the slot
+// ideate fires the moment ITS unit delegates land and its batch chains the moment its ideate lands, so no
+// package waits on a sibling's slowest delegate. Every agent carries its explicit phase label, the slot
 // scheduler is the only cross-package governor, SCOPES + the seam ledger own cross-batch coordination,
 // and Close is the one whole-run barrier.
-// Corpus map ONCE per SUB-FOLDER unit, reused by every batch touching that unit: a native deep-map lane (context/seams)
-// beside a two-tier .api inventory lane PER `.planning/<sub>` — package-level mapping dilutes depth on a large
+// Corpus map ONCE per SUB-FOLDER unit, reused by every batch touching that unit: a native deep-map delegate (context/seams)
+// beside a two-tier .api inventory delegate PER `.planning/<sub>` — package-level mapping dilutes depth on a large
 // package and starves the batches of per-page grounding. Products are per-unit dossiers + reports on disk; receipts on the wire.
 const unitMap = {};
 const mapUnit = async (u) => {
@@ -2017,9 +2016,9 @@ const mapUnit = async (u) => {
     ]);
     unitMap[u.key] = { ctx, api, ctxDossier, apiDossier };
 };
-// TWO lanes per owning package with disjoint charters: a corrections census (the fix addendum the batches land as rung 3)
+// TWO delegates per owning package with disjoint charters: a corrections census (the fix addendum the batches land as rung 3)
 // and a bigger-ideas worklist (the capability ambition, rung 4). One merged log regresses to a fixlog and the ambition dies.
-// Either lane absent (dead map or dead ideate), the executors run without that rung.
+// Either delegate absent (dead map or dead ideate), the executors run without that rung.
 const pkgIdeate = {};
 const ideatePkg = async (pkg) => {
     const L = Lof(pkg);
@@ -2059,7 +2058,7 @@ const runBatch = async (b) => {
     const L = Lof(b.pkg);
     const batch = b.pages.map((p) => Object.assign({}, p, { i: b.i }));
     const pageScope = batch.map((p) => p.page);
-    // ctx + api grounding come from the Map lanes (per-unit-segment, reused); only the page-scoped bar lens runs per batch.
+    // ctx + api grounding come from the Map delegates (per-unit-segment, reused); only the page-scoped bar lens runs per batch.
     const pms = b.units.map((u) => unitMap[u.key]).filter(Boolean);
     const bar = await slot(() =>
         recon(
@@ -2080,17 +2079,17 @@ const runBatch = async (b) => {
         .flatMap((m) => [m.ctx, m.api])
         .concat([bar])
         .filter(Boolean);
-    // A failed Map lane carries its WHOLE unit as scope; intersect with this batch so cold-read stays on its own pages.
+    // A failed Map delegate carries its WHOLE unit as scope; intersect with this batch so cold-read stays on its own pages.
     const unmapped = roster
         .filter((r) => !r.ok)
-        .flatMap((r) => (r.scope || []).filter((sc) => pageScope.includes(sc)).map((sc) => ({ lane: r.lane, scope: sc })));
+        .flatMap((r) => (r.scope || []).filter((sc) => pageScope.includes(sc)).map((sc) => ({ delegate: r.delegate, scope: sc })));
     if (unmapped.length)
         log(
             tag +
                 ' — FAILED lens(es): ' +
                 roster
                     .filter((r) => !r.ok)
-                    .map((r) => r.lane)
+                    .map((r) => r.delegate)
                     .join(', '),
         );
     const dossiers = pms
@@ -2102,7 +2101,7 @@ const runBatch = async (b) => {
         agent(implementPrompt(L, batch, dossiers, ideate, SCOPES, roster, unmapped), wopts('impl:' + tag, 'Build', 'fable', FIXLOG_SCHEMA)),
     );
     if (!fix) return { pkg: b.pkg, pages: b.pages, fix: null, crit: null, rt: null }; // failure isolation: a dead implement skips its reviews
-    // Critique: a write lane running the full conformance audit in place;
+    // Critique: a write delegate running the full conformance audit in place;
     // fixlog to disk, receipt on the wire; the redteam reads the fixlog from disk and folds its rows forward.
     // The critique preamble drops the IDEAS rung (idea: '') — an in-place conformance audit consumes the census,
     // never the ambition worklist; ambition realization is the implement's rung 4 and the redteam's mandate (G).
@@ -2206,7 +2205,7 @@ const finderTasks = LANDED_LANGS.flatMap((k) => {
         .map((pages, i) => ({ gov: false, lang: k, pages, seams: langSeams, i }))
         .concat([{ gov: true, lang: k, pkgs: [...new Set(langPages.map(pkgOf))], pages: langPages }]);
 });
-// Two consolidation lanes ride the finder fan CONCURRENTLY: the backlog verifier turns every deferred, census,
+// Two consolidation delegates ride the finder fan CONCURRENTLY: the backlog verifier turns every deferred, census,
 // and orphaned-fixlog candidate into ONE pre-verified work list (stale culled with receipts, duplicates merged),
 // and the ideas collator statuses every bigger-ideas entry against current disk into ONE ledger — the fixer then
 // consumes final lists and the disposition writer rules outcomes, neither re-litigating the pool.
@@ -2285,7 +2284,7 @@ const [found, work, ledger] = await Promise.all([
 const WORK = (work && work.ok && work.report) || ''; // the pre-verified work list on disk; '' falls back to the raw sets
 const IDEAS_LEDGER = (ledger && ledger.ok && ledger.report) || '';
 const FOUND = found.filter((f) => f.ok).reduce((a, f) => a + f.entries, 0);
-const UNMAPPED = found.filter((f) => !f.ok).flatMap((f) => f.scope.map((sc) => ({ lane: f.lane, scope: sc })));
+const UNMAPPED = found.filter((f) => !f.ok).flatMap((f) => f.scope.map((sc) => ({ delegate: f.delegate, scope: sc })));
 log(
     'Close: ' +
         FOUND +
@@ -2298,7 +2297,7 @@ log(
             ? ' — FAILED: ' +
               found
                   .filter((f) => !f.ok)
-                  .map((f) => f.lane)
+                  .map((f) => f.delegate)
                   .join(', ')
             : '') +
         '; ' +
@@ -2396,7 +2395,7 @@ return {
     seamRows: SEAM_ROWS.length,
     backlog: BACKLOG.length,
     findings: FOUND,
-    failedFinders: found.filter((f) => !f.ok).map((f) => f.lane),
+    failedFinders: found.filter((f) => !f.ok).map((f) => f.delegate),
     residuals,
     fixer: fixer && {
         files: (fixer.files || []).length,

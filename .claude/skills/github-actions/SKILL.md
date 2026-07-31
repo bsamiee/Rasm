@@ -8,9 +8,8 @@ description: >-
     injection-safe `run:`), and the local gate `gha check|pin|run` over actionlint,
     zizmor, and act. Use on "the CI run is failing", "pin these actions", "this workflow
     has a security warning", "run the workflow locally", and on any actionlint rule,
-    deprecated runner label, or `::set-output` error. `.claude/workflows/*.js`
-    orchestrators belong to workflow-creator; shell bodies inside `run:` belong to
-    coding-bash.
+    deprecated runner label, or `::set-output` error. Shell bodies inside `run:` belong
+    to coding-bash.
 ---
 
 # [GITHUB_ACTIONS]

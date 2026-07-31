@@ -63,12 +63,12 @@ Each `prompt` run returns one JSON receipt:
 - Carry the constraints that bind the answer: audience, files already inspected, limits, and facts not to assume.
 - Ask for ranked options, deltas, typed findings, or a direct answer; open-ended commentary is never the request.
 
-## [06]-[REVIEW_LANE]
+## [06]-[REVIEW]
 
-This second-perspective lane runs bounded critique and red-team: freeze the evidence, invert the objective, demand falsifiable findings. It inverts the every-agent-writes law at exactly this boundary — the Gemini reviewer inspects and returns typed findings, and a Claude writer adjudicates each finding against source before applying the fix; the repair rail never crosses into the lane.
+A second-perspective review runs bounded critique and red-team: freeze the evidence, invert the objective, demand falsifiable findings. It inverts the every-agent-writes law at exactly this boundary — the Gemini reviewer inspects and returns typed findings, and a Claude writer adjudicates each finding against source before applying the fix; the repair rail never crosses to the reviewer.
 
 - [EVIDENCE]: Subject arrives frozen — exact files under `--add-dir`, invariants under test, executed check output, known constraints.
-- [CONTAMINANT]: A conversation transcript and a producer's self-justification never cross into the lane.
+- [CONTAMINANT]: A conversation transcript and a producer's self-justification never reach the reviewer.
 - [OBJECTIVE]: Prompt directs disproof — violated invariants, omitted consumers, false assumptions, failure paths, visual-contract breaks.
 - [BURDEN]: Work stays naive until it survives the attack, so a clean verdict is earned by an attack that finds nothing.
 - [FINDINGS]: Each finding carries `{severity, invariant, evidence, failure_path, minimal_fix}`.

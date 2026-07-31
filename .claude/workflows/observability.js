@@ -1,10 +1,10 @@
 export const meta = {
     name: 'observability',
     description:
-        'Close the observability + analytics campaign against .claude/scratch/observability/CAMPAIGN.md. args = {phase: 6}, bare number accepted, empty = no-op. Eight deep-read recon lanes write dossiers to run scratch, then eight lenses run with full writer authority — conformance, cross-branch parity, backend-family integration, strata leverage, evidence and execution planes, fence seams, escalation arms, and .api ultra-stack truth. The four capability lenses each carry a critique and red-team pair; the four proof lenses run light. One serial custody closer follows, settling governance truth, the scars, the proof estate, and the two escalated adjudications. A residual drain fixpoint closes the run.',
+        'Close the observability + analytics campaign against .claude/scratch/observability/CAMPAIGN.md. args = {phase: 6}, bare number accepted, empty = no-op. Eight deep-read recon delegates write dossiers to run scratch, then eight lenses run with full writer authority — conformance, cross-branch parity, backend-family integration, strata leverage, evidence and execution pdelegates, fence seams, escalation arms, and .api ultra-stack truth. The four capability lenses each carry a critique and red-team pair; the four proof lenses run light. One serial custody closer follows, settling governance truth, the scars, the proof estate, and the two escalated adjudications. A residual drain fixpoint closes the run.',
     whenToUse: 'Closing out the observability + analytics campaign in the Rasm planning corpus.',
     phases: [
-        { title: 'Recon', detail: 'deep-read mapping lanes; dossier to disk, thin receipt on the wire' },
+        { title: 'Recon', detail: 'deep-read mapping delegates; dossier to disk, thin receipt on the wire' },
         { title: 'Kernel', detail: 'serial barrier writer for owners the territory fan composes' },
         { title: 'Implement', detail: 'one lens per territory, full writer authority over its disjoint page set' },
         { title: 'Critique', detail: 'predicate-positive conformance and capability audit, repaired in place' },
@@ -23,10 +23,10 @@ const CAMPAIGN = '.claude/scratch/observability/CAMPAIGN.md';
 const CARRY = '.claude/scratch/observability/residuals-open.json';
 const REPO = '/Users/bardiasamiee/Documents/99.Github/Rasm';
 const DRAIN_ROUNDS = 3;
-// Ceiling on concurrent drain lanes per round. Clusters stay atomic and are PACKED into lanes by
-// weight, so one lane closes several file-disjoint clusters instead of one lane per cluster — the
-// unpacked form spawns a lane per residual island and most do a few minutes of work.
-const DRAIN_LANES = 6;
+// Ceiling on concurrent drain delegates per round. Clusters stay atomic and are PACKED into delegates by
+// weight, so one delegate closes several file-disjoint clusters instead of one delegate per cluster — the
+// unpacked form spawns a delegate per residual island and most do a few minutes of work.
+const DRAIN_DELEGATES = 6;
 
 // One row per phase. `territories` fan concurrently (each owns a disjoint page set and runs its own
 // implement -> critique -> redteam chain). `barrier` runs to completion first. `serial` runs in order
@@ -66,7 +66,7 @@ const PHASE_ROWS = {
                     'libs/typescript/core/.planning/observe/board.md',
                 ],
                 charter:
-                    'The MISSING-LOGIC lens, and the only lane whose product is what no branch has. Build the cross-branch capability ' +
+                    'The MISSING-LOGIC lens, and the only delegate whose product is what no branch has. Build the cross-branch capability ' +
                     'census: for every observability, telemetry, metrics, hooks, logging, receipt, journal, worker, job, and analysis ' +
                     'concept the estate names, record which of the three branches realizes it, which declares it, and which carries ' +
                     'NOTHING. Read the owning pages in full in all three branches before ruling on any concept — a concept spelled ' +
@@ -82,7 +82,7 @@ const PHASE_ROWS = {
                 kind: 'verify',
                 pages: [
                     'libs/typescript/iac/.planning/operate/observe.md',
-                    'libs/typescript/data/.planning/lane/olap.md',
+                    'libs/typescript/data/.planning/delegate/olap.md',
                     'libs/csharp/Rasm.Persistence/.planning/Query/columnar.md',
                     'libs/python/data/.planning/tabular/lakehouse.md',
                 ],
@@ -94,11 +94,11 @@ const PHASE_ROWS = {
                     'standing: four disjoint residence rosters, a literal case switch that throws, alert rules bound to one datasource ' +
                     'regardless of the selected store, a store family and a residence family answering different column sets, and a ' +
                     'scalar-only cross-branch type map carrying none of the OTLP wide-event column shapes. ' +
-                    'Every backend the estate names — prometheus, victoriametrics, mimir, clickhouse, the object-plane lake, ' +
+                    'Every backend the estate names — prometheus, victoriametrics, mimir, clickhouse, the object-pdelegate lake, ' +
                     'timescaledb — is a ROW answering the same column set, deriving its dialect from its own row. Land the setup each ' +
                     'backend needs to WORK rather than merely to be named: schema, ingest door, read door, retention, tenancy, ' +
                     'translation strategy, degradation. A residence a query owner cannot address either gains its reach or declares ' +
-                    'the gap structurally, and a plane advertised as present while nothing plants it is the defect this lens refuses ' +
+                    'the gap structurally, and a pdelegate advertised as present while nothing plants it is the defect this lens refuses ' +
                     'to leave standing. ULTRA-STACK every owning catalog: clickhouse, prometheus, victoriametrics, duckdb and its ' +
                     'extensions, the Arrow and Flight surfaces, deltalake, pyiceberg, and the collector contract — a hand-rolled query ' +
                     'builder, retry, partition planner, or type map standing beside a catalogued member is a defect you rebuild on the ' +
@@ -117,8 +117,8 @@ const PHASE_ROWS = {
                     'owner ABOVE it rather than re-deriving that owner locally: C# folders reach the Rasm kernel capsule for causal ' +
                     'frame, instrument spec, SLO vocabulary, receipt envelope, and board pack rather than minting twins — one such twin ' +
                     'already stood as a same-named uncompilable fork of the columnar custodian types; Python folders climb the runtime ' +
-                    'ladder for workers, journal, receipts, metrics, and hooks rather than opening private lanes; TypeScript folders ' +
-                    'reach core for convention, query, and board, and reach runtime for the emit and journal planes. Census every ' +
+                    'ladder for workers, journal, receipts, metrics, and hooks rather than opening private delegates; TypeScript folders ' +
+                    'reach core for convention, query, and board, and reach runtime for the emit and journal pdelegates. Census every ' +
                     'branch for a locally-minted type, rail, registry, or fold whose concept an upper stratum already owns, and ' +
                     'COLLAPSE it onto that owner. ' +
                     'Direction is law: a lower stratum never imports a higher one, an S2 peer never composes a sibling peer, and a ' +
@@ -128,7 +128,7 @@ const PHASE_ROWS = {
                     'onto a declared seam.',
             },
             {
-                key: 'planes',
+                key: 'pdelegates',
                 kind: 'verify',
                 pages: [
                     'libs/python/runtime/.planning/observability/journal.md',
@@ -136,18 +136,18 @@ const PHASE_ROWS = {
                     'libs/csharp/Rasm.AppHost/.planning/Observability/hooks.md',
                 ],
                 charter:
-                    'The evidence and execution planes across all three branches: journal, worker, job, queue, scheduler, hook, receipt, ' +
-                    'and log. Prove each plane REAL end to end rather than declared — an append-only journal carries a port, an ' +
-                    'implementer, a retention vocabulary, an erasure mechanism, and a tally read; a worker or job plane carries an ' +
+                    'The evidence and execution pdelegates across all three branches: journal, worker, job, queue, scheduler, hook, receipt, ' +
+                    'and log. Prove each pdelegate REAL end to end rather than declared — an append-only journal carries a port, an ' +
+                    'implementer, a retention vocabulary, an erasure mechanism, and a tally read; a worker or job pdelegate carries an ' +
                     'admission gate, a bounded intake with stated back-pressure, a drain with a readiness handshake, a failure rail, ' +
-                    'and a receipt; a hook plane carries a closed point vocabulary and a stated veto-versus-observe contract. ' +
+                    'and a receipt; a hook pdelegate carries a closed point vocabulary and a stated veto-versus-observe contract. ' +
                     'Verify port and implementer agree MEMBER FOR MEMBER on signature, arity, rail shape, and return type in every ' +
                     'branch carrying both ends — a divergence is a fence-seam break repaired at both ends. ' +
                     'Hunt the defect class this campaign proved costliest: a value ASSERTED rather than READ, a counter forging zero, ' +
                     'an unbounded retry behind an admission proving names but not behavior, a concurrent consumer silently splitting a ' +
                     'stream, and float arithmetic anywhere near money or a settlement boundary. ' +
                     'The evidence-versus-series law holds in every branch: a missing metric point is a dashboard gap, a missing journal ' +
-                    'row is an evidence or billing defect, and every derived plane carries zero authority.',
+                    'row is an evidence or billing defect, and every derived pdelegate carries zero authority.',
             },
             {
                 key: 'seams',
@@ -179,7 +179,7 @@ const PHASE_ROWS = {
                     'Arm resolution and endpoint resolution — the two checks that failed hardest at campaign start. Every Tier-0 ' +
                     '[FLEET_ESCALATION] and [PROFILE_SWAP] coordinate resolves to a named spec value or a landed row AT THE OWNER IT ' +
                     'NAMES: open each named owner and confirm the row exists there, since three of four arms named surfaces that did ' +
-                    'not exist. Then every URL the iac plane publishes derives from _urls and survives the Helm fullname collapse — ' +
+                    'not exist. Then every URL the iac pdelegate publishes derives from _urls and survives the Helm fullname collapse — ' +
                     'check each release name against its chart name and confirm the rendered service name, since that collapse is ' +
                     'exactly what made the collector endpoint dead. No endpoint is spelled outside _urls. ' +
                     'Then the provisioning-truth probe the datasource defect taught: every field a chart, provider, or driver actually ' +
@@ -224,8 +224,8 @@ const PHASE_ROWS = {
                     'The campaign custody close, and the pass leaving the governance estate TRUTHFUL rather than merely complete. ' +
                     'Dispatch the infra-custodian subagent over the touched infra set and IMPLEMENT its verdict rows yourself, treating ' +
                     'each as a signal you re-verify on disk rather than law. ' +
-                    'TIER-0 ARCHITECTURE: [08] describes the conformance system, the analytics plane, the backend family, and the hook ' +
-                    'plane exactly as they stand on disk — open the owning fences and re-derive every claim, because a row carried from ' +
+                    'TIER-0 ARCHITECTURE: [08] describes the conformance system, the analytics pdelegate, the backend family, and the hook ' +
+                    'pdelegate exactly as they stand on disk — open the owning fences and re-derive every claim, because a row carried from ' +
                     'the campaign doc that the corpus refutes is the defect this stage exists to catch. Estate law and transcribed rows ' +
                     'only: a branch mechanism, a package name, or a folder detail at Tier-0 moves down. ' +
                     'RULINGS AT EVERY TIER: each row states a settled decision its own tier OWNS — a cross-branch decision at ' +
@@ -245,7 +245,7 @@ const PHASE_ROWS = {
                     'parity proof does and does not cover — role-aware absence is part of the shape, never an exception to it. ' +
                     'Read .claude/scratch/observability/RECEIPTS.md and land every row still OPEN at the owner it names, and read ' +
                     '.claude/scratch/observability/ALIGNMENT-FINDINGS.md whole — its [08] contested DDL ownership and its [02.1] SLO ' +
-                    'renderer axis are the two adjudications every lane deliberately escalated rather than decided, and both home ' +
+                    'renderer axis are the two adjudications every delegate deliberately escalated rather than decided, and both home ' +
                     'here because no narrower tier contains all their surfaces. ' +
                     'Keep index-tier entries under 150 columns and spend no pass auditing prose beyond that. ' +
                     'Confirm every card closes against landed work with none closed by deleting its history, and confirm ' +
@@ -352,7 +352,7 @@ const RECEIPT = {
 
 // `class` is the drain's admission gate, schema-enforced so it cannot be argued around in prose: the
 // drain works capability, truth, and seam rows and DROPS cosmetic ones. Classifying by enum beats
-// pattern-matching claim text, which fractures per lane and silently admits the next spelling.
+// pattern-matching claim text, which fractures per delegate and silently admits the next spelling.
 const RESIDUAL = {
     type: 'array',
     items: {
@@ -488,7 +488,7 @@ const LAW_RIPPLE =
     'lands as a complete card at the narrowest tier following that file own template comment. docs/laws/topology.md binds ' +
     'counterpart obligations — consult it before any multi-surface edit. ' +
     'MINTING A NEW FILE escapes the page-disjointness your territory rests on, because a path that does not yet exist appears in ' +
-    'no territory roster and two lanes can mint it concurrently, the later write erasing the earlier whole. Probe the path with ' +
+    'no territory roster and two delegates can mint it concurrently, the later write erasing the earlier whole. Probe the path with ' +
     '`fd -H` before authoring; find a file already there and EXTEND it rather than replace it, whatever your own draft holds. ' +
     'SEARCH WITH `rg --hidden` for any corpus census: a plain directory rg skips every dot-directory, so `.planning/` and `.api/` ' +
     'return a silent false zero, and a negative conclusion drawn from one is unproven.';
@@ -564,7 +564,7 @@ const DOCTRINE =
 const pagesOf = (t) => t.pages.join(', ');
 
 const reconPrompt = (t) =>
-    'ROLE: read-only mapping lane for the observability campaign. You WRITE NOTHING except your own dossier file. ' +
+    'ROLE: read-only mapping delegate for the observability campaign. You WRITE NOTHING except your own dossier file. ' +
     'Read ' +
     CAMPAIGN +
     ' IN FULL first — it is the campaign blueprint and names your territory charter. ' +
@@ -582,7 +582,7 @@ const reconPrompt = (t) =>
     'branch realizes that this territory lacks, or holds in a weaker shape, with the reference anchor named in that sibling; ' +
     'STRATA for a locally-minted type, rail, registry, or fold whose concept an upper stratum already owns, with that owner ' +
     'named; BACKEND for anything backend-specific leaking into a family surface, a family row answering a column its siblings do ' +
-    'not, or a plane advertised while nothing plants it; SMELL for a code smell in a fence — a value asserted rather than read, a ' +
+    'not, or a pdelegate advertised while nothing plants it; SMELL for a code smell in a fence — a value asserted rather than read, a ' +
     'counter that can only forge zero, a catch-all arm absorbing a new case, an unbounded retry, a mutable accumulation where a ' +
     'fold belongs, a stringy call, a hardcoded literal that should ride a policy row; SPAM for comment or prose bloat, meaning a ' +
     'comment restating its code, narration, a human-facing tour, a line a fresh agent regenerates from disk, or two lines ' +
@@ -593,7 +593,7 @@ const reconPrompt = (t) =>
     'highest-value row you can return. (3) SEAMS — every cross-file and cross-territory endpoint this territory touches, both ' +
     'ends named, with any arity or spelling divergence between the two ends called out. ' +
     'LAW: your product carries INFORMATION, never prescriptions — anchored facts, verified spellings, seam endpoints, capability ' +
-    'the concept admits but nothing exploits. An entry telling the writer what to build is this lane defect. EMPTINESS IS NOT ' +
+    'the concept admits but nothing exploits. An entry telling the writer what to build is this delegate defect. EMPTINESS IS NOT ' +
     'EVIDENCE: a probe returning nothing proves absence only after you re-run it in a second form; garbled output is your own ' +
     'tooling error, never a property of the territory. Record honest skips in coverage. ' +
     LAW_MEMBER;
@@ -674,7 +674,7 @@ const redteamPrompt = (t, nav, claims) =>
     LAW_HARVEST;
 
 const finalizePrompt = (t, dossierPath, nav) =>
-    'ROLE: campaign-terminal VERIFY lane owning one lens over the WHOLE landed observability campaign. You are adversarial, never ' +
+    'ROLE: campaign-terminal VERIFY delegate owning one lens over the WHOLE landed observability campaign. You are adversarial, never ' +
     'confirming, and you hold full WRITER authority — you repair what you disprove rather than reporting it. ' +
     'The campaign you are checking closed six cards as [COMPLETE] that a later audit refuted; assume this run did the same to ' +
     'itself and hunt accordingly. ' +
@@ -742,7 +742,7 @@ const navOf = (r) => {
 };
 const navGroup = (rows) => rows.map((x) => x.key + ' >> ' + navOf(x)).join('  ///  ') || 'none';
 
-const lane = (t, promptText) =>
+const delegate = (t, promptText) =>
     agent(
         promptText +
             '\n\nPRODUCT TO DISK: write your COMPLETE dossier as one JSON file matching this schema at ' +
@@ -762,7 +762,7 @@ const lane = (t, promptText) =>
         report: (r && r.report) || '',
         entries: (r && r.entries) || 0,
         headline: (r && r.headline) || '',
-        failure: (r && r.failure) || (r ? '' : 'lane died'),
+        failure: (r && r.failure) || (r ? '' : 'delegate died'),
     }));
 
 const clusterByFile = (rows) => {
@@ -800,12 +800,12 @@ const clusterKey = (cl) =>
         .sort()
         .join('~');
 
-// Longest-processing-time greedy: heaviest cluster first into the lightest lane. Clusters are
-// file-disjoint by construction, so any packing of them stays disjoint across lanes and the lanes
+// Longest-processing-time greedy: heaviest cluster first into the lightest delegate. Clusters are
+// file-disjoint by construction, so any packing of them stays disjoint across delegates and the delegates
 // still write concurrently without collision. Ties break on a content key, never on iteration order,
 // so the packing is identical on a resume.
-const pack = (clusters, lanes) => {
-    const bins = Array.from({ length: Math.max(1, Math.min(lanes, clusters.length)) }, () => ({ weight: 0, clusters: [] }));
+const pack = (clusters, delegates) => {
+    const bins = Array.from({ length: Math.max(1, Math.min(delegates, clusters.length)) }, () => ({ weight: 0, clusters: [] }));
     clusters
         .slice()
         .sort((a, b) => weigh(b) - weigh(a) || clusterKey(a).localeCompare(clusterKey(b)))
@@ -829,23 +829,23 @@ log('phase ' + PHASE + ' — ' + ROW.title + ' · ' + ROW.territories.length + '
 // --- [RECON]
 
 phase('Recon');
-const barrierLanes = ROW.barrier ? (ROW.barrier.parallel ? ROW.barrier.parallel : [ROW.barrier]) : [];
-const reconTargets = barrierLanes.concat(ROW.territories);
-const dossiers = (await parallel(reconTargets.map((t) => () => lane(t, reconPrompt(t))))).filter(Boolean);
+const barrierDelegates = ROW.barrier ? (ROW.barrier.parallel ? ROW.barrier.parallel : [ROW.barrier]) : [];
+const reconTargets = barrierDelegates.concat(ROW.territories);
+const dossiers = (await parallel(reconTargets.map((t) => () => delegate(t, reconPrompt(t))))).filter(Boolean);
 const dossierOf = (key) => {
     const d = dossiers.find((x) => x.key === key);
-    return d && d.ok ? d.report : '(no dossier — this lane failed; do your own cold read of every territory page first)';
+    return d && d.ok ? d.report : '(no dossier — this delegate failed; do your own cold read of every territory page first)';
 };
-log(dossiers.filter((d) => d.ok).length + '/' + dossiers.length + ' recon lanes landed');
+log(dossiers.filter((d) => d.ok).length + '/' + dossiers.length + ' recon delegates landed');
 
 // --- [KERNEL]
 
 let barrierLogs = [];
-if (barrierLanes.length) {
+if (barrierDelegates.length) {
     phase('Kernel');
     barrierLogs = (
         await parallel(
-            barrierLanes.map(
+            barrierDelegates.map(
                 (b) => () =>
                     agent(writePrompt(b, dossierOf(b.key), null), {
                         label: 'kernel:' + b.key,
@@ -964,7 +964,7 @@ const drained = [];
 if (pending.length) {
     for (let round = 1; round <= DRAIN_ROUNDS && pending.length; round++) {
         const clusters = clusterByFile(pending);
-        const lanes = pack(clusters, DRAIN_LANES);
+        const delegates = pack(clusters, DRAIN_DELEGATES);
         log(
             'drain round ' +
                 round +
@@ -973,24 +973,24 @@ if (pending.length) {
                 ' residuals · ' +
                 clusters.length +
                 ' clusters packed into ' +
-                lanes.length +
-                ' lanes (weights ' +
-                lanes.map((l) => l.weight).join('/') +
+                delegates.length +
+                ' delegates (weights ' +
+                delegates.map((l) => l.weight).join('/') +
                 ')',
         );
         const out = (
             await parallel(
-                lanes.map(
-                    (lane, i) => () =>
+                delegates.map(
+                    (delegate, i) => () =>
                         agent(
                             'ROLE: residual closer for the observability campaign. Every row below was deferred by a writer because a ' +
                                 'live sibling owned the file or a member could not be verified; that sibling has now landed, so the ' +
                                 'territory is yours. ' +
                                 DOCTRINE +
                                 '\n\nYou hold ' +
-                                lane.clusters.length +
+                                delegate.clusters.length +
                                 ' INDEPENDENT residual clusters, delivered as an array of arrays. Every cluster is file-disjoint from ' +
-                                'every other cluster in your lane AND from every cluster held by a concurrent sibling lane, so no ' +
+                                'every other cluster in your delegate AND from every cluster held by a concurrent sibling delegate, so no ' +
                                 'sibling is writing any file you touch. Work them one cluster at a time, closing each fully before ' +
                                 'opening the next — a cluster is the coherence boundary, and interleaving them loses the shared-file ' +
                                 'context that made them one cluster. Report one merged result across every cluster you held.' +
@@ -1004,7 +1004,7 @@ if (pending.length) {
                                 'reserved for draining a surface THIS campaign retired, where zero remaining occurrences is the ' +
                                 'proof; it is never licensed by formatting drift that predates the campaign.' +
                                 '\n\nCLUSTERS: ' +
-                                JSON.stringify(lane.clusters),
+                                JSON.stringify(delegate.clusters),
                             { label: 'drain:' + round + ':' + i, phase: 'Drain', effort: 'high', schema: DRAINLOG },
                         ),
                 ),
@@ -1034,7 +1034,7 @@ if (pending.length) {
 
 phase('Verify');
 const verdict = await agent(
-    'ROLE: terminal VERIFY lane for phase ' +
+    'ROLE: terminal VERIFY delegate for phase ' +
         PHASE +
         ' (' +
         ROW.title +

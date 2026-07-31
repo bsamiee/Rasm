@@ -348,10 +348,10 @@ const TS_CITATION = [
         '`RequestResolver.dataLoader`/`persisted`; `PersistedCache`+`Persistence` as the durable contention axis; `Reactivity` keyed ' +
         'invalidation; the store-backed `RateLimiter` vs in-process row. platform — `HttpIncomingMessage` as the one ingress-decode owner; ' +
         '`HttpTraceContext` propagation codecs; `Effectify.effectify`; `Transferable.Collector`; `KeyValueStore.layerSchema`. rpc — the protocol ' +
-        'x serialization vocabulary matrix. opentelemetry — the `Otlp.layer` export seam sentence. TS7 type plane — reverse-mapped inference ' +
+        'x serialization vocabulary matrix. opentelemetry — the `Otlp.layer` export seam sentence. TS7 type pdelegate — reverse-mapped inference ' +
         'owners (per-row contextual typing, zero call-site ceremony; relation depth 2 keeps rows shallow); the `unique symbol` TypeId + ' +
-        'variance-struct phantom brand regime (disjoint from Schema.brand by plane); overload ordering strictly narrow->wide with the ' +
-        'dead-signature ban (first-match resolution silently mis-dispatches — verified); the numeric type-plane budgets (~800 tail / ~40 non-tail ' +
+        'variance-struct phantom brand regime (disjoint from Schema.brand by pdelegate); overload ordering strictly narrow->wide with the ' +
+        'dead-signature ban (first-match resolution silently mis-dispatches — verified); the numeric type-pdelegate budgets (~800 tail / ~40 non-tail ' +
         'iterations, 10^4 template axes; TS2589/TS2590 are architecture pressure — move to the value level, never suppress); the registry merge ' +
         'seam (the ONE sanctioned open interface: contributors inject rows via `declare module` at the declaring module); `satisfies never` ' +
         'kernel residue proof; ASCII-bounded type-level string decomposition (Corsa/Strada code-point divergence); variadic-tuple owner ' +

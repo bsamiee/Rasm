@@ -2,7 +2,7 @@
 
 ## [01]-[SESSION_START]
 
-`settings.json` runs `hooks/setup-env.sh` on startup, resume, and compaction in two lanes: a warm session replays the mode-600 session cache into `CLAUDE_ENV_FILE` instantly and dispatches a detached `--refresh`; the refresh lane (or a cold first boot, inline) resolves each `DOPPLER_SOURCES` row independently — a live Doppler fetch refreshes its encrypted snapshot under the doppler cache, a failed fetch serves the snapshot, and a dead row reports loudly with owed key names only. Resolved keys and optional PATH additions land in `CLAUDE_ENV_FILE` for sub-agent/tool inheritance; the hook never sources local shell files, installs tools, or writes profiles.
+`settings.json` runs `hooks/setup-env.sh` on startup, resume, and compaction in two paths: a warm session replays the mode-600 session cache into `CLAUDE_ENV_FILE` instantly and dispatches a detached `--refresh`; the refresh path (or a cold first boot, inline) resolves each `DOPPLER_SOURCES` row independently — a live Doppler fetch refreshes its encrypted snapshot under the doppler cache, a failed fetch serves the snapshot, and a dead row reports loudly with owed key names only. Resolved keys and optional PATH additions land in `CLAUDE_ENV_FILE` for sub-agent/tool inheritance; the hook never sources local shell files, installs tools, or writes profiles.
 
 [VARIABLES]:
 - `CLAUDE_ENV_EXPORT_KEYS` - Extra env var names to persist, separated by spaces or commas.

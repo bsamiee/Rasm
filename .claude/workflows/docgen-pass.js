@@ -1114,7 +1114,7 @@ const makeSlots = (cap) => {
     };
 };
 const slot = makeSlots(CAP);
-// one slotted agent call with retry-once — a throw or null-return retries once, then yields null so a single dead lane never rejects its group-chain`s Promise.all wave
+// one slotted agent call with retry-once — a throw or null-return retries once, then yields null so a single dead delegate never rejects its group-chain`s Promise.all wave
 const run = async (fn) => {
     for (let a = 0; a <= 1; a++) {
         const r = await slot(fn).catch(() => null);

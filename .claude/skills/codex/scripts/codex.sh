@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# codex-lane.sh — supervised `codex exec` lane: per-call custody, liveness watchdog, JSON receipt
-# Usage: codex-lane.sh --task FILE --dir DIR [--law FILE] [--cwd DIR] [--model M] [--effort T]
-#                      [--sandbox MODE] [--out FILE] [--web] [--resume THREAD_ID]
+# codex.sh — supervised `codex exec` delegate: per-call custody, liveness watchdog, JSON receipt
+# Usage: codex.sh --task FILE --dir DIR [--law FILE] [--cwd DIR] [--model M] [--effort T]
+#                      [--out FILE] [--web] [--resume THREAD_ID]
 #                      [--idle SEC] [--max SEC] [--self-test]
 #
 set -Eeuo pipefail
@@ -17,23 +17,21 @@ readonly SCRIPT_NAME="${BASH_SOURCE[0]##*/}"
 readonly CODEX_BIN="${CODEX_BIN:-${HOME}/.local/bin/codex}"
 readonly CODEX_SESSIONS="${CODEX_HOME:-${HOME}/.codex}/sessions"
 readonly POLL_SEC=15 GRACE_SEC=10
-declare -Ar _SANDBOXES=(["read-only"]=1 ["workspace-write"]=1 ["danger-full-access"]=1)
 declare -Ar _EFFORTS=([low]=1 [medium]=1 [high]=1 [xhigh]=1)
 declare -Ar _OPT_META=(
     [task]="--task|Task prompt file (absolute)|FILE|"
-    [dir]="--dir|Lane artifact home: events.jsonl, stderr.log, receipt.json|DIR|"
-    [law]="--law|Developer-instructions file (lane law)|FILE|"
+    [dir]="--dir|Run artifact home: events.jsonl, stderr.log, receipt.json|DIR|"
+    [law]="--law|Developer-instructions file|FILE|"
     [cwd]="--cwd|Agent working root|DIR|\$PWD"
     [model]="--model|Model slug deviation|SLUG|config"
     [effort]="--effort|Reasoning tier deviation|TIER|config"
-    [sandbox]="--sandbox|Sandbox mode|MODE|read-only"
     [out]="--out|Materialize the final message at this path|FILE|"
     [web]="--web|Enable live web search||off"
     [resume]="--resume|Resume this thread id instead of starting fresh|UUID|"
     [idle]="--idle|Kill after SEC with zero event/rollout growth|SEC|900"
     [max]="--max|Absolute wall ceiling|SEC|10800"
 )
-TASK="" DIR="" LAW="" CWD="${PWD}" MODEL="" EFFORT="" SANDBOX="read-only" OUT="" WEB=0
+TASK="" DIR="" LAW="" CWD="${PWD}" MODEL="" EFFORT="" OUT="" WEB=0
 RESUME="" IDLE=900 MAX=10800 _CHILD_PID=0 _KILL_REASON=""
 declare -a EXTRA=()
 declare -a _CLEANUP_STACK=()
@@ -191,20 +189,20 @@ _build_argv() {
     [[ -n "${OUT}" ]] && _argv+=(-o "${OUT}")
     ((${#EXTRA[@]} > 0)) && _argv+=("${EXTRA[@]}")
     [[ -n "${RESUME}" ]] && {
-        _argv+=(-c "sandbox_mode=\"${SANDBOX}\"" resume "${RESUME}" "$(<"${TASK}")")
+        _argv+=(resume "${RESUME}" "$(<"${TASK}")")
         return 0
     }
-    _argv+=(-s "${SANDBOX}" -C "${CWD}" "$(<"${TASK}")")
+    _argv+=(-C "${CWD}" "$(<"${TASK}")")
 }
 
 # --- [PARSER] ---------------------------------------------------------------------------
 
 _usage() {
-    printf '%s v%s — supervised codex exec lane with liveness watchdog and JSON receipt\n' \
+    printf '%s v%s — supervised codex exec delegate with liveness watchdog and JSON receipt\n' \
         "${SCRIPT_NAME}" "${VERSION}"
     printf '\nUSAGE: %s --task FILE --dir DIR [OPTIONS]\n\nOPTIONS:\n' "${SCRIPT_NAME}"
     local key short desc value_name default
-    for key in task dir law cwd model effort sandbox out web resume idle max; do
+    for key in task dir law cwd model effort out web resume idle max; do
         IFS='|' read -r short desc value_name default <<<"${_OPT_META[${key}]}"
         printf '  %-18s %s%s\n' "${short}${value_name:+ ${value_name}}" "${desc}" \
             "${default:+ (default: ${default})}"
@@ -229,7 +227,6 @@ _parse_args() {
             --cwd) CWD="${2:?--cwd requires a path}" && shift 2 ;;
             --model) MODEL="${2:?--model requires a slug}" && shift 2 ;;
             --effort) EFFORT="${2:?--effort requires a tier}" && shift 2 ;;
-            --sandbox) SANDBOX="${2:?--sandbox requires a mode}" && shift 2 ;;
             --out) OUT="${2:?--out requires a path}" && shift 2 ;;
             --web) WEB=1 && shift ;;
             --resume) RESUME="${2:?--resume requires a thread id}" && shift 2 ;;
@@ -246,7 +243,6 @@ _parse_args() {
     [[ -f "${TASK}" ]] || _die_usage "--task file missing: '${TASK}'"
     [[ -n "${DIR}" ]] || _die_usage "--dir is required"
     [[ -z "${LAW}" || -f "${LAW}" ]] || _die_usage "--law file missing: '${LAW}'"
-    [[ -v _SANDBOXES["${SANDBOX}"] ]] || _die_usage "Invalid --sandbox: '${SANDBOX}'"
     [[ -z "${EFFORT}" ]] || [[ -v _EFFORTS["${EFFORT}"] ]] || _die_usage "Invalid --effort: '${EFFORT}'"
     [[ "${IDLE}" =~ ^[0-9]+$ && "${MAX}" =~ ^[0-9]+$ ]] || _die_usage "--idle/--max take integer seconds"
 }
@@ -276,12 +272,12 @@ _self_test() {
     _assert_eq "$(jq -r '.ok' <<<"${receipt}")" "false"
     _assert_eq "$(jq -r '.reason' <<<"${receipt}")" "idle-timeout"
     _KILL_REASON=""
-    TASK="${work}/events.jsonl" MODEL="m" EFFORT="low" SANDBOX="read-only" CWD="/tmp" EXTRA=(--ephemeral)
+    TASK="${work}/events.jsonl" MODEL="m" EFFORT="low" CWD="/tmp" EXTRA=(--ephemeral)
     local -a argv=()
     _build_argv argv
     _assert_eq "${argv[1]}" "exec"
     _assert_eq "${argv[2]}" "--json"
-    _assert_eq "${argv[-6]}" "--ephemeral"
+    _assert_eq "${argv[-4]}" "--ephemeral"
     printf 'self-test passed\n'
 }
 
@@ -289,7 +285,7 @@ _self_test() {
 
 _main() {
     _parse_args "$@"
-    readonly TASK DIR LAW CWD MODEL EFFORT SANDBOX OUT WEB RESUME IDLE MAX
+    readonly TASK DIR LAW CWD MODEL EFFORT OUT WEB RESUME IDLE MAX
     [[ -x "${CODEX_BIN}" ]] || _die "codex binary not executable: ${CODEX_BIN}"
     mkdir -p "${DIR}"
     local -r events="${DIR}/events.jsonl" stderr_log="${DIR}/stderr.log" receipt="${DIR}/receipt.json"

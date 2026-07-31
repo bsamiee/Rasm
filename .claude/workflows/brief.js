@@ -1,7 +1,7 @@
 export const meta = {
     name: 'brief',
     description:
-        'Durable polyglot campaign-brief author over libs/{python,csharp,typescript} planning corpora. args = {targets, upstream, deep, mandate, review, gold} — targets a folder path or an ORDERED array (a waterfall: each later brief consumes every earlier one as finalized law with surgical ripple authority back); upstream = pre-existing finalized brief paths (any language) joining the corpus; deep = true or a target-path subset gaining 2 OSS-ecosystem research lanes; mandate = a scope-expansion law string for all targets or a {targetPath: text} map; review = extra brief paths for the terminal cross-corpus review, or false to skip it; gold = the exemplar brief (default RASM-PY-ARTIFACTS-BRIEF.md). Per target: 5 surveyors (corpus halves + api/manifest tiers + seam/consumer census + cross-folder strata census; +2 deep lanes) all dispatched lanes (surveyors write dossiers, deep lanes add live web search; every lane leaves its dossier + typed report on disk and returns a thin receipt) -> 1 author (a single-phase decision-complete brief that never requires a second document, carrying the bidirectional CROSS_FOLDER enablement section, the section-utility law, and the header campaign law) -> 4 sequential adversarial passes (architecture, capability incl. the cross-folder audit, roster under the integration-first/seal-challenge/package-waterfall laws, cold-read + hedge-kill + utility-sweep + RIPPLE AUDIT re-verifying every claimed upstream edit on disk). Terminal: when 1+ briefs were produced, 3 sequential review passes (initial/critique/redteam) cross-align the WHOLE corpus in place. Every adversarial refine + review pass carries a required-but-usually-empty harvest attestation; when the pooled nominations are non-empty, ONE terminal doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal). Output naming RASM-<PY|CS|TS>-<NAME>-BRIEF.md.',
+        'Durable polyglot campaign-brief author over libs/{python,csharp,typescript} planning corpora. args = {targets, upstream, deep, mandate, review, gold} — targets a folder path or an ORDERED array (a waterfall: each later brief consumes every earlier one as finalized law with surgical ripple authority back); upstream = pre-existing finalized brief paths (any language) joining the corpus; deep = true or a target-path subset gaining 2 OSS-ecosystem research delegates; mandate = a scope-expansion law string for all targets or a {targetPath: text} map; review = extra brief paths for the terminal cross-corpus review, or false to skip it; gold = the exemplar brief (default RASM-PY-ARTIFACTS-BRIEF.md). Per target: 5 surveyors (corpus halves + api/manifest tiers + seam/consumer census + cross-folder strata census; +2 deep delegates) all dispatched delegates (surveyors write dossiers, deep delegates add live web search; every delegate leaves its dossier + typed report on disk and returns a thin receipt) -> 1 author (a single-phase decision-complete brief that never requires a second document, carrying the bidirectional CROSS_FOLDER enablement section, the section-utility law, and the header campaign law) -> 4 sequential adversarial passes (architecture, capability incl. the cross-folder audit, roster under the integration-first/seal-challenge/package-waterfall laws, cold-read + hedge-kill + utility-sweep + RIPPLE AUDIT re-verifying every claimed upstream edit on disk). Terminal: when 1+ briefs were produced, 3 sequential review passes (initial/critique/redteam) cross-align the WHOLE corpus in place. Every adversarial refine + review pass carries a required-but-usually-empty harvest attestation; when the pooled nominations are non-empty, ONE terminal doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal). Output naming RASM-<PY|CS|TS>-<NAME>-BRIEF.md.',
     whenToUse:
         'The standing brief engine: author one brief, or a dependency-ordered waterfall of them, in any language mix, with the cross-corpus review built in. Empty args = no-op.',
 };
@@ -9,7 +9,7 @@ export const meta = {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const RETRY_ATTEMPTS = 2;
-const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute working root; the terminal adjudicator + every codex cwd pin it (lanes do not reliably inherit launch cwd)
+const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute working root; the terminal adjudicator + every codex cwd pin it (delegates do not reliably inherit launch cwd)
 
 const LANG = {
     python: {
@@ -77,7 +77,7 @@ const deepFor = (t) => DEEP === true || (Array.isArray(DEEP) && DEEP.includes(t)
 const mandateFor = (t) =>
     typeof MANDATE === 'string' ? MANDATE.trim() : MANDATE && typeof MANDATE === 'object' && typeof MANDATE[t] === 'string' ? MANDATE[t].trim() : '';
 
-// Per-instance scratch dir — per-lane reports and dossiers. Minted deterministically from the normalized target set
+// Per-instance scratch dir — per-delegate reports and dossiers. Minted deterministically from the normalized target set
 // (clock/randomness would break resume): one FLAT dir per instance, a human-readable basename slug and an FNV-1a tail.
 const fnv1a = (s) => {
     let h = 0x811c9dc5;
@@ -110,7 +110,7 @@ const SURVEY_SCHEMA = {
     additionalProperties: false,
     required: ['dossier', 'entries', 'coverage', 'summary'],
     properties: {
-        dossier: { type: 'string' }, // path to the lane's full markdown dossier
+        dossier: { type: 'string' }, // path to the delegate's full markdown dossier
         entries: {
             type: 'array',
             items: {
@@ -142,7 +142,7 @@ const SURVEY_SCHEMA = {
     },
 };
 
-// Thin wire receipt: the lane's PRODUCT stays on disk at `report`; only status + counts travel inline.
+// Thin wire receipt: the delegate's PRODUCT stays on disk at `report`; only status + counts travel inline.
 const RECEIPT = {
     type: 'object',
     additionalProperties: false,
@@ -364,7 +364,7 @@ const HARVEST_LAW =
     'the normal verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
 
 // Stance opener forks by dispatch register: the native author/passes (and the native survey twin) read the estate hostile
-// register as calibration; the codex-primary survey/deep lanes take the neutral form (a hostile stance makes a codex lane
+// register as calibration; the codex-primary survey/deep delegates take the neutral form (a hostile stance makes a codex delegate
 // over-probe). Both keep identical substance — the two naivety axes and the full defect-hunt list follow verbatim.
 const STANCE = {
     claude: 'Your stance is HOSTILE: assume the corpus is naive with illusory depth until disk proves otherwise; ',
@@ -406,10 +406,10 @@ const preOf = (t, corpus, reg) => {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death — agent() returned null): attempt-counted, a
-// retry sized to a limit reset. The final death isolates the lane, NEVER the chain — every downstream
+// Bounded re-dispatch for a dead CRITICAL delegate (usage-limit or transport death — agent() returned null): attempt-counted, a
+// retry sized to a limit reset. The final death isolates the delegate, NEVER the chain — every downstream
 // stage still runs against current disk.
-const retryLane = async (fn) => {
+const retryDelegate = async (fn) => {
     for (let a = 0; a < RETRY_ATTEMPTS; a++) {
         const r = await fn();
         if (r) return r;
@@ -417,14 +417,14 @@ const retryLane = async (fn) => {
     return null;
 };
 
-// Codex dispatch: the shell lane runs one blocking supervised CLI process and writes its content
-// to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
+// Codex dispatch: the shell delegate runs one blocking supervised CLI process and writes its content
+// to the delegate report, and returns mechanical orchestration data. Delegate law rides developer-instructions
 // (role split, battery-validated); the prompt carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
 const dossierOf = (label) => SCRATCH + '/' + fileTag(label) + '-dossier.md';
-// Every codex lane here is a READ/survey lane — writes its dossier + JSON report, never in-place page edits; one context-gathering
+// Every codex delegate here is a READ/survey delegate — writes its dossier + JSON report, never in-place page edits; one context-gathering
 // + verification + output-contract law serves them all, so no fix/persistence fork exists.
-const laneLaw = (schema, o) =>
+const delegateLaw = (schema, o) =>
     '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
     'including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).\nBudget: at most ' +
     (o.calls || 60) +
@@ -439,7 +439,7 @@ const laneLaw = (schema, o) =>
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
 // Sandbox decides authorship: a read-only delegate cannot write, so --out materializes the product; a writing delegate lands its own.
-const LANE_SCRIPT = ROOT + '/.claude/skills/codex/scripts/codex-lane.sh';
+const DELEGATE_SCRIPT = ROOT + '/.claude/skills/codex/scripts/codex-delegate.sh';
 const flagsOf = (o) =>
     [o.model && '--model ' + o.model, o.codexEffort && '--effort ' + o.codexEffort, o.web && '--web']
         .filter(Boolean)
@@ -450,13 +450,13 @@ const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
     const root = ROOT;
     const report = root + '/' + base + '-report.json';
-    const dossier = root + '/' + base + '-dossier.md'; // writes lanes author this markdown alongside the JSON report
+    const dossier = root + '/' + base + '-dossier.md'; // writes delegates author this markdown alongside the JSON report
     const model = o.model || 'gpt-5.6-terra';
     const hl = o.hl || { arr: 'entries', group: 'kind' };
-    const lane = report + '.lane';
+    const delegate = report + '.delegate';
     const authored = !!o.writes;
     const sandbox = authored ? 'workspace-write' : 'read-only';
-    // writes lanes author both the JSON report (final act) and the markdown dossier; the wrapper only verifies both landed.
+    // writes delegates author both the JSON report (final act) and the markdown dossier; the wrapper only verifies both landed.
     const taskFull =
         task +
         (authored
@@ -465,71 +465,71 @@ const codexPrompt = (label, task, schema, o) => {
               ' yourself (this is separate from the dossier the task already has you author).'
             : '');
     return (
-        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised lane run; never perform, edit, judge, soften, ' +
-        'summarize, or relay the work yourself. (1) Write the LANE LAW block below VERBATIM to ' +
-        lane +
+        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised delegate run; never perform, edit, judge, soften, ' +
+        'summarize, or relay the work yourself. (1) Write the DELEGATE LAW block below VERBATIM to ' +
+        delegate +
         '/law.md and the TASK block below VERBATIM to ' +
-        lane +
+        delegate +
         '/task.md, composing neither. ' +
         (authored
             ? 'Delete any leftover file at ' + report + ' with one Bash rm -f (a stale product there passes the verify probe as a false success). '
             : '') +
         '(2) Run ONE Bash call with run_in_background true: ' +
-        LANE_SCRIPT +
+        DELEGATE_SCRIPT +
         ' --task ' +
-        lane +
+        delegate +
         '/task.md --law ' +
-        lane +
+        delegate +
         '/law.md --dir ' +
-        lane +
+        delegate +
         ' --cwd ' +
         root +
         ' --sandbox ' +
         sandbox +
         flagsOf({ model, codexEffort: o.codexEffort, web: o.web }) +
         (authored ? '' : ' --out ' + report) +
-        '; the harness re-invokes you when the lane exits — Read ' +
-        lane +
+        '; the harness re-invokes you when the delegate exits — Read ' +
+        delegate +
         '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
-        'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
+        'alone (the session persisted on disk) overwrites the task file with "continue and complete the delegate, then land the receipt" and ' +
         're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
         'refusal) re-runs the same command untouched. (3) ' +
         (authored
             ? 'The delegate lands both the JSON report at ' + report + ' and its markdown dossier itself as its final act.'
-            : 'The lane lands the product at ' + report + ' via --out.') +
+            : 'The delegate lands the product at ' + report + ' via --out.') +
         ' (4) Verify with one Bash call: ' +
         (authored
             ? 'jq -e . ' +
               report +
               ' >/dev/null && test -s ' +
               dossier +
-              ' — on a missing or invalid report re-derive it once from the lane events.jsonl (jq -rs to the last agent_message item text, ' +
+              ' — on a missing or invalid report re-derive it once from the delegate events.jsonl (jq -rs to the last agent_message item text, ' +
               'Write that) and re-probe; a missing or empty dossier is unrecoverable and returns ok=false with that error.'
             : 'jq -e . ' +
               report +
-              ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the lane ' +
+              ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the delegate ' +
               'events.jsonl (jq -rs to the last agent_message item text, Write that), re-probe, and a second miss returns ok=false with the ' +
               'probe output.') +
         ' (5) Return ok=true, report=' +
         base +
-        '-report.json (this repo-relative form, matching codex-lane receipts), entries = the length of the "' +
+        '-report.json (this repo-relative form, matching codex-delegate receipts), entries = the length of the "' +
         hl.arr +
         '" array in the product, headline="<entries> ' +
         hl.arr +
         (hl.group ? ' | <' + hl.group + ' tallies>' : '') +
         ' | top: <most frequent first file or none>", and failure empty. On a failed receipt return ok=false, entries=0, report and ' +
-        'headline empty, and failure equal to the receipt reason and failure text VERBATIM.\n\nLANE LAW:\n\n' +
-        laneLaw(schema, o) +
+        'headline empty, and failure equal to the receipt reason and failure text VERBATIM.\n\nDELEGATE LAW:\n\n' +
+        delegateLaw(schema, o) +
         '\n\nTASK:\n\n' +
         taskFull
     );
 };
-// Every survey/research lane routes here. QUOTA FALLBACK: a codex receipt whose failure
+// Every survey/research delegate routes here. QUOTA FALLBACK: a codex receipt whose failure
 // matches usage/quota/limit re-dispatches the SAME task natively at the role's native twin — the caller owns
-// the re-dispatch, the shell lane never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (never the lane's
-// self-report) so a failed lane's unmapped territory is exact even when it died before writing anything.
+// the re-dispatch, the shell delegate never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (never the delegate's
+// self-report) so a failed delegate's unmapped territory is exact even when it died before writing anything.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
-const nativeLane = (task, o) =>
+const nativeDelegate = (task, o) =>
     agent(
         task +
             '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
@@ -549,22 +549,22 @@ const recon = (task, o) =>
         effort: 'low',
         schema: RECEIPT,
     })
-        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
+        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeDelegate(task, o) : r))
         .then((r) => ({
-            lane: o.label,
+            delegate: o.label,
             scope: o.scope || [],
             ok: !!(r && r.ok && r.report),
             report: (r && r.report) || '',
             entries: (r && r.entries) || 0,
             headline: (r && r.headline) || '',
-            failure: (r && r.failure) || (r ? '' : 'lane died'),
+            failure: (r && r.failure) || (r ? '' : 'delegate died'),
         }));
-const surveyPrompt = (pre, dossier, lane, scope) =>
+const surveyPrompt = (pre, dossier, delegate, scope) =>
     [
         pre,
         ENTRY_LAW,
-        'TASK: READ-ONLY SURVEY, lane = ' +
-            lane +
+        'TASK: READ-ONLY SURVEY, delegate = ' +
+            delegate +
             '. Scope: ' +
             scope +
             '. Deep-read fully — ' +
@@ -581,13 +581,13 @@ const surveyPrompt = (pre, dossier, lane, scope) =>
             SCRATCH +
             '/.',
     ].join('\n');
-const deepPrompt = (pre, dossier, lane, focus) =>
+const deepPrompt = (pre, dossier, delegate, focus) =>
     [
         pre,
         ROSTER_LAW,
         ENTRY_LAW,
-        'TASK: ECOSYSTEM RESEARCH, lane = ' +
-            lane +
+        'TASK: ECOSYSTEM RESEARCH, delegate = ' +
+            delegate +
             '. ' +
             focus +
             ' Web research ' +
@@ -619,7 +619,7 @@ const authorPrompt = (pre, t, out, roster, unmapped) =>
             '5x-consumer bar; STRUCTURAL_AUTHORITY incl. split/merge/move/new-folder freedom; the placement/strata law; GENERATOR_LAW; the seam/entry/' +
             'rail law; roster reconciliation), [01] NUMBERED BINDING VERDICTS (V1..Vn — each a structural ruling with a recommended-shape floor and a ' +
             'ruled default where decidable NOW; a hedge carries its deciding criteria), [02] the EVIDENCE REGISTER (E-rows with file:line anchors + the ' +
-            'sound-surfaces line), [03] CAPABILITY ESCALATION (per-plane now->target grades with concrete deltas), [04] PACKAGE_PRESSURE (mine-to-depth ' +
+            'sound-surfaces line), [03] CAPABILITY ESCALATION (per-pdelegate now->target grades with concrete deltas), [04] PACKAGE_PRESSURE (mine-to-depth ' +
             'rows with stub anchors; roster rows under the roster law), [05] BUILD_LEGS (dependency-ordered legs + per-leg closeout + acceptance proofs), ' +
             '[06] CROSS_FOLDER (the bidirectional enablement rows per the cross-folder law — each row {folder, direction, capability, seam}, fully ' +
             'specified from the strata dossier and re-verified on disk; base-extension rows land as fully-specified IDEAS-row obligations the campaign ' +
@@ -634,11 +634,11 @@ const authorPrompt = (pre, t, out, roster, unmapped) =>
             '-ownpass.md BEFORE opening any survey report or dossier; the reports may only ADD [recon]-tagged rows to that file, and a brief whose ' +
             'binding verdicts map one-to-one onto the survey candidates has FAILED this rung — the majority of the verdicts come from your own read, ' +
             'with the .api tiers, cross-folder census, and strata left survey-offloaded; (b) UNMAPPED scope below is your direct-hunt ' +
-            'queue — but each row carries `reportProbe`: a dead lane usually WROTE its report before its wrapper died, so open that path ' +
-            "FIRST (valid JSON there is the lane's real product, consumed like any ok report), and only a missing/invalid probe falls to " +
+            'queue — but each row carries `reportProbe`: a dead delegate usually WROTE its report before its wrapper died, so open that path ' +
+            "FIRST (valid JSON there is the delegate's real product, consumed like any ok report), and only a missing/invalid probe falls to " +
             'your own cold read; (c) read every ok survey REPORT FILE IN FULL from disk, shared-surface ' +
-            "lanes (api-tiers, census, strata, ecosystem) before the corpus halves, and read each report's `dossier` markdown IN FULL alongside it; " +
-            'entries overlap across lanes — cluster by target as you read; (d) entries are EVIDENCE with jump-coordinate anchors, never settled law: ' +
+            "delegates (api-tiers, census, strata, ecosystem) before the corpus halves, and read each report's `dossier` markdown IN FULL alongside it; " +
+            'entries overlap across delegates — cluster by target as you read; (d) entries are EVIDENCE with jump-coordinate anchors, never settled law: ' +
             're-verify on disk every anchor behind a claim the brief makes (MANDATORY); navigation-only entries re-verify only when touched; a verdict ' +
             'candidate is pressure you adopt, strengthen, or reject on your own authority, with the corpus as law. Every ROSTER candidate resolves ' +
             'EXPLICITLY in [04]: landed as a mine-to-depth or ADD/INTEGRATE/REPLACE row, or a one-line `declinedCandidates` entry naming the forbidding ' +
@@ -781,23 +781,23 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
     const L = langOf(t);
     const name = nameOf(t);
     const out = outOf(t);
-    const preCodex = preOf(t, corpus, 'codex'); // survey/deep lanes (codex-primary)
+    const preCodex = preOf(t, corpus, 'codex'); // survey/deep delegates (codex-primary)
     const preClaude = preOf(t, corpus, 'claude'); // native author + adversarial passes
     const P = L.tag + ':' + name.toLowerCase();
-    const laneLabel = (lane) => 'survey:' + L.tag.toLowerCase() + '-' + name.toLowerCase() + ':' + lane;
+    const delegateLabel = (delegate) => 'survey:' + L.tag.toLowerCase() + '-' + name.toLowerCase() + ':' + delegate;
 
     phase(P + ' survey');
-    const surveyLanes = [
+    const surveyDelegates = [
         {
-            lane: 'corpus-a',
+            delegate: 'corpus-a',
             scope: 'the FIRST half of the target .planning pages (alphabetical by path) FULLY, and the folder README/ARCHITECTURE/TASKLOG/IDEAS where present',
         },
         {
-            lane: 'corpus-b',
+            delegate: 'corpus-b',
             scope: 'the SECOND half of the target .planning pages FULLY, and every page the first half seams to at the depth fit requires',
         },
         {
-            lane: 'api-tiers',
+            delegate: 'api-tiers',
             scope:
                 'BOTH .api tiers COMPLETE (' +
                 L.tiers +
@@ -807,13 +807,13 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
                 'mined-vs-unmined against the owning pages; verify roster claims per the language rail where versions are cited',
         },
         {
-            lane: 'census',
+            delegate: 'census',
             scope:
                 'the seam/consumer census: every cross-page and cross-package/cross-language edge the target carries, the ' +
                 "governance surfaces (ledger/router/cards) vs realized truth, and the corpus briefs' clauses that name this target",
         },
         {
-            lane: 'strata',
+            delegate: 'strata',
             scope:
                 'the CROSS-FOLDER enablement census over realized corpora on disk (independent of any brief): the folders this ' +
                 'target composes or feeds — its language kernel/base strata below, its consumers above, its cross-language wire counterparts — each read ' +
@@ -821,38 +821,38 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
                 'stronger form in the target, and the target capability that would open a door in that folder',
         },
     ];
-    const deepLanes = deepFor(t)
+    const deepDelegates = deepFor(t)
         ? [
               {
-                  lane: 'ecosystem-a',
+                  delegate: 'ecosystem-a',
                   focus:
                       "Sweep the OSS ecosystem for the target's CORE domain concerns: the categorical-best owners for capability " +
                       'the mandate purpose demands, judged against what the roster already admits.',
               },
               {
-                  lane: 'ecosystem-b',
+                  delegate: 'ecosystem-b',
                   focus:
-                      'Sweep the ADJACENT/emerging lanes: bleeding-edge or cross-domain packages that could raise the capability ' +
+                      'Sweep the ADJACENT/emerging delegates: bleeding-edge or cross-domain packages that could raise the capability ' +
                       'ceiling, and supersession candidates for weak admitted owners.',
               },
           ]
         : [];
     const roster = (
         await parallel([
-            ...surveyLanes.map(
+            ...surveyDelegates.map(
                 (l) => () =>
-                    recon(surveyPrompt(preCodex, dossierOf(laneLabel(l.lane)), l.lane, l.scope), {
-                        label: laneLabel(l.lane),
+                    recon(surveyPrompt(preCodex, dossierOf(delegateLabel(l.delegate)), l.delegate, l.scope), {
+                        label: delegateLabel(l.delegate),
                         phase: P + ' survey',
                         schema: SURVEY_SCHEMA,
                         writes: true,
                         scope: [l.scope],
                     }),
             ),
-            ...deepLanes.map(
+            ...deepDelegates.map(
                 (l) => () =>
-                    recon(deepPrompt(preCodex, dossierOf(laneLabel(l.lane)), l.lane, l.focus), {
-                        label: laneLabel(l.lane),
+                    recon(deepPrompt(preCodex, dossierOf(delegateLabel(l.delegate)), l.delegate, l.focus), {
+                        label: delegateLabel(l.delegate),
                         phase: P + ' survey',
                         schema: SURVEY_SCHEMA,
                         writes: true,
@@ -864,12 +864,12 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
     ).filter(Boolean);
     const surveyed = roster.filter((r) => r.ok);
     const total = surveyed.reduce((a, r) => a + r.entries, 0);
-    // A not-ok receipt does not prove an absent product: the codex lane writes its report as its final act, so a wrapper that died
+    // A not-ok receipt does not prove an absent product: the codex delegate writes its report as its final act, so a wrapper that died
     // after the write leaves a valid report on disk. Each unmapped row carries the DETERMINISTIC report path (orchestrator-computed
-    // from the lane label) so the author probes it before cold-deriving — the report path never depends on the dead receipt.
+    // from the delegate label) so the author probes it before cold-deriving — the report path never depends on the dead receipt.
     const unmapped = roster
         .filter((r) => !r.ok)
-        .flatMap((r) => r.scope.map((s) => ({ lane: r.lane, scope: s, reportProbe: SCRATCH + '/' + fileTag(r.lane) + '-report.json' })));
+        .flatMap((r) => r.scope.map((s) => ({ delegate: r.delegate, scope: s, reportProbe: SCRATCH + '/' + fileTag(r.delegate) + '-report.json' })));
     log(
         P +
             ' survey: ' +
@@ -878,18 +878,18 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
             surveyed.length +
             '/' +
             roster.length +
-            ' lanes' +
+            ' delegates' +
             (surveyed.length < roster.length
                 ? ' — FAILED: ' +
                   roster
                       .filter((r) => !r.ok)
-                      .map((r) => r.lane)
+                      .map((r) => r.delegate)
                       .join(', ')
                 : ''),
     );
 
     phase(P + ' author');
-    // The author is the target's one CRITICAL lane: its death produces no brief, so refine has nothing to edit AND the waterfall
+    // The author is the target's one CRITICAL delegate: its death produces no brief, so refine has nothing to edit AND the waterfall
     // corpus never gains this brief for downstream targets. Attempt-counted re-dispatch before the target isolates — the loop
     // still advances to the next target (chain continues), only this one drops.
     const fireAuthor = (suffix) =>
@@ -899,7 +899,7 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
             effort: 'high',
             schema: AUTHOR_SCHEMA,
         });
-    const authored = (await fireAuthor('')) || (await retryLane(() => fireAuthor(':r1')));
+    const authored = (await fireAuthor('')) || (await retryDelegate(() => fireAuthor(':r1')));
     if (!authored) {
         log(P + ': author produced nothing after retries — isolating this target; resume re-runs it.');
         continue;

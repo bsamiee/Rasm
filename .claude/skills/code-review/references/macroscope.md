@@ -11,7 +11,7 @@
 |  [03]   | Blocking    | `conclusion: failure` blocks the PR | advisory, inherits the built-in check |
 |  [04]   | Surface     | hosted GitHub Checks only           | hosted and local CLI both             |
 
-Each check-run agent is one cross-cutting lens over the whole diff — boundary integrity, topology closure, a strongest-form adversary — seeing what the file-local correctness pass cannot; agents deliberately never re-litigate mechanical checks the correctness lane owns.
+Each check-run agent is one cross-cutting lens over the whole diff — boundary integrity, topology closure, a strongest-form adversary — seeing what the file-local correctness pass cannot; agents deliberately never re-litigate mechanical checks the correctness shard owns.
 
 ## [02]-[CHECK_RUN_AGENTS]
 
@@ -38,7 +38,7 @@ Each check-run agent is one cross-cutting lens over the whole diff — boundary 
 
 ## [06]-[CLI_SEMANTICS]
 
-- Fix-at-root lane: `macroscope codereview --raw --in-place --base <base>` — review and fixes share the real working tree, and `--raw` blocks to completion streaming everything on stderr while stdout stays empty.
+- Fix-at-root shard: `macroscope codereview --raw --in-place --base <base>` — review and fixes share the real working tree, and `--raw` blocks to completion streaming everything on stderr while stdout stays empty.
 - Base semantics: `--in-place` without `--base` diffs against `HEAD` — uncommitted only, so on a branch it reviews almost nothing; `--in-place --base <ref>` spans committed branch work and uncommitted edits.
 - Stream grammar, in emission order: `review_id=<jwt>` once, `issue_event={issue_id, sequence, path, function, line, end_line, severity, category, body}` per finding, terminal `issue_status=completed`. Category and severity vocabularies are open — `REVIEW_TYPE_CORRECTNESS` covers security findings too, `medium` and `critical` sit on the wire — so an adapter passes both through raw and never enum-gates them.
 - Empty-diff terminal: `error: no objects found - check if there are any changes to supported files` on stderr, exit 1, no `issue_status` marker — a clean zero-findings review, never a failure.

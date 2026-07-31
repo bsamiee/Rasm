@@ -1,19 +1,19 @@
 export const meta = {
     name: 'realize',
     whenToUse:
-        'Execute a root campaign DECISION/brief into its target planning folder. args = {doc, root} or an array of such pairs; campaigns run as parallel lanes. Wide reconnaissance hands one terminal writer everything on a golden platter — the doc, exact disk locations, ripple endpoints across every libs/ folder, and the full two-tier .api stacking inventory — and the executor implements the whole campaign under the language doctrine with libs-wide ripple authority. Run cold-verify after.',
+        'Execute a root campaign DECISION/brief into its target planning folder. args = {doc, root} or an array of such pairs; campaigns run as parallel delegates. Wide reconnaissance hands one terminal writer everything on a golden platter — the doc, exact disk locations, ripple endpoints across every libs/ folder, and the full two-tier .api stacking inventory — and the executor implements the whole campaign under the language doctrine with libs-wide ripple authority. Run cold-verify after.',
     description:
-        'Campaign realization in two moves. RECON: dispatched mapper lanes fan out — page-slice mappers (root doc IN FULL + slice pages IN FULL + sibling context), one governance mapper (manifests, csproj/README registries, .api anchors, index docs), two stacking mappers (one per .api tier: the shared libs/<lang>/.api substrate and the folder <root>/.api tier, full inventory mined to operator depth against the doc page set — doc-demanded AND beyond-doc underutilized capability, exact verified members), and ONE BRANCH RIPPLE MAPPER PER language lib (libs/csharp, libs/python, libs/typescript — each sweeping its branch package folders except the target, skipping the branch .planning core; seam ledgers, consumer anchors, counterpart obligations, frozen wire names the campaign touches). Every mapper runs a mandatory second-pass self-verify: each entry re-derived from disk, anchors re-opened, spellings re-checked; a guess, a skim, or a vague entry is deleted before return. Mappers provide information — locations, anchors, ripples, inventory — never prescriptions. EXECUTE: one write lane per campaign takes the root doc and every map and implements everything in place at the docs/stacks/<language>/ bar: the full page set, registry and index closure, every ripple in the same pass with LIBS-WIDE ripple authority (sibling counterparts repaired in place both ends, except where the doc rules a counterpart recorded-only), the two-tier stacking woven in, its own hunt past the maps. The executor carries a required-but-usually-empty harvest attestation; when any campaign pools a non-empty nomination, ONE terminal doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal). Otherwise no stage after the executor; cold-verify is the separate closure gate.',
+        'Campaign realization in two moves. RECON: dispatched mapper delegates fan out — page-slice mappers (root doc IN FULL + slice pages IN FULL + sibling context), one governance mapper (manifests, csproj/README registries, .api anchors, index docs), two stacking mappers (one per .api tier: the shared libs/<lang>/.api substrate and the folder <root>/.api tier, full inventory mined to operator depth against the doc page set — doc-demanded AND beyond-doc underutilized capability, exact verified members), and ONE BRANCH RIPPLE MAPPER PER language lib (libs/csharp, libs/python, libs/typescript — each sweeping its branch package folders except the target, skipping the branch .planning core; seam ledgers, consumer anchors, counterpart obligations, frozen wire names the campaign touches). Every mapper runs a mandatory second-pass self-verify: each entry re-derived from disk, anchors re-opened, spellings re-checked; a guess, a skim, or a vague entry is deleted before return. Mappers provide information — locations, anchors, ripples, inventory — never prescriptions. EXECUTE: one write delegate per campaign takes the root doc and every map and implements everything in place at the docs/stacks/<language>/ bar: the full page set, registry and index closure, every ripple in the same pass with LIBS-WIDE ripple authority (sibling counterparts repaired in place both ends, except where the doc rules a counterpart recorded-only), the two-tier stacking woven in, its own hunt past the maps. The executor carries a required-but-usually-empty harvest attestation; when any campaign pools a non-empty nomination, ONE terminal doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal). Otherwise no stage after the executor; cold-verify is the separate closure gate.',
     phases: [
         { title: 'Plan', detail: 'per campaign: enumerate the page set (disk + doc-ruled new pages), partition into mapper slices', model: 'opus' },
         {
             title: 'Recon',
-            detail: 'per campaign: page-slice + governance + two-tier stacking + per-branch ripple mappers as dispatched lanes, self-verified information not prescriptions',
+            detail: 'per campaign: page-slice + governance + two-tier stacking + per-branch ripple mappers as dispatched delegates, self-verified information not prescriptions',
             model: 'sonnet',
         },
         {
             title: 'Execute',
-            detail: 'per campaign: the write lane implements the whole campaign — doc + maps + doctrine, every ripple in-pass, libs-wide',
+            detail: 'per campaign: the write delegate implements the whole campaign — doc + maps + doctrine, every ripple in-pass, libs-wide',
             model: 'fable',
         },
         {
@@ -45,7 +45,7 @@ const chunk = (a, n) => {
     for (let i = 0; i < a.length; i += n) o.push(a.slice(i, i + n));
     return o;
 };
-// Per-instance scratch dir holding per-lane reports — minted deterministically from the normalized campaign set (clock/randomness
+// Per-instance scratch dir holding per-delegate reports — minted deterministically from the normalized campaign set (clock/randomness
 // would break resume): one FLAT dir under .claude/scratch/, a root-basename slug and an FNV-1a tail so distinct campaign sets never collide.
 const fnv1a = (s) => {
     let h = 0x811c9dc5;
@@ -118,7 +118,7 @@ const MAP = {
     },
 };
 
-// Thin wire receipt: the lane's PRODUCT stays on disk at `report`; only status + count + headline travel inline.
+// Thin wire receipt: the delegate's PRODUCT stays on disk at `report`; only status + count + headline travel inline.
 const RECEIPT = {
     type: 'object',
     additionalProperties: false,
@@ -279,9 +279,9 @@ const HARVEST_LAW =
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const RETRY_ATTEMPTS = 2;
-// Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death): attempt-counted with a retry before each; the
-// final death isolates the lane but NEVER the chain — the terminal doctrine lander still runs against current disk.
-const retryLane = async (fn) => {
+// Bounded re-dispatch for a dead CRITICAL delegate (usage-limit or transport death): attempt-counted with a retry before each; the
+// final death isolates the delegate but NEVER the chain — the terminal doctrine lander still runs against current disk.
+const retryDelegate = async (fn) => {
     for (let a = 0; a < RETRY_ATTEMPTS; a++) {
         const r = await fn();
         if (r) return r;
@@ -289,13 +289,13 @@ const retryLane = async (fn) => {
     return null;
 };
 
-// Codex dispatch: the wrapper runs one supervised codex-lane.sh lane in the background, reads the receipt, verifies the
-// --out product, and returns mechanical orchestration data. Lane law rides --law (developer-instructions,
+// Codex dispatch: the wrapper runs one supervised codex-delegate.sh delegate in the background, reads the receipt, verifies the
+// --out product, and returns mechanical orchestration data. Delegate law rides --law (developer-instructions,
 // role split); the --task file carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
-// Every realize codex lane is recon investigation (the executor is the native author), so the lane law is the
-// context-gathering budget + stop rule alone — no write-lane persistence arm the shape never dispatches.
-const laneLaw = (schema, o) =>
+// Every realize codex delegate is recon investigation (the executor is the native author), so the delegate law is the
+// context-gathering budget + stop rule alone — no write-delegate persistence arm the shape never dispatches.
+const delegateLaw = (schema, o) =>
     '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
     'including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).\nBudget: at most ' +
     (o.calls || 60) +
@@ -309,9 +309,9 @@ const laneLaw = (schema, o) =>
     JSON.stringify(schema) +
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
-// Every realize codex lane is read-only recon (the native executor authors), so the delegate never writes: --out
+// Every realize codex delegate is read-only recon (the native executor authors), so the delegate never writes: --out
 // materializes the product and the wrapper relays only the thin receipt.
-const LANE_SCRIPT = '/Users/bardiasamiee/Documents/99.Github/Rasm/.claude/skills/codex/scripts/codex-lane.sh';
+const DELEGATE_SCRIPT = '/Users/bardiasamiee/Documents/99.Github/Rasm/.claude/skills/codex/scripts/codex-delegate.sh';
 const flagsOf = (o) =>
     [o.codexEffort && '--effort ' + o.codexEffort, o.web && '--web']
         .filter(Boolean)
@@ -322,23 +322,23 @@ const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
     const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
     const report = root + '/' + base + '-report.json';
-    const lane = report + '.lane';
+    const delegate = report + '.delegate';
     const model = o.model || 'gpt-5.6-terra';
     const hl = o.hl || { arr: 'entries', group: 'kind' };
     return (
-        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised lane run; never perform, edit, judge, soften, ' +
-        'summarize, or relay the work yourself. (1) Write the LANE LAW block below VERBATIM to ' +
-        lane +
+        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised delegate run; never perform, edit, judge, soften, ' +
+        'summarize, or relay the work yourself. (1) Write the DELEGATE LAW block below VERBATIM to ' +
+        delegate +
         '/law.md and the TASK block below VERBATIM to ' +
-        lane +
+        delegate +
         '/task.md, composing neither. (2) Run ONE Bash call with run_in_background true: ' +
-        LANE_SCRIPT +
+        DELEGATE_SCRIPT +
         ' --task ' +
-        lane +
+        delegate +
         '/task.md --law ' +
-        lane +
+        delegate +
         '/law.md --dir ' +
-        lane +
+        delegate +
         ' --cwd ' +
         root +
         ' --sandbox read-only --model ' +
@@ -346,36 +346,36 @@ const codexPrompt = (label, task, schema, o) => {
         flagsOf(o) +
         ' --out ' +
         report +
-        '; the harness re-invokes you when the lane exits — Read ' +
-        lane +
+        '; the harness re-invokes you when the delegate exits — Read ' +
+        delegate +
         '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
-        'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
+        'alone (the session persisted on disk) overwrites the task file with "continue and complete the delegate, then land the receipt" and ' +
         're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
-        'refusal) re-runs the same command untouched. (3) The lane lands the product at ' +
+        'refusal) re-runs the same command untouched. (3) The delegate lands the product at ' +
         report +
         ' via --out. (4) Verify with one Bash call: jq -e . ' +
         report +
-        ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the lane ' +
+        ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the delegate ' +
         'events.jsonl (jq -rs to the last agent_message item text, Write that), re-probe, and a second miss returns ok=false with the ' +
         'probe output. (5) Return ok=true, report=' +
         base +
-        '-report.json (this repo-relative form, matching codex-lane receipts), entries = the length of the "' +
+        '-report.json (this repo-relative form, matching codex-delegate receipts), entries = the length of the "' +
         hl.arr +
         '" array in the product, headline="<entries> ' +
         hl.arr +
         (hl.group ? ' | <' + hl.group + ' tallies>' : '') +
         ' | top: <most frequent first file or none>", and failure empty. On a failed receipt return ok=false, entries=0, report and ' +
-        'headline empty, and failure equal to the receipt reason and failure text VERBATIM.\n\nLANE LAW:\n\n' +
-        laneLaw(schema, o) +
+        'headline empty, and failure equal to the receipt reason and failure text VERBATIM.\n\nDELEGATE LAW:\n\n' +
+        delegateLaw(schema, o) +
         '\n\nTASK:\n\n' +
         task
     );
 };
-// Every heavy read/investigate lane routes here as the quota twin. QUOTA FALLBACK: a codex receipt whose
+// Every heavy read/investigate delegate routes here as the quota twin. QUOTA FALLBACK: a codex receipt whose
 // failure matches usage/quota/limit re-dispatches the SAME task natively at the role's native twin — the
-// caller owns the re-dispatch, the shell lane never executes work itself.
+// caller owns the re-dispatch, the shell delegate never executes work itself.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
-const nativeLane = (task, o) =>
+const nativeDelegate = (task, o) =>
     agent(
         task +
             '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
@@ -395,20 +395,20 @@ const recon = (task, o) =>
         effort: 'low',
         schema: RECEIPT,
     })
-        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
+        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeDelegate(task, o) : r))
         .then((r) => ({
-            lane: o.label,
+            delegate: o.label,
             scope: o.scope || [],
             ok: !!(r && r.ok && r.report),
             report: (r && r.report) || '',
             entries: (r && r.entries) || 0,
             headline: (r && r.headline) || '',
-            failure: (r && r.failure) || (r ? '' : 'lane died'),
+            failure: (r && r.failure) || (r ? '' : 'delegate died'),
         }));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const lanes = await parallel(
+const delegates = await parallel(
     CAMPS.map((c) => async () => {
         const tag = c.root.split('/').pop();
         const lang = langOf(c.root);
@@ -423,7 +423,7 @@ const lanes = await parallel(
                 'the union as one dependency-ordered list (foundations before consumers, per the doc where it rules an order).',
             { label: 'plan:' + tag, phase: 'Plan', model: 'opus', effort: 'high', schema: PLAN },
         );
-        // Guard the plan lane's page roster: drop non-string, empty, and out-of-root paths (a hallucinated or mis-scoped page
+        // Guard the plan delegate's page roster: drop non-string, empty, and out-of-root paths (a hallucinated or mis-scoped page
         // would mis-slice a mapper), dedupe first-wins — every downstream slice and stacking map dispatches on this set.
         const pages = [...new Set(((plan && plan.pages) || []).filter((p) => typeof p === 'string' && p && p.indexOf(c.root) === 0))];
         const slices = chunk(pages, Math.max(SLICE_SIZE, Math.ceil(pages.length / MAX_SLICES)));
@@ -552,7 +552,7 @@ const lanes = await parallel(
         const roster = (await parallel(mappers)).filter(Boolean);
         const mapped = roster.filter((r) => r.ok);
         const total = mapped.reduce((a, r) => a + r.entries, 0);
-        const unmapped = roster.filter((r) => !r.ok).flatMap((r) => r.scope.map((sc) => ({ lane: r.lane, scope: sc })));
+        const unmapped = roster.filter((r) => !r.ok).flatMap((r) => r.scope.map((sc) => ({ delegate: r.delegate, scope: sc })));
         log(
             tag +
                 ': ' +
@@ -561,12 +561,12 @@ const lanes = await parallel(
                 mapped.length +
                 '/' +
                 roster.length +
-                ' lanes' +
+                ' delegates' +
                 (mapped.length < roster.length
                     ? ' — FAILED: ' +
                       roster
                           .filter((r) => !r.ok)
-                          .map((r) => r.lane)
+                          .map((r) => r.delegate)
                           .join(', ')
                     : ''),
         );
@@ -597,7 +597,7 @@ const lanes = await parallel(
             'recon REPORT FILES are your reconnaissance. CONSUMPTION (rung 2, AFTER your OWN PASS FIRST artifact lands): (a) ' +
             'UNMAPPED scope below gets your own cold read FIRST; ' +
             '(b) read every ok report IN FULL from disk — governance and the two stacking maps ' +
-            'before page slices, ripple maps before the pages whose seams they anchor; entries overlap across lanes, dedupe by target ' +
+            'before page slices, ripple maps before the pages whose seams they anchor; entries overlap across delegates, dedupe by target ' +
             "as you read; (c) each entry's anchors are jump coordinates — spot-verify what you build on, and re-open every anchor behind an edit — " +
             'information, not instructions; spot-verify what you build on, and hunt past them on your own authority. IMPLEMENT ' +
             'EVERYTHING the doc rules, in dependency order: author ruled-new pages ground-up, rebuild and improve ruled pages in ' +
@@ -616,7 +616,7 @@ const lanes = await parallel(
             JSON.stringify(unmapped) +
             ' ROSTER: ' +
             JSON.stringify(roster);
-        // CHAIN CONTINUATION: the executor is the campaign's CRITICAL write lane — its death loses the whole campaign's landed
+        // CHAIN CONTINUATION: the executor is the campaign's CRITICAL write delegate — its death loses the whole campaign's landed
         // work, so a usage-limit or transport death earns bounded re-dispatch; the retry re-runs against CURRENT disk, composing
         // its own partial edits. The final death isolates this campaign; sibling campaigns and the doctrine terminal still run.
         const execOpts = (suffix) => ({
@@ -626,11 +626,11 @@ const lanes = await parallel(
             effort: 'high',
             schema: FIXLOG,
         });
-        const fix = (await agent(execPrompt, execOpts(''))) || (await retryLane(() => agent(execPrompt, execOpts(':r1'))));
+        const fix = (await agent(execPrompt, execOpts(''))) || (await retryDelegate(() => agent(execPrompt, execOpts(':r1'))));
         return {
             campaign: c.root,
-            lanes: roster.length,
-            failedLanes: roster.filter((r) => !r.ok).map((r) => r.lane),
+            delegates: roster.length,
+            failedDelegates: roster.filter((r) => !r.ok).map((r) => r.delegate),
             mapEntries: total,
             built: (fix && fix.built && fix.built.length) || 0,
             beyond: (fix && fix.beyond && fix.beyond.length) || 0,
@@ -644,7 +644,7 @@ const lanes = await parallel(
 
 // DOCTRINE LANDER: the run's durable-learning terminal — pooled harvest nominations adjudicated against the live
 // doctrine surfaces; refutation-first, land-nothing legal, admission law owned by docs/laws. Fires only on non-empty rows.
-const HARVEST_ROWS = lanes.filter(Boolean).flatMap((l) => l.harvest || []);
+const HARVEST_ROWS = delegates.filter(Boolean).flatMap((l) => l.harvest || []);
 const doctrine = HARVEST_ROWS.length
     ? await agent(
           'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` ' +
@@ -664,7 +664,7 @@ const doctrine = HARVEST_ROWS.length
     : null;
 
 return {
-    campaigns: lanes.filter(Boolean),
+    campaigns: delegates.filter(Boolean),
     doctrine: doctrine && {
         nominated: HARVEST_ROWS.length,
         landed: (doctrine.landed || []).length,

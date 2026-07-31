@@ -1,13 +1,16 @@
 export const meta = {
     name: 'ideation-pool',
     description:
-        'Build the four-altitude IDEAS/TASKLOG card estate to the depth slice-implement.js ingests: a disk-derived folder roster plus a git-history admitted-package roster, one codex sol dossier per folder/branch/cross tier, one fable card writer per folder streaming off its own dossier (typed per-axis verdicts make thin output a visible lane failure), a per-language fable landing same-branch ripple counterparts, dedup, and the language-root pair, one cross-libs fable landing cross-language ripples both ends plus the coherence pass, streaming single-writer package admissions per central manifest, and a terminal audit proving no-silent-drops, decomposition, per-folder verdicts, and docgen-zero. args = {camp: absolute campaign home (required), scope?: folder subset, base?: pre-campaign commit-ish}; products land under camp/ideation/.',
+        'Build the four-altitude IDEAS/TASKLOG card estate to the depth slice-implement.js ingests: a disk-derived folder roster plus a git-history admitted-package roster, one codex sol dossier per folder/branch/cross tier, one fable card writer per folder streaming off its own dossier (typed per-axis verdicts make thin output a visible delegate failure), a per-language fable landing same-branch ripple counterparts, dedup, and the language-root pair, one cross-libs fable landing cross-language ripples both ends plus the coherence pass, streaming single-writer package admissions per central manifest, and a terminal audit proving no-silent-drops, decomposition, per-folder verdicts, and docgen-zero. args = {camp: absolute campaign home (required), scope?: folder subset, base?: pre-campaign commit-ish}; products land under camp/ideation/.',
     whenToUse: 'After an implementation campaign empties the OPEN pools, to rebuild card depth before the next slice-implement run',
     phases: [
-        { title: 'Roster', detail: 'folder roster with open-card counts from disk; git-history admitted-package roster via a read-only sol lane' },
+        {
+            title: 'Roster',
+            detail: 'folder roster with open-card counts from disk; git-history admitted-package roster via a read-only sol delegate',
+        },
         {
             title: 'Map',
-            detail: 'per-folder, per-branch, and cross-libs codex sol dossiers (pages, cards, two-tier .api mining, axis gaps, strata) and one opus adjacent-package research lane per branch',
+            detail: 'per-folder, per-branch, and cross-libs codex sol dossiers (pages, cards, two-tier .api mining, axis gaps, strata) and one opus adjacent-package research delegate per branch',
         },
         {
             title: 'Ideate',
@@ -350,13 +353,13 @@ const PATH_LAW =
     '.';
 
 const GIT_LAW =
-    'Git is READ-ONLY in this lane: log/show/diff only. Never stage, commit, stash, restore, or mutate working-tree state; libs/ and ' +
+    'Git is READ-ONLY in this delegate: log/show/diff only. Never stage, commit, stash, restore, or mutate working-tree state; libs/ and ' +
     '.planning/ paths never enter any git write command regardless of instruction.';
 
 const MANDATE_LAW =
     'Read ' +
     MANDATE +
-    ' IN FULL before any other read — it is this lane law and is never acted on from a paraphrase; then read ' +
+    ' IN FULL before any other read — it is this delegate law and is never acted on from a paraphrase; then read ' +
     HANDOFF +
     ' sections [01] and [02] for the campaign laws the mandate presumes.';
 
@@ -407,7 +410,7 @@ const CARD_LAW =
     'non-derivative, never filler minted to satisfy a count, and they may ASSUME downstream realization; tasks are specific — they map, find, ' +
     'and pin the where/what. A BLOCKED card carries an Arms: line naming the exact observable that flips it actionable; a probe, research, ' +
     'or member-pin card carries a Route: line — the ordered verification path (an assay api member target, ' +
-    'a .api catalog, a live doc, a seam-owner page) — the implement plan lane decomposes exactly those lines. No versions in cards; no ' +
+    'a .api catalog, a live doc, a seam-owner page) — the implement plan delegate decomposes exactly those lines. No versions in cards; no ' +
     'python-version floors, gates, or markers anywhere; an obsolete surface encountered inside your write territory is deleted outright. ' +
     'A card names a member, owner, or landing anchor under one of two frames, never blurred: an EXISTING anchor verified against its ' +
     'owner-truth route this pass (an .api catalog row for an external member, the owning design-page fence for a Rasm member) — or an ' +
@@ -419,14 +422,14 @@ const RIPPLE_LAW =
     'A cross-folder pair is split custody: author the ORIGIN card in your files (no Ripple line) and return the counterpart as a ' +
     'rippleRequests row {counterpartFolder (absolute folder path), thesis (the counterpart card thesis), originCard ("FILE [ID]"), ' +
     'seamKind (the [SEAMS] edge kind), seamLabel (the edge label)} — never edit a counterpart folder yourself; the language and cross ' +
-    'lanes land counterparts carrying the Ripple line that names your origin. A landed counterpart is a TWO-ENDED SEAM: the same pass ' +
+    'delegates land counterparts carrying the Ripple line that names your origin. A landed counterpart is a TWO-ENDED SEAM: the same pass ' +
     'writes the mirrored [SEAMS] edge into the ARCHITECTURE.md of BOTH endpoint folders with identical [KIND] and label and opposed ' +
     'direction — an origin edge without its counterpart, or a kind/label mismatch, is the seam-mirror defect. A Ripple line naming a ' +
     'counterpart with no mirrored edge is an orphan, not a landing.';
 
 const PKG_LAW =
     'A package a card composes that is absent from its central manifest is NEVER installed or manifest-edited by you: return it as a ' +
-    'packageNeeds row {package, language, reason} — a serialized admission lane owns the full mandate [06] chain, and cards may assume the ' +
+    'packageNeeds row {package, language, reason} — a serialized admission delegate owns the full mandate [06] chain, and cards may assume the ' +
     'admission lands.';
 
 const DOCGEN_LAW =
@@ -496,15 +499,15 @@ const mapClause = (r) =>
 const rosterClause = (r) =>
     r && r.ok
         ? 'the campaign package roster at ' + r.report + ' (read the [ROSTER] rows IN FULL)'
-        : 'the campaign package roster — its lane FAILED; derive admitted-package facts from the central manifests and .api tiers yourself';
+        : 'the campaign package roster — its delegate FAILED; derive admitted-package facts from the central manifests and .api tiers yourself';
 const adjClause = (r) =>
     r && r.ok
         ? 'at ' +
           r.report +
           ' — its [CANDIDATES] rows are verified-existing research material a card may base on, returning the package as a packageNeeds row ' +
-          'for the admission lane to live-verify; never a manifest edit, never treated as already admitted; its [REFERENCES] rows name the ' +
+          'for the admission delegate to live-verify; never a manifest edit, never treated as already admitted; its [REFERENCES] rows name the ' +
           'real-world systems each folder is measured against and seed the folder moonshot idea'
-        : '— NONE landed for this branch; base package needs on your own domain reasoning, the admission lane verifies';
+        : '— NONE landed for this branch; base package needs on your own domain reasoning, the admission delegate verifies';
 const bmapClause = (r) =>
     r && r.ok
         ? 'at ' + r.report + ' — read its [OWNERS] rows IN FULL from disk; they pre-arbitrate every cross-folder capability family per the strata law'
@@ -584,31 +587,31 @@ const GSECTIONS = [
 ];
 
 const wrapPrompt = (report, law, task, medium, minHeads) =>
-    'DISPATCH ROLE: codex performs the complete TASK below through one supervised lane run; never perform, edit, judge, or relay the ' +
-    'work yourself. (1) Write the LANE LAW block below VERBATIM to ' +
+    'DISPATCH ROLE: codex performs the complete TASK below through one supervised delegate run; never perform, edit, judge, or relay the ' +
+    'work yourself. (1) Write the DELEGATE LAW block below VERBATIM to ' +
     report +
-    '.lane/law.md and the TASK block below VERBATIM to ' +
+    '.delegate/law.md and the TASK block below VERBATIM to ' +
     report +
-    '.lane/task.md, composing neither. (2) Run ONE Bash call with run_in_background true: ' +
+    '.delegate/task.md, composing neither. (2) Run ONE Bash call with run_in_background true: ' +
     REPO +
-    '/.claude/skills/codex/scripts/codex-lane.sh --task ' +
+    '/.claude/skills/codex/scripts/codex-delegate.sh --task ' +
     report +
-    '.lane/task.md --law ' +
+    '.delegate/task.md --law ' +
     report +
-    '.lane/law.md --dir ' +
+    '.delegate/law.md --dir ' +
     report +
-    '.lane --cwd ' +
+    '.delegate --cwd ' +
     REPO +
     ' --sandbox danger-full-access --model gpt-5.6-sol' +
     (medium ? ' --effort medium' : '') +
     ' --out ' +
     report +
-    '; the harness re-invokes you when the lane exits — Read ' +
+    '; the harness re-invokes you when the delegate exits — Read ' +
     report +
-    '.lane/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
-    'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
+    '.delegate/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
+    'alone (the session persisted on disk) overwrites the task file with "continue and complete the delegate, then land the receipt" and ' +
     're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
-    'refusal) re-runs the same command untouched. (3) The lane lands the product at ' +
+    'refusal) re-runs the same command untouched. (3) The delegate lands the product at ' +
     report +
     ' via --out. (4) Verify with one Bash call: grep -c "^## \\[" ' +
     report +
@@ -616,9 +619,9 @@ const wrapPrompt = (report, law, task, medium, minHeads) =>
     minHeads +
     ' section heads means a malformed product: rewrite once from the last agent_message item text in ' +
     report +
-    '.lane/events.jsonl (jq -rs, Write that), then return ok=false with the miss. (5) Return ok, ' +
+    '.delegate/events.jsonl (jq -rs, Write that), then return ok=false with the miss. (5) Return ok, ' +
     'report, entries = the total "- " row count across settled sections ("- none" counts zero), headline = one mechanical per-section ' +
-    'tally, failure empty — or ok=false with the error text VERBATIM.\n\nLANE LAW:\n\n' +
+    'tally, failure empty — or ok=false with the error text VERBATIM.\n\nDELEGATE LAW:\n\n' +
     law +
     '\n\nTASK:\n\n' +
     task;
@@ -777,7 +780,7 @@ const adjPrompt = (L) =>
     ' today with the probe cited; a capability an admitted package already owns is excluded (name-check the manifest); no version numbers ' +
     'anywhere. Every candidate is working material: a card it seeds states the capability as fact and carries NO registry version anchors ' +
     'or freshness-dated prose — the dossier holds the citation, the card holds the capability; a package a card composes routes as a ' +
-    'packageNeeds row for the admission lane to live-verify, never asserted admitted from the dossier. Write one markdown document to ' +
+    'packageNeeds row for the admission delegate to live-verify, never asserted admitted from the dossier. Write one markdown document to ' +
     OUT +
     '/adjacent-' +
     L.key +
@@ -897,7 +900,7 @@ const langPrompt = (L, bmap, ros, adj, rows, sameLang, failed) =>
     ' ' +
     GIT_LAW +
     ' Inputs, in order: (1) your own read of the language-root card pair and of each per-folder receipt document IN FULL from disk — the ' +
-    'folder lanes this run: ' +
+    'folder delegates this run: ' +
     JSON.stringify(
         rows.map((r) => ({
             folder: r.folder.path,
@@ -912,7 +915,7 @@ const langPrompt = (L, bmap, ros, adj, rows, sameLang, failed) =>
     rosterClause(ros) +
     '; (4) the adjacent-candidate map ' +
     adjClause(adj) +
-    '. FAILED FOLDER LANES (their pools got no deepening — card what the branch altitude owns for them, record the remainder as thin in ' +
+    '. FAILED FOLDER DELEGATES (their pools got no deepening — card what the branch altitude owns for them, record the remainder as thin in ' +
     'your report, and never re-run a folder ideation): ' +
     JSON.stringify(failed) +
     '. DUTIES: (1) RIPPLE LANDING — per row below, verify the thesis against current disk, then land the counterpart card in the ' +
@@ -998,7 +1001,7 @@ const crossPrompt = (xmap, ros, reqRows, langOut) =>
     'packageNeeds, filesTouched (absolute), docgenClean, one-line headline, failure empty.';
 
 const admitPrompt = (row, origin) =>
-    'ADMISSION LANE for package "' +
+    'ADMISSION DELEGATE for package "' +
     row.package +
     '" (' +
     row.language +
@@ -1008,7 +1011,7 @@ const admitPrompt = (row, origin) =>
     row.reason +
     '. Read the mandate [06] section at ' +
     MANDATE +
-    ' first — it is this lane law. ' +
+    ' first — it is this delegate law. ' +
     PATH_LAW +
     ' ' +
     GIT_LAW +
@@ -1079,7 +1082,7 @@ const rosterP = guard(
     slot(() => agent(rosterWrapPrompt(), { label: 'sol:roster', phase: 'Roster', model: 'sonnet', effort: 'low', schema: RECEIPT })),
 );
 const disco = await guard(slot(() => agent(discoverPrompt(), { label: 'discover', phase: 'Roster', model: 'opus', effort: 'low', schema: ROSTERD })));
-if (!disco) return { skipped: true, reason: 'discovery lane failed' };
+if (!disco) return { skipped: true, reason: 'discovery delegate failed' };
 if (!disco.mandateFound) return { skipped: true, reason: 'mandate file missing at ' + MANDATE, note: disco.note };
 let folders = (disco.folders ?? []).filter((f) => f.path && f.language);
 if (SCOPE.length)
@@ -1154,7 +1157,7 @@ const xmapP = crossRec
     ? guard(slot(() => agent(xmapWrapPrompt(), { label: 'sol:xmap', phase: 'Map', model: 'sonnet', effort: 'low', schema: RECEIPT })))
     : Promise.resolve(null);
 
-const mapLane = (f) =>
+const mapDelegate = (f) =>
     guard(
         slot(() =>
             agent(fmapWrapPrompt(f), {
@@ -1166,7 +1169,7 @@ const mapLane = (f) =>
             }),
         ),
     );
-const ideateLane = (f, mapR, ros, adj, bmap) =>
+const ideateDelegate = (f, mapR, ros, adj, bmap) =>
     guard(
         slot(() =>
             agent(ideatePrompt(f, mapR, ros, adj, bmap), {
@@ -1184,10 +1187,10 @@ const chainLang = async (L) => {
     const rows = (
         await pipeline(
             fs,
-            (f) => mapLane(f),
+            (f) => mapDelegate(f),
             (mapR, f) =>
                 Promise.all([rosterP, adjP[f.language], bmapP[f.language]])
-                    .then(([ros, adj, bmap]) => ideateLane(f, mapR, ros, adj, bmap))
+                    .then(([ros, adj, bmap]) => ideateDelegate(f, mapR, ros, adj, bmap))
                     .then((idr) => {
                         collectNeeds(idr, f.path);
                         return { folder: f, mapR, idr };
@@ -1217,9 +1220,9 @@ const chainLang = async (L) => {
             L.key +
             ': ' +
             rows.length +
-            ' folder lane(s), ' +
+            ' folder delegate(s), ' +
             failed.length +
-            ' failed, lang lane ' +
+            ' failed, lang delegate ' +
             (langR && langR.ok ? 'ok' : 'FAILED'),
     );
     return { language: L.key, rows, failed, sameLang, crossRows: langR && langR.ok ? crossRows : crossRows.concat(sameLang), lang: langR };
@@ -1281,7 +1284,7 @@ const audit = await guard(
     ),
 );
 const poolProven = !!audit && audit.ok;
-if (!poolProven) log('POOL NOT PROVEN: ' + (audit ? audit.headline || audit.failure : 'audit lane failed'));
+if (!poolProven) log('POOL NOT PROVEN: ' + (audit ? audit.headline || audit.failure : 'audit delegate failed'));
 
 // --- [CLOSE]
 
@@ -1360,5 +1363,5 @@ return {
                 ' altitude-thin folder(s), ' +
                 audit.docgenFailures.length +
                 ' docgen/leader failure(s)'
-              : 'audit lane failed'),
+              : 'audit delegate failed'),
 };

@@ -2,16 +2,16 @@ export const meta = {
     name: 'rebuild-api',
     whenToUse: 'Rebuild every .api catalog under a target root to full integration-shaped capability.',
     description:
-        'Rebuild every .api catalog under a target root to FULL first-class, integration-shaped capability — document each package full advanced surface AND how packages STACK into single dense rails, verified against real members. Substrate-first PER LANGUAGE: each language runs as an independent concurrent lane in which the shared tier (libs/<lang>/.api/) is rebuilt before that language folder tiers — the barrier is language-local, so a python folder catalog never waits on csharp substrate; a failed substrate batch flags that language folder batches in the log and return instead of silently stacking onto stub hubs. Folder batches keep one folder per batch, pack small sibling-folder tails of the same language up to the batch size, and co-batch sibling families as the WORK PARTITION, never a write fence: every batch fixes any catalog its work exposes — either tier, in or out of its batch — in the same pass under the current-state law, so the run ends closed in one pass. Every catalog rebuild batch (substrate and folder tier alike) runs as a dispatched write lane — batches are path-disjoint by construction; the discover stage runs native. Language-agnostic: members verified via assay api over host DLLs / NuGet / Python distributions / node_modules, falling back to the nuget MCP / Context7 / source tier when reflection is blocked. args = optional scope (string, array of scopes, or {target|targets} — e.g. "libs/python" or "libs/csharp/Rasm.Bim"); empty = all of libs.',
+        'Rebuild every .api catalog under a target root to FULL first-class, integration-shaped capability — document each package full advanced surface AND how packages STACK into single dense rails, verified against real members. Substrate-first PER LANGUAGE: each language runs as an independent concurrent delegate in which the shared tier (libs/<lang>/.api/) is rebuilt before that language folder tiers — the barrier is language-local, so a python folder catalog never waits on csharp substrate; a failed substrate batch flags that language folder batches in the log and return instead of silently stacking onto stub hubs. Folder batches keep one folder per batch, pack small sibling-folder tails of the same language up to the batch size, and co-batch sibling families as the WORK PARTITION, never a write fence: every batch fixes any catalog its work exposes — either tier, in or out of its batch — in the same pass under the current-state law, so the run ends closed in one pass. Every catalog rebuild batch (substrate and folder tier alike) runs as a dispatched write delegate — batches are path-disjoint by construction; the discover stage runs native. Language-agnostic: members verified via assay api over host DLLs / NuGet / Python distributions / node_modules, falling back to the nuget MCP / Context7 / source tier when reflection is blocked. args = optional scope (string, array of scopes, or {target|targets} — e.g. "libs/python" or "libs/csharp/Rasm.Bim"); empty = all of libs.',
     phases: [
         { title: 'API-Discover', detail: 'list every .api catalog under the target from disk; _tmp/archives excluded' },
         {
             title: 'API-Substrate',
-            detail: 'per-language dispatched write lanes: each language shared tier (libs/<lang>/.api/) rebuilt first inside its own lane — the hub rails that language folder tier stacks onto; a failed hub batch flags the lane',
+            detail: 'per-language dispatched write delegates: each language shared tier (libs/<lang>/.api/) rebuilt first inside its own delegate — the hub rails that language folder tier stacks onto; a failed hub batch flags the delegate',
         },
         {
             title: 'API-Rebuild',
-            detail: 'folder-tier dispatched write batches per language lane: one folder per batch, small sibling-folder tails packed up to the batch size; all lanes concurrent under the run-wide slot cap; every cross-catalog defect fixed in-pass',
+            detail: 'folder-tier dispatched write batches per language delegate: one folder per batch, small sibling-folder tails packed up to the batch size; all delegates concurrent under the run-wide slot cap; every cross-catalog defect fixed in-pass',
         },
     ],
 };
@@ -20,7 +20,7 @@ export const meta = {
 
 const CAP = 14;
 const BATCH = 4; // .api files per agent — deep enough per file, many agents for parallelism
-const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute working root: native products mint absolute here, codex lanes take it as cwd
+const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute working root: native products mint absolute here, codex delegates take it as cwd
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -34,7 +34,7 @@ const scopeRows = Array.isArray(args)
         : [];
 const scopes = scopeRows.map((s) => String(s).trim()).filter((s) => s && s !== 'ALL');
 const SWEEP = scopes.length ? scopes.join(', ') : 'libs';
-// Per-instance scratch dir for the per-lane report files — minted deterministically from the normalized scope set (clock/randomness
+// Per-instance scratch dir for the per-delegate report files — minted deterministically from the normalized scope set (clock/randomness
 // would break resume): one FLAT dir under .claude/scratch/, a basename slug and an FNV-1a tail so distinct scopes never collide.
 const fnv1a = (s) => {
     let h = 0x811c9dc5;
@@ -86,7 +86,7 @@ const RECEIPT = {
 // --- [DOCTRINE] ------------------------------------------------------------------------
 
 // LAW + rebuildPrompt are the codex-dispatched batch payload: neutral register (hostile-stance/intensifier framing makes a codex
-// lane over-probe for zero depth gain); the two naivety axes, ULTRA-STACKING, and phantom deletion are conserved as substance.
+// delegate over-probe for zero depth gain); the two naivety axes, ULTRA-STACKING, and phantom deletion are conserved as substance.
 const LAW = [
     'Rasm monorepo. .api catalogs are agent-facing declarative records of a package useful surface that DESIGN PAGES compose against. CLAUDE.md ' +
         'DEPENDENCY_POLICY: mine each admitted package to its FULL useful capability; prefer ecosystem primitives over reinvention; internalize ' +
@@ -134,7 +134,7 @@ const LAW = [
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// The single run-wide scheduler: CAP agents in flight across every language lane, a freed slot passes to the next waiter.
+// The single run-wide scheduler: CAP agents in flight across every language delegate, a freed slot passes to the next waiter.
 let active = 0;
 const waiters = [];
 const acquire = () => (active < CAP ? (active++, Promise.resolve()) : new Promise((res) => waiters.push(res)));
@@ -158,11 +158,11 @@ const chunk = (arr, n) => {
 };
 
 // Codex dispatch: the wrapper runs one blocking supervised CLI process and writes its content
-// to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
+// to the delegate report, and returns mechanical orchestration data. Delegate law rides developer-instructions
 // (role split); the prompt carries only the task; the output contract sits LAST. Every batch EDITS .api
-// files in place, so every lane is a write lane.
+// files in place, so every delegate is a write delegate.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
-const laneLaw = (schema) =>
+const delegateLaw = (schema) =>
     '<completion_bar>\nDone is every catalog in your named batch rebuilt to its full integration-shaped depth with its ' +
     'fix-log entry written — proof-complete, never effort-spent, never early. Complete every named move before yielding; do ' +
     'not stop at analysis or a partial edit. If the chosen approach resists, pick the next-best one and proceed. Your layer ' +
@@ -176,8 +176,8 @@ const laneLaw = (schema) =>
     JSON.stringify(schema) +
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
-// Sandbox decides authorship: batch lanes always author their own report, so they run workspace-write and land the product themselves.
-const LANE_SCRIPT = ROOT + '/.claude/skills/codex/scripts/codex-lane.sh';
+// Sandbox decides authorship: batch delegates always author their own report, so they run workspace-write and land the product themselves.
+const DELEGATE_SCRIPT = ROOT + '/.claude/skills/codex/scripts/codex-delegate.sh';
 const flagsOf = (o) =>
     [o.model && '--model ' + o.model, o.codexEffort && '--effort ' + o.codexEffort, o.web && '--web']
         .filter(Boolean)
@@ -189,47 +189,47 @@ const codexPrompt = (label, task, schema, o) => {
     const root = ROOT;
     const report = root + '/' + base + '-report.json';
     const model = o.model || 'gpt-5.6-terra';
-    const lane = report + '.lane';
+    const delegate = report + '.delegate';
     return (
-        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised lane run; never perform, edit, judge, soften, ' +
-        'summarize, or relay the work yourself. (1) Write the LANE LAW block below VERBATIM to ' +
-        lane +
+        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised delegate run; never perform, edit, judge, soften, ' +
+        'summarize, or relay the work yourself. (1) Write the DELEGATE LAW block below VERBATIM to ' +
+        delegate +
         '/law.md and the TASK block below VERBATIM to ' +
-        lane +
+        delegate +
         '/task.md, composing neither. Delete any leftover file at ' +
         report +
         ' with one Bash rm -f (a stale product there passes the verify probe as a false success). ' +
         '(2) Run ONE Bash call with run_in_background true: ' +
-        LANE_SCRIPT +
+        DELEGATE_SCRIPT +
         ' --task ' +
-        lane +
+        delegate +
         '/task.md --law ' +
-        lane +
+        delegate +
         '/law.md --dir ' +
-        lane +
+        delegate +
         ' --cwd ' +
         root +
         ' --sandbox workspace-write' +
         flagsOf({ model, codexEffort: o.codexEffort, web: o.web }) +
-        '; the harness re-invokes you when the lane exits — Read ' +
-        lane +
+        '; the harness re-invokes you when the delegate exits — Read ' +
+        delegate +
         '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
-        'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
+        'alone (the session persisted on disk) overwrites the task file with "continue and complete the delegate, then land the receipt" and ' +
         're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
         'refusal) re-runs the same command untouched. (3) The delegate lands the product itself at ' +
         report +
         ' as its final act. (4) Verify with one Bash call: jq -e . ' +
         report +
-        ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the lane ' +
+        ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the delegate ' +
         'events.jsonl (jq -rs to the last agent_message item text, Write that), re-probe, and a second miss returns ok=false with the ' +
         'probe output. (5) Return ok=true, report=' +
         base +
-        '-report.json (this repo-relative form, matching codex-lane receipts), entries = the length of the "' +
+        '-report.json (this repo-relative form, matching codex-delegate receipts), entries = the length of the "' +
         o.hl.arr +
         '" array in the product, headline="<entries> catalogs | verdict:<verdict> | +<beyondBatch.length> beyond", and failure empty. ' +
         'On a failed receipt return ok=false, entries=0, report and headline empty, and failure equal to the receipt reason and failure ' +
-        'text VERBATIM.\n\nLANE LAW:\n\n' +
-        laneLaw(schema) +
+        'text VERBATIM.\n\nDELEGATE LAW:\n\n' +
+        delegateLaw(schema) +
         '\n\nTASK:\n\n' +
         task +
         '\n\nREPORT FILE (final act): before returning your final message, write that COMPLETE final-message JSON verbatim to ' +
@@ -240,11 +240,11 @@ const codexPrompt = (label, task, schema, o) => {
 // Every catalog rebuild batch routes here through the codex wrapper. QUOTA FALLBACK: a codex receipt whose failure matches
 // usage/quota/limit re-dispatches the SAME task natively at the role's native twin — the caller owns the re-dispatch, the
 // wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (the batch's assigned files) so
-// a failed lane's territory is exact even when it died.
+// a failed delegate's territory is exact even when it died.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
-const nativeLane = (task, o) => {
-    // Path authority: a native lane may not follow the session cwd, so the product mints ABSOLUTE under ROOT while the
-    // receipt returns the repo-relative form codex lanes report — the aggregation reads one consistent `report` shape.
+const nativeDelegate = (task, o) => {
+    // Path authority: a native delegate may not follow the session cwd, so the product mints ABSOLUTE under ROOT while the
+    // receipt returns the repo-relative form codex delegates report — the aggregation reads one consistent `report` shape.
     const report = SCRATCH + '/' + fileTag(o.label) + '-report.json';
     return agent(
         task +
@@ -256,7 +256,7 @@ const nativeLane = (task, o) => {
             JSON.stringify(o.schema) +
             ' — then return ONLY the receipt: ok, report = ' +
             report +
-            ' (this repo-relative form, matching codex-lane receipts), entries count, one-line mechanical headline, failure empty.',
+            ' (this repo-relative form, matching codex-delegate receipts), entries count, one-line mechanical headline, failure empty.',
         {
             label: o.label,
             phase: o.phase,
@@ -274,15 +274,15 @@ const recon = (task, o) =>
         effort: 'low',
         schema: RECEIPT,
     })
-        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
+        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeDelegate(task, o) : r))
         .then((r) => ({
-            lane: o.label,
+            delegate: o.label,
             scope: o.scope || [],
             ok: !!(r && r.ok && r.report),
             report: (r && r.report) || '',
             entries: (r && r.entries) || 0,
             headline: (r && r.headline) || '',
-            failure: (r && r.failure) || (r ? '' : 'lane died'),
+            failure: (r && r.failure) || (r ? '' : 'delegate died'),
         }));
 const rel = (f) => {
     const i = String(f).indexOf('libs/');
@@ -359,8 +359,8 @@ const processBatch = (tier, degraded) => async (w) =>
         hl: { arr: 'files' },
     });
 const failedOf = (batches, res) => batches.filter((_, i) => !res[i] || !res[i].ok).flatMap((b) => b.files);
-// One language lane: its substrate hubs land before its folder tier; a failed hub batch FLAGS the folder batches instead of failing silently.
-const runLane = async (l) => {
+// One language delegate: its substrate hubs land before its folder tier; a failed hub batch FLAGS the folder batches instead of failing silently.
+const runDelegate = async (l) => {
     const subRes = l.sub.length
         ? await Promise.all(l.sub.map((w, bi) => scheduled(() => processBatch('substrate', [])({ ...w, idx: bi })).catch(() => null)))
         : [];
@@ -401,7 +401,7 @@ const FILES = [...new Set(((inv && inv.files) || []).filter(Boolean).map(rel))].
 const T0 = FILES.filter(isSubstrate).sort();
 const T1 = FILES.filter((f) => !isSubstrate(f) && f.includes('/.api/'));
 const LANGS = [...new Set([...T0, ...T1].map(langOf))].sort();
-const lanes = LANGS.map((lang) => {
+const delegates = LANGS.map((lang) => {
     const byFolder = new Map();
     for (const f of T1.filter((x) => langOf(x) === lang)) {
         const k = folderOf(f);
@@ -419,7 +419,7 @@ const lanes = LANGS.map((lang) => {
     };
 });
 const totalFiles = T0.length + T1.length;
-const totalBatches = lanes.reduce((n, l) => n + l.sub.length + l.fold.length, 0);
+const totalBatches = delegates.reduce((n, l) => n + l.sub.length + l.fold.length, 0);
 log(
     'API discover under ' +
         SWEEP +
@@ -430,12 +430,12 @@ log(
         ' substrate + ' +
         T1.length +
         ' folder-tier across ' +
-        lanes.reduce((n, l) => n + l.folders, 0) +
+        delegates.reduce((n, l) => n + l.folders, 0) +
         ' folders) in ' +
         totalBatches +
         ' batches across ' +
         LANGS.length +
-        ' language lane(s); CAP=' +
+        ' language delegate(s); CAP=' +
         CAP,
 );
 
@@ -443,11 +443,11 @@ phase('API-Substrate');
 
 phase('API-Rebuild');
 
-// Both groups open before launch: lanes interleave the two tiers across languages; each agent lands in the group its phase option names.
-const laneOut = (await Promise.all(lanes.map(runLane))).filter(Boolean);
-const done = laneOut.flatMap((l) => [...l.subRes, ...l.foldRes]).filter((r) => r && r.ok);
-const FAILED = laneOut.flatMap((l) => [...l.subFailed, ...l.foldFailed]);
-const DEGRADED = laneOut
+// Both groups open before launch: delegates interleave the two tiers across languages; each agent lands in the group its phase option names.
+const delegateOut = (await Promise.all(delegates.map(runDelegate))).filter(Boolean);
+const done = delegateOut.flatMap((l) => [...l.subRes, ...l.foldRes]).filter((r) => r && r.ok);
+const FAILED = delegateOut.flatMap((l) => [...l.subFailed, ...l.foldFailed]);
+const DEGRADED = delegateOut
     .filter((l) => l.subFailed.length)
     .map((l) => ({ lang: l.lang, substrateFailed: l.subFailed, flaggedFolderBatches: l.fold.length }));
 const edits = done.reduce((n, r) => n + r.entries, 0); // catalog edits reported across batches; each batch's full fix-log stays on disk at its receipt's `report`
@@ -461,7 +461,7 @@ log(
         ' catalogs); ' +
         edits +
         ' catalog edits reported' +
-        (DEGRADED.length ? ' — DEGRADED lane(s), folder batches ran against unverified hubs: ' + DEGRADED.map((d) => d.lang).join(', ') : '') +
+        (DEGRADED.length ? ' — DEGRADED delegate(s), folder batches ran against unverified hubs: ' + DEGRADED.map((d) => d.lang).join(', ') : '') +
         (FAILED.length ? ' — FAILED (reported, run continues): ' + FAILED.join(', ') : ''),
 );
 

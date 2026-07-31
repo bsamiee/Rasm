@@ -95,7 +95,7 @@ Each variant resolves onto a core type and earns only its named deltas; everythi
 - diff-review: rendered diff with margin annotations and severity chips, file-level risk labels; per-hunk verdicts anchored to stable hunk ids.
 - quiz: three homogeneous choices, per-answer justification, criterion readout with no percentage; one receipt carries every selection.
 - wargame: scoring matrix at board width, weights locked before scores, one row per direction; kill conditions as row chips.
-- buy-in: inspectable evidence — demo, trace, before-and-after — one objection lane per audience; refutation and proving signal, a sign-off matrix as capture.
+- buy-in: inspectable evidence — demo, trace, before-and-after — one objection track per audience; refutation and proving signal, a sign-off matrix as capture.
 - explainer: reading class, contrasting cases side by side, scrub controls driving a live figure; hover-linked term glossary, disclosure deepens and never gates.
 - contact-sheet: stage class, variant matrix under shared controls, best-for label per cell; density, border, and state toggles, both themes rendered rather than imagined.
 - board: drag cards across named columns, dependency warnings on invalid placement; changed-only export of moved ids, DOM position never authoritative.

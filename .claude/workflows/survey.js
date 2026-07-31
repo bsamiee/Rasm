@@ -1,17 +1,17 @@
 export const meta = {
     name: 'survey',
     whenToUse:
-        'Deep-research the modern external packages a target planning folder is missing — packages that REPLACE hand-rolled design-page capability or ADD genuine domain capability — then execute end to end in one run: central admission with gates, full-depth .api catalogs, registry closure, and immediate holistic integration into the design pages. args = a planning folder path, an array of paths, or {targets}; target lanes run CONCURRENTLY — only the Admit stage (the central-manifest writer) serializes across targets.',
+        'Deep-research the modern external packages a target planning folder is missing — packages that REPLACE hand-rolled design-page capability or ADD genuine domain capability — then execute end to end in one run: central admission with gates, full-depth .api catalogs, registry closure, and immediate holistic integration into the design pages. args = a planning folder path, an array of paths, or {targets}; target delegates run CONCURRENTLY — only the Admit stage (the central-manifest writer) serializes across targets.',
     description:
-        'Package survey-and-integrate over one target planning folder per lane. Scout (the recon lane) maps the folder — admitted packages, hand-rolled capability an ecosystem package owns, domain gaps against the bleeding-edge state of the art — and emits bounded research facets. Research fan (facet lanes with live web search enabled, parallel) hunts the best-in-class modern package per facet, self-validating the admission gate (best-of, platform, newest stable, license, modern packaging, no-dup) with verified versions and members, writing its full candidate dossier to a per-lane report file and returning a thin receipt. ONE admission writer reads every research report IN FULL from disk, consolidates adversarially, hand-edits the central manifest + owning project registry + folder README bidirectionally (adds, and ripple-removes superseded packages), runs the restore/lock gate with the toolchain fallback, self-heals, and reverts what cannot resolve. Catalog writers (parallel) author the .api catalogs at FULL depth — decompile/feed-verified members, [STACKING], homed to the owning tier (folder or language root). Mapper fan (recon lanes) then reads ALL planning-folder pages, the landed catalogs (new first), and the language-root tier, writing information maps to report files — locations, verified members, integration shapes as fact, never prescriptions — and returning thin receipts. ONE terminal executor reads the map reports from disk and implements the whole integration: new pages/sub-folders where the capability demands an owner, existing pages improved and extended in place, holistic composition never tacked-on rows, index-doc closure, every ripple in the same pass. All target lanes run CONCURRENTLY under one agent-level slot cap; the Admit stage alone serializes across targets, and shared-tier catalogs of one language route through one serialized writer so concurrent lanes never collide on the language-root .api files. The scout hand-roll census feeds every Research facet and the Integrate executor; Scout, Admit, and Integrate each carry one bounded re-attempt. The admit and integrate writers carry a required-but-usually-empty harvest attestation; when any lane pools a non-empty nomination, ONE terminal doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal) and nothing follows it. Otherwise nothing follows the executor; cold-verify runs separately when wanted.',
+        'Package survey-and-integrate over one target planning folder per delegate. Scout (the recon delegate) maps the folder — admitted packages, hand-rolled capability an ecosystem package owns, domain gaps against the bleeding-edge state of the art — and emits bounded research facets. Research fan (facet delegates with live web search enabled, parallel) hunts the best-in-class modern package per facet, self-validating the admission gate (best-of, platform, newest stable, license, modern packaging, no-dup) with verified versions and members, writing its full candidate dossier to a per-delegate report file and returning a thin receipt. ONE admission writer reads every research report IN FULL from disk, consolidates adversarially, hand-edits the central manifest + owning project registry + folder README bidirectionally (adds, and ripple-removes superseded packages), runs the restore/lock gate with the toolchain fallback, self-heals, and reverts what cannot resolve. Catalog writers (parallel) author the .api catalogs at FULL depth — decompile/feed-verified members, [STACKING], homed to the owning tier (folder or language root). Mapper fan (recon delegates) then reads ALL planning-folder pages, the landed catalogs (new first), and the language-root tier, writing information maps to report files — locations, verified members, integration shapes as fact, never prescriptions — and returning thin receipts. ONE terminal executor reads the map reports from disk and implements the whole integration: new pages/sub-folders where the capability demands an owner, existing pages improved and extended in place, holistic composition never tacked-on rows, index-doc closure, every ripple in the same pass. All target delegates run CONCURRENTLY under one agent-level slot cap; the Admit stage alone serializes across targets, and shared-tier catalogs of one language route through one serialized writer so concurrent delegates never collide on the language-root .api files. The scout hand-roll census feeds every Research facet and the Integrate executor; Scout, Admit, and Integrate each carry one bounded re-attempt. The admit and integrate writers carry a required-but-usually-empty harvest attestation; when any delegate pools a non-empty nomination, ONE terminal doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal) and nothing follows it. Otherwise nothing follows the executor; cold-verify runs separately when wanted.',
     phases: [
         {
             title: 'Scout',
-            detail: 'one recon lane per target: folder map, hand-roll census, domain gaps, bounded research facets',
+            detail: 'one recon delegate per target: folder map, hand-roll census, domain gaps, bounded research facets',
         },
         {
             title: 'Research',
-            detail: 'one facet lane with live web search, parallel under the pool cap: best-in-class modern candidates, gate self-validated, versions/licenses/members verified, dossier to disk + thin receipt',
+            detail: 'one facet delegate with live web search, parallel under the pool cap: best-in-class modern candidates, gate self-validated, versions/licenses/members verified, dossier to disk + thin receipt',
         },
         {
             title: 'Admit',
@@ -66,7 +66,7 @@ const rawTargets = Array.isArray(argsIn)
           : [];
 const TARGETS = [...new Set(rawTargets.filter(Boolean).map(normTarget))];
 
-// Per-instance scratch dir — per-lane report files, one FLAT dir per instance. Minted deterministically from the normalized target set
+// Per-instance scratch dir — per-delegate report files, one FLAT dir per instance. Minted deterministically from the normalized target set
 // (clock/randomness would break resume): a human-readable basename slug with an FNV-1a tail so distinct target sets never share a directory.
 const fnv1a = (s) => {
     let h = 0x811c9dc5;
@@ -327,7 +327,7 @@ const MAP_SCHEMA = {
     },
 };
 
-// Thin wire receipt: the lane's PRODUCT stays on disk at `report`; only status + count + headline travel inline.
+// Thin wire receipt: the delegate's PRODUCT stays on disk at `report`; only status + count + headline travel inline.
 const RECEIPT = {
     type: 'object',
     additionalProperties: false,
@@ -424,7 +424,7 @@ const langOf = (t) =>
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// Agent-level slot scheduler: CAP agents in flight across ALL target lanes, work-conserving backfill the moment a
+// Agent-level slot scheduler: CAP agents in flight across ALL target delegates, work-conserving backfill the moment a
 // slot frees. The single governor for every agent call.
 const makeSlots = (cap) => {
     let active = 0;
@@ -443,10 +443,10 @@ const makeSlots = (cap) => {
 };
 const slot = makeSlots(CAP);
 const RETRY_ATTEMPTS = 2;
-// Bounded re-dispatch for a dead CRITICAL lane (scout, admit, integrate): attempt-counted with a retry BEFORE each attempt — the
+// Bounded re-dispatch for a dead CRITICAL delegate (scout, admit, integrate): attempt-counted with a retry BEFORE each attempt — the
 // Retry releases the slot and admit's serial window so siblings continue. `ok` defaults to non-null; scout
-// passes an ok-field predicate. The final death isolates the lane, never the run — the caller's data-dependency guard stops an empty chain.
-const retryLane = async (fn, ok = (r) => !!r) => {
+// passes an ok-field predicate. The final death isolates the delegate, never the run — the caller's data-dependency guard stops an empty chain.
+const retryDelegate = async (fn, ok = (r) => !!r) => {
     for (let a = 0; a < RETRY_ATTEMPTS; a++) {
         const r = await fn();
         if (ok(r)) return r;
@@ -454,8 +454,8 @@ const retryLane = async (fn, ok = (r) => !!r) => {
     return null;
 };
 
-// Serial write chains — first lane to arrive goes first; the slot is acquired INSIDE the chained thunk, so a
-// queued lane never holds a slot while waiting its turn.
+// Serial write chains — first delegate to arrive goes first; the slot is acquired INSIDE the chained thunk, so a
+// queued delegate never holds a slot while waiting its turn.
 const makeChain = () => {
     let tail = Promise.resolve();
     return (fn) => {
@@ -475,14 +475,14 @@ const chunk = (arr, n) => {
     return o;
 };
 
-// Dispatch: the wrapper runs one supervised codex-lane.sh lane in the background, reads the receipt, verifies the
-// --out product, and returns mechanical orchestration data. Lane law rides --law (developer-instructions,
-// role split); the --task file carries only the task; the output contract sits LAST. A web-research lane (o.web)
+// Dispatch: the wrapper runs one supervised codex-delegate.sh delegate in the background, reads the receipt, verifies the
+// --out product, and returns mechanical orchestration data. Delegate law rides --law (developer-instructions,
+// role split); the --task file carries only the task; the output contract sits LAST. A web-research delegate (o.web)
 // rides --web and takes a territory clause that admits its web tools and the named packages' official sources over repo files.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
 // Per-target own-pass artifact path — the integrate executor's blind integration plan, distinct from its map reports.
 const ownPassArt = (t, stage) => SCRATCH + '/' + fileTag(t.split('/').pop()) + '-' + stage + '-ownpass.md';
-const laneLaw = (schema, o) =>
+const delegateLaw = (schema, o) =>
     '<context_gathering>\nTerritory: ' +
     (o.web
         ? 'the official sources of the packages the task names — the package registry (PyPI/NuGet/npm), the package docs, ' +
@@ -504,30 +504,30 @@ const laneLaw = (schema, o) =>
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
 
-// One core builder for both codex lanes; only step (4) differs — codexPrompt returns a thin receipt, codexInline
+// One core builder for both codex delegates; only step (4) differs — codexPrompt returns a thin receipt, codexInline
 // relays the product JSON verbatim (scout's payload is small orchestration input that fans Research and slices Map).
-const LANE_SCRIPT = '/Users/bardiasamiee/Documents/99.Github/Rasm/.claude/skills/codex/scripts/codex-lane.sh';
+const DELEGATE_SCRIPT = '/Users/bardiasamiee/Documents/99.Github/Rasm/.claude/skills/codex/scripts/codex-delegate.sh';
 const codexSteps = (label, task, schema, o, step4) => {
     const base = SCRATCH + '/' + fileTag(label);
     const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
     const report = root + '/' + base + '-report.json';
-    const lane = report + '.lane';
+    const delegate = report + '.delegate';
     return [
-        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised lane run; never perform, edit, judge, ' +
+        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised delegate run; never perform, edit, judge, ' +
             'soften, summarize, or relay the work yourself.',
-        '(1) Write the LANE LAW block below VERBATIM to ' +
-            lane +
+        '(1) Write the DELEGATE LAW block below VERBATIM to ' +
+            delegate +
             '/law.md and the TASK block below VERBATIM to ' +
-            lane +
+            delegate +
             '/task.md, composing neither.',
         '(2) Run ONE Bash call with run_in_background true: ' +
-            LANE_SCRIPT +
+            DELEGATE_SCRIPT +
             ' --task ' +
-            lane +
+            delegate +
             '/task.md --law ' +
-            lane +
+            delegate +
             '/law.md --dir ' +
-            lane +
+            delegate +
             ' --cwd ' +
             root +
             ' --sandbox read-only --model gpt-5.6-terra' +
@@ -535,20 +535,20 @@ const codexSteps = (label, task, schema, o, step4) => {
             (o.web ? ' --web' : '') +
             ' --out ' +
             report +
-            '; the harness re-invokes you when the lane exits — Read ' +
-            lane +
+            '; the harness re-invokes you when the delegate exits — Read ' +
+            delegate +
             '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
-            'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
+            'alone (the session persisted on disk) overwrites the task file with "continue and complete the delegate, then land the receipt" and ' +
             're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
             'refusal) re-runs the same command untouched.',
-        'LANE LAW:\n\n' + laneLaw(schema, o),
+        'DELEGATE LAW:\n\n' + delegateLaw(schema, o),
         'TASK:\n\n' + task,
-        // recon lanes: --out materializes the product; a jq gate catches a dropped tail before the receipt asserts ok.
-        '(3) The lane lands the product at ' +
+        // recon delegates: --out materializes the product; a jq gate catches a dropped tail before the receipt asserts ok.
+        '(3) The delegate lands the product at ' +
             report +
             ' via --out. Verify with one Bash call: jq -e . ' +
             report +
-            ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the lane ' +
+            ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the delegate ' +
             'events.jsonl (jq -rs to the last agent_message item text, Write that), re-probe, and a second miss returns through step (4) with the error.',
         step4(base, report),
     ].join('\n\n');
@@ -583,15 +583,15 @@ const codexInline = (label, task, schema, o) =>
             ' and return that JSON through your structured output VERBATIM. On a failed receipt return the schema ' +
             'shape with ok=false, failure equal to the receipt reason and failure text VERBATIM, every array empty, and every other string empty.',
     );
-// jq headline bits per receipt product: mechanical counts by gate/kind, never lane judgment.
+// jq headline bits per receipt product: mechanical counts by gate/kind, never delegate judgment.
 const HEAD = {
     research: { arr: '.candidates', kind: '[.candidates[] | if .ok then "gated" else "rejected" end]', unit: 'candidates' },
     map: { arr: '.entries', kind: '[.entries[].kind]', unit: 'entries' },
 };
 
-// Native re-dispatch target for a dispatched lane; survey uses one arm, the others carry for parity.
+// Native re-dispatch target for a dispatched delegate; survey uses one arm, the others carry for parity.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
-const nativeLane = (task, o) =>
+const nativeDelegate = (task, o) =>
     agent(
         task +
             '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
@@ -604,10 +604,10 @@ const nativeLane = (task, o) =>
         { label: o.label, phase: o.phase, model: o.nativeModel || twinOf(o.model), effort: 'high', schema: RECEIPT },
     );
 
-// Every heavy read/investigate lane routes through the codex wrapper. QUOTA FALLBACK: a receipt whose
+// Every heavy read/investigate delegate routes through the codex wrapper. QUOTA FALLBACK: a receipt whose
 // failure matches usage/quota/limit re-dispatches the SAME task at the role's native twin; the caller owns the re-dispatch, and the
-// wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (never the lane's self-report) so a failed lane's
-// uncovered territory is exact even when the lane died before writing anything.
+// wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (never the delegate's self-report) so a failed delegate's
+// uncovered territory is exact even when the delegate died before writing anything.
 const recon = (task, o) =>
     agent(codexPrompt(o.label, task, o.schema, o), {
         label: 'terra:' + o.label,
@@ -616,19 +616,19 @@ const recon = (task, o) =>
         effort: 'low',
         schema: RECEIPT,
     })
-        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
+        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeDelegate(task, o) : r))
         .then((r) => ({
-            lane: o.label,
+            delegate: o.label,
             scope: o.scope || [],
             ok: !!(r && r.ok && r.report),
             report: (r && r.report) || '',
             entries: (r && r.entries) || 0,
             headline: (r && r.headline) || '',
-            failure: (r && r.failure) || (r ? '' : 'lane died'),
+            failure: (r && r.failure) || (r ? '' : 'delegate died'),
         }));
-// Scout is the run's one inline codex lane: the wrapper relays the SCOUT_SCHEMA product verbatim (ok/failure carried in-shape). Quota failure
-// re-dispatches the same task on a native lane; a non-quota failure is final.
-const scoutLane = (task, o) => {
+// Scout is the run's one inline codex delegate: the wrapper relays the SCOUT_SCHEMA product verbatim (ok/failure carried in-shape). Quota failure
+// re-dispatches the same task on a native delegate; a non-quota failure is final.
+const scoutDelegate = (task, o) => {
     const native = () => agent(task, { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: o.schema });
     return agent(codexInline(o.label, task, o.schema, o), {
         label: 'terra:' + o.label,
@@ -741,19 +741,19 @@ const HARVEST_LAW =
 
 if (!TARGETS.length) {
     log('No targets — pass a planning folder path, an array of paths, or {targets}. Empty args is a no-op.');
-    return { targets: [], lanes: [] };
+    return { targets: [], delegates: [] };
 }
 
 const badLang = TARGETS.filter((t) => !langOf(t));
 
 if (badLang.length) {
     log('Targets must live under libs/csharp | libs/python | libs/typescript. Got: ' + JSON.stringify(badLang));
-    return { targets: TARGETS, lanes: [] };
+    return { targets: TARGETS, delegates: [] };
 }
 
-// All target lanes run CONCURRENTLY; the slot scheduler is the only concurrency governor. The phases are declared up front — concurrent lanes
-// route every agent to its group via the per-call phase option and never race the global phase(). Only Admit serializes across lanes (admitSerial);
-// shared-tier catalogs of one language serialize through sharedSerial so lanes never collide on the language-root .api files.
+// All target delegates run CONCURRENTLY; the slot scheduler is the only concurrency governor. The phases are declared up front — concurrent delegates
+// route every agent to its group via the per-call phase option and never race the global phase(). Only Admit serializes across delegates (admitSerial);
+// shared-tier catalogs of one language serialize through sharedSerial so delegates never collide on the language-root .api files.
 phase('Scout');
 phase('Research');
 phase('Admit');
@@ -762,12 +762,12 @@ phase('Map');
 phase('Integrate');
 phase('Doctrine');
 
-const lane = async (t) => {
+const delegate = async (t) => {
     const L = LANG[langOf(t)];
     const tag = t.split('/').pop();
 
     // --- [SCOUT]
-    // Scout/research/map are codex-primary lanes: their task text is neutral-register (a hostile stance makes them
+    // Scout/research/map are codex-primary delegates: their task text is neutral-register (a hostile stance makes them
     // over-probe); the native admit/catalog/integrate builders keep the estate register — same substance.
     const scoutPrompt = [
         CTX(t, L),
@@ -791,13 +791,13 @@ const lane = async (t) => {
             'the one-line reason in `failure` and every array empty.',
     ].join('\n\n');
     const scoutOpts = { label: 'scout:' + tag, phase: 'Scout', schema: SCOUT_SCHEMA, calls: 120 };
-    // A dead or failed scout no-ops the whole lane after bounded re-dispatch, and the
+    // A dead or failed scout no-ops the whole delegate after bounded re-dispatch, and the
     // original failed receipt survives a still-dead retry so the log keeps its reason.
-    let scout = await slot(() => scoutLane(scoutPrompt, scoutOpts));
+    let scout = await slot(() => scoutDelegate(scoutPrompt, scoutOpts));
     if (!(scout && scout.ok))
         scout =
-            (await retryLane(
-                () => slot(() => scoutLane(scoutPrompt, { ...scoutOpts, label: 'scout:' + tag + ':a1' })),
+            (await retryDelegate(
+                () => slot(() => scoutDelegate(scoutPrompt, { ...scoutOpts, label: 'scout:' + tag + ':a1' })),
                 (r) => r && r.ok,
             )) || scout;
     const facets = ((scout && scout.facets) || []).filter((f) => f && f.id);
@@ -871,7 +871,7 @@ const lane = async (t) => {
     ).filter(Boolean);
     const researched = research.filter((r) => r.ok);
     const candTotal = researched.reduce((n, r) => n + r.entries, 0);
-    const unresearched = research.filter((r) => !r.ok).flatMap((r) => r.scope.map((sc) => ({ lane: r.lane, scope: sc })));
+    const unresearched = research.filter((r) => !r.ok).flatMap((r) => r.scope.map((sc) => ({ delegate: r.delegate, scope: sc })));
     log(
         tag +
             ' research: ' +
@@ -885,14 +885,14 @@ const lane = async (t) => {
                 ? ' — FAILED: ' +
                   research
                       .filter((r) => !r.ok)
-                      .map((r) => r.lane)
+                      .map((r) => r.delegate)
                       .join(', ')
                 : ''),
     );
     if (!researched.length) return { target: t, admitted: 0, note: 'no research reports landed' };
 
     // --- [ADMIT]
-    // Serialized across lanes: one central-manifest writer at a time. Research products stay on disk;
+    // Serialized across delegates: one central-manifest writer at a time. Research products stay on disk;
     // the writer consumes the roster's report files, never an inlined payload.
     const admitPrompt = [
         CTX(t, L),
@@ -903,7 +903,7 @@ const lane = async (t) => {
         LAWS_READ,
         HARVEST_LAW,
         "TASK: ADMISSION WRITER — you are the run's only central-manifest writer while you hold the serial window. The research " +
-            'products are ON DISK, one report file per facet (ROSTER below; consume only lanes with ok=true). CONSUMPTION: (a) ' +
+            'products are ON DISK, one report file per facet (ROSTER below; consume only delegates with ok=true). CONSUMPTION: (a) ' +
             'UNRESEARCHED facets below got no research coverage — they admit nothing this run; never back-fill them from memory; ' +
             '(b) read every ok report IN FULL from disk before deciding anything — candidates overlap across facets, cluster by ' +
             'package as you read; (c) consolidate ADVERSARIALLY: an on-disk ok=true candidate is a claim to re-derive, never a fact — ' +
@@ -934,10 +934,10 @@ const lane = async (t) => {
             JSON.stringify(research),
     ].join('\n\n');
     const admitOpts = { label: 'admit:' + tag, phase: 'Admit', model: 'fable', effort: 'high', schema: ADMIT_SCHEMA };
-    // A dead admit drops the lane's whole admission and severs its catalog/map/integrate: the re-dispatch acquires the serial window
-    // AFRESH each attempt, so the retry never holds the central-manifest lock — sibling targets admit while a limit-dead lane waits.
+    // A dead admit drops the delegate's whole admission and severs its catalog/map/integrate: the re-dispatch acquires the serial window
+    // AFRESH each attempt, so the retry never holds the central-manifest lock — sibling targets admit while a limit-dead delegate waits.
     const admitOnce = (label) => admitSerial(() => slot(() => agent(admitPrompt, { ...admitOpts, label })));
-    const admit = (await admitOnce('admit:' + tag)) || (await retryLane(() => admitOnce('admit:' + tag + ':a1')));
+    const admit = (await admitOnce('admit:' + tag)) || (await retryDelegate(() => admitOnce('admit:' + tag + ':a1')));
     const admitted = ((admit && admit.admitted) || []).filter((a) => a && a.package);
     log(tag + ' admit: ' + admitted.length + ' admitted, ' + ((admit && admit.skipped) || []).length + ' skipped, green=' + !!(admit && admit.green));
     if (!admitted.length) return { target: t, admitted: 0, green: !!(admit && admit.green), note: (admit && admit.summary) || 'nothing admitted' };
@@ -1006,7 +1006,7 @@ const lane = async (t) => {
     ).filter(Boolean);
     const mapped = maps.filter((r) => r.ok);
     const mapTotal = mapped.reduce((n, r) => n + r.entries, 0);
-    const unmapped = maps.filter((r) => !r.ok).flatMap((r) => r.scope.map((sc) => ({ lane: r.lane, scope: sc })));
+    const unmapped = maps.filter((r) => !r.ok).flatMap((r) => r.scope.map((sc) => ({ delegate: r.delegate, scope: sc })));
     log(
         tag +
             ' map: ' +
@@ -1020,7 +1020,7 @@ const lane = async (t) => {
                 ? ' — FAILED: ' +
                   maps
                       .filter((r) => !r.ok)
-                      .map((r) => r.lane)
+                      .map((r) => r.delegate)
                       .join(', ')
                 : ''),
     );
@@ -1062,10 +1062,10 @@ const lane = async (t) => {
             JSON.stringify(maps),
     ].join('\n\n');
     const integrateOpts = { label: 'integrate:' + tag, phase: 'Integrate', model: 'fable', effort: 'high', schema: FIXLOG };
-    // A dead executor leaves the lane admitted-but-unintegrated (landed catalogs, no design integration): re-dispatch through the
+    // A dead executor leaves the delegate admitted-but-unintegrated (landed catalogs, no design integration): re-dispatch through the
     // bounded re-dispatch so a usage-limit death can recover without losing the whole integration.
     const integrateOnce = (label) => slot(() => agent(integratePrompt, { ...integrateOpts, label }));
-    const fix = (await integrateOnce('integrate:' + tag)) || (await retryLane(() => integrateOnce('integrate:' + tag + ':a1')));
+    const fix = (await integrateOnce('integrate:' + tag)) || (await retryDelegate(() => integrateOnce('integrate:' + tag + ':a1')));
     return {
         target: t,
         admitted: admitted.length,
@@ -1073,10 +1073,10 @@ const lane = async (t) => {
         green: !!(admit && admit.green),
         catalogs: catalogFiles,
         mapEntries: mapTotal,
-        failedLanes: research
+        failedDelegates: research
             .concat(maps)
             .filter((r) => !r.ok)
-            .map((r) => r.lane),
+            .map((r) => r.delegate),
         built: (fix && fix.built && fix.built.length) || 0,
         beyond: (fix && fix.beyond && fix.beyond.length) || 0,
         harvest: ((admit && admit.harvest) || []).concat((fix && fix.harvest) || []),
@@ -1084,12 +1084,12 @@ const lane = async (t) => {
     };
 };
 
-const lanes = (
+const delegates = (
     await Promise.all(
         TARGETS.map((t) =>
-            lane(t).then(
+            delegate(t).then(
                 (r) => r,
-                () => ({ target: t, admitted: 0, note: 'lane crashed — inspect the run journal' }),
+                () => ({ target: t, admitted: 0, note: 'delegate crashed — inspect the run journal' }),
             ),
         ),
     )
@@ -1097,7 +1097,7 @@ const lanes = (
 
 // DOCTRINE LANDER: the run's durable-learning terminal — pooled harvest nominations adjudicated against the live
 // doctrine surfaces; refutation-first, land-nothing legal, admission law owned by docs/laws. Fires only on non-empty rows.
-const HARVEST_ROWS = lanes.flatMap((l) => (l && l.harvest) || []);
+const HARVEST_ROWS = delegates.flatMap((l) => (l && l.harvest) || []);
 const doctrine = HARVEST_ROWS.length
     ? await slot(() =>
           agent(
@@ -1120,7 +1120,7 @@ const doctrine = HARVEST_ROWS.length
 
 return {
     targets: TARGETS,
-    lanes,
+    delegates,
     doctrine: doctrine && {
         nominated: HARVEST_ROWS.length,
         landed: (doctrine.landed || []).length,

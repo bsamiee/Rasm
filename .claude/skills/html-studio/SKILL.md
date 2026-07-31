@@ -43,4 +43,4 @@ Every artifact is one self-contained file: a deliverable type fixes its composit
 
 - A durable artifact homes at `docs/atlas/` as `<kind>.<scope>[.<slug>].html`; a session artifact stays in scratch and never commits.
 - Chart form, mark, and palette selection precedes realization; this bundle owns the page shell and the SVG once the form is chosen.
-- Mermaid fences defer to `mermaid-diagramming`, whose render lane delivers a mermaid-sourced figure as pre-rendered inline SVG the page hosts.
+- Mermaid fences defer to `mermaid-diagramming`, whose render path delivers a mermaid-sourced figure as pre-rendered inline SVG the page hosts.

@@ -895,7 +895,7 @@ def conformance_rows(path: Path) -> tuple[Row, ...]:
         report = DEC_VNU.decode(stdout.encode("utf-8"))
     except msgspec.DecodeError:
         return (Row(str(path), 0, Check.CONFORMANCE, "warn", f"vnu output unparseable (returncode {proc.returncode})"),)
-    # Drop two vnu lanes: CSS messages (tinycss2 owns CSS here) and XML-1.0 mappability (these pages are HTML5 from file://, never XML/XHTML).
+    # Drop two vnu classes: CSS messages (tinycss2 owns CSS here) and XML-1.0 mappability (these pages are HTML5 from file://, never XML/XHTML).
     return tuple(
         Row(str(path), message.last_line, Check.CONFORMANCE, "warn" if message.type == "info" else "fail", message.message[:120])
         for message in report.messages

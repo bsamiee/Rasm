@@ -1,7 +1,7 @@
 export const meta = {
     name: 'slice-implement',
     description:
-        'Theme-sliced implement engine over the libs/ card estate — one run realizes ONE functionality set at full depth and does no unrelated work. Per-folder plan lanes ingest the full card pool, census rows, and research debt, then select only theme-relevant cards into dependency-ordered work units; the orchestrator packs those units into balanced writer batches under a page ceiling. Per batch a read-only recon lane maps verified facts, defects, and exact member signatures; blocked cards gain a guidance leg; a ground-up writer realizes every card into transcription-complete fences and drains research rows; a verification lane repairs conformance and capability defects in place. Four drain lanes apply cross-folder and packagesMissing rows refute-first across the three language trees and the cross tier — a language drain executes the catalog-alignment touch-point set for each receipt-evidenced package a landed fence composes that its central manifest lacks, and re-cards non-composed package wishes to the ideation pool — a per-language closure census feeds one terminal adversarial lane per tree, a theme-gated tests branch rebuilds the tests estate to a green gate, and a slice-closure audit proves every theme-selected card terminal — non-theme leftovers are rostered as future-slice work, never failures. args = {camp: absolute campaign home (required), theme: {title, charter, include, tests} (required — no privileged default theme); scope?: folder subset; tests?: boolean}; products land under camp/implement/ in a per-theme directory.',
+        'Theme-sliced implement engine over the libs/ card estate — one run realizes ONE functionality set at full depth and does no unrelated work. Per-folder plan delegates ingest the full card pool, census rows, and research debt, then select only theme-relevant cards into dependency-ordered work units; the orchestrator packs those units into balanced writer batches under a page ceiling. Per batch a read-only recon delegate maps verified facts, defects, and exact member signatures; blocked cards gain a guidance leg; a ground-up writer realizes every card into transcription-complete fences and drains research rows; a verification delegate repairs conformance and capability defects in place. Four drain delegates apply cross-folder and packagesMissing rows refute-first across the three language trees and the cross tier — a language drain executes the catalog-alignment touch-point set for each receipt-evidenced package a landed fence composes that its central manifest lacks, and re-cards non-composed package wishes to the ideation pool — a per-language closure census feeds one terminal adversarial delegate per tree, a theme-gated tests branch rebuilds the tests estate to a green gate, and a slice-closure audit proves every theme-selected card terminal — non-theme leftovers are rostered as future-slice work, never failures. args = {camp: absolute campaign home (required), theme: {title, charter, include, tests} (required — no privileged default theme); scope?: folder subset; tests?: boolean}; products land under camp/implement/ in a per-theme directory.',
     whenToUse: 'One run per functionality slice over the libs/ card estate — every run passes its theme explicitly',
     phases: [
         { title: 'Plan', detail: 'folder roster, then per-folder card-pool ingestion and theme selection into dependency-ordered work units' },
@@ -18,7 +18,7 @@ export const meta = {
         },
         {
             title: 'Redteam',
-            detail: 'read-only finder fan over touched pages, then one terminal adversarial lane per language tree acting on census and findings',
+            detail: 'read-only finder fan over touched pages, then one terminal adversarial delegate per language tree acting on census and findings',
         },
         {
             title: 'Tests',
@@ -38,7 +38,7 @@ const CAP = 14;
 const BATCH_PAGES = 16; // page target for one implement batch — the writer fan-width knob
 const BATCH_LOC = 10000; // tonnage ceiling beside the page count — card-weighted realization holds more than a whole-page rebuild, but a batch of huge pages still overflows one writer
 const BATCH_OVERFLOW = 1.25; // a starved tail folds into its predecessor while the merge stays inside this multiple of the target
-const FINDER_PAGES = 8; // touched pages per pre-redteam finder lane — the size-derived fan knob, language-agnostic
+const FINDER_PAGES = 8; // touched pages per pre-redteam finder delegate — the size-derived fan knob, language-agnostic
 const MAP_SECTIONS = ['FACTS', 'DEFECTS', 'CAPABILITY', 'MEMBER_TRUTH', 'DECLARATION', 'DOMAIN_GAPS', 'RESEARCH', 'SEAMS', 'COVERAGE'];
 const FIND_SECTIONS = ['FINDINGS', 'COVERAGE'];
 const TMAP_SECTIONS = ['FACTS', 'CAPABILITY', 'GAPS', 'DRIFT', 'SPINE', 'COVERAGE'];
@@ -360,7 +360,7 @@ const CARD_LAW =
 const ROW_LAW =
     'Cross-folder needs are DATA, never foreign edits: a change any file outside your write territory needs lands as a crossFolderRows row ' +
     '{targetFile (absolute), language, change, origin} in your receipt document. A missing or version-short package is NEVER installed by ' +
-    'you and NEVER edits a central manifest (Directory.Packages.props, pyproject.toml, pnpm-workspace.yaml) from your lane: it lands as a ' +
+    'you and NEVER edits a central manifest (Directory.Packages.props, pyproject.toml, pnpm-workspace.yaml) from your delegate: it lands as a ' +
     'packagesMissing row {package, language, reason} — the owning language drain executes the alignment chain for a receipt-evidenced ' +
     'composed package and re-cards a non-composed wish to the ideation pool; language names the owning manifest language ' +
     '(csharp|python|typescript), never cross.';
@@ -398,7 +398,7 @@ const TRIPWIRE =
 const NATIVE_DISCIPLINE =
     'WORK DISCIPLINE: a stable input — doctrine, map, receipt, catalog — is read ONCE in large windows (400+ lines per command), never ' +
     '200-line paging, and re-opened only at the exact span behind an edit. Work item by item: derive one item, land its edits, advance — ' +
-    'edits land as derived and never pool toward the end; your context compacts on a long lane, and a fact left only in context is lost. ' +
+    'edits land as derived and never pool toward the end; your context compacts on a long delegate, and a fact left only in context is lost. ' +
     'One verification pass per file after its LAST edit, never between edits. Budget: at most 250 tool calls; at the budget, land what is ' +
     'derived and record the remainder honestly in residuals.';
 const MAP_LAW =
@@ -414,7 +414,7 @@ const MAP_LAW =
     'catalog, folder tier first and language-root tier second.\n4. Only the anchors ' +
     'explicitly named at each seam-counterpart page.\n\nTreat explicit seam references as the only authority for expanding beyond the ' +
     'batch.\nDo not follow inferred counterparts or adjacent pages.\nThe doctrine corpus under docs/stacks is the writer read, never ' +
-    'this lane — do not list, probe, or account for it.\nRecord an absent task-named or card-named path in [COVERAGE] with its absolute ' +
+    'this delegate — do not list, probe, or account for it.\nRecord an absent task-named or card-named path in [COVERAGE] with its absolute ' +
     'attempted path and filesystem probe; an enumerated speculative path earns no row.\nDo not substitute a likely path for a missing ' +
     'path.\nCount a row ' +
     'under a batch page terminal [RESEARCH] section as live when it remains on disk without an explicit resolved, closed, or removed ' +
@@ -551,7 +551,7 @@ const CRIT_LAW =
     'through the simplest interpretation consistent with current disk, the doctrine, and the owning page charter; do not ask questions. ' +
     'Route each required out-of-territory change to crossFolderRows. Route each missing package to packagesMissing and perform no ' +
     'installation or manifest edit.\n</completion_bar>\n\n' +
-    '<context_gathering>\nComplete this ladder in this exact order; the order is the integrity of this lane.\n1. Read the doctrine ' +
+    '<context_gathering>\nComplete this ladder in this exact order; the order is the integrity of this delegate.\n1. Read the doctrine ' +
     'SCOPED TO THE AUDIT at anchor grain — rg the law heading, read the anchored span: the stack README doctrine laws and its ' +
     'collapse-scan table, the owner-chooser and rail-chooser sections, the aspect sections, and the file-organization law; a full ' +
     'doctrine page opens only when a live defect turns on law unreadable at anchor grain.\n2. Read every batch page in full and derive ' +
@@ -560,7 +560,7 @@ const CRIT_LAW =
     'fact map and implement receipt in full. Treat both as UNVERIFIED prior claims to refute against current disk, never as findings to ' +
     'accept.\n4. Read the card file of every card the task names.\n5. Before confirming or writing a member, read its exact .api catalog ' +
     'row at the folder tier, then at the language-root tier.\n\nThe task-named files-touched roster is navigation only: look there first, ' +
-    'bound nothing by it.\nBudget: at most 120 tool calls total across the lane. Read in bounded batches whose outputs do not truncate; ' +
+    'bound nothing by it.\nBudget: at most 120 tool calls total across the delegate. Read in bounded batches whose outputs do not truncate; ' +
     'never concatenate the territory into one command. Exceeding the budget is a process defect. At the budget, stop searching: keep every ' +
     'member failing its owner truth route out of settled fence code, sharpen its [RESEARCH] row with the unresolved question and exact ' +
     'route, and record the budget stop in residuals.\n</context_gathering>\n\n' +
@@ -635,7 +635,7 @@ const CENSUS_LAW =
     'only the design-page owners needed to confirm that member absence.\n\nHost-assembly catalog sets (RhinoCommon, Grasshopper2, Eto, ' +
     'macOS-native — catalogue-only surfaces with no manifest row by design) are a standing exclusion recorded ONCE in [COVERAGE] as a ' +
     'class, never per file.\nTreat the manifest, registries, project manifests, the aggregate catalog-name sweep, and the opened ' +
-    'candidate catalogs as the census boundary.\nThe doctrine corpus under docs/stacks is the writer read, never this lane — do not ' +
+    'candidate catalogs as the census boundary.\nThe doctrine corpus under docs/stacks is the writer read, never this delegate — do not ' +
     'list, probe, or account for it.\nRecord an absent task-named path in [COVERAGE] with its absolute attempted path and filesystem ' +
     'probe.\nDo not substitute a likely path for a missing path.\nUse at most 220 tool calls across enumeration, member-depth opens, and ' +
     'verification.\nCount every tool invocation against the single budget.\nRead per-file opens in small batches that preserve complete ' +
@@ -885,7 +885,7 @@ const thinReceipt = (f, stage) =>
     '", ok, report, filesTouched (absolute), crossFolderRows/cardsClosed/researchResolved/residuals counts, packagesMissing rows copied ' +
     'verbatim from your receipt document, one-line headline, failure empty.';
 
-const LANE_SCRIPT = REPO + '/.claude/skills/codex/scripts/codex-lane.sh';
+const DELEGATE_SCRIPT = REPO + '/.claude/skills/codex/scripts/codex-delegate.sh';
 const flagsOf = (o) => (o.codexEffort ? ' --effort ' + o.codexEffort : '') + (o.web ? ' --web' : '');
 const probeOf = (v, report) =>
     v.sections
@@ -905,17 +905,17 @@ const relayPrompt = (o) => {
     const many = Array.isArray(o.rows);
     const sandbox = o.sandbox || 'read-only';
     const authored = sandbox === 'workspace-write';
-    const lane = o.report + '.lane';
-    const dir = many ? lane + '/row-<i>' : lane;
+    const delegate = o.report + '.delegate';
+    const dir = many ? delegate + '/row-<i>' : delegate;
     return (
         'DISPATCH ROLE: a delegate performs the complete work below through ' +
-        (many ? String(o.rows.length) + ' SEQUENTIAL supervised lane runs, one per ROW' : 'one supervised lane run') +
-        '; never perform, edit, judge, research, or relay the work yourself. (1) Write the LANE LAW block below VERBATIM to ' +
-        lane +
+        (many ? String(o.rows.length) + ' SEQUENTIAL supervised delegate runs, one per ROW' : 'one supervised delegate run') +
+        '; never perform, edit, judge, research, or relay the work yourself. (1) Write the DELEGATE LAW block below VERBATIM to ' +
+        delegate +
         '/law.md' +
         (many
-            ? ' once, and per row <i> (1-based) the ROW TASK block with that row values substituted to ' + lane + '/row-<i>/task.md'
-            : ' and the TASK block below VERBATIM to ' + lane + '/task.md') +
+            ? ' once, and per row <i> (1-based) the ROW TASK block with that row values substituted to ' + delegate + '/row-<i>/task.md'
+            : ' and the TASK block below VERBATIM to ' + delegate + '/task.md') +
         ', composing neither. ' +
         (authored
             ? 'Delete any leftover file at ' + o.report + ' with one Bash rm -f (a stale product there passes the verify probe as a false success). '
@@ -923,11 +923,11 @@ const relayPrompt = (o) => {
         '(2) ' +
         (many ? 'Per row run' : 'Run') +
         ' ONE Bash call with run_in_background true: ' +
-        LANE_SCRIPT +
+        DELEGATE_SCRIPT +
         ' --task ' +
-        (many ? lane + '/row-<i>/task.md' : lane + '/task.md') +
+        (many ? delegate + '/row-<i>/task.md' : delegate + '/task.md') +
         ' --law ' +
-        lane +
+        delegate +
         '/law.md --dir ' +
         dir +
         ' --cwd ' +
@@ -936,12 +936,12 @@ const relayPrompt = (o) => {
         sandbox +
         ' --model gpt-5.6-sol' +
         flagsOf(o) +
-        (authored ? '' : ' --out ' + (many ? lane + '/row-<i>/out.md' : o.report)) +
-        '; the harness re-invokes you when the lane exits — Read ' +
+        (authored ? '' : ' --out ' + (many ? delegate + '/row-<i>/out.md' : o.report)) +
+        '; the harness re-invokes you when the delegate exits — Read ' +
         dir +
         '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only' +
         (many ? ' per row' : ' — the whole budget') +
-        ': a receipt reason "crash" alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, ' +
+        ': a receipt reason "crash" alone (the session persisted on disk) overwrites the task file with "continue and complete the delegate, ' +
         'then land the receipt" and re-runs the same command plus --resume <the receipt thread_id>; any other failed receipt ' +
         '(idle-timeout, turn failure or refusal) re-runs the same command untouched' +
         (many ? ', then a still-failed row is recorded failed and the next row proceeds' : '') +
@@ -950,13 +950,13 @@ const relayPrompt = (o) => {
             ? 'The delegate lands the product itself at ' + o.report + ' as its final act.'
             : many
               ? 'Concatenate the row out.md files in row order into ' + o.report + ' with one Bash cat (delete any leftover file there first).'
-              : 'The lane lands the product at ' + o.report + ' via --out.') +
+              : 'The delegate lands the product at ' + o.report + ' via --out.') +
         ' (4) Verify with one Bash call: ' +
         probeOf(o.verify, o.report) +
-        '; on a miss re-derive the product once from the lane events.jsonl (jq -rs to the last agent_message item text, Write that), ' +
+        '; on a miss re-derive the product once from the delegate events.jsonl (jq -rs to the last agent_message item text, Write that), ' +
         're-probe, and a second miss returns ok=false with the probe output. (5) ' +
         o.ret +
-        '\n\nLANE LAW:\n\n' +
+        '\n\nDELEGATE LAW:\n\n' +
         o.law +
         (many ? '\n\nROW TASK:\n\n' + o.rowTask + '\n\nROWS:\n\n' + JSON.stringify(o.rows) : '\n\nTASK:\n\n' + o.task)
     );
@@ -1352,7 +1352,7 @@ const rtPrompt = (L, drainR, receiptPaths, residualRows, censusR, findReports) =
     'citation; a drift the census missed and your own pass ' +
     'exposes you fix and name. A folder .api file duplicating a branch-substrate catalog collapses to a folder-specific overlay or deletes ' +
     'per the two-tier law. Closure repairs on the central manifest are yours (orphan and duplicate rows only, surgical anchored Edits — a ' +
-    'tests-estate lane may hold test rows in the same file); re-read the manifest span immediately before each manifest Edit — an Edit ' +
+    'tests-estate delegate may hold test rows in the same file); re-read the manifest span immediately before each manifest Edit — an Edit ' +
     'rejected on drifted content re-reads and re-derives, never forces; a NEW admission routes as a residual row. (7) DOCGEN-ZERO PROOF — run the ' +
     'docgen gate script at ' +
     REPO +
@@ -1369,7 +1369,7 @@ const rtPrompt = (L, drainR, receiptPaths, residualRows, censusR, findReports) =
     ((drainR && drainR.report) || '(no drain document)') +
     ' and the stage receipts ' +
     JSON.stringify(receiptPaths) +
-    '. PRE-VERIFIED FINDER QUEUE — read-only finder lanes swept the touched pages ahead of you; their findings documents are your ' +
+    '. PRE-VERIFIED FINDER QUEUE — read-only finder delegates swept the touched pages ahead of you; their findings documents are your ' +
     'primary attack queue, each finding a SIGNAL you re-open at its anchor before editing, never law: ' +
     ((findReports && findReports.length && JSON.stringify(findReports)) || '(none landed — your own sweep is the whole hunt)') +
     '. DRAIN RESIDUALS routed to your tree (rows no drain could apply, second-order splash included) — apply refute-first with your closure ' +
@@ -1377,7 +1377,7 @@ const rtPrompt = (L, drainR, receiptPaths, residualRows, censusR, findReports) =
     JSON.stringify(residualRows) +
     '.' +
     pyGuard(L.key) +
-    ' You are the sole actor in this lane: dispatch nothing, delegate nothing, spawn no sub-agent. Every read, verification, and write is ' +
+    ' You are the sole actor in this delegate: dispatch nothing, delegate nothing, spawn no sub-agent. Every read, verification, and write is ' +
     'yours. The census already carries the enumeration volume that once justified a leg — where the remaining sweep still exceeds your ' +
     'context, narrow by evidence (attack the owners the campaign touched, in receipt order) and return what you could not reach as ' +
     'residualRows naming the unswept boundary; a silent partial sweep reported as complete is the one unrecoverable failure here. ' +
@@ -1438,7 +1438,7 @@ const FINDER_LAW =
     'on disk), wrong (contradicting doctrine or charter), faked (prose asserting what the fence body omits), naive (a thin slice of the ' +
     'concept, or an enumerated roster where a generator belongs), drift (two surfaces disagreeing), phantom (a cited member failing its ' +
     'owner truth route — an external-package member against the .api tiers, a sibling Rasm member against its owning page fence).\nThe ' +
-    'doctrine corpus under docs/stacks is the fixer read, never this lane — do not list, probe, or account for it.\nUse at most 80 tool ' +
+    'doctrine corpus under docs/stacks is the fixer read, never this delegate — do not list, probe, or account for it.\nUse at most 80 tool ' +
     'calls.\nCount every tool invocation against the single budget.\nDo not concatenate the territory into one command.\n' +
     '</context_gathering>\n\n' +
     '<verification>\nRe-open the anchor behind every finding and confirm it states what the finding claims.\nDrop any finding current ' +
@@ -1551,7 +1551,7 @@ const testsImplPrompt = (L, mapR) =>
     'an install or manifest add. Shared root surfaces (tests/README.md, ' +
     REPO +
     '/.config, and the central manifests where your spine rows live) sequence LAST, surgical anchored Edits only, full re-read immediately ' +
-    'before the first edit — sibling language lanes and the per-language seal lanes run beside you. ' +
+    'before the first edit — sibling language delegates and the per-language seal delegates run beside you. ' +
     STANCE +
     ' ' +
     NATIVE_DISCIPLINE +
@@ -1640,7 +1640,7 @@ const auditWrapPrompt = (roots, selected, residuals, receipts) => {
 if (!THEME) return { skipped: true, reason: 'args.theme {title, charter, include, tests} is required — no privileged default theme' };
 if (!CAMP) return { skipped: true, reason: 'args.camp (absolute campaign home) is required' };
 
-// Discover failure no-ops the whole run, so a dead relay falls back to a native roster resolver — the one lane that earns it.
+// Discover failure no-ops the whole run, so a dead relay falls back to a native roster resolver — the one delegate that earns it.
 const disco =
     (await guard(
         slot(() =>
@@ -1672,7 +1672,7 @@ log(folders.length + ' folder(s), ' + sum(folders, (f) => f.openCards) + ' open 
 
 // --- [FOLDER_CHAINS]
 
-// Map+guide legs for one batch — read-only lanes, so a caller may start them ahead of the impl→crit tail and pass the held pair in.
+// Map+guide legs for one batch — read-only delegates, so a caller may start them ahead of the impl→crit tail and pass the held pair in.
 const batchLegs = (f, b) =>
     Promise.all([
         guard(
@@ -1741,7 +1741,7 @@ const runFolderChain = async (f, plan, pre) => {
     return { folder: f.path, language: f.language, planOk: true, batches: out, leftovers: plan?.leftovers ?? [] };
 };
 
-const planLane = (f) =>
+const planDelegate = (f) =>
     guard(
         slot(() =>
             agent(planPrompt(f), {
@@ -1757,12 +1757,12 @@ const folderRecs = folders.filter((f) => f.language !== 'cross');
 const crossRecs = folders.filter((f) => f.language === 'cross');
 // Cross plans and their read-only map+guide legs start beside the folder fan; only the impl→crit tail waits for the landed trees.
 const crossPrePs = crossRecs.map((f) =>
-    planLane(f).then((plan) => {
+    planDelegate(f).then((plan) => {
         const batches = packBatches(f, plan?.units ?? []);
         return { plan, batches, legs: batches.map((b) => batchLegs(f, b)) };
     }),
 );
-const chains = (await pipeline(folderRecs, planLane, (plan, f) => runFolderChain(f, plan))).filter(Boolean);
+const chains = (await pipeline(folderRecs, planDelegate, (plan, f) => runFolderChain(f, plan))).filter(Boolean);
 const crossChains = []; // cross-libs impl runs after every folder chain — its touchpoints span the trees the folder writers just closed
 for (let i = 0; i < crossRecs.length; i++) {
     const pre = await crossPrePs[i];
@@ -1779,11 +1779,11 @@ log(batchRecs.length + ' batch(es), ' + receiptPaths.length + ' receipt(s)');
 
 let drainUnrouted = [];
 const implFailedAll = batchRecs.length > 0 && !batchRecs.some((x) => x.impl && x.impl.ok);
-if (implFailedAll) log('SEAL SKIPPED: every implement lane failed — ' + batchRecs.length + ' batch(es) left unsealed on disk');
+if (implFailedAll) log('SEAL SKIPPED: every implement delegate failed — ' + batchRecs.length + ' batch(es) left unsealed on disk');
 const sealP = receiptPaths.length
     ? (async () => {
-          // Pre-redteam finder fan: read-only lanes sweep the touched pages at bounded depth so the terminal redteam
-          // fixes a pre-verified find set instead of hunting a whole tree; lane count derives from touched-page volume.
+          // Pre-redteam finder fan: read-only delegates sweep the touched pages at bounded depth so the terminal redteam
+          // fixes a pre-verified find set instead of hunting a whole tree; delegate count derives from touched-page volume.
           // Finder inputs are batch receipts alone, so the fan runs held beside the drains and census; only the redteam consumes it.
           const touchedPagesOf = (root) =>
               uniq(
@@ -1969,8 +1969,8 @@ if (!sliceClosed)
             (audit
                 ? unclosed.length +
                   ' selected card(s) without a terminal disposition' +
-                  (plansFailed.length ? '; ' + plansFailed.length + ' plan lane(s) failed' : '')
-                : 'audit lane failed'),
+                  (plansFailed.length ? '; ' + plansFailed.length + ' plan delegate(s) failed' : '')
+                : 'audit delegate failed'),
     );
 
 // --- [CLOSE]
@@ -2028,6 +2028,6 @@ return {
           (audit
               ? unclosed.length +
                 ' selected card(s) left without a terminal disposition' +
-                (plansFailed.length ? '; ' + plansFailed.length + ' plan lane(s) failed' : '')
-              : 'audit lane failed'),
+                (plansFailed.length ? '; ' + plansFailed.length + ' plan delegate(s) failed' : '')
+              : 'audit delegate failed'),
 };

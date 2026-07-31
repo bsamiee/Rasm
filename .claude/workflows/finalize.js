@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'The finalization engine — the complement to rebuild: where rebuild improves and extends, finalize corrects and closes. Run it over a package (or folder subset) whose build passes have landed: deep per-file mapping of misalignments, broken or partial logic threads, split-brain, unnecessary differentiation, entry-point sprawl, and unleveraged libs-wide seams; one consolidated work dossier; per-unit implement writers under seam-ledger coordination; a critique fan piped into per-unit red-teams; one terminal sweeper; a doctrine lander.',
     description:
-        'Language-agnostic finalization pass over one libs/{csharp,python,typescript} package planning corpus. args = a package root, an array of planning sub-folders, or {targets} — {root} retargets an isolated checkout, empty = no-op; the language derives from the root and selects the doctrine root pages, both .api tiers, the manifest, and the member-verification rail. Scope resolves targets to the owning package root and its per-sub-folder page units in dependency order, each page carrying its real line count; an oversize sub-folder splits under a dual ceiling — page count AND page tonnage — so no unit alone overflows a lane. Map fans two read-only lenses per unit — an interior FLOW lens (per-file logic threads end to end, partial or naive features, split-brain, differentiation, entry-point sprawl, dead ends) and an exterior SEAM lens (libs-wide boundary and wire alignment, unleveraged upstream capability, hand-rolled reimplementation, manifest and .api drift) — each writing a typed findings report; one MERGE lane consolidates every report into a single deduped, thread-joined, owner-ordered work dossier, each cross-unit thread assigned a LEAD unit so exactly one writer owns it. Implement fans ONE writer per unit under seam-ledger coordination: own blind pass first as a disk artifact, the dossier as grounding to verify and exceed, in-unit findings and first-order ripples drained in the same pass, foreign edits additive-only with the remainder deferred as typed rows; index docs and central manifests are single-writer surfaces reported as rows, never raced. Review runs per unit as a chain: a read-only critique over the implemented unit, then a red-team WRITER folding the unit implement and critique products forward — counterfactual, long-tail, next-feature diff, full cold re-review — under the same ledger law. ONE terminal sweeper then drains every deferred row, cross-unit remainder, index and manifest row, and its own governance hunt in one scoped pass. Close: a doctrine lander adjudicates pooled harvest nominations swept from wire rows, every report harvest array, and the harvest files. Stage law lives in the prompt blocks; codex lanes quota-fall to a native twin.',
+        'Language-agnostic finalization pass over one libs/{csharp,python,typescript} package planning corpus. args = a package root, an array of planning sub-folders, or {targets} — {root} retargets an isolated checkout, empty = no-op; the language derives from the root and selects the doctrine root pages, both .api tiers, the manifest, and the member-verification rail. Scope resolves targets to the owning package root and its per-sub-folder page units in dependency order, each page carrying its real line count; an oversize sub-folder splits under a dual ceiling — page count AND page tonnage — so no unit alone overflows a delegate. Map fans two read-only lenses per unit — an interior FLOW lens (per-file logic threads end to end, partial or naive features, split-brain, differentiation, entry-point sprawl, dead ends) and an exterior SEAM lens (libs-wide boundary and wire alignment, unleveraged upstream capability, hand-rolled reimplementation, manifest and .api drift) — each writing a typed findings report; one MERGE delegate consolidates every report into a single deduped, thread-joined, owner-ordered work dossier, each cross-unit thread assigned a LEAD unit so exactly one writer owns it. Implement fans ONE writer per unit under seam-ledger coordination: own blind pass first as a disk artifact, the dossier as grounding to verify and exceed, in-unit findings and first-order ripples drained in the same pass, foreign edits additive-only with the remainder deferred as typed rows; index docs and central manifests are single-writer surfaces reported as rows, never raced. Review runs per unit as a chain: a read-only critique over the implemented unit, then a red-team WRITER folding the unit implement and critique products forward — counterfactual, long-tail, next-feature diff, full cold re-review — under the same ledger law. ONE terminal sweeper then drains every deferred row, cross-unit remainder, index and manifest row, and its own governance hunt in one scoped pass. Close: a doctrine lander adjudicates pooled harvest nominations swept from wire rows, every report harvest array, and the harvest files. Stage law lives in the prompt blocks; codex delegates quota-fall to a native twin.',
     phases: [
         {
             title: 'Scope',
@@ -11,7 +11,7 @@ export const meta = {
         },
         {
             title: 'Map',
-            detail: 'two read-only lenses per unit segment — interior logic flow, exterior seam integration — each writing a typed findings report; one merge lane consolidates every report into the single deduped, thread-joined work dossier, each cross-unit thread assigned its LEAD unit',
+            detail: 'two read-only lenses per unit segment — interior logic flow, exterior seam integration — each writing a typed findings report; one merge delegate consolidates every report into the single deduped, thread-joined work dossier, each cross-unit thread assigned its LEAD unit',
         },
         {
             title: 'Implement',
@@ -31,8 +31,8 @@ export const meta = {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CAP = 14;
-const UNIT_MAX = 8; // unit segmentation ceiling beside the tonnage ceiling — map, implement, and review lanes stay page-congruent
-const UNIT_LOC = 3400; // page tonnage per unit — what actually overflows a lane's context; the dual ceiling splits on either bound
+const UNIT_MAX = 8; // unit segmentation ceiling beside the tonnage ceiling — map, implement, and review delegates stay page-congruent
+const UNIT_LOC = 3400; // page tonnage per unit — what actually overflows a delegate's context; the dual ceiling splits on either bound
 const RETRY_ATTEMPTS = 2;
 
 // --- [INPUTS] --------------------------------------------------------------------------
@@ -160,7 +160,7 @@ const DELTAS = {
     items: { type: 'object', additionalProperties: false, required: ['symbol', 'change'], properties: { symbol: S, change: S } },
 };
 
-// Map and critique lanes share one findings product; `harvest` rides the report so the doctrine lander sweeps it from disk directly.
+// Map and critique delegates share one findings product; `harvest` rides the report so the doctrine lander sweeps it from disk directly.
 const FINDINGS_SCHEMA = {
     type: 'object',
     additionalProperties: false,
@@ -186,7 +186,7 @@ const FINDINGS_SCHEMA = {
                     'acceptance',
                 ],
                 properties: {
-                    // Schema-enforced key grammar — free-text keys fracture per lane and corroboration never collides into one key.
+                    // Schema-enforced key grammar — free-text keys fracture per delegate and corroboration never collides into one key.
                     claimKey: { type: 'string', pattern: '^[a-z0-9_-]+(\\.[a-z0-9_-]+){3}$' },
                     target: S, // short display label for the defect
                     files: { type: 'array', items: S }, // files the consumer must open or edit first
@@ -223,7 +223,7 @@ const FINDINGS_SCHEMA = {
     },
 };
 
-// The merge lane authors ONE content artifact — the work dossier — and returns only this thin receipt: the per-unit jump index and coverage.
+// The merge delegate authors ONE content artifact — the work dossier — and returns only this thin receipt: the per-unit jump index and coverage.
 const MERGE_SCHEMA = {
     type: 'object',
     additionalProperties: false,
@@ -244,7 +244,7 @@ const MERGE_SCHEMA = {
 };
 
 const RECEIPT = {
-    // Thin wire receipt: the lane's PRODUCT stays on disk at `report`; only status + count + headline travel inline.
+    // Thin wire receipt: the delegate's PRODUCT stays on disk at `report`; only status + count + headline travel inline.
     type: 'object',
     additionalProperties: false,
     required: ['ok', 'report', 'entries', 'headline', 'failure'],
@@ -356,8 +356,7 @@ const LANG = {
         shared: 'libs/typescript/.api',
         manifest: 'the `pnpm-workspace.yaml` / package manifest rows this area consumes',
         verify:
-            'the published types in node_modules (`uv run python -m tools.assay api` over node_modules declarations where ' +
-            'a member is novel)',
+            'the published types in node_modules (`uv run python -m tools.assay api` over node_modules declarations where ' + 'a member is novel)',
         stackLaw:
             'read these `docs/stacks/typescript/` pages IN FULL, in this exact order: `README.md`, `language.md`, ' +
             '`derivation.md`, `values.md`, `computation.md`, `shapes.md`, `surfaces-and-dispatch.md`, `rails-and-effects.md`, ' +
@@ -406,7 +405,7 @@ const INFO_LAW =
     'add/replace/implement/promote/delete as instruction and never sketch a fence — the writer owns the design; you own the ' +
     'constraint boundary. `claimKey` follows one mechanical grammar — <package>.<page-stem>.<owner>.<defect-slug>, exactly four ' +
     'dot-separated lowercase segments (e.g. `appui.dashboards.lttb.unwired-decimator`) — so the same defect keys identically ' +
-    'from any lane by construction. `severity` binds to consequence (blocker = closure-blocking, major = correctness, minor = ' +
+    'from any delegate by construction. `severity` binds to consequence (blocker = closure-blocking, major = correctness, minor = ' +
     'local cleanup), never prose confidence — grade honestly across all three; a report whose every finding shares one grade ' +
     'has averaged, not graded. OUTPUT BOUNDS: retention scales with the scope — keep every finding that survives the second ' +
     'pass, lead with the strongest, and 0 is legal only when that pass returns empty, `summary` then naming the probes that ' +
@@ -421,7 +420,7 @@ const SELF_CHECK =
     '— an omitted load-bearing fact is as wrong as a false one.';
 
 // Register fork — substance identical (burden of proof on the work, both naivety axes, no-churn); the hostile register
-// measurably makes a dispatched lane over-read and probe out of territory, so the `codex` rows stay de-conflicted.
+// measurably makes a dispatched delegate over-read and probe out of territory, so the `codex` rows stay de-conflicted.
 const REG = {
     claude: {
         stance:
@@ -458,7 +457,7 @@ const BOUNDARY =
 
 const PROSE =
     'PROSE + COMMENTS — apply docs/standards/style-guide.md, information-structure.md, and formatting.md; these pages and ' +
-    'this block are the COMPLETE prose law for this lane. Your project instructions (AGENTS.md/CLAUDE.md) route durable ' +
+    'this block are the COMPLETE prose law for this delegate. Your project instructions (AGENTS.md/CLAUDE.md) route durable ' +
     'markdown to the `docgen` skill — that route serves interactive agents and does NOT apply here: never read, load, or open ' +
     'the docgen bundle from any root. Fences comment for the next agent only: keep the canonical section-divider headers; ' +
     'beyond them zero comments, 1-2 lines only for a truly subtle invariant or boundary; no restating the code, no doc bloat.';
@@ -528,9 +527,9 @@ const makeSlots = (cap) => {
     };
 };
 const slot = makeSlots(CAP);
-// Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death): attempt-counted with a retry before each;
-// the final death isolates the lane but NEVER the chain — every downstream stage still runs against current disk.
-const retryLane = async (fn) => {
+// Bounded re-dispatch for a dead CRITICAL delegate (usage-limit or transport death): attempt-counted with a retry before each;
+// the final death isolates the delegate but NEVER the chain — every downstream stage still runs against current disk.
+const retryDelegate = async (fn) => {
     for (let a = 0; a < RETRY_ATTEMPTS; a++) {
         const r = await fn();
         if (r) return r;
@@ -540,7 +539,7 @@ const retryLane = async (fn) => {
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
 const reportOf = (label) => SCRATCH + '/' + fileTag(label) + '-report.json'; // deterministic — consumers survive a dead receipt by checking the path
 
-const laneLaw = (schema, o) =>
+const delegateLaw = (schema, o) =>
     (o.fix
         ? '<completion_bar>\nDone is every item in your named scope worked to its full depth with its product entry written — proof-complete, ' +
           'never effort-spent, never early. Complete every named move before yielding; do not stop at analysis or a partial edit. If the ' +
@@ -573,7 +572,7 @@ const laneLaw = (schema, o) =>
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
 
 // Sandbox decides authorship: a read-only delegate cannot write, so --out materializes the product; a writing delegate lands its own.
-const LANE_SCRIPT = ROOT_DIR + '/.claude/skills/codex/scripts/codex-lane.sh';
+const DELEGATE_SCRIPT = ROOT_DIR + '/.claude/skills/codex/scripts/codex-delegate.sh';
 const flagsOf = (o) =>
     [o.model && '--model ' + o.model, o.codexEffort && '--effort ' + o.codexEffort, o.web && '--web']
         .filter(Boolean)
@@ -582,7 +581,7 @@ const flagsOf = (o) =>
 
 const codexPrompt = (label, task, schema, o) => {
     const report = ROOT_DIR + '/' + reportOf(label);
-    const lane = report + '.lane';
+    const delegate = report + '.delegate';
     const authored = !!o.writes;
     const sandbox = authored ? 'workspace-write' : 'read-only';
     const taskFull =
@@ -593,52 +592,52 @@ const codexPrompt = (label, task, schema, o) => {
               ' yourself.'
             : '');
     return (
-        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised lane run; never perform, edit, judge, soften, ' +
-        'summarize, or relay the work yourself. (1) Write the LANE LAW block below VERBATIM to ' +
-        lane +
+        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised delegate run; never perform, edit, judge, soften, ' +
+        'summarize, or relay the work yourself. (1) Write the DELEGATE LAW block below VERBATIM to ' +
+        delegate +
         '/law.md and the TASK block below VERBATIM to ' +
-        lane +
+        delegate +
         '/task.md, composing neither. ' +
         (authored
             ? 'Delete any leftover file at ' + report + ' with one Bash rm -f (a stale product there passes the verify probe as a false success). '
             : '') +
         '(2) Run ONE Bash call with run_in_background true: ' +
-        LANE_SCRIPT +
+        DELEGATE_SCRIPT +
         ' --task ' +
-        lane +
+        delegate +
         '/task.md --law ' +
-        lane +
+        delegate +
         '/law.md --dir ' +
-        lane +
+        delegate +
         ' --cwd ' +
         ROOT_DIR +
         ' --sandbox ' +
         sandbox +
         flagsOf(o) +
         (authored ? '' : ' --out ' + report) +
-        '; the harness re-invokes you when the lane exits — Read ' +
-        lane +
+        '; the harness re-invokes you when the delegate exits — Read ' +
+        delegate +
         '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
-        'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
+        'alone (the session persisted on disk) overwrites the task file with "continue and complete the delegate, then land the receipt" and ' +
         're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
         'refusal) re-runs the same command untouched. (3) ' +
         (authored
             ? 'The delegate lands the product itself at ' + report + ' as its final act.'
-            : 'The lane lands the product at ' + report + ' via --out.') +
+            : 'The delegate lands the product at ' + report + ' via --out.') +
         ' (4) Verify with one Bash call: jq -e . ' +
         report +
-        ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the lane ' +
+        ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the delegate ' +
         'events.jsonl (jq -rs to the last agent_message item text, Write that), re-probe, and a second miss returns ok=false with the ' +
         'probe output. (5) Return ok=true, report=' +
         reportOf(label) +
-        ' (this repo-relative form, matching codex-lane receipts), entries = the length of the "' +
+        ' (this repo-relative form, matching codex-delegate receipts), entries = the length of the "' +
         o.hl.arr +
         '" array in the product, headline="<entries> ' +
         o.hl.arr +
         (o.hl.group ? ' | <' + o.hl.group + ' tallies>' : '') +
         ' | top: <most frequent first file or none>", and failure empty. On a failed receipt return ok=false, entries=0, report and ' +
-        'headline empty, and failure equal to the receipt reason and failure text VERBATIM.\n\nLANE LAW:\n\n' +
-        laneLaw(schema, o) +
+        'headline empty, and failure equal to the receipt reason and failure text VERBATIM.\n\nDELEGATE LAW:\n\n' +
+        delegateLaw(schema, o) +
         '\n\nTASK:\n\n' +
         taskFull
     );
@@ -646,9 +645,9 @@ const codexPrompt = (label, task, schema, o) => {
 
 // QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task at the role's native
 // twin; the caller owns the re-dispatch.
-// The roster row carries `scope` from the ORCHESTRATOR so a lane that died before writing still names its territory exactly.
+// The roster row carries `scope` from the ORCHESTRATOR so a delegate that died before writing still names its territory exactly.
 const twinOf = (m) => (/-luna/.test(m || '') ? 'sonnet' : 'opus');
-const nativeLane = (task, o) =>
+const nativeDelegate = (task, o) =>
     agent(
         task +
             '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
@@ -657,7 +656,7 @@ const nativeLane = (task, o) =>
             JSON.stringify(o.schema) +
             ' — then return ONLY the receipt: ok, report = ' +
             reportOf(o.label) +
-            ' (this repo-relative form, matching codex-lane receipts), entries count, one-line mechanical headline, failure empty.',
+            ' (this repo-relative form, matching codex-delegate receipts), entries count, one-line mechanical headline, failure empty.',
         { label: o.label, phase: o.phase, model: o.nativeModel || twinOf(o.model), effort: 'high', schema: RECEIPT },
     );
 const recon = (taskOf, o) => {
@@ -669,15 +668,15 @@ const recon = (taskOf, o) => {
         effort: 'low',
         schema: RECEIPT,
     })
-        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task('claude'), o) : r))
+        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeDelegate(task('claude'), o) : r))
         .then((r) => ({
-            lane: o.label,
+            delegate: o.label,
             scope: o.scope || [],
             ok: !!(r && r.ok && r.report),
             report: (r && r.report) || '',
             entries: (r && r.entries) || 0,
             headline: (r && r.headline) || '',
-            failure: (r && r.failure) || (r ? '' : 'lane died'),
+            failure: (r && r.failure) || (r ? '' : 'delegate died'),
         }));
 };
 const chunk = (arr, n) => {
@@ -686,7 +685,7 @@ const chunk = (arr, n) => {
     return o;
 };
 // Dual-ceiling split over {page, lines} rows: segment count from BOTH ceilings (page count AND tonnage), near-even LOC
-// fill in order — no runt tail, and no segment whose pages alone overflow a lane's context window.
+// fill in order — no runt tail, and no segment whose pages alone overflow a delegate's context window.
 const sizeChunk = (pages) => {
     const loc = (ps) => ps.reduce((a, s) => a + s.lines, 0);
     const k = Math.max(Math.ceil(pages.length / UNIT_MAX), Math.ceil(loc(pages) / UNIT_LOC), 1);
@@ -800,7 +799,7 @@ const mergePrompt = (rosterPaths, dossier) =>
             'work dossier. Read EVERY map report listed here IN FULL from disk (a missing or invalid file is skipped and named ' +
             'in coverage.skipped): ' +
             JSON.stringify(rosterPaths) +
-            '. CONSOLIDATE: (1) DEDUPE by `claimKey` — the same key across lanes is ONE defect; merge its evidence, keep the ' +
+            '. CONSOLIDATE: (1) DEDUPE by `claimKey` — the same key across delegates is ONE defect; merge its evidence, keep the ' +
             'strongest anchors, never restate it twice. (2) JOIN cross-unit threads — findings that are legs of ONE logic chain, ' +
             'seam, or owner story become ONE work item naming every end and every file; a chain left as scattered per-unit rows ' +
             'is a failed merge. (3) ORDER by owner then severity then dependency — shared owners, registries, and vocabulary ' +
@@ -848,12 +847,13 @@ const implementPrompt = (u, dossier, mergeOk, unitReports, isUnmapped, reg) =>
                   'landed ends per the ledger law, never re-derive it. Spot-verify every anchor an edit builds on ' +
                   '(re-open MANDATORY — a finding already corrected on disk or whose anchors do not re-confirm is dropped with ' +
                   'its reason in `summary`, never re-fixed).'
-                : "the merge lane died — your unit's raw map reports are your recon; read each IN FULL from disk, dedupe by " +
+                : "the merge delegate died — your unit's raw map reports are your recon; read each IN FULL from disk, dedupe by " +
                   '`claimKey` as you read, and order by owner then severity: ' +
                   JSON.stringify(unitReports) +
                   '.') +
             (isUnmapped
-                ? ' This unit is UNMAPPED (no surviving map lane): your own cold hostile read is the recon — hunt the finding ' + 'kinds yourself.'
+                ? ' This unit is UNMAPPED (no surviving map delegate): your own cold hostile read is the recon — hunt the finding ' +
+                  'kinds yourself.'
                 : '') +
             '\nEach item is a SIGNAL, not law: `mechanism`/`owner`/`reject`/`acceptance` are its constraint boundary — honor ' +
             'the owner and rejected forms, but the DESIGN is yours: implement the densest root-level resolution the boundary ' +
@@ -979,7 +979,7 @@ const sweeperPrompt = (backlog, indexRows, unmapped, pages) =>
             JSON.stringify(indexRows) +
             '.\n' +
             (unmapped.length
-                ? '(2b) UNMAPPED units (no surviving map lane — your own cold read over their pages, hunting the finalization-law targets): ' +
+                ? '(2b) UNMAPPED units (no surviving map delegate — your own cold read over their pages, hunting the finalization-law targets): ' +
                   JSON.stringify(unmapped) +
                   '.\n'
                 : '') +
@@ -1040,7 +1040,7 @@ phase('Scope');
 const planOpts = { label: 'scope', phase: 'Scope', model: 'sonnet', effort: 'low', schema: PLAN_SCHEMA };
 const plan = (await slot(() => agent(planPrompt(), planOpts))) || (await slot(() => agent(planPrompt(), { ...planOpts, label: 'scope:r1' })));
 const ROOT = (plan && plan.root) || TARGETS[0];
-// R6 guard: model-emitted page paths are validated against the resolved root before any lane dispatches on them.
+// R6 guard: model-emitted page paths are validated against the resolved root before any delegate dispatches on them.
 const FOLDERS = ((plan && plan.folders) || [])
     .map((f) => ({
         folder: f.folder,
@@ -1051,7 +1051,7 @@ const FOLDERS = ((plan && plan.folders) || [])
     .filter((f) => f.folder && f.pages.length);
 const PAGES = FOLDERS.flatMap((f) => f.pages.map((p) => p.page));
 // Unit = the map/implement/review granularity: one `.planning/<sub>` folder, oversize folders split under the dual
-// (page-count AND tonnage) ceiling so no unit alone overflows a writer or reviewer lane.
+// (page-count AND tonnage) ceiling so no unit alone overflows a writer or reviewer delegate.
 const UNITS = FOLDERS.flatMap((f) => {
     const segs = sizeChunk(f.pages);
     return segs.map((rows, i) => {
@@ -1109,7 +1109,7 @@ log(
         (UNMAPPED.length ? ' — UNMAPPED unit(s): ' + UNMAPPED.map((x) => x.unit).join(', ') : ''),
 );
 
-// One merge lane consolidates the fan into the single work dossier; its death degrades to raw-report consumption, never blocks.
+// One merge delegate consolidates the fan into the single work dossier; its death degrades to raw-report consumption, never blocks.
 const WORK_DOSSIER = SCRATCH + '/work-dossier.md';
 const merge = MAP_REPORTS.length
     ? await slot(() =>
@@ -1133,7 +1133,7 @@ log(
 
 phase('Implement');
 phase('Review');
-// PER-UNIT PIPELINED CHAINS — implement (write lane) -> critique (read lane) -> red-team (writer), each unit
+// PER-UNIT PIPELINED CHAINS — implement (write delegate) -> critique (read delegate) -> red-team (writer), each unit
 // advancing the moment its own prior stage lands; the slot scheduler is the only cross-unit governor, the seam ledgers own
 // coordination, and failure isolates per unit (a dead implement still gets its critique and red-team against current disk).
 const unitReportsOf = (u) => [reportOf('map:flow:' + u.tag), reportOf('map:seam:' + u.tag)];
@@ -1220,7 +1220,7 @@ const sweepOnce = await sweepFire('');
 const sweep =
     sweepOnce && sweepOnce.ok
         ? sweepOnce
-        : await retryLane(async () => {
+        : await retryDelegate(async () => {
               const r = await sweepFire(':r1');
               return r && r.ok ? r : null;
           });

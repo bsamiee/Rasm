@@ -6,7 +6,7 @@
 # Row schema (mirrors the RefutedClass struct):
 #   class_id:          stable kebab-case id for the refuted claim class
 #   corpus:            corpus selector — `code` or `prose`; slice draws only corpus-matched
-#                      rows into a lane's settled-rulings roster (empty = every corpus)
+#                      rows into a shard's settled-rulings roster (empty = every corpus)
 #   matchers:          case-insensitive regex patterns over the finding claim text; an
 #                      invalid pattern falls back to a literal case-insensitive match
 #   refuting_citation: the ruling or evidence that refuted the class (doc path, ledger id),
@@ -428,8 +428,8 @@ classes:
     corpus: prose
     matchers:
       - '(keeper|orchestrator|dispatcher).{0,40}(must )?(stamp|write|record).{0,40}(report|telemetry|model|wall)'
-      - 'lane (report )?cannot (prove|verify|attest).{0,40}(model|wall|telemetry)'
-    refuting_citation: 'templates/fix.md [DISPATCH] claude-lane report custody — the lane writes its own report as its final act, the harness states the exact model ID in the lane''s own system prompt, and no rail verb mutates a lane report (r5b-01)'
+      - 'shard (report )?cannot (prove|verify|attest).{0,40}(model|wall|telemetry)'
+    refuting_citation: 'templates/fix.md [DISPATCH] claude-shard report custody — the shard writes its own report as its final act, the harness states the exact model ID in the shard''s own system prompt, and no rail verb mutates a shard report (r5b-01)'
     landed_surfaces:
       - '.coderabbit.yaml'
       - '.greptile/rules.md'
@@ -576,13 +576,13 @@ classes:
       - .macroscope/correctness/general/do-not-flag.md
     guard_probe: carries one without the other
     recurrences: 0
-  - class_id: ack-until-landed-against-a-shedding-lane
+  - class_id: ack-until-landed-against-a-shedding-shard
     corpus: code
     matchers:
       - deliveries must stay unacked until
       - ack only after the enqueue succeeds
       - at-least-once delivery
-    refuting_citation: .macroscope/correctness/general/do-not-flag.md — "Ack-until-landed and at-least-once demands against a lane whose declared overflow policy sheds convert deliberate shedding into unbounded redelivery"
+    refuting_citation: .macroscope/correctness/general/do-not-flag.md — "Ack-until-landed and at-least-once demands against a shard whose declared overflow policy sheds convert deliberate shedding into unbounded redelivery"
     landed_surfaces:
       - .coderabbit.yaml
       - .greptile/rules.md
@@ -634,7 +634,7 @@ classes:
       - nullable capability leak
       - SpanBand\? band = null
       - the nullable receiver hides an absent capability
-    refuting_citation: .macroscope/correctness/csharp/api-truths.md — "`Activity?` and the kin a headless lane takes carry the platform's own unlistened-observer contract"
+    refuting_citation: .macroscope/correctness/csharp/api-truths.md — "`Activity?` and the kin a headless shard takes carry the platform's own unlistened-observer contract"
     landed_surfaces:
       - .coderabbit.yaml
       - .greptile/rules.md

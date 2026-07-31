@@ -117,8 +117,8 @@ Wording freezes the current shape against ground-up rebuild: sealed, frozen, fin
 Permission verbs — `supports`, `allows`, `enables`, `provides`, `offers` — and article openers both hide the actor that owns the law: a clause opening on `The` buries its owner, and one opening on `A`/`An` heads a definition that explains the concept instead of declaring its law.
 
 - Detection: Flag a clause granting capability instead of assigning ownership, and one opening on an article — `The`/`the`, `A`/`An` — before reaching its owner; named-surface annotations and marker bodies carry the same defect after their leader.
-- [REJECTED]: The package offers an optional self-hosted graph lane.
-- [ACCEPTED]: Only the self-hosted profile row binds the graph lane.
+- [REJECTED]: The package offers an optional self-hosted graph surface.
+- [ACCEPTED]: Only the self-hosted profile row binds the graph surface.
 - Reason: Material never grants capability; an owner acts. Article deletion leaves that owner buried or the clause headless.
 - Reframe: Find the actor — it hides in object position, a possessive, or the clause tail — and seat it as the grammatical subject under a present-active owning verb. Repair holds only when the subject moved; a determiner swap re-heads the same broken clause. Stative `is`/`are` survives an identity or definition claim alone; capability and behavior take action verbs.
 

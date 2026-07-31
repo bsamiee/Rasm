@@ -1,7 +1,7 @@
 // Pattern : The reentrancy path joined end to end — a host handler that suspends its incoming event,
 //           runs a script that sends the same verb back into this process, rebinds the command context
 //           on the completing thread, and resumes the detached reply exactly once.
-// Consumes : a serial script lane whose instance confinement is already established.
+// Consumes : a serial script queue whose instance confinement is already established.
 import Carbon
 import Foundation
 
@@ -27,12 +27,12 @@ private enum HostFault {
 /// each generation its own reply slot and its own current-event binding.
 final class ReentrantRenderHost: NSObject {
     private let execute: (String) throws -> NSAppleEventDescriptor
-    private let lane: DispatchQueue
+    private let queue: DispatchQueue
     private let maxDepth: Int
     private var depth = 0
 
-    init(lane: DispatchQueue, maxDepth: Int = 3, execute: @escaping (String) throws -> NSAppleEventDescriptor) {
-        self.lane = lane
+    init(queue: DispatchQueue, maxDepth: Int = 3, execute: @escaping (String) throws -> NSAppleEventDescriptor) {
+        self.queue = queue
         self.maxDepth = maxDepth
         self.execute = execute
     }
@@ -60,7 +60,7 @@ final class ReentrantRenderHost: NSObject {
         let source = event.paramDescriptor(forKeyword: keyDirectObject)?.stringValue ?? ""
         depth += 1
 
-        lane.async { [self] in
+        queue.async { [self] in
             // The command context is thread-local, so the completing thread rebinds it before running the
             // script; without this the nested send attributes to whatever event this thread last handled.
             manager.setCurrentAppleEventAndReplyEventWithSuspensionID(suspension)

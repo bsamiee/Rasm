@@ -8,7 +8,7 @@
 #   "pydantic-settings>=2.0",
 # ]
 # ///
-"""Antigravity CLI JSON wrapper for Claude/Codex skills."""
+"""Antigravity CLI JSON wrapper."""
 
 import argparse
 from enum import StrEnum

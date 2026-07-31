@@ -88,7 +88,7 @@ stdenvNoCC.mkDerivation {
 }
 ```
 
-Homebrew distributes an applet as a cask when the artifact is an application bundle, a disk image, or a zip; the formula lane owns a command-line launcher that calls `osascript`, never GUI app installation semantics.
+Homebrew distributes an applet as a cask when the artifact is an application bundle, a disk image, or a zip; the formula path owns a command-line launcher that calls `osascript`, never GUI app installation semantics.
 
 ```ruby template
 cask "worker-applet" do

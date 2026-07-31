@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'The standing RESEARCH-row resolution pass for any libs/ planning corpus: pass folder targets (sub-folder / package root, any number, any language mix); it censuses every research row as an epistemic-debt entry, clusters the debts by verification route, verifies each at its route, then bakes confirmed spellings and DELETES resolved rows, sharpens the unresolvable, and closes with a critique/red-team chain, a deferred drain, and one doctrine landing.',
     description:
-        'RESEARCH-row resolution engine over libs/{csharp,python,typescript} planning corpora. args = a folder target, an array of folder paths, or a targets object; empty = no-op. A research row is a writer epistemic debt — an exact question with its verification route, recorded instead of a guessed member spelling. Census (codex read lane) reads every page under the targets and extracts each research row (the C# [NN]-[RESEARCH] section entries, the inline RESEARCH re-verify rows, and the version-blocked capability rows) as an anchored {page, anchor, question, route, routeFamily, routeKey, symbols} entry with coverage; one lane per folder, large folders split by page count. Cluster (plain orchestrator code, no agent) groups the entries by verification route family — same host DLL, package, .api catalog, or doc source. Verify runs one lane per cluster, the route deciding the lane: assay-decompile clusters run NATIVE (they need tools.assay over host DLLs); .api catalog and doc-file clusters ride codex lanes reading the catalogs; external-doc clusters run a native Context7 lane; each writes {question, page, anchor, verdict, evidence, spelling} verdicts to disk. Apply (one resolver writer per folder, pipelined) reads the folder verdicts and the pages, bakes each confirmed spelling into its fence, corrects each refuted assumption at its root, DELETES each resolved research row entirely (no tombstones, no resolved notes), and SHARPENS each unresolvable row in place with a better question and route; docgen loads before durable prose edits, the prose gate returns zero FAILs, and the fixlog carries harvest. A codex critique (fix lane) then a red-team fold-forward per the chain law attack a baked spelling not actually verified, a deleted row whose fact never landed in the fence, and a surviving row that verification already answered. Close: a drain loop over the pooled deferred backlog and orphaned critique fixlogs, then one doctrine lander over the pooled harvest.',
+        'RESEARCH-row resolution engine over libs/{csharp,python,typescript} planning corpora. args = a folder target, an array of folder paths, or a targets object; empty = no-op. A research row is a writer epistemic debt — an exact question with its verification route, recorded instead of a guessed member spelling. Census (codex read delegate) reads every page under the targets and extracts each research row (the C# [NN]-[RESEARCH] section entries, the inline RESEARCH re-verify rows, and the version-blocked capability rows) as an anchored {page, anchor, question, route, routeFamily, routeKey, symbols} entry with coverage; one delegate per folder, large folders split by page count. Cluster (plain orchestrator code, no agent) groups the entries by verification route family — same host DLL, package, .api catalog, or doc source. Verify runs one delegate per cluster, the route deciding the delegate: assay-decompile clusters run NATIVE (they need tools.assay over host DLLs); .api catalog and doc-file clusters ride codex delegates reading the catalogs; external-doc clusters run a native Context7 delegate; each writes {question, page, anchor, verdict, evidence, spelling} verdicts to disk. Apply (one resolver writer per folder, pipelined) reads the folder verdicts and the pages, bakes each confirmed spelling into its fence, corrects each refuted assumption at its root, DELETES each resolved research row entirely (no tombstones, no resolved notes), and SHARPENS each unresolvable row in place with a better question and route; docgen loads before durable prose edits, the prose gate returns zero FAILs, and the fixlog carries harvest. A codex critique (fix delegate) then a red-team fold-forward per the chain law attack a baked spelling not actually verified, a deleted row whose fact never landed in the fence, and a surviving row that verification already answered. Close: a drain loop over the pooled deferred backlog and orphaned critique fixlogs, then one doctrine lander over the pooled harvest.',
     phases: [
         {
             title: 'Discover',
@@ -12,15 +12,15 @@ export const meta = {
         },
         {
             title: 'Census',
-            detail: 'one codex lane per folder (large folders split by page count) reads every page and extracts each research row as an anchored epistemic-debt entry with its route family; entries return on the wire for clustering, the full product to disk',
+            detail: 'one codex delegate per folder (large folders split by page count) reads every page and extracts each research row as an anchored epistemic-debt entry with its route family; entries return on the wire for clustering, the full product to disk',
         },
         {
             title: 'Verify',
-            detail: 'plain orchestrator code clusters the entries by verification route family, then one lane per cluster verifies at its route — assay-decompile and external-doc NATIVE, catalog and doc-file codex — writing verdicts to disk',
+            detail: 'plain orchestrator code clusters the entries by verification route family, then one delegate per cluster verifies at its route — assay-decompile and external-doc NATIVE, catalog and doc-file codex — writing verdicts to disk',
         },
         {
             title: 'Apply',
-            detail: 'per folder pipelined: the resolver lane bakes confirmed spellings, corrects refuted assumptions, DELETES resolved rows, sharpens the unresolvable; then a codex critique and a red-team fold-forward per the chain law',
+            detail: 'per folder pipelined: the resolver delegate bakes confirmed spellings, corrects refuted assumptions, DELETES resolved rows, sharpens the unresolvable; then a codex critique and a red-team fold-forward per the chain law',
         },
         {
             title: 'Close',
@@ -33,7 +33,7 @@ export const meta = {
 
 const CAP = 14;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no shrinkage -> stop) is the real bound
-const CENSUS_PAGES = 10; // pages per census lane; a folder past it splits so each lane returns a bounded entry set on the wire
+const CENSUS_PAGES = 10; // pages per census delegate; a folder past it splits so each delegate returns a bounded entry set on the wire
 const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute working root; every disk path a prompt names resolves here
 const RETRY_ATTEMPTS = 2;
 
@@ -108,7 +108,7 @@ const DISCOVER_SCHEMA = {
 };
 
 // One census entry = one research row as epistemic debt: the exact question, its verification route, and the route
-// family/key the orchestrator clusters on. routeFamily picks the verify lane; routeKey is the cluster grouping key.
+// family/key the orchestrator clusters on. routeFamily picks the verify delegate; routeKey is the cluster grouping key.
 const CENSUS_ENTRY = {
     type: 'object',
     additionalProperties: false,
@@ -157,7 +157,7 @@ const VERDICT_SCHEMA = {
     },
 };
 
-// Thin wire receipt: a verify lane PRODUCT stays on disk at `report`; only status + count + headline travel inline.
+// Thin wire receipt: a verify delegate PRODUCT stays on disk at `report`; only status + count + headline travel inline.
 const RECEIPT = {
     type: 'object',
     additionalProperties: false,
@@ -408,8 +408,7 @@ const LANG = {
             'against the published types in node_modules, always layering the shared Effect ecosystem end-to-end ON TOP OF the area-specific packages, ' +
             'never the folder set alone.',
         verify:
-            'the published types in node_modules (`uv run python -m tools.assay api` over node_modules declarations where ' +
-            'a member is novel)',
+            'the published types in node_modules (`uv run python -m tools.assay api` over node_modules declarations where ' + 'a member is novel)',
         vocab: '(`Schema.Class`/`TaggedClass` families, tagged unions, `Effect`/`Layer`, value-derived vocabulary tables)',
         slur: 'naive JavaScript-in-TypeScript dressed in the right vocabulary',
         illusion: '`any`/unsafe `as`/non-null `!` smuggled under a confident surface; a member cited but unverifiable against node_modules',
@@ -442,9 +441,9 @@ const makeSlots = (cap) => {
     };
 };
 const slot = makeSlots(CAP);
-// Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death): attempt-counted with a retry before each; the
-// final death isolates the lane but NEVER the chain — every downstream stage still runs against current disk.
-const retryLane = async (fn) => {
+// Bounded re-dispatch for a dead CRITICAL delegate (usage-limit or transport death): attempt-counted with a retry before each; the
+// final death isolates the delegate but NEVER the chain — every downstream stage still runs against current disk.
+const retryDelegate = async (fn) => {
     for (let a = 0; a < RETRY_ATTEMPTS; a++) {
         const r = await fn();
         if (r) return r;
@@ -452,10 +451,10 @@ const retryLane = async (fn) => {
     return null;
 };
 
-// Codex dispatch: the wrapper runs one supervised codex-lane.sh lane in the background, reads the receipt, verifies the product, and
-// returns mechanical orchestration data. Lane law rides --law (developer-instructions); the --task file carries only the task; the output contract sits LAST.
+// Codex dispatch: the wrapper runs one supervised codex-delegate.sh delegate in the background, reads the receipt, verifies the product, and
+// returns mechanical orchestration data. Delegate law rides --law (developer-instructions); the --task file carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
-const laneLaw = (schema, o) =>
+const delegateLaw = (schema, o) =>
     (o.fix
         ? '<completion_bar>\nDone is every page in your named scope worked to its full depth with its fixlog entry written — ' +
           'proof-complete, never effort-spent, never early. Complete every named move before yielding; do not stop at analysis ' +
@@ -479,7 +478,7 @@ const laneLaw = (schema, o) =>
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
 // Sandbox decides authorship: a read-only delegate cannot write, so --out materializes the product; a writing delegate lands its own.
-const LANE_SCRIPT = ROOT + '/.claude/skills/codex/scripts/codex-lane.sh';
+const DELEGATE_SCRIPT = ROOT + '/.claude/skills/codex/scripts/codex-delegate.sh';
 const flagsOf = (o) =>
     [o.model && '--model ' + o.model, o.codexEffort && '--effort ' + o.codexEffort, o.web && '--web']
         .filter(Boolean)
@@ -489,7 +488,7 @@ const flagsOf = (o) =>
 const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
     const report = ROOT + '/' + base + '-report.json';
-    const lane = report + '.lane';
+    const delegate = report + '.delegate';
     const authored = !!o.writes;
     const sandbox = authored ? 'workspace-write' : 'read-only';
     const taskFull =
@@ -500,62 +499,62 @@ const codexPrompt = (label, task, schema, o) => {
               ' yourself.'
             : '');
     return (
-        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised lane run; never perform, edit, judge, soften, ' +
-        'summarize, or relay the work yourself. (1) Write the LANE LAW block below VERBATIM to ' +
-        lane +
+        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised delegate run; never perform, edit, judge, soften, ' +
+        'summarize, or relay the work yourself. (1) Write the DELEGATE LAW block below VERBATIM to ' +
+        delegate +
         '/law.md and the TASK block below VERBATIM to ' +
-        lane +
+        delegate +
         '/task.md, composing neither. ' +
         (authored
             ? 'Delete any leftover file at ' + report + ' with one Bash rm -f (a stale product there passes the verify probe as a false success). '
             : '') +
         '(2) Run ONE Bash call with run_in_background true: ' +
-        LANE_SCRIPT +
+        DELEGATE_SCRIPT +
         ' --task ' +
-        lane +
+        delegate +
         '/task.md --law ' +
-        lane +
+        delegate +
         '/law.md --dir ' +
-        lane +
+        delegate +
         ' --cwd ' +
         ROOT +
         ' --sandbox ' +
         sandbox +
         flagsOf(o) +
         (authored ? '' : ' --out ' + report) +
-        '; the harness re-invokes you when the lane exits — Read ' +
-        lane +
+        '; the harness re-invokes you when the delegate exits — Read ' +
+        delegate +
         '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
-        'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
+        'alone (the session persisted on disk) overwrites the task file with "continue and complete the delegate, then land the receipt" and ' +
         're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
         'refusal) re-runs the same command untouched. (3) ' +
         (authored
             ? 'The delegate lands the product itself at ' + report + ' as its final act.'
-            : 'The lane lands the product at ' + report + ' via --out.') +
+            : 'The delegate lands the product at ' + report + ' via --out.') +
         ' (4) Verify with one Bash call: jq -e . ' +
         report +
-        ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the lane ' +
+        ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the delegate ' +
         'events.jsonl (jq -rs to the last agent_message item text, Write that), re-probe, and a second miss returns ok=false with the ' +
         'probe output. (5) Return ok=true, report=' +
         base +
-        '-report.json (this repo-relative form, matching codex-lane receipts), entries = the length of the "' +
+        '-report.json (this repo-relative form, matching codex-delegate receipts), entries = the length of the "' +
         o.hl.arr +
         '" array in the product, headline="<entries> ' +
         o.hl.arr +
         (o.hl.group ? ' | <' + o.hl.group + ' tallies>' : '') +
         ' | top: <most frequent first file or none>", and failure empty. On a failed receipt return ok=false, entries=0, report and ' +
-        'headline empty, and failure equal to the receipt reason and failure text VERBATIM.\n\nLANE LAW:\n\n' +
-        laneLaw(schema, o) +
+        'headline empty, and failure equal to the receipt reason and failure text VERBATIM.\n\nDELEGATE LAW:\n\n' +
+        delegateLaw(schema, o) +
         '\n\nTASK:\n\n' +
         taskFull
     );
 };
-// Every codex-dispatched receipt lane routes here: the model `o.model` names, the config default unflagged otherwise.
+// Every codex-dispatched receipt delegate routes here: the model `o.model` names, the config default unflagged otherwise.
 // QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the
-// role twin. The roster row carries `scope` from the ORCHESTRATOR so a failed lane
-// unmapped territory is exact even when the lane died before writing anything.
+// role twin. The roster row carries `scope` from the ORCHESTRATOR so a failed delegate
+// unmapped territory is exact even when the delegate died before writing anything.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
-const nativeLane = (task, o) =>
+const nativeDelegate = (task, o) =>
     agent(
         task +
             '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
@@ -581,73 +580,73 @@ const recon = (task, o) =>
         effort: 'low',
         schema: RECEIPT,
     })
-        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
+        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeDelegate(task, o) : r))
         .then((r) => ({
-            lane: o.label,
+            delegate: o.label,
             scope: o.scope || [],
             ok: !!(r && r.ok && r.report),
             report: (r && r.report) || '',
             entries: (r && r.entries) || 0,
             headline: (r && r.headline) || '',
-            failure: (r && r.failure) || (r ? '' : 'lane died'),
+            failure: (r && r.failure) || (r ? '' : 'delegate died'),
         }));
-// Native receipt lane (assay/extdoc verify): normalized into the recon roster shape so a NATIVE cluster and a codex cluster read identically downstream.
-const asLane = (label, scope, p) =>
+// Native receipt delegate (assay/extdoc verify): normalized into the recon roster shape so a NATIVE cluster and a codex cluster read identically downstream.
+const asDelegate = (label, scope, p) =>
     p.then((r) => ({
-        lane: label,
+        delegate: label,
         scope: scope || [],
         ok: !!(r && r.ok && r.report),
         report: (r && r.report) || '',
         entries: (r && r.entries) || 0,
         headline: (r && r.headline) || '',
-        failure: (r && r.failure) || (r ? '' : 'lane died'),
+        failure: (r && r.failure) || (r ? '' : 'delegate died'),
     }));
 
 // Census dispatch: the wrapper makes one Codex call, writes the product to disk, AND relays the
 // entries themselves on the wire — the orchestrator clusters on them, so a receipt count alone would not do. Bounded
-// per lane by CENSUS_PAGES so the relayed entry set stays small.
+// per delegate by CENSUS_PAGES so the relayed entry set stays small.
 const censusCodexPrompt = (label, task, o) => {
     const base = SCRATCH + '/' + fileTag(label);
     const report = ROOT + '/' + base + '-report.json';
-    const lane = report + '.lane';
+    const delegate = report + '.delegate';
     const model = o.model || 'gpt-5.6-terra';
     return (
-        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised lane run; never perform, edit, judge, soften, ' +
-        'summarize, or relay the work yourself. (1) Write the LANE LAW block below VERBATIM to ' +
-        lane +
+        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised delegate run; never perform, edit, judge, soften, ' +
+        'summarize, or relay the work yourself. (1) Write the DELEGATE LAW block below VERBATIM to ' +
+        delegate +
         '/law.md and the TASK block below VERBATIM to ' +
-        lane +
+        delegate +
         '/task.md, composing neither. (2) Run ONE Bash call with run_in_background true: ' +
-        LANE_SCRIPT +
+        DELEGATE_SCRIPT +
         ' --task ' +
-        lane +
+        delegate +
         '/task.md --law ' +
-        lane +
+        delegate +
         '/law.md --dir ' +
-        lane +
+        delegate +
         ' --cwd ' +
         ROOT +
         ' --sandbox read-only --model ' +
         model +
         ' --out ' +
         report +
-        '; the harness re-invokes you when the lane exits — Read ' +
-        lane +
+        '; the harness re-invokes you when the delegate exits — Read ' +
+        delegate +
         '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
-        'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
+        'alone (the session persisted on disk) overwrites the task file with "continue and complete the delegate, then land the receipt" and ' +
         're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
-        'refusal) re-runs the same command untouched. (3) The lane lands the census product at ' +
+        'refusal) re-runs the same command untouched. (3) The delegate lands the census product at ' +
         report +
         ' via --out. Verify with one Bash call: jq -e . ' +
         report +
-        ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the lane ' +
+        ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the delegate ' +
         'events.jsonl (jq -rs to the last agent_message item text, Write that), re-probe, and a second miss returns the empty product. ' +
         '(4) Read the census product at ' +
         report +
         ' and return it VERBATIM as YOUR final message — the object with keys entries, coverage, summary matching the output schema. On a ' +
         'failed receipt return entries [], an empty coverage (all four arrays []), and summary equal to the receipt reason and failure text ' +
-        'VERBATIM.\n\nLANE LAW:\n\n' +
-        laneLaw(CENSUS_WIRE, o) +
+        'VERBATIM.\n\nDELEGATE LAW:\n\n' +
+        delegateLaw(CENSUS_WIRE, o) +
         '\n\nTASK:\n\n' +
         task
     );
@@ -673,7 +672,7 @@ const census = (task, o) =>
                   )
                 : r,
         )
-        .then((r) => ({ lane: o.label, entries: (r && r.entries) || [], summary: (r && r.summary) || '' }));
+        .then((r) => ({ delegate: o.label, entries: (r && r.entries) || [], summary: (r && r.summary) || '' }));
 
 const chunk = (arr, n) => {
     const o = [];
@@ -685,7 +684,7 @@ const evenChunk = (arr, max) => chunk(arr, Math.ceil(arr.length / (Math.ceil(arr
 const pkgOf = (p) => p.split('/.planning/')[0]; // package = the folder write-partition key (index docs live at its root)
 const Lof = (pkg) => LANG[langOf(pkg)] || LANG.cs;
 const scratchBase = (folder, i) => SCRATCH + '/' + fileTag(folder.split('/').pop() + ':f' + i);
-// Assay/external-doc clusters run NATIVE; catalog/doc-file clusters ride codex lanes reading the repo.
+// Assay/external-doc clusters run NATIVE; catalog/doc-file clusters ride codex delegates reading the repo.
 const NATIVE_FAMILY = { assay: true, build: true, extdoc: true, catalog: false, docfile: false };
 
 // Navigation handoff: FACTS ONLY — files, symbol deltas, seam rows, backlog. Never verdicts, summaries, or adjectives.
@@ -710,8 +709,8 @@ const ROOT_LAW =
     'another checkout of the repository.';
 const CONTEXT = (L) => ROOT_LAW + '\n\nRasm monorepo — ' + L.corpus + '. ' + L.strata + ' ' + L.stackFloor;
 
-// reg selects the register by the EXECUTING model: 'codex' neutral+de-conflicted for a codex lane (census, catalog/
-// doc verify, critique), 'claude' the hostile estate register a native lane (assay verify, apply, red-team) reads
+// reg selects the register by the EXECUTING model: 'codex' neutral+de-conflicted for a codex delegate (census, catalog/
+// doc verify, critique), 'claude' the hostile estate register a native delegate (assay verify, apply, red-team) reads
 // as sharpening. Substance is identical — research-row = epistemic debt, confident-row suspect, no-churn — only the
 // phrasing forks; codex drops the corpus-slur priming.
 const STANCE = (L, reg) =>
@@ -790,7 +789,7 @@ const PROSE_COMMENTS = (L) =>
     L.docBloat +
     ' bloat.';
 
-// reg forks only the second-pass intensifier: 'claude' keeps the adversarial framing a native lane sharpens on, 'codex' drops it.
+// reg forks only the second-pass intensifier: 'claude' keeps the adversarial framing a native delegate sharpens on, 'codex' drops it.
 const SELF_CHECK = (reg) =>
     'MANDATORY SELF-VERIFY (second pass, before returning): ' +
     (reg === 'codex' ? 're-derive' : 'adversarially re-derive') +
@@ -916,13 +915,13 @@ const censusPrompt = (L, pages) =>
             'upstream package docs, node_modules types. routeKey = "extdoc:" + the library (e.g. "extdoc:vchord_bm25").\n' +
             '- build: a version/BUILD-blocked capability — "version-BLOCKED on the current <pkg> build", a capability gated on a ' +
             'newer release. routeKey = "build:" + the package. A row whose route resolves to nothing usable also lands here as ' +
-            '"build:unresolved" so a native lane can confirm the block.\n' +
+            '"build:unresolved" so a native delegate can confirm the block.\n' +
             'A page with no research rows contributes nothing but is listed in `coverage.read`. Cite an anchor only after ' +
             'confirming the row text on disk; a mis-located or invented entry is a defect.',
     ].join('\n\n');
 
 // reg = the EXECUTING branch: 'claude' for the native assay/build/extdoc clusters, 'codex' for the catalog/doc-file
-// codex lanes; the stance, self-verify intensifier, and TASK header fork, the route substance is identical.
+// codex delegates; the stance, self-verify intensifier, and TASK header fork, the route substance is identical.
 const verifyPrompt = (L, cluster, reg) =>
     [
         CONTEXT(L),
@@ -1050,7 +1049,7 @@ const redteamPrompt = (L, folder, entries, verdictReports, scopes, nav, critOk, 
             'VERDICT REPORTS (read IN FULL from disk): ' + JSON.stringify(verdictReports) + '. Folder research entries: ' + JSON.stringify(entries),
             (critOk
                 ? 'PRIOR CLAIMS (UNVERIFIED): the critique fixlog is ON DISK at ' + critReport
-                : 'PRIOR CLAIMS (UNVERIFIED): the critique wrapper died, but the lane writes its fixlog before any ceiling ' +
+                : 'PRIOR CLAIMS (UNVERIFIED): the critique wrapper died, but the delegate writes its fixlog before any ceiling ' +
                   'can kill the call — check ' +
                   critReport +
                   ' FIRST; absent or unparseable, your cold attack is the only review this folder gets, judged from CURRENT disk ' +
@@ -1187,7 +1186,7 @@ const disc = await slot(() =>
     agent(discoverPrompt(), { label: 'discover', phase: 'Discover', model: 'sonnet', effort: 'low', schema: DISCOVER_SCHEMA }),
 );
 // Guard the model-emitted page roster: a discover-emitted path outside a valid libs/{cs,py,ts} route would route as cs by
-// Lof's fallback and dispatch census/apply on a wrong-language page — drop it before any lane fires.
+// Lof's fallback and dispatch census/apply on a wrong-language page — drop it before any delegate fires.
 const RAW_PAGES = [...new Set(((disc && disc.pages) || []).filter(Boolean))];
 const PAGES = RAW_PAGES.filter((p) => langOf(p));
 const STRAY = RAW_PAGES.filter((p) => !langOf(p));
@@ -1202,7 +1201,7 @@ const FOLDERS = [...new Set(PAGES.map(pkgOf))];
 log('Discover: ' + PAGES.length + ' pages across ' + FOLDERS.length + ' folder(s); CAP=' + CAP + ', CENSUS_PAGES=' + CENSUS_PAGES);
 
 phase('Census');
-// One census lane per folder, large folders split by page count; each lane returns its slice entries on the wire.
+// One census delegate per folder, large folders split by page count; each delegate returns its slice entries on the wire.
 const censusUnits = FOLDERS.flatMap((f) =>
     evenChunk(
         PAGES.filter((p) => pkgOf(p) === f),
@@ -1217,7 +1216,7 @@ const censusRes = (
     )
 ).filter(Boolean);
 const ENTRIES = censusRes.flatMap((r) => (r && r.entries) || []).filter((e) => e && e.page && e.routeKey);
-log('Census: ' + ENTRIES.length + ' research row(s) across ' + censusRes.length + '/' + censusUnits.length + ' lane(s)');
+log('Census: ' + ENTRIES.length + ' research row(s) across ' + censusRes.length + '/' + censusUnits.length + ' delegate(s)');
 if (!ENTRIES.length) {
     log('No research rows under the targets — nothing to resolve');
     return { targets: TARGETS, folders: FOLDERS.length, entries: 0 };
@@ -1233,20 +1232,20 @@ const CLUSTERS = Object.values(
     }, {}),
 );
 log('Verify: ' + CLUSTERS.length + ' cluster(s) by route family');
-// The route decides the lane: assay/build/extdoc run NATIVE (tools.assay over host DLLs, a native Context7 lane for
-// extdoc); catalog/docfile ride codex lanes reading the repo.
+// The route decides the delegate: assay/build/extdoc run NATIVE (tools.assay over host DLLs, a native Context7 delegate for
+// extdoc); catalog/docfile ride codex delegates reading the repo.
 const verified = (
     await Promise.all(
         CLUSTERS.map((c) => {
             const label = 'verify:' + fileTag(c.routeKey);
             const scope = [...new Set(c.entries.map((e) => e.page))];
             const L = Lof(pkgOf(c.entries[0].page));
-            // Register follows the executing branch: native assay/build/extdoc get the hostile register they sharpen on; codex catalog/doc lanes get neutral.
+            // Register follows the executing branch: native assay/build/extdoc get the hostile register they sharpen on; codex catalog/doc delegates get neutral.
             const p = NATIVE_FAMILY[c.routeFamily]
-                ? asLane(
+                ? asDelegate(
                       label,
                       scope,
-                      nativeLane(verifyPrompt(L, c, 'claude'), {
+                      nativeDelegate(verifyPrompt(L, c, 'claude'), {
                           label,
                           phase: 'Verify',
                           schema: VERDICT_SCHEMA,
@@ -1307,7 +1306,7 @@ const built = (
                 });
                 const apply =
                     (await slot(() => agent(applyPrompt(L, folder, folderEntries, verdictReports, SCOPES), applyOpts('')))) ||
-                    (await retryLane(() => slot(() => agent(applyPrompt(L, folder, folderEntries, verdictReports, SCOPES), applyOpts(':a1')))));
+                    (await retryDelegate(() => slot(() => agent(applyPrompt(L, folder, folderEntries, verdictReports, SCOPES), applyOpts(':a1')))));
                 // CHAIN CONTINUATION: a dead apply never blocks the reviews — the critique's conformance audit and the red-team's
                 // pre-mortem still improve the pages as they stand on disk; navigation simply arrives empty.
                 const nav = navOf(apply ? [apply] : []);
@@ -1335,7 +1334,7 @@ const built = (
                     effort: 'high',
                     schema: REVIEW_SCHEMA,
                 });
-                const rt = (await slot(() => agent(rtArgs, rtOpts('')))) || (await retryLane(() => slot(() => agent(rtArgs, rtOpts(':a1')))));
+                const rt = (await slot(() => agent(rtArgs, rtOpts('')))) || (await retryDelegate(() => slot(() => agent(rtArgs, rtOpts(':a1')))));
                 return { folder, entries: folderEntries, apply, crit: critR, critReport, rt };
             })
             .map((p) => p.catch(() => null)),
@@ -1396,7 +1395,7 @@ for (let round = 0; round < DRAIN_ROUNDS; round++) {
                 schema: FIXER_SCHEMA,
             }),
         );
-    fixer = (await fire('')) || (await retryLane(() => fire(':a1')));
+    fixer = (await fire('')) || (await retryDelegate(() => fire(':a1')));
     if (!fixer) break; // dead round after retries: the residual and orphan sets survive to the run return, every disk tranche stays checkpoint-re-enterable
     fixerHarvest = fixerHarvest.concat(fixer.harvest || []);
     const open = fixer.remaining || [];
@@ -1443,7 +1442,7 @@ const verdictCounts = {
     total: VERIFIED_OK.reduce((a, v) => a + v.entries, 0),
     clusters: VERIFIED_OK.length,
     failedClusters: verified.filter((v) => !v.ok).map((v) => v.routeKey),
-    lanes: VERIFIED_OK.map((v) => ({ routeKey: v.routeKey, count: v.entries, headline: v.headline })),
+    delegates: VERIFIED_OK.map((v) => ({ routeKey: v.routeKey, count: v.entries, headline: v.headline })),
 };
 return {
     targets: TARGETS,

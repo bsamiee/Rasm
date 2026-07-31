@@ -17,40 +17,39 @@ Consumers walk this table and resolve each row live. Transcribing rows into a se
 |  [07]   | `.claude/skills/` master trees               | sibling-repo skill copies                  | propagation is byte-identical copy           |
 |  [08]   | `CLAUDE.md` fact                             | `AGENTS.md` cross-reference                | one fact serves its acting reader            |
 |  [09]   | `.config/dotnet-tools.json` tool row         | `tools/assay` decompile rails              | manifest tools are assay runtime deps        |
-|  [10]   | workflow codex-lane dispatch shape           | `workflow-creator` and `codex` skills      | canon lives in the owning skill              |
-|  [11]   | `RULINGS.md` tier mint or retirement         | template scope sentence + ingest rosters   | registries ground reviewers per tier         |
-|  [12]   | shape-family template or instance fix        | the template + every sibling instance      | one family holds one shape, whole            |
-|  [13]   | `FaultBand` decade mint or retirement        | every sibling registry's pinned mirror row | disjointness is type-enforced per registry   |
-|  [14]   | `tests/contracts/` seam schema or class row  | every minter and producer the entry names  | class decides who re-proves conformance      |
-|  [15]   | `libs/.planning/README.md` seam-kind row     | every seam edge label across the corpus    | a closed vocabulary censuses by grep         |
-|  [16]   | design-page cluster anchor rename or retire  | every `MANIFEST.md` field naming it        | manifest anchors resolve on disk             |
-|  [17]   | glossary term sense mint or divergence       | each surface reusing it as vocabulary      | one sense, many spellings                    |
-|  [18]   | `docs/glossary/` band page add or retire     | `.greptile/files.json` + topology-closure  | an unread band governs nothing               |
-|  [19]   | Tier-0 `[08]` conformance row                | branch anchors beside the corpus entry     | corpus parity proves the three spellings     |
-|  [20]   | `_Observe` spec axis mint                    | its `operate/observe` arm + the Tier-0 row | an axis with no arm flips nothing            |
-|  [21]   | `Boards._PACKS` provenance key               | the producing branch's pack projection     | a closed tuple admits only minted wires      |
-|  [22]   | `.api` catalogue tier move or delete         | the surviving rows + every citing anchor   | one package holds one catalogue, whole       |
-|  [23]   | browser entry-type row on either vital owner | the peer roster + the shared entry floor   | one buffer, one accounting, one shared floor |
-|  [24]   | `Convention` placement-plane row             | gateway `k8s_attributes` extract roster    | one key set, proved from either end          |
-|  [25]   | runtime `Vital.Reported` carrier kind        | the producing ui surface's evidence row    | a closed set admits only minted wires        |
-|  [26]   | ts package exports-map subpath               | `Convention._module` row + its scope name  | an unrostered subpath has no spellable scope |
-|  [27]   | `TraceCarrier` column or the fold linking it | the counterpart end of the durable hop     | one carrier, one fold, or the edge is lost   |
-|  [28]   | residence DDL relation, column, or catalog   | every transcribing residence row + fill    | the planter names it, the reader spells it   |
-|  [29]   | domain-row subject text on a branch roster   | every peer roster claiming that segment    | one subject carries one spelling estate-wide |
-|  [30]   | corpus-contract closed vocabulary            | every roster transcribing it structurally  | no compiler spans a declined import          |
-|  [31]   | board query-target or posture `source` key   | the `_SOURCES` datasource row it dials     | a panel binds only a realized uid            |
-|  [32]   | `Convention._translation` strategy row       | every `_stores` row's translation dialect  | one strategy, spelled per store dialect      |
-|  [33]   | `ISqlFunctionRegister` custom-function row   | the python `register_extension_yaml` call  | one extension set serves both plan ends      |
-|  [34]   | `PartitionTransform` member mint             | every per-format projection row            | an unspelled transform refuses by name       |
-|  [35]   | `LandingArm` row mint or retirement          | its producing package's `Landing` arm      | a landing with no producer is a declared gap |
-|  [36]   | security `AuditJournal` bearing field        | data `Fact.audits` and its subject index   | a field change breaks erasure silently       |
-|  [37]   | backend-row arming column a spec value flips | that plane's `_SOURCES` row `present` half | an unarmed plane provisions no read door     |
-|  [38]   | tier backend selection projecting a target   | every pack rendering against that plane    | one selection, one rendered series grammar   |
-|  [39]   | branch backend-free instrument read plane    | its diagnostic-archive collector row       | a read plane no capture folds answers nobody |
-|  [40]   | shared corpus-definition vocabulary row      | every branch transcribing that row         | one frozen vocabulary, three transcriptions  |
-|  [41]   | wire family row on an interchange census     | its landing class + each consuming arm     | a decoded family with no arm lands nothing   |
-|  [42]   | deploy-plane served decoder artifact row     | the consuming roster row + absence gate    | a decoder serves where its address publishes |
-|  [43]   | native-lineage pin on either peer manifest   | the peer manifest's lineage floor comment  | one native lineage, two package rails        |
+|  [10]   | `RULINGS.md` tier mint or retirement         | template scope sentence + ingest rosters   | registries ground reviewers per tier         |
+|  [11]   | shape-family template or instance fix        | the template + every sibling instance      | one family holds one shape, whole            |
+|  [12]   | `FaultBand` decade mint or retirement        | every sibling registry's pinned mirror row | disjointness is type-enforced per registry   |
+|  [13]   | `tests/contracts/` seam schema or class row  | every minter and producer the entry names  | class decides who re-proves conformance      |
+|  [14]   | `libs/.planning/README.md` seam-kind row     | every seam edge label across the corpus    | a closed vocabulary censuses by grep         |
+|  [15]   | design-page cluster anchor rename or retire  | every `MANIFEST.md` field naming it        | manifest anchors resolve on disk             |
+|  [16]   | glossary term sense mint or divergence       | each surface reusing it as vocabulary      | one sense, many spellings                    |
+|  [17]   | `docs/glossary/` band page add or retire     | `.greptile/files.json` + topology-closure  | an unread band governs nothing               |
+|  [18]   | Tier-0 `[08]` conformance row                | branch anchors beside the corpus entry     | corpus parity proves the three spellings     |
+|  [19]   | `_Observe` spec axis mint                    | its `operate/observe` arm + the Tier-0 row | an axis with no arm flips nothing            |
+|  [20]   | `Boards._PACKS` provenance key               | the producing branch's pack projection     | a closed tuple admits only minted wires      |
+|  [21]   | `.api` catalogue tier move or delete         | the surviving rows + every citing anchor   | one package holds one catalogue, whole       |
+|  [22]   | browser entry-type row on either vital owner | the peer roster + the shared entry floor   | one buffer, one accounting, one shared floor |
+|  [23]   | `Convention` placement-plane row             | gateway `k8s_attributes` extract roster    | one key set, proved from either end          |
+|  [24]   | runtime `Vital.Reported` carrier kind        | the producing ui surface's evidence row    | a closed set admits only minted wires        |
+|  [25]   | ts package exports-map subpath               | `Convention._module` row + its scope name  | an unrostered subpath has no spellable scope |
+|  [26]   | `TraceCarrier` column or the fold linking it | the counterpart end of the durable hop     | one carrier, one fold, or the edge is lost   |
+|  [27]   | residence DDL relation, column, or catalog   | every transcribing residence row + fill    | the planter names it, the reader spells it   |
+|  [28]   | domain-row subject text on a branch roster   | every peer roster claiming that segment    | one subject carries one spelling estate-wide |
+|  [29]   | corpus-contract closed vocabulary            | every roster transcribing it structurally  | no compiler spans a declined import          |
+|  [30]   | board query-target or posture `source` key   | the `_SOURCES` datasource row it dials     | a panel binds only a realized uid            |
+|  [31]   | `Convention._translation` strategy row       | every `_stores` row's translation dialect  | one strategy, spelled per store dialect      |
+|  [32]   | `ISqlFunctionRegister` custom-function row   | the python `register_extension_yaml` call  | one extension set serves both plan ends      |
+|  [33]   | `PartitionTransform` member mint             | every per-format projection row            | an unspelled transform refuses by name       |
+|  [34]   | `LandingArm` row mint or retirement          | its producing package's `Landing` arm      | a landing with no producer is a declared gap |
+|  [35]   | security `AuditJournal` bearing field        | data `Fact.audits` and its subject index   | a field change breaks erasure silently       |
+|  [36]   | backend-row arming column a spec value flips | that plane's `_SOURCES` row `present` half | an unarmed plane provisions no read door     |
+|  [37]   | tier backend selection projecting a target   | every pack rendering against that plane    | one selection, one rendered series grammar   |
+|  [38]   | branch backend-free instrument read plane    | its diagnostic-archive collector row       | a read plane no capture folds answers nobody |
+|  [39]   | shared corpus-definition vocabulary row      | every branch transcribing that row         | one frozen vocabulary, three transcriptions  |
+|  [40]   | wire family row on an interchange census     | its landing class + each consuming arm     | a decoded family with no arm lands nothing   |
+|  [41]   | deploy-plane served decoder artifact row     | the consuming roster row + absence gate    | a decoder serves where its address publishes |
+|  [42]   | native-lineage pin on either peer manifest   | the peer manifest's lineage floor comment  | one native lineage, two package rails        |
 
 ## [02]-[CONDITIONED]
 

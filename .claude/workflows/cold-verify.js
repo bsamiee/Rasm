@@ -1,14 +1,14 @@
 export const meta = {
     name: 'cold-verify',
     whenToUse:
-        'Campaign closure gate: after a rebuild campaign lands, verify the whole target corpus against its root DECISION/brief and fix every miss in place. args = {doc, root} or an array of such pairs; campaigns verify in parallel lanes. The resolver finalizes each campaign in-run — findings resolve as edits, never as a report; a doctrine lander closes the run only when a pass pools a durable nomination.',
+        'Campaign closure gate: after a rebuild campaign lands, verify the whole target corpus against its root DECISION/brief and fix every miss in place. args = {doc, root} or an array of such pairs; campaigns verify in parallel delegates. The resolver finalizes each campaign in-run — findings resolve as edits, never as a report; a doctrine lander closes the run only when a pass pools a durable nomination.',
     description:
-        'Cold-verify pass over one or more landed campaigns. Per campaign: one plan lane partitions the target folder into balanced verification slices; verifiers fan out as dispatched lanes, each reading the root doc and its slice pages IN FULL, hunting missing/wrong/faked/naive work with typed anchored findings (one verifier owns the governance lane: index docs, manifest rows, csproj/README registries, .api anchors, acceptance traces, rider receipts; a per-language-branch verifier owns the cross-libs ripple lane: every sibling seam ledger, consumer anchor, counterpart obligation, and frozen wire name the campaign touches outside the target root). Every verifier runs a mandatory second-pass self-verify: each finding adversarially re-derived from disk before return, vague or unconfirmed findings deleted, and a clean verdict asserted only after the second hostile pass returns empty. ONE terminal resolver then finalizes the campaign with LIBS-WIDE ripple authority — verifier findings are SIGNALS, not law: it re-verifies each on disk, implements the strongest fix where a suggestion was weak or short-sighted, hunts and fixes what the verifiers missed on its own authority, resolves every ripple its edits expose anywhere under libs/ (sibling counterparts repaired in place both ends, except where the doc rules a counterpart recorded-only), and pushes touched pages past the ruling per the floor law. The resolver is retry-guarded and appends each harvest nomination to a deterministic .jsonl as it is minted; when any campaign pools a non-empty nomination OR its resolver dies, ONE terminal doctrine lander adjudicates against docs/laws (refutation-first, land-nothing legal), sweeping the disk harvest files so a dead finalize loses none. Otherwise no phase follows the resolver.',
+        'Cold-verify pass over one or more landed campaigns. Per campaign: one plan delegate partitions the target folder into balanced verification slices; verifiers fan out as dispatched delegates, each reading the root doc and its slice pages IN FULL, hunting missing/wrong/faked/naive work with typed anchored findings (one verifier owns the governance delegate: index docs, manifest rows, csproj/README registries, .api anchors, acceptance traces, rider receipts; a per-language-branch verifier owns the cross-libs ripple delegate: every sibling seam ledger, consumer anchor, counterpart obligation, and frozen wire name the campaign touches outside the target root). Every verifier runs a mandatory second-pass self-verify: each finding adversarially re-derived from disk before return, vague or unconfirmed findings deleted, and a clean verdict asserted only after the second hostile pass returns empty. ONE terminal resolver then finalizes the campaign with LIBS-WIDE ripple authority — verifier findings are SIGNALS, not law: it re-verifies each on disk, implements the strongest fix where a suggestion was weak or short-sighted, hunts and fixes what the verifiers missed on its own authority, resolves every ripple its edits expose anywhere under libs/ (sibling counterparts repaired in place both ends, except where the doc rules a counterpart recorded-only), and pushes touched pages past the ruling per the floor law. The resolver is retry-guarded and appends each harvest nomination to a deterministic .jsonl as it is minted; when any campaign pools a non-empty nomination OR its resolver dies, ONE terminal doctrine lander adjudicates against docs/laws (refutation-first, land-nothing legal), sweeping the disk harvest files so a dead finalize loses none. Otherwise no phase follows the resolver.',
     phases: [
         { title: 'Plan', detail: 'per campaign: enumerate pages, partition into balanced slices', model: 'sonnet' },
         {
             title: 'Verify',
-            detail: 'per campaign: slice verifiers + one governance verifier + per-branch cross-libs ripple verifiers as dispatched lanes, read-only, self-verified typed anchored findings',
+            detail: 'per campaign: slice verifiers + one governance verifier + per-branch cross-libs ripple verifiers as dispatched delegates, read-only, self-verified typed anchored findings',
             model: 'sonnet',
         },
         {
@@ -27,7 +27,7 @@ export const meta = {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SLICES = 4;
-const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // repo checkout root — native lanes resolve relative paths against it, never the launching session cwd
+const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // repo checkout root — native delegates resolve relative paths against it, never the launching session cwd
 const RETRY_ATTEMPTS = 2;
 
 // --- [INPUTS] --------------------------------------------------------------------------
@@ -38,7 +38,7 @@ if (!CAMPS.length) {
     log('No campaigns — pass {doc, root} or an array of pairs.');
     return { campaigns: 0 };
 }
-// Per-instance scratch dir holding lane report files, minted deterministically from the normalized campaign set (a clock or
+// Per-instance scratch dir holding delegate report files, minted deterministically from the normalized campaign set (a clock or
 // randomness would break resume): one FLAT dir per instance, a root-basename slug and an FNV-1a tail so distinct sets never collide.
 const fnv1a = (s) => {
     let h = 0x811c9dc5;
@@ -88,7 +88,7 @@ const FINDINGS = {
                 additionalProperties: false,
                 required: ['claimKey', 'target', 'files', 'class', 'severity', 'claim', 'anchors', 'mechanism', 'owner', 'reject', 'acceptance'],
                 properties: {
-                    claimKey: { type: 'string' }, // <class>|<owner>|<primary symbol or absence route> — stable across lanes, never lane wording
+                    claimKey: { type: 'string' }, // <class>|<owner>|<primary symbol or absence route> — stable across delegates, never delegate wording
                     target: { type: 'string' }, // short display label for the defect
                     files: { type: 'array', items: { type: 'string' } }, // files the resolver must open or edit first
                     class: { type: 'string', enum: ['missing', 'wrong', 'faked', 'naive', 'drift', 'phantom'] },
@@ -117,7 +117,7 @@ const FINDINGS = {
     },
 };
 
-// Thin wire receipt: the lane's PRODUCT stays on disk at `report`; only status + counts travel inline.
+// Thin wire receipt: the delegate's PRODUCT stays on disk at `report`; only status + counts travel inline.
 const RECEIPT = {
     type: 'object',
     additionalProperties: false,
@@ -218,15 +218,15 @@ const FIXLOG = {
 
 // --- [SHARED_BLOCKS]
 
-// Every relative repo path resolves against ONE absolute root — native terminal lanes (resolver, doctrine) do not reliably
-// inherit the launching session cwd, so the pin travels in every prompt; codex lanes additionally pin it as cwd.
+// Every relative repo path resolves against ONE absolute root — native terminal delegates (resolver, doctrine) do not reliably
+// inherit the launching session cwd, so the pin travels in every prompt; codex delegates additionally pin it as cwd.
 const ROOT_LAW =
     'WORKING ROOT: ' +
     ROOT +
     ' — every relative repo path in this brief resolves against this absolute root; read, write, and edit ONLY under it, never another checkout of the repository.';
 
-// reg selects the register by the EXECUTING model: 'codex' neutral for a codex verify lane, the default hostile
-// estate register for a native-first lane (plan, resolver) it sharpens; only the stance clause forks.
+// reg selects the register by the EXECUTING model: 'codex' neutral for a codex verify delegate, the default hostile
+// estate register for a native-first delegate (plan, resolver) it sharpens; only the stance clause forks.
 const CTX = (c, reg) =>
     ROOT_LAW +
     '\n\nRasm monorepo, planning phase. The campaign over ' +
@@ -258,7 +258,7 @@ const EVIDENCE_LAW =
     'seam vocabulary — never a new local shape); `reject` lists the deleted forms the repair must not take; `acceptance` ' +
     'lists the signals that prove resolution. NEVER write add/replace/implement/promote/delete as instruction — the ' +
     'executor owns the design; you own the constraint boundary. `claimKey` = <class>|<owner>|<primary symbol or absence ' +
-    'route>, identical for the same defect regardless of lane or wording. `severity` binds to consequence: blocker = ' +
+    'route>, identical for the same defect regardless of delegate or wording. `severity` binds to consequence: blocker = ' +
     'closure-blocking, major = campaign correctness, minor = local cleanup — never prose confidence. OUTPUT BOUNDS: an ' +
     'ordinary scope yields 3-8 retained findings; 0 only when the second hostile pass comes back empty, and then ' +
     '`summary` names the probes that produced nothing; never manufacture a finding to fill the range, never delete a ' +
@@ -289,9 +289,9 @@ const HARVEST_LAW =
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death): attempt-counted with a retry before each;
-// the final death isolates the lane, NEVER the chain — the doctrine lander still fires from the resolver's disk harvest file.
-const retryLane = async (fn) => {
+// Bounded re-dispatch for a dead CRITICAL delegate (usage-limit or transport death): attempt-counted with a retry before each;
+// the final death isolates the delegate, NEVER the chain — the doctrine lander still fires from the resolver's disk harvest file.
+const retryDelegate = async (fn) => {
     for (let a = 0; a < RETRY_ATTEMPTS; a++) {
         const r = await fn();
         if (r) return r;
@@ -299,11 +299,11 @@ const retryLane = async (fn) => {
     return null;
 };
 
-// Codex dispatch: the shell lane runs one blocking supervised CLI process and writes its content
-// to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
+// Codex dispatch: the shell delegate runs one blocking supervised CLI process and writes its content
+// to the delegate report, and returns mechanical orchestration data. Delegate law rides developer-instructions
 // (role split); the prompt carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
-const laneLaw = (schema, o) =>
+const delegateLaw = (schema, o) =>
     (o.fix
         ? '<persistence>\nComplete every named move before yielding; do not stop at analysis or a partial edit. If the chosen ' +
           'approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely ' +
@@ -321,8 +321,8 @@ const laneLaw = (schema, o) =>
     JSON.stringify(schema) +
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
-// Sandbox decides authorship: verify lanes are read-only, so --out materializes the product; the delegate never writes the corpus.
-const LANE_SCRIPT = ROOT + '/.claude/skills/codex/scripts/codex-lane.sh';
+// Sandbox decides authorship: verify delegates are read-only, so --out materializes the product; the delegate never writes the corpus.
+const DELEGATE_SCRIPT = ROOT + '/.claude/skills/codex/scripts/codex-delegate.sh';
 const flagsOf = (o) =>
     [o.model && '--model ' + o.model, o.codexEffort && '--effort ' + o.codexEffort, o.web && '--web']
         .filter(Boolean)
@@ -333,57 +333,57 @@ const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
     const report = ROOT + '/' + base + '-report.json';
     const model = o.model || 'gpt-5.6-terra';
-    const lane = report + '.lane';
+    const delegate = report + '.delegate';
     return (
-        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised lane run; never perform, edit, judge, soften, ' +
-        'summarize, or relay the work yourself. (1) Write the LANE LAW block below VERBATIM to ' +
-        lane +
+        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised delegate run; never perform, edit, judge, soften, ' +
+        'summarize, or relay the work yourself. (1) Write the DELEGATE LAW block below VERBATIM to ' +
+        delegate +
         '/law.md and the TASK block below VERBATIM to ' +
-        lane +
+        delegate +
         '/task.md, composing neither. (2) Run ONE Bash call with run_in_background true: ' +
-        LANE_SCRIPT +
+        DELEGATE_SCRIPT +
         ' --task ' +
-        lane +
+        delegate +
         '/task.md --law ' +
-        lane +
+        delegate +
         '/law.md --dir ' +
-        lane +
+        delegate +
         ' --cwd ' +
         ROOT +
         ' --sandbox read-only' +
         flagsOf({ model, codexEffort: o.codexEffort, web: o.web }) +
         ' --out ' +
         report +
-        '; the harness re-invokes you when the lane exits — Read ' +
-        lane +
+        '; the harness re-invokes you when the delegate exits — Read ' +
+        delegate +
         '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
-        'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
+        'alone (the session persisted on disk) overwrites the task file with "continue and complete the delegate, then land the receipt" and ' +
         're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
-        'refusal) re-runs the same command untouched. (3) The lane lands the product at ' +
+        'refusal) re-runs the same command untouched. (3) The delegate lands the product at ' +
         report +
         ' via --out. (4) Verify with one Bash call: jq -e . ' +
         report +
-        ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the lane ' +
+        ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the delegate ' +
         'events.jsonl (jq -rs to the last agent_message item text, Write that), re-probe, and a second miss returns ok=false with the ' +
         'probe output. (5) Return ok=true, report=' +
         base +
-        '-report.json (this repo-relative form, matching codex-lane receipts), entries = the length of the "' +
+        '-report.json (this repo-relative form, matching codex-delegate receipts), entries = the length of the "' +
         o.hl.arr +
         '" array in the product, headline="<entries> ' +
         o.hl.arr +
         (o.hl.group ? ' | <' + o.hl.group + ' tallies>' : '') +
         ' | top: <most frequent first file or none>", and failure empty. On a failed receipt return ok=false, entries=0, report and ' +
-        'headline empty, and failure equal to the receipt reason and failure text VERBATIM.\n\nLANE LAW:\n\n' +
-        laneLaw(schema, o) +
+        'headline empty, and failure equal to the receipt reason and failure text VERBATIM.\n\nDELEGATE LAW:\n\n' +
+        delegateLaw(schema, o) +
         '\n\nTASK:\n\n' +
         task
     );
 };
 // QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's
-// native twin — the caller owns the re-dispatch, the shell lane never executes work itself. The roster row carries `scope` from the
-// ORCHESTRATOR (never the lane's self-report) so a failed lane's unmapped territory is exact even when the lane died before writing anything.
+// native twin — the caller owns the re-dispatch, the shell delegate never executes work itself. The roster row carries `scope` from the
+// ORCHESTRATOR (never the delegate's self-report) so a failed delegate's unmapped territory is exact even when the delegate died before writing anything.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
-const nativeLane = (task, o) =>
+const nativeDelegate = (task, o) =>
     agent(
         task +
             '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
@@ -409,20 +409,20 @@ const recon = (task, o) =>
         effort: 'low',
         schema: RECEIPT,
     })
-        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
+        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeDelegate(task, o) : r))
         .then((r) => ({
-            lane: o.label,
+            delegate: o.label,
             scope: o.scope || [],
             ok: !!(r && r.ok && r.report),
             report: (r && r.report) || '',
             entries: (r && r.entries) || 0,
             headline: (r && r.headline) || '',
-            failure: (r && r.failure) || (r ? '' : 'lane died'),
+            failure: (r && r.failure) || (r ? '' : 'delegate died'),
         }));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const lanes = await parallel(
+const delegates = await parallel(
     CAMPS.map((c) => async () => {
         const tag = c.root.split('/').pop();
         const plan = await agent(
@@ -533,7 +533,7 @@ const lanes = await parallel(
         const roster = (await parallel(verifyTasks)).filter(Boolean);
         const verified = roster.filter((r) => r.ok);
         const total = verified.reduce((a, r) => a + r.entries, 0);
-        const unmapped = roster.filter((r) => !r.ok).flatMap((r) => r.scope.map((s) => ({ lane: r.lane, scope: s })));
+        const unmapped = roster.filter((r) => !r.ok).flatMap((r) => r.scope.map((s) => ({ delegate: r.delegate, scope: s })));
         log(
             tag +
                 ': ' +
@@ -542,12 +542,12 @@ const lanes = await parallel(
                 verified.length +
                 '/' +
                 roster.length +
-                ' lanes' +
+                ' delegates' +
                 (verified.length < roster.length
                     ? ' — FAILED: ' +
                       roster
                           .filter((r) => !r.ok)
-                          .map((r) => r.lane)
+                          .map((r) => r.delegate)
                           .join(', ')
                     : ''),
         );
@@ -572,9 +572,9 @@ const lanes = await parallel(
             'CONSUMPTION PROTOCOL, in order: (a) read ' +
             c.doc +
             ' IN FULL — it is the ruling; (b) UNMAPPED scope below is ' +
-            "your direct-hunt queue — a failed lane's territory gets your own cold read, first; (c) read every ok report " +
-            'file IN FULL from disk, governance and ripple lanes before page slices — group findings by `claimKey` as you ' +
-            'read (the same key across lanes is ONE defect with corroborating evidence, never several priorities) and order ' +
+            "your direct-hunt queue — a failed delegate's territory gets your own cold read, first; (c) read every ok report " +
+            'file IN FULL from disk, governance and ripple delegates before page slices — group findings by `claimKey` as you ' +
+            'read (the same key across delegates is ONE defect with corroborating evidence, never several priorities) and order ' +
             'work by `severity` then `owner` (shared owners and registries before their consumers, cross-folder seams before ' +
             'local prose); (d) each finding is a SIGNAL: re-open its anchors before editing — anchors behind an edit, cited ' +
             'members, seams, and manifest rows re-verify MANDATORY; navigation-only entries in untouched groups re-verify ' +
@@ -606,11 +606,11 @@ const lanes = await parallel(
                 effort: 'high',
                 schema: FIXLOG,
             });
-        const fix = (await fireResolve('')) || (await retryLane(() => fireResolve(':r1')));
+        const fix = (await fireResolve('')) || (await retryDelegate(() => fireResolve(':r1')));
         return {
             campaign: c.root,
-            lanes: roster.length,
-            failedLanes: roster.filter((r) => !r.ok).map((r) => r.lane),
+            delegates: roster.length,
+            failedDelegates: roster.filter((r) => !r.ok).map((r) => r.delegate),
             findings: total,
             resolved: (fix && fix.resolved && fix.resolved.length) || 0,
             beyond: (fix && fix.beyond && fix.beyond.length) || 0,
@@ -626,12 +626,12 @@ const lanes = await parallel(
 // DOCTRINE LANDER: the run's durable-learning terminal — pooled harvest nominations adjudicated against the live doctrine
 // surfaces; refutation-first, land-nothing legal, admission law owned by docs/laws. Nomination transport never rides a living
 // fold: the wire `harvest` is corroboration only, and the lander reads each resolver's deterministic harvest `.jsonl` from disk
-// directly — a dead resolver still fires it (fire-gate below) and loses no row. Harvest paths mint from CAMPS, not lane returns,
-// so a fully-dead campaign lane still contributes its file.
-const LIVE = lanes.filter(Boolean);
+// directly — a dead resolver still fires it (fire-gate below) and loses no row. Harvest paths mint from CAMPS, not delegate returns,
+// so a fully-dead campaign delegate still contributes its file.
+const LIVE = delegates.filter(Boolean);
 const HARVEST_ROWS = LIVE.flatMap((l) => l.harvest || []);
 const HARVEST_FILES = CAMPS.map((c) => SCRATCH + '/' + fileTag('resolve:' + c.root.split('/').pop()) + '-harvest.jsonl');
-const RESOLVER_DIED = lanes.some((l) => !l || l.resolverDead);
+const RESOLVER_DIED = delegates.some((l) => !l || l.resolverDead);
 const doctrine =
     HARVEST_ROWS.length || RESOLVER_DIED
         ? await agent(
@@ -658,7 +658,7 @@ const doctrine =
         : null;
 
 return {
-    campaigns: lanes.filter(Boolean),
+    campaigns: delegates.filter(Boolean),
     doctrine: doctrine && {
         nominated: HARVEST_ROWS.length,
         landed: (doctrine.landed || []).length,

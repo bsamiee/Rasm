@@ -3,7 +3,7 @@
 //            marshal boundary converts host values to descriptors and back, and both OSA error
 //            key families normalize into one fault type the calling code branches on.
 // Invariant: Callers hand this host a serial execution context; the host itself adds no
-//            confinement and stays unsafe to share across concurrent lanes.
+//            confinement and stays unsafe to share across concurrent queues.
 // Replace  : SOURCE and HANDLER rows, the Value arms with their two marshal cases each, and the
 //            language instance the owning context hands in.
 import Foundation

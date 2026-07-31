@@ -74,7 +74,7 @@ const FIXLOG_SCHEMA = {
 const LAW = [
     'Rasm monorepo. CLAUDE.md card law governs. READ libs/.planning/campaign-method.md for the role law and voice, and libs/.planning/README.md for ' +
         'the exact IDEAS/TASKLOG card schema. This is an ALIGNMENT/REFINEMENT pass: re-align each card to the CURRENT state of the folder it governs ' +
-        '(status, anchors, what is now realized in-corpus vs still-deferred, a denser/better approach WITHIN the ideas/tasks lane, correct/relocate ' +
+        '(status, anchors, what is now realized in-corpus vs still-deferred, a denser/better approach WITHIN the ideas/tasks delegate, correct/relocate ' +
         'slugs and anchors). Make cards logical and aligned, NOT coupled. Apply the 7-point density rubric (polymorphic collapse; one-hop; growth-axis ' +
         'absorption; Result/Option rails; library-at-depth; policy-values not boolean knobs; greenfield in-place) as a FLOOR, never the complete ' +
         'set — any repeated structure, parallel spelling, or enumerable family a single algebra, table, fold, or generator can own is a target you ' +
@@ -106,8 +106,8 @@ const LAW = [
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // Bounded re-dispatch for a dead CRITICAL writer (usage-limit or transport death, agent() returned null): attempt-counted with a
-// A final failure returns null; the pool collects it and .filter(Boolean) drops it, so the lane isolates without rejecting the chain.
-const retryLane = async (fn) => {
+// A final failure returns null; the pool collects it and .filter(Boolean) drops it, so the delegate isolates without rejecting the chain.
+const retryDelegate = async (fn) => {
     for (let a = 0; a < RETRY_ATTEMPTS; a++) {
         const r = await fn();
         if (r) return r;
@@ -173,8 +173,8 @@ const aligned = (
         ].join('\n');
         const base = 'align:' + u.folder.split('/').slice(-2).join('/');
         const opt = (suffix) => ({ label: base + suffix, phase: 'Cards-Align', schema: FIXLOG_SCHEMA, effort: 'high' });
-        // CRITICAL WRITER: a dead align lane loses its folder's density realignment with no downstream re-drain — a final death isolates the lane.
-        return (await agent(prompt, opt(''))) || (await retryLane(() => agent(prompt, opt(':r1'))));
+        // CRITICAL WRITER: a dead align delegate loses its folder's density realignment with no downstream re-drain — a final death isolates the delegate.
+        return (await agent(prompt, opt(''))) || (await retryDelegate(() => agent(prompt, opt(':r1'))));
     })
 ).filter(Boolean);
 log('Cards aligned across ' + aligned.length + ' folders');
@@ -207,7 +207,7 @@ const verify = (
                     schema: FIXLOG_SCHEMA,
                     effort: 'high',
                 });
-                return (await agent(prompt, opt(''))) || (await retryLane(() => agent(prompt, opt(':r1'))));
+                return (await agent(prompt, opt(''))) || (await retryDelegate(() => agent(prompt, opt(':r1'))));
             },
             async () => {
                 const prompt = [
@@ -227,7 +227,7 @@ const verify = (
                     schema: FIXLOG_SCHEMA,
                     effort: 'high',
                 });
-                return (await agent(prompt, opt(''))) || (await retryLane(() => agent(prompt, opt(':r1'))));
+                return (await agent(prompt, opt(''))) || (await retryDelegate(() => agent(prompt, opt(':r1'))));
             },
         ],
         CAP,

@@ -258,7 +258,7 @@ const CORE_LOGIC = [
 const ASYNC_DEPTH = [
     'STRUCTURED-CONCURRENCY DEPTH (wherever a page touches async): one `anyio` failure boundary, NEVER naive `asyncio`. Task fan-out is a task group ' +
         'with a typed child carrier; cancellation is scope-based (`fail_after`/`move_on_after`/`current_effective_deadline`, level-triggered, ' +
-        '`get_cancelled_exc_class()` re-raised under `CancelScope(shield=True)`, never railed into a `Result.Error`); offload is a `frozendict[Lane, ' +
+        '`get_cancelled_exc_class()` re-raised under `CancelScope(shield=True)`, never railed into a `Result.Error`); offload is a `frozendict[Delegate, ' +
         'Offload]` table over `to_thread`/`to_interpreter`/`to_process` + `CapacityLimiter`; a `BaseExceptionGroup` is partitioned via `except*` and ' +
         'reduced through the rail fault monoid; memory object streams + sync primitives own producer/consumer handoff; teardown is `AsyncExitStack` + a ' +
         'shielded close. Retry is `stamina` (`AsyncRetryingCaller`/`retry_context` + `RetryHook` spans) over raised transients only — never a loop.',

@@ -86,7 +86,7 @@ function routeOf(row, catalog) {
     return { verb: row.verb, route: 'refused', reason: 'event-class-absent', code: row.code };
 }
 
-// Terminology dispatch camel-cases the dictionary's own spelling; the raw lane addresses the same target
+// Terminology dispatch camel-cases the dictionary's own spelling; the raw path addresses the same target
 // by application URL, binding one bundle instance rather than a Launch Services identity. returnID -1 is
 // kAutoGenerateReturnID and transactionID 0 is kAnyTransactionID.
 function dispatch(appPath, verdict, operand) {

@@ -2,11 +2,11 @@ export const meta = {
     name: 'implement-ts',
     whenToUse: 'Realize open cards into design-page code fences across the TypeScript target folders.',
     description:
-        "Realize every open IDEAS/TASKLOG card across the libs/typescript capability folders (core, security, data, runtime, ui, iac) into deep design-page code FENCES at the docs/stacks/typescript bar (Effect-TS rails, Schema-first boundaries, one canonical owner per concept, exhaustive discriminated unions, zero any/throw/enum), repair every ripple in-pass, and truthfully close the cards. Each target folder runs its OWN discover -> implement -> critique -> redteam chain, ALL chains concurrent under one pooled cap: a folder starts the moment its own discovery lands, a folder with no open cards no-ops after its own discovery, and a failed chain isolates without rejecting the pool. Discovery hands downstream stages navigation FACTS (paths, verified members, seam targets) and never verdicts; it runs as a recon lane, lands its full product on disk under .claude/scratch/implement-ts, and returns a thin receipt with a jq-extracted structural skeleton on the wire; the implement stage reads the report IN FULL from disk, and when the skeleton proves page-disjoint card groups it fans over them. Every stage WRITES and repairs the page-level ripples its own work exposes in the same pass — in-scope seams aligned against current disk, 1-hop out-of-scope same-language counterpart fences realized directly — with BLOCKED probes and folder-local package admission inline. The redteam is each folder chain's terminal stage and sole card-status owner: it final-remediates weak realizations in place and closes only cards whose realization it verified strong on disk. Two handoffs route to the run's terminal single-writer, the central pnpm-workspace.yaml catalog pin (+ its catalog: manifest row) and the area ARCHITECTURE.md [03]-[SEAMS] row: folder agents report exact rows, one terminal writer applies them serially. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest — each stage's rows ride its own return, the critique lane's swept from its fixlog on disk by the doctrine lander (nomination transport never rides a living fold); the terminal stage is a DRAIN LOOP over the pooled deferred backlog and every critique fixlog that also applies the central pins and ARCHITECTURE seam rows and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate, then one doctrine lander adjudicates the pooled harvest and every critique fixlog harvest array from disk against the docs/laws admission bar (land-nothing legal) before the run closes. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of rebuild-api. TypeScript-only. args = a target path string, an array of paths, or empty for all capability folders. The language-wide libs/typescript/.planning is out of scope.",
+        "Realize every open IDEAS/TASKLOG card across the libs/typescript capability folders (core, security, data, runtime, ui, iac) into deep design-page code FENCES at the docs/stacks/typescript bar (Effect-TS rails, Schema-first boundaries, one canonical owner per concept, exhaustive discriminated unions, zero any/throw/enum), repair every ripple in-pass, and truthfully close the cards. Each target folder runs its OWN discover -> implement -> critique -> redteam chain, ALL chains concurrent under one pooled cap: a folder starts the moment its own discovery lands, a folder with no open cards no-ops after its own discovery, and a failed chain isolates without rejecting the pool. Discovery hands downstream stages navigation FACTS (paths, verified members, seam targets) and never verdicts; it runs as a recon delegate, lands its full product on disk under .claude/scratch/implement-ts, and returns a thin receipt with a jq-extracted structural skeleton on the wire; the implement stage reads the report IN FULL from disk, and when the skeleton proves page-disjoint card groups it fans over them. Every stage WRITES and repairs the page-level ripples its own work exposes in the same pass — in-scope seams aligned against current disk, 1-hop out-of-scope same-language counterpart fences realized directly — with BLOCKED probes and folder-local package admission inline. The redteam is each folder chain's terminal stage and sole card-status owner: it final-remediates weak realizations in place and closes only cards whose realization it verified strong on disk. Two handoffs route to the run's terminal single-writer, the central pnpm-workspace.yaml catalog pin (+ its catalog: manifest row) and the area ARCHITECTURE.md [03]-[SEAMS] row: folder agents report exact rows, one terminal writer applies them serially. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest — each stage's rows ride its own return, the critique delegate's swept from its fixlog on disk by the doctrine lander (nomination transport never rides a living fold); the terminal stage is a DRAIN LOOP over the pooled deferred backlog and every critique fixlog that also applies the central pins and ARCHITECTURE seam rows and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate, then one doctrine lander adjudicates the pooled harvest and every critique fixlog harvest array from disk against the docs/laws admission bar (land-nothing legal) before the run closes. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of rebuild-api. TypeScript-only. args = a target path string, an array of paths, or empty for all capability folders. The language-wide libs/typescript/.planning is out of scope.",
     phases: [
         {
             title: 'Realize',
-            detail: 'all folder chains concurrent under one pooled cap: discover(recon; full product to disk, thin receipt + structural skeleton on the wire) -> implement(reads the discovery report from disk, fans over discovery-proven page-disjoint card groups) -> critique(ONE lane, write; fixlog to disk, receipt on the wire) -> redteam(terminal close; reads the critique fixlog from disk as refutation targets and folds its surviving ripples/pins/seams/deferred rows into its own return); a folder with no open cards no-ops after its own discovery; every writing stage re-reads current disk, repairs page-level ripples in-pass, and reports central pin rows + ARCHITECTURE.md [03]-[SEAMS] rows for the terminal single-writer instead of editing those surfaces',
+            detail: 'all folder chains concurrent under one pooled cap: discover(recon; full product to disk, thin receipt + structural skeleton on the wire) -> implement(reads the discovery report from disk, fans over discovery-proven page-disjoint card groups) -> critique(ONE delegate, write; fixlog to disk, receipt on the wire) -> redteam(terminal close; reads the critique fixlog from disk as refutation targets and folds its surviving ripples/pins/seams/deferred rows into its own return); a folder with no open cards no-ops after its own discovery; every writing stage re-reads current disk, repairs page-level ripples in-pass, and reports central pin rows + ARCHITECTURE.md [03]-[SEAMS] rows for the terminal single-writer instead of editing those surfaces',
         },
         {
             title: 'Pins',
@@ -51,7 +51,7 @@ const REQUESTED = Array.isArray(args)
         : DEFAULT_TARGETS;
 const TARGETS = REQUESTED.filter(routed);
 const REJECTED = REQUESTED.filter((t) => !routed(t));
-// Per-instance scratch dir — per-lane report files + grounding dossiers + per-batch seam-ledger files. Minted deterministically from the
+// Per-instance scratch dir — per-delegate report files + grounding dossiers + per-batch seam-ledger files. Minted deterministically from the
 // resolved TARGETS (clock/randomness would break resume): one FLAT dir per instance, a basename slug with an FNV-1a tail so distinct
 // target sets never share a directory and a resume rehydrates the same one; an empty/defaulted scope hashes over the resolved defaults.
 const fnv1a = (s) => {
@@ -191,7 +191,7 @@ const strictObj = (core, extra) => ({
     required: Object.keys(core).concat(Object.keys(extra)),
     properties: Object.assign({}, core, extra),
 });
-// The thin wire-receipt core every lane returns: status + count + headline; the PRODUCT stays on disk at `report`.
+// The thin wire-receipt core every delegate returns: status + count + headline; the PRODUCT stays on disk at `report`.
 const RECEIPT_CORE = {
     ok: { type: 'boolean' },
     report: { type: 'string' },
@@ -201,7 +201,7 @@ const RECEIPT_CORE = {
 };
 // Discovery receipt = the core with the structural skeleton the orchestrator fans and seams over (order/cards/gates/ripples/malformed); the discovery
 // PRODUCT (statuses, theses, coverage, the full navigation dossier) stays on disk. `cards` = {slug, pages} per open card — the page-disjointness proof,
-// nothing more. The critique lane returns the bare core — its FIXLOG product stays on disk at `report`.
+// nothing more. The critique delegate returns the bare core — its FIXLOG product stays on disk at `report`.
 const RECEIPT = strictObj(RECEIPT_CORE, {
     order: { type: 'array', items: { type: 'string' } },
     cards: { type: 'array', items: CARD_REF },
@@ -209,7 +209,7 @@ const RECEIPT = strictObj(RECEIPT_CORE, {
     ripples: { type: 'array', items: RIPPLE_ROW },
     malformed: { type: 'array', items: MALFORMED_ROW },
 });
-const LANE_RECEIPT = strictObj(RECEIPT_CORE, {});
+const DELEGATE_RECEIPT = strictObj(RECEIPT_CORE, {});
 
 // Required-but-possibly-empty `ripples`/`pins`/`seams` are attestations: ripple repair ran in-pass,
 // and pin + seam rows are the run's only single-writer handoffs — empty attests none arose, never a skip.
@@ -518,7 +518,7 @@ const PATLAW = [
 ].join('\n');
 
 const BOUNDARIES =
-    'BOUNDARY LAW: keep every area owner strictly in its lane; internal code uses canonical names and shapes with mapping (and ' +
+    'BOUNDARY LAW: keep every area owner strictly in its delegate; internal code uses canonical names and shapes with mapping (and ' +
     '`Schema` validation) only at the edge; respect the dependency direction of the workspace. Cross-folder repair is seam-shaped: align ' +
     'counterparts, consumer sites, and counterpart cards — a concern owned twice across a runtime, an area mixing unrelated concerns, or coupling ' +
     'to a sibling owner INTERIOR (vs its wire/seam) is a defect.';
@@ -592,9 +592,9 @@ const INFO_LAW =
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const RETRY_ATTEMPTS = 2;
-// Bounded re-dispatch for a dead CRITICAL writing/terminal lane (usage-limit or transport death — agent() returned null): attempt-counted with a
-// retry; the final death isolates the LANE, never the chain — every downstream stage still runs against current disk.
-const retryLane = async (fn) => {
+// Bounded re-dispatch for a dead CRITICAL writing/terminal delegate (usage-limit or transport death — agent() returned null): attempt-counted with a
+// retry; the final death isolates the DELEGATE, never the chain — every downstream stage still runs against current disk.
+const retryDelegate = async (fn) => {
     for (let a = 0; a < RETRY_ATTEMPTS; a++) {
         const r = await fn();
         if (r) return r;
@@ -614,11 +614,11 @@ const pool = async (items, cap, worker) => {
     return out;
 };
 
-// Lane law rides developer-instructions
+// Delegate law rides developer-instructions
 // (role split, battery-validated); the prompt carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
 const ownpassPath = (label) => SCRATCH + '/' + fileTag(label) + '-ownpass.md';
-const laneLaw = (schema, o) =>
+const delegateLaw = (schema, o) =>
     (o.fix
         ? '<completion_bar>\nDone is every realized fence in your named scope audited to its full depth with its fixlog entry ' +
           'written — proof-complete, never effort-spent, never early. Complete every named move before yielding; do not stop at ' +
@@ -642,7 +642,7 @@ const laneLaw = (schema, o) =>
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
 // Sandbox decides authorship: a read-only delegate cannot write, so --out materializes the product; a writing delegate lands its own.
-const LANE_SCRIPT = '/Users/bardiasamiee/Documents/99.Github/Rasm/.claude/skills/codex/scripts/codex-lane.sh';
+const DELEGATE_SCRIPT = '/Users/bardiasamiee/Documents/99.Github/Rasm/.claude/skills/codex/scripts/codex-delegate.sh';
 const flagsOf = (o) =>
     [o.model && '--model ' + o.model, o.codexEffort && '--effort ' + o.codexEffort, o.web && '--web']
         .filter(Boolean)
@@ -652,16 +652,16 @@ const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
     const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
     const report = root + '/' + base + '-report.json';
-    const lane = report + '.lane';
+    const delegate = report + '.delegate';
     const authored = !!o.writes;
     const sandbox = authored ? 'workspace-write' : 'read-only';
     return [
-        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised lane run; never perform, edit, judge, ' +
+        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised delegate run; never perform, edit, judge, ' +
             'soften, summarize, or relay the work yourself.',
-        '(1) Write the LANE LAW block below VERBATIM to ' +
-            lane +
+        '(1) Write the DELEGATE LAW block below VERBATIM to ' +
+            delegate +
             '/law.md and the TASK block below VERBATIM to ' +
-            lane +
+            delegate +
             '/task.md, composing neither.' +
             (authored
                 ? ' Delete any leftover file at ' +
@@ -669,37 +669,37 @@ const codexPrompt = (label, task, schema, o) => {
                   ' with one Bash rm -f (a stale product there passes the verify probe as a false success).'
                 : ''),
         '(2) Run ONE Bash call with run_in_background true: ' +
-            LANE_SCRIPT +
+            DELEGATE_SCRIPT +
             ' --task ' +
-            lane +
+            delegate +
             '/task.md --law ' +
-            lane +
+            delegate +
             '/law.md --dir ' +
-            lane +
+            delegate +
             ' --cwd ' +
             root +
             ' --sandbox ' +
             sandbox +
             flagsOf(o) +
             (authored ? '' : ' --out ' + report) +
-            '; the harness re-invokes you when the lane exits — Read ' +
-            lane +
+            '; the harness re-invokes you when the delegate exits — Read ' +
+            delegate +
             '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason ' +
-            '"crash" alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land ' +
+            '"crash" alone (the session persisted on disk) overwrites the task file with "continue and complete the delegate, then land ' +
             'the receipt" and re-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (' +
             'turn failure or refusal) re-runs the same command untouched.',
         '(3) ' +
             (authored
                 ? 'The delegate lands the product itself at ' + report + ' as its final act.'
-                : 'The lane lands the product at ' + report + ' via --out.') +
+                : 'The delegate lands the product at ' + report + ' via --out.') +
             ' (4) Verify with one Bash call: jq -e . ' +
             report +
-            ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the lane ' +
+            ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the delegate ' +
             'events.jsonl (jq -rs to the last agent_message item text, Write that), re-probe, and a second miss returns ok=false with ' +
             'the probe output.',
         o.receipt(base),
-        'LANE LAW:\n\n' + laneLaw(schema, o),
-        // writes lanes author their own report (final act); the wrapper only verifies.
+        'DELEGATE LAW:\n\n' + delegateLaw(schema, o),
+        // writes delegates author their own report (final act); the wrapper only verifies.
         'TASK:\n\n' +
             task +
             (authored
@@ -710,7 +710,7 @@ const codexPrompt = (label, task, schema, o) => {
     ].join('\n\n');
 };
 const twinOf = (m) => (/-terra/.test(m || '') ? 'opus' : /-luna/.test(m || '') ? 'sonnet' : 'fable');
-const nativeLane = (task, o) =>
+const nativeDelegate = (task, o) =>
     agent(task + o.nativeTail(SCRATCH + '/' + fileTag(o.label) + '-report.json'), {
         label: o.label,
         phase: o.phase,
@@ -718,9 +718,9 @@ const nativeLane = (task, o) =>
         effort: 'high',
         schema: o.wire,
     });
-// The discovery lane is a recon mapping lane, never fix, with the
-// native twin as the quota fallback. The row carries `scope` from the ORCHESTRATOR (never the lane's
-// self-report) so a failed lane's territory is exact even when the lane died before writing anything.
+// The discovery delegate is a recon mapping delegate, never fix, with the
+// native twin as the quota fallback. The row carries `scope` from the ORCHESTRATOR (never the delegate's
+// self-report) so a failed delegate's territory is exact even when the delegate died before writing anything.
 const discoveryReceipt = (base) =>
     '(5) Read the product at the report path for the mechanical orchestration data. Return ok=true, report=' +
     base +
@@ -745,15 +745,15 @@ const recon = (task, o) => {
         effort: 'low',
         schema: RECEIPT,
     })
-        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, opts) : r))
+        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeDelegate(task, opts) : r))
         .then((r) => ({
-            lane: o.label,
+            delegate: o.label,
             scope: o.scope || [],
             ok: !!(r && r.ok && r.report),
             report: (r && r.report) || '',
             entries: (r && r.entries) || 0,
             headline: (r && r.headline) || '',
-            failure: (r && r.failure) || (r ? '' : 'lane died'),
+            failure: (r && r.failure) || (r ? '' : 'delegate died'),
             order: (r && r.order) || [],
             cards: (r && r.cards) || [],
             gates: (r && r.gates) || [],
@@ -763,7 +763,7 @@ const recon = (task, o) => {
 };
 const folderName = (p) => p.split('/').filter(Boolean).pop() || p;
 
-// Critique lane: one blocking supervised Codex CLI process at the config-owned default — a FIX lane
+// Critique delegate: one blocking supervised Codex CLI process at the config-owned default — a FIX delegate
 // (persistence + post-edit verification law), FIXLOG product to disk, thin receipt on the wire; a quota fallback
 // restores the native twin writing the same product to the same path.
 const critiqueReceipt = (base) =>
@@ -777,24 +777,24 @@ const critiqueTail = (report) =>
     ' (Write tool, absolute path under the repo root): ' +
     JSON.stringify(FIXLOG_SCHEMA) +
     ' — then return ONLY the receipt: ok, report path, entries = realized count, one-line mechanical headline, failure empty.';
-const solLane = (task, o) => {
-    const opts = { ...o, writes: true, fix: true, receipt: critiqueReceipt, nativeTail: critiqueTail, wire: LANE_RECEIPT };
+const solDelegate = (task, o) => {
+    const opts = { ...o, writes: true, fix: true, receipt: critiqueReceipt, nativeTail: critiqueTail, wire: DELEGATE_RECEIPT };
     return agent(codexPrompt(o.label, task, FIXLOG_SCHEMA, opts), {
         label: 'sol:' + o.label,
         phase: o.phase,
         model: 'sonnet',
         effort: 'low',
-        schema: LANE_RECEIPT,
+        schema: DELEGATE_RECEIPT,
     })
-        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, opts) : r))
+        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeDelegate(task, opts) : r))
         .then((r) => ({
             ok: !!(r && r.ok && r.report),
             report: (r && r.report) || '',
             entries: (r && r.entries) || 0,
             headline: (r && r.headline) || '',
-            failure: (r && r.failure) || (r ? '' : 'lane died'),
+            failure: (r && r.failure) || (r ? '' : 'delegate died'),
         }))
-        .catch(() => ({ ok: false, report: '', entries: 0, headline: '', failure: 'lane died' }));
+        .catch(() => ({ ok: false, report: '', entries: 0, headline: '', failure: 'delegate died' }));
 };
 
 // Page-disjointness is PROVEN, never assumed: every ordered card must carry >=1 verified page, gate pairs merge, and
@@ -927,7 +927,7 @@ const implementPrompt = (folder, rpt, seq, note, ownpass) =>
             rpt +
             " IN FULL from disk AFTER your OWN PASS FIRST artifact lands — the folder's navigation-facts reconnaissance (every open card with status/thesis/verified " +
             'pages, ripple classifications, gates, malformed ripples, the per-page navigation map ({page, files, anchors, members, composed, ' +
-            'underutilized, seams, stacking}), and the lane `coverage`): FACTS with jump-coordinate anchors, never verdicts and never a reading ' +
+            'underutilized, seams, stacking}), and the delegate `coverage`): FACTS with jump-coordinate anchors, never verdicts and never a reading ' +
             'ceiling — spot-verify what you build on, re-open every anchor behind an edit, hunt past the map on your own authority, and give its ' +
             'coverage `skipped`/`unverified` scope your own cold read. The ' +
             'sequenced worklist skeleton ' +
@@ -975,7 +975,7 @@ const implementPrompt = (folder, rpt, seq, note, ownpass) =>
             (note ? '\n' + note : ''),
     ].join('\n');
 
-// critiquePrompt feeds the codex lane (+ native twin): neutral stance — hostile register degrades
+// critiquePrompt feeds the codex delegate (+ native twin): neutral stance — hostile register degrades
 // codex, safe for the twin; the hostile pass is redteam (native).
 const critiquePrompt = (folder, seq, report, ownpass) =>
     [
@@ -1071,7 +1071,7 @@ const redteamPrompt = (folder, seq, report, critOk, critReport, ownpass) =>
                   'never rides a living fold.'
                 : 'PRIOR CLAIMS: the critique receipt did not confirm — but its fixlog MAY still be ON DISK at `' +
                   critReport +
-                  '` (the report path is DETERMINISTIC, and a dead wrapper never erases a fixlog the lane already wrote): read it if present and fold ' +
+                  '` (the report path is DETERMINISTIC, and a dead wrapper never erases a fixlog the delegate already wrote): read it if present and fold ' +
                   'its surviving rows forward under the same duty; if genuinely absent, your cold attack is the only review this folder gets — judge ' +
                   'from CURRENT disk alone.') +
             '\nThe discovery report at `' +
@@ -1261,7 +1261,7 @@ const runFolder = async (target) => {
                                 model: 'fable',
                                 effort: 'high',
                             });
-                        return (await build(label)) || (await retryLane(() => build(label + ':r1')));
+                        return (await build(label)) || (await retryDelegate(() => build(label + ':r1')));
                     }),
                 )
             ).filter(Boolean);
@@ -1275,7 +1275,7 @@ const runFolder = async (target) => {
                     model: 'fable',
                     effort: 'high',
                 });
-            const one = (await build(label)) || (await retryLane(() => build(label + ':r1')));
+            const one = (await build(label)) || (await retryDelegate(() => build(label + ':r1')));
             impls = one ? [one] : [];
         }
         // CHAIN CONTINUATION: a dead implement never severs the reviews — the critique's conformance audit and the redteam's terminal close still
@@ -1284,7 +1284,7 @@ const runFolder = async (target) => {
         const implFailed = !impls.length;
         // Critique: fixlog to disk, receipt on the wire; the redteam folds its rows forward. The report path is DETERMINISTIC — computed here,
         // never lifted from the receipt — so a critique that wrote its fixlog before a wrapper-ceiling death is still folded (redteam + ORPHANS read disk).
-        const crit = await solLane(critiquePrompt(target, seq, t.report, ownpassPath('critique:' + tag)), {
+        const crit = await solDelegate(critiquePrompt(target, seq, t.report, ownpassPath('critique:' + tag)), {
             label: 'critique:' + tag,
             phase: 'Realize',
         });
@@ -1299,7 +1299,7 @@ const runFolder = async (target) => {
                 model: 'fable',
                 effort: 'high',
             });
-        const red = (await buildRed(redLabel)) || (await retryLane(() => buildRed(redLabel + ':r1')));
+        const red = (await buildRed(redLabel)) || (await retryDelegate(() => buildRed(redLabel + ':r1')));
         return {
             folder: target,
             failed: false,
@@ -1393,7 +1393,7 @@ if (pinsRan) {
                 model: 'opus',
                 effort: 'high',
             });
-        pinlog = (await fire('')) || (await retryLane(() => fire(':a1')));
+        pinlog = (await fire('')) || (await retryDelegate(() => fire(':a1')));
         if (!pinlog) break; // dead round after retries: the residual/orphan sets survive to the run return, every disk tranche checkpoint-re-enterable
         pinHarvest = pinHarvest.concat(pinlog.harvest || []);
         const open = pinlog.remaining || [];

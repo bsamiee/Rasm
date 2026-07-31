@@ -9,7 +9,7 @@ description: >-
 
 # [CONTEXT7_SEARCH]
 
-Two MCP tools and a REST lane: `resolve-library-id` ranks indexed sources, `query-docs` returns cited code per scoped question, REST adds ranked metadata and budgeted pulls.
+Two MCP tools and a REST surface: `resolve-library-id` ranks indexed sources, `query-docs` returns cited code per scoped question, REST adds ranked metadata and budgeted pulls.
 
 - Boundary: Context7 owns usage shape, composition, currency, and discovery — never exact signatures.
 - Signatures: from source, cheapest first — `.api/<pkg>.md`, then uv-cache/local source, then `uv run --with <pkg>` (C# NuGet, TS node_modules).
@@ -43,7 +43,7 @@ mcp__context7__query-docs {"libraryId": "/effect-ts/effect", "query": "Schedule.
 
 ## [02]-[CAPABILITY_RESEARCH]
 
-Two lanes — discover the package, then map it. Discovery (which package owns the capability): exa `category: "github"` returns best-in-class candidates with the stars, recency, and license the admission gate reads; Context7's index-search token-matches unrelated domains and misses here. Depth (map a chosen package): REST search ranks a named library's indexed sources by the signals the MCP strips (`benchmarkScore`, `trustScore`, `totalTokens`, freshness, `verified`); a token-budgeted topical pull routes bulk to disk per capability axis; the typed variant relevance-gates snippets before window entry; each surfaced symbol drills through `resolve-library-id`/`query-docs`.
+Two passes — discover the package, then map it. Discovery (which package owns the capability): exa `category: "github"` returns best-in-class candidates with the stars, recency, and license the admission gate reads; Context7's index-search token-matches unrelated domains and misses here. Depth (map a chosen package): REST search ranks a named library's indexed sources by the signals the MCP strips (`benchmarkScore`, `trustScore`, `totalTokens`, freshness, `verified`); a token-budgeted topical pull routes bulk to disk per capability axis; the typed variant relevance-gates snippets before window entry; each surfaced symbol drills through `resolve-library-id`/`query-docs`.
 
 ```jsonc template
 // discovery — best-in-class candidates with admission metadata (stars, recency, license)
