@@ -5,7 +5,6 @@ MUST READ: `libs/.planning/RULINGS.md` + `libs/.planning/ARCHITECTURE.md`
 Rasm is in a long-term planning phase, working strictly within spec-sheets, not code files:
 - All `libs/` spec docs are the rebuild surface: rebuilt ground-up each pass, freely and aggressively; always address cross file/folder ripples on landing.
 - `/prime <target>` executes the grounding ladder; never hand-derive the read set.
-- `/custodian`: Dispatch `infra-custodian` () after any pass editing load-bearing infra.
 
 ## [01]-[REQUIRED]
 
