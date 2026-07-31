@@ -166,6 +166,9 @@
 |  [12]   | `Transform`                         | `(in SKMatrix[, SKPath dst])` affine transform                              |
 |  [13]   | `Offset`                            | `(SKPoint)` or `(dx, dy)` translation                                       |
 |  [14]   | `Reset` / `Rewind`                  | clears contours / clears while retaining allocation                         |
+|  [15]   | `Op`                                | `(SKPath other, SKPathOp)` -> `SKPath` boolean path combine                 |
+|  [16]   | `ToSvgPathData`                     | `()` -> `string`; static `ParseSvgPathData(string)` is the inverse          |
+|  [17]   | `GetPosition` (`SKPathMeasure`)     | `(float)` -> `SKPoint` / `(float, out SKPoint)` -> `bool`; `GetPositionAndTangent(float, out SKPoint, out SKPoint)` widens |
 
 [SURFACE_IMAGE_ENTRYPOINTS]: surface allocation, picture record/replay, snapshot, codec, and pixel transfer
 
@@ -203,7 +206,7 @@
 |  [30]   | `GetFrameInfo`                     | `SKCodec`            | returns `SKCodecFrameInfo`                                             |
 |  [31]   | `StartIncrementalDecode`           | `SKCodec`            | starts progressive decode                                              |
 |  [32]   | `IncrementalDecode`                | `SKCodec`            | continues decode with `out int rowsDecoded`                            |
-|  [33]   | `CreateCopy`                       | `SKVertices`         | `(SKVertexMode, SKPoint[], SKPoint[] texs, SKColor[])`                 |
+|  [33]   | `CreateCopy`                       | `SKVertices`         | `(SKVertexMode, SKPoint[], SKColor[])` / `(…, SKPoint[] texs, SKColor[])` / `(…, texs, colors, ushort[] indices)` |
 |  [34]   | `Span` / `Size` / `ToArray`        | `SKData`             | `Span<byte>` zero-copy view / `long` length / `byte[]` copy            |
 
 [TRANSFORM_VALUE_ENTRYPOINTS]: affine and similarity transform construction

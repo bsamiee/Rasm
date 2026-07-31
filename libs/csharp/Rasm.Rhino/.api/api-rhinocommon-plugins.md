@@ -87,8 +87,8 @@
 - `DigitizerPlugIn.SendPoint(Point3d point, MouseButton mousebuttons, bool shiftKey, bool controlKey) : void` / `SendRay(Ray3d ray, MouseButton mousebuttons, bool shiftKey, bool controlKey) : void` — feed digitized input into the host
 
 [ENTRYPOINT_SCOPE]: file-dialog registration and dispatch
-- `new FileTypeList(string description, string extension)` — a registration list seeded with one type
-- `FileTypeList.AddFileType(string description, string extension) : int` / `AddFileType(string description, string extension, bool showOptionsButtonInFileDialog) : int` / `AddFileType(string description, string extension1, string extension2) : int` / `AddFileType(string description, IEnumerable<string> extensions, bool showOptionsButtonInFileDialog) : int` — each returns the dispatch index the later read/write receives
+- `new FileTypeList()` / `new FileTypeList(string description, string extension)` / `new FileTypeList(string description, string extension, bool showOptionsButtonInFileDialog)` — an empty registration list or one seeded with a single type
+- `FileTypeList.AddFileType(string description, string extension) : int` / `AddFileType(string description, string extension, bool showOptionsButtonInFileDialog) : int` / `AddFileType(string description, string extension1, string extension2) : int` / `AddFileType(string description, string extension1, string extension2, bool showOptionsButtonInFileDialog) : int` / `AddFileType(string description, IEnumerable<string> extensions) : int` / `AddFileType(string description, IEnumerable<string> extensions, bool showOptionsButtonInFileDialog) : int` — each returns the dispatch index the later read/write receives
 - `new FileType(string extension, string description)` / `FileType.Description : string` / `FileType.Extension : string`
 - `protected abstract FileImportPlugIn.AddFileTypes(FileReadOptions options) : FileTypeList` / `ReadFile(string filename, int index, RhinoDoc doc, FileReadOptions options) : bool` / `protected virtual DisplayOptionsDialog(nint parent, string description, string extension) : void` / `MakeReferenceTableName(RhinoDoc doc, string nameToPrefix) : string`
 - `protected abstract FileExportPlugIn.AddFileTypes(FileWriteOptions options) : FileTypeList` / `WriteFile(string filename, int index, RhinoDoc doc, FileWriteOptions options) : WriteFileResult` / `ShouldDisplayOptionsDialog : bool`
@@ -105,7 +105,7 @@
 [TOPOLOGY]:
 - one `PlugIn` per package: identity a `Guid`, capability a `protected virtual` hook the host invokes on the declared `PlugInLoadTime` schedule, never a scattered registration call
 - `RenderPlugIn`, `DigitizerPlugIn`, `FileImportPlugIn`, and `FileExportPlugIn` subclass `PlugIn` with their own abstract contract; a package picks one base per concern
-- file-dialog dispatch is index-keyed: `AddFileType` returns the index the later `ReadFile`/`WriteFile` receives, and the plug-in discriminates on that index, never a re-parsed path extension
+- file-dialog dispatch is index-keyed: `AddFileType` returns the index the later `ReadFile`/`WriteFile` receives, and the plug-in discriminates on that index, never a re-parsed path extension; the host re-walks the returned list and drops any entry with a blank description or an empty extension set before the native add, so a dropped entry shifts every later dispatch index — a registration fold admits both fields or the recorded index stops naming the row it dispatched
 - per-plug-in document state serializes through `ShouldCallWriteDocument`→`WriteDocument`/`ReadDocument` against the host `BinaryArchive*`
 - settings are a `PersistentSettings` tree keyed by plug-in id; license capability is a `LicenseCapabilities` flag set acquired through the Zoo/CloudZoo rail, never a hand-rolled key check
 

@@ -1,6 +1,6 @@
 # [TS_SECURITY_API_DOPPLERHQ_NODE_SDK]
 
-`@dopplerhq/node-sdk` fronts the Doppler REST API as one zero-dependency node client, and `security/secret/doppler` admits its leased-fetch axis alone — `secrets` reads, the `dynamicSecrets` lease lifecycle, the `auth` probe.
+`@dopplerhq/node-sdk` fronts the Doppler REST API as one zero-dependency node client, and `crypt/secret` admits its leased-fetch axis alone — `secrets` reads, the `dynamicSecrets` lease lifecycle, the `auth` probe.
 
 Generated response types are all-optional and key on sample secret names, so a `Schema` decode gates every payload; each status subclass sets `statusCode` alone, so one fold owns the whole fault family.
 
@@ -10,7 +10,7 @@ Generated response types are all-optional and key on sample secret names, so a `
 - package: `@dopplerhq/node-sdk` (MIT)
 - module: dual ESM/CJS behind one `.` export map; `DopplerSDK` is both default and named export, and every service hangs off it as an `sdk.<service>` property
 - runtime: node-only — `HTTPLibrary` drives node HTTP under its own `retryAttempts`/`retryDelayMs` transport retry, and the package pulls zero runtime dependencies
-- rail: `security/secret` leased-secret provider, admitted in `secret/` alone
+- rail: `crypt/secret` leased-secret provider, admitted in `crypt/secret` alone
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -64,7 +64,7 @@ Every `secrets` read keys on `(project, config)`; `includeDynamicSecrets` with `
 - `effect`(`.api/effect.md`): `Effect.tryPromise` lifts each `Promise` call, `Match.value` folds `BaseHTTPError.statusCode` into the tagged fault set, `Config.redacted` sources the token, `Schema.decodeUnknown` brands each all-optional payload, `Schedule.fixed` drives the sub-lease refresh, `SubscriptionRef` publishes the rotating set, `Cache` de-dupes concurrent `(project, config)` refetches, and `Layer.scoped` binds the client with its `revokeLease` finalizer.
 - `@effect/platform`(`.api/effect-platform.md`): the SDK owns its node transport, so the seam is the `Effect.tryPromise` boundary rather than `HttpClient`; a read demanding shared net policy or tracing runs `HttpClient.retryTransient` against the REST endpoint directly.
 - `jose`(`.api/jose.md`): a fetched PEM or JWK string imports once through `importPKCS8`/`importSPKI`/`importJWK` into a non-extractable `CryptoKey` held for the `Layer` lifetime and `calculateJwkThumbprintUri` derives its `kid`, so a Doppler refresh re-imports the key where a per-call design re-imports every signature.
-- `security/secret/doppler`: one leased fetch feeds `secret/material`, which hands `sign` its JWT keys, webhook HMAC secrets, and argon2 pepper at layer construction, so no downstream surface reaches Doppler itself.
+- `crypt/secret`: one leased fetch feeds `crypt/sign`'s `Material.admit`, which hands `Jwt` its keys, webhook HMAC secrets, and argon2 pepper at layer construction, so no downstream surface reaches Doppler itself.
 
 [LOCAL_ADMISSION]:
 - Admit `secrets`, `dynamicSecrets`, and `auth`; a Doppler administration call from a runtime folder routes to provisioning instead.

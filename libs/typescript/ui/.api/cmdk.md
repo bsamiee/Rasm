@@ -1,6 +1,6 @@
 # [TS_UI_API_CMDK]
 
-`cmdk` owns the command-palette machine the `view/compose` plane mounts: one compound `Command` drives the search input, scored-and-filtered item list, keyboard navigation, and an internal store, exposed as a slot namespace with flat `Command*` aliases. Every primitive takes `asChild` to merge onto the folder's react-aria pressable spine, the `filter` scorer swaps, and `useCommandState` selects the store for empty and loading rows — cmdk owns list, filter, and keyboard while styling, glyphs, async sources, and the host modal are sibling rails.
+`cmdk` owns the command-palette machine the `view/overlay` plane mounts: one compound `Command` drives the search input, scored-and-filtered item list, keyboard navigation, and an internal store, exposed as a slot namespace with flat `Command*` aliases. Every primitive takes `asChild` to merge onto the folder's react-aria pressable spine, the `filter` scorer swaps, and `useCommandState` selects the store for empty and loading rows — cmdk owns list, filter, and keyboard while styling, glyphs, async sources, and the host modal are sibling rails.
 
 ## [01]-[PACKAGE_SURFACE]
 

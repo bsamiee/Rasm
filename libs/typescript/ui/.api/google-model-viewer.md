@@ -43,6 +43,8 @@ Each interface is one capability facet; its config records parameterize the face
 |  [07]   | `TouchAction`                                          | camera config  | touch-action policy; `viewer/geo/project.md`   |
 |  [08]   | `SceneGraphInterface` / `SceneExportOptions`           | scene mutation | `binary`/`trs`/`onlyVisible`/`maxTextureSize`  |
 |  [09]   | `AnnotationInterface` / `HotspotData`                  | hotspot + ray  | `position`/`normal`/`canvasPosition`/`facing`  |
+|  [09a]  | `HotspotConfiguration`                                 | hotspot config | `name` IS the slot name; `position`/`normal`   |
+|  [09b]  | `HotspotVisibilityDetails`                             | hotspot event  | `hotspot-visibility` detail `{ visible }`      |
 |  [10]   | `ARInterface` / `ARMode` / `ARStatusDetails`           | AR activation  | mobile AR launch; `iosSrc` USDZ for Quick Look |
 |  [11]   | `EnvironmentInterface` / `ToneMappingValue`            | IBL lighting   | `environmentImage`/`skyboxImage`/`shadow`      |
 |  [12]   | `AnimationInterface` / `PlayAnimationOptions`          | animation      | `repetitions`/`pingpong` clip playback         |
@@ -81,6 +83,7 @@ Each interface is one capability facet; its config records parameterize the face
 |  [05]   | `createVideoTexture(uri)`                                         | texture        | a video-backed `ModelViewerTexture`        |
 |  [06]   | `materialFromPoint(px, py): Material \| null`                     | material pick  | screen-pixel → material                    |
 |  [07]   | `updateHotspot(config)` / `queryHotspot(name)`                    | hotspot        | hotspot update + query                     |
+|  [07a]  | `slot="hotspot*"` + `data-position`/`-normal`/`-surface`          | hotspot mount  | the ONLY creation path; `updateHotspot` moves an existing slot and no-ops otherwise, and the dataset is unobserved |
 |  [08]   | `positionAndNormalFromPoint(px, py)`                              | ray            | pixel → 3D position + normal               |
 |  [09]   | `surfaceFromPoint(px, py): string \| null`                        | ray            | pixel → surface node; `viewer/mark/bcf.md` |
 |  [10]   | `.environmentImage` / `.skyboxImage` / `.skyboxHeight`            | environment    | IBL + skybox binding                       |

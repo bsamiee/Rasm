@@ -33,7 +33,7 @@
 |  [01]   | `IChangeSet<T>`                        | interface     | list change-set                              |
 |  [02]   | `IChangeSet<TObject,TKey>`             | interface     | cache change-set                             |
 |  [03]   | `Change<T>`                            | struct        | one list change                              |
-|  [04]   | `Change<TObject,TKey>`                 | struct        | one cache change                             |
+|  [04]   | `Change<TObject,TKey>`                 | struct        | one cache change — `Reason : ChangeReason`, `Key : TKey`, `Current : TObject` (populated on every reason, the removed object on `Remove`), `Previous : Optional<TObject>` (DynamicData's own `Optional`, populated on `Update` alone), `CurrentIndex`/`PreviousIndex : int` |
 |  [05]   | `ChangeReason`                         | enum          | cache change reason                          |
 |  [06]   | `ListChangeReason`                     | enum          | list change reason                           |
 |  [07]   | `ISortedChangeSet<TObject,TKey>`       | interface     | sorted change-set                            |
@@ -131,7 +131,7 @@
 
 - `ObservableCacheEx.AsyncDisposeMany(source, accessor)`: disposes `IAsyncDisposable` items itself; the accessor hands the one disposals-completed stream a deactivation scope awaits before teardown.
 
-[AGGREGATE_ENTRYPOINTS]: `DynamicData.Aggregation` operators across `CountEx`/`SumEx`/`AvgEx`/`MaxEx`/`StdDevEx`/`AggregationEx` — rows [01]-[08] take a `Func<T,TValue>` selector and emit `IObservable<TValue>`, while `AggregationEx` carries the selector-free custom-fold pair
+[AGGREGATE_ENTRYPOINTS]: `DynamicData.Aggregation` operators across `CountEx`/`SumEx`/`AvgEx`/`MaxEx`/`StdDevEx`/`AggregationEx` — rows [04]-[08] take a `Func<T,TValue>` selector and emit `IObservable<TValue>`, rows [01]-[03] are selector-free set-level folds, and `AggregationEx` carries the selector-free custom-fold pair
 
 | [INDEX] | [SURFACE]                      | [SHAPE] | [CAPABILITY]                                        |
 | :-----: | :----------------------------- | :------ | :-------------------------------------------------- |

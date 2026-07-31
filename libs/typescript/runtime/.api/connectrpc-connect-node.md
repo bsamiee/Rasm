@@ -22,7 +22,7 @@ Every factory returns the same `Transport`, so `createClient` stays protocol-agn
 |  [01]   | `ConnectTransportOptions`                   | transport policy  | connect arm — `http`/`https`/`http2`, `useHttpGet`, binary-default  |
 |  [02]   | `GrpcTransportOptions`                      | transport policy  | grpc arm — `http2`-only, gRPC gateway compat                        |
 |  [03]   | `GrpcWebTransportOptions`                   | transport policy  | grpc-web arm — `http`/`https`/`http2`, binary-default               |
-|  [04]   | `.baseUrl: string`                          | endpoint          | route root `<baseUrl>/<pkg>.<Service>/<Method>`; from `host/config` |
+|  [04]   | `.baseUrl: string`                          | endpoint          | route root `<baseUrl>/<pkg>.<Service>/<Method>`; from `proc/config` |
 |  [05]   | `.httpVersion: "1.1" \| "2"`                | transport arm     | Node module select — `http`/`https` vs `http2`; grpc pins `"2"`     |
 |  [06]   | `.interceptors?: Interceptor[]`             | onion             | the `connect` `Interceptor` chain — the W3C trace pair, auth, retry |
 |  [07]   | `.useBinaryFormat?`                         | codec select      | binary vs JSON; binary content-stable, JSON debuggable              |

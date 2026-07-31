@@ -50,7 +50,7 @@
 - `react` + `react-aria`(`.api/react.md`, `.api/react-aria.md`): each icon is a `ForwardRefExoticComponent` composed inside react-aria headless rows — `cmdk` `Command.Item`, buttons, menu items — carrying `aria-hidden` where the label already carries meaning.
 - `class-variance-authority` + `tailwind-merge`(`.api/class-variance-authority.md`, `.api/tailwind-merge.md`): icon `className`/`size`/`color` flow through the `cn = twMerge(clsx(...))` rail, so icon sizing is a `cva` variant row read through `cn`, never an ad-hoc class.
 - `effect`(`libs/typescript/.api/effect.md`): the icon vocabulary is a static `Record` keyed by a `Schema.Literal` action domain with no `Effect` wrapping, since icons are pure presentational; one `CommandAction` row binds label, icon, keybinding, role, and intent key together.
-- `view/compose` + `LucideProvider` (within-lib): a `CommandAction as const satisfies Record<string, CommandSpec>` row carries a named `LucideIcon` that `ActionIcon` resolves by row, and `LucideProvider` at the SPA root sets project-wide `size`/`strokeWidth`/`color` once from the `token/scale`/`token/theme` defaults.
+- `view/overlay` + `LucideProvider` (within-lib): an `as const satisfies Record<string, Overlay.Command>` row carries a named `LucideIcon` as its `icon` identity, and `LucideProvider` at the SPA root sets project-wide `size`/`strokeWidth`/`color` once from the `token/scale`/`token/theme` defaults.
 
 [LOCAL_ADMISSION]:
 - import named icons statically, keyed to a design vocabulary row; `import * as Icons` or an all-icons `Record` index defeats tree-shaking.

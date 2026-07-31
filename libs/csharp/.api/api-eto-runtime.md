@@ -139,7 +139,7 @@ Every payload keys by a MIME type string; `SetString`/`SetData`/`SetDataStream`/
 
 [TOPOLOGY]:
 - Every control-tree read or write executes on the UI thread and a background producer crosses through exactly one `Application` dispatch shape: `Invoke`/`Invoke<T>` block and return the UI-side result, `AsyncInvoke` posts without completion, `InvokeAsync`/`InvokeAsync<T>` return an awaited `Task`. `EnsureUIThread` guards a UI-only method and `RunIteration` pumps the loop for a synchronous wait.
-- `UITimer` owns the portable repeating UI-thread tick where a platform exposes no higher-fidelity display link; the macOS display-link pace is `.api/api-macos-native.md`.
+- `UITimer` owns the portable repeating UI-thread tick where a platform exposes no higher-fidelity display link; the macOS display-link pace is `.api/api-macos-native.md`. Exactly one boundary owner per host leases the raw timer into its cadence rail; a second consumer composes that lease, never a second `UITimer` beside it.
 - Input reads live: `Keyboard.Modifiers` and `Mouse.Position`/`Buttons` are ambient, distinct from the per-event `MouseEventArgs`/`KeyEventArgs` snapshots a control raises.
 - Transfer is one keyed-payload shape under two lifetimes. `IDataObject` carries the whole keyed contract so one interface-typed body serves both; only the stream pair is class-level on each carrier and off the interface. Drag negotiation carries the `DataObject` on `DragEventArgs.Data`, declares `AllowedEffects`, and resolves the committed `Effects`.
 - `Screen` carries the density facts a surface reads once per paint to place logical geometry into device pixels.

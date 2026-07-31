@@ -1,6 +1,6 @@
 # [PY_RUNTIME_API_GOOGLE_CLOUD_SECRET_MANAGER]
 
-`google-cloud-secret-manager` owns the GCP Secret Manager read client backing the `execution/admission#SETTINGS` `SecretTier.cloud` arm: one `SecretManagerServiceClient` (ADC or `from_service_account_file`) injects as `secret_client=` into `GoogleSecretManagerSettingsSource`, graduating that arm's deferred `Ok(Nothing)` placeholder to a live `SECRET_LADDER` cloud-tier row. Payloads resolve through the settings source alone — the runtime reads versioned secrets, never minting or rotating them and never calling the client directly.
+`google-cloud-secret-manager` owns the GCP Secret Manager read client backing the `execution/admission#SETTINGS` `SecretTier.cloud` arm: one `SecretManagerServiceClient` (ADC or `from_service_account_file`) injects as `secret_client=` into `GoogleSecretManagerSettingsSource`, graduating that arm's deferred `Ok(Nothing)` placeholder to a live `SECRET_LADDER` cloud-tier row. Declared model fields resolve through the settings source; per-service ladder credentials resolve through `CloudVault.read`'s direct `access_secret_version` — the runtime reads versioned secrets, never minting or rotating them.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -40,13 +40,13 @@ Every surface hangs off `SecretManagerServiceClient`: the bare `(...)` row const
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- consume law: the runtime constructs one `SecretManagerServiceClient` — ADC by default, `from_service_account_file` when a key path is admitted — and reads each `RASM_PY_`-prefixed field's secret version through the injected `GoogleSecretManagerSettingsSource`, never a direct `access_secret_version` call.
-- ladder law: the `SecretTier.cloud` case is one `TierRow(SecretTier(cloud=...), Some(Feature.SECRET_MANAGER), RetryClass.SECRET)` above the `file` fallback, gated by `Feature.SECRET_MANAGER`/`Killswitch.DISABLE_SECRET_MANAGER` and retried under the one `RetryClass.SECRET` `stamina` policy the keystore/file tiers share, so a transiently-unreachable manager retries inside one derivation span.
+- consume law: TWO legs off one client family. Declared `RASM_PY_`-prefixed model fields read through the injected `GoogleSecretManagerSettingsSource` (ADC by default, `from_service_account_file` when a key path is admitted); per-service `(service, username)` ladder credentials resolve at call time through `execution/admission#ADMISSION` `CloudVault.read`'s direct `access_secret_version` — a construction-time settings source structurally cannot serve the call-time read.
+- ladder law: the `SecretTier.cloud` case is one `TierRow(SecretTier.CLOUD, Some(Feature.SECRET_MANAGER), RetryClass.SECRET)` above the `file` fallback, gated by `Feature.SECRET_MANAGER`/`Killswitch.DISABLE_SECRET_MANAGER` and retried under the one `RetryClass.SECRET` `stamina` policy the keystore/file tiers share, so a transiently-unreachable manager retries inside one derivation span.
 - credential law: authentication resolves at construction as ADC (workload-identity, metadata server, or `GOOGLE_APPLICATION_CREDENTIALS`) or an explicit service-account file when the deployment pins one, and the resolved secret crosses as `pydantic` `SecretStr`.
 
 [STACKING]:
 - `pydantic-settings`(`.api/pydantic-settings.md`): the constructed client becomes `secret_client=` on `GoogleSecretManagerSettingsSource(settings_cls, credentials=, project_id=, secret_client=)`, folded into `settings_customise_sources` so the cloud tier reads an admitted settings field rather than a bare client call.
-- `google-crc32c`(`.api/google-crc32c.md`): `value(payload.data) -> int` verifies `SecretPayload.data_crc32c` inside the `cloud_read` fence, a mismatch surfacing as the retryable `RetryClass.SECRET` transport fault rather than a silently-trusted payload.
+- `google-crc32c`(`.api/google-crc32c.md`): `value(payload.data) -> int` verifies `SecretPayload.data_crc32c` inside the `CloudVault.read` fence, a mismatch surfacing as the retryable `RetryClass.SECRET` transport fault rather than a silently-trusted payload.
 - `reliability/resilience#RESILIENCE`: `guarded(RetryClass.SECRET, ...)` wraps the cloud-tier probe, offloaded through `anyio.to_thread.run_sync` so the blocking gRPC read never stalls the loop.
 
 [LOCAL_ADMISSION]:
@@ -56,4 +56,4 @@ Every surface hangs off `SecretManagerServiceClient`: the bare `(...)` row const
 - Package: `google-cloud-secret-manager`
 - Owns: the GCP Secret Manager read client backing the cloud secret-resolution tier
 - Accept: one `SecretManagerServiceClient` (ADC or service-account-file) injected as `secret_client=` into `GoogleSecretManagerSettingsSource`, the `SecretTier.cloud` `TierRow` gated by `Feature.SECRET_MANAGER` and retried under `RetryClass.SECRET`, `SecretPayload.data_crc32c` verified through `google-crc32c`, the resolved secret lifted to `SecretStr`
-- Reject: a direct `access_secret_version` bypassing the settings-source fence, the admin CRUD surface (`create_secret`/`add_secret_version`/`destroy_secret_version`) the runtime does not own, inline credential material beside ADC/service-account resolution, a bare-`str` resolved secret, a parallel cloud-secret owner beside the one `SecretTier.cloud` row
+- Reject: a direct `access_secret_version` placed OUTSIDE the `CloudVault.read` arm or the settings source, the admin CRUD surface (`create_secret`/`add_secret_version`/`destroy_secret_version`) the runtime does not own, inline credential material beside ADC/service-account resolution, a bare-`str` resolved secret, a parallel cloud-secret owner beside the one `SecretTier.cloud` row

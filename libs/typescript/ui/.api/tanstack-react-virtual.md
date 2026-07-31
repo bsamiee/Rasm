@@ -1,6 +1,6 @@
 # [TS_UI_API_TANSTACK_REACT_VIRTUAL]
 
-`@tanstack/react-virtual` owns viewport windowing: from an item `count` and a size estimate it computes the intersecting items and their absolute offsets, so a hundred-thousand-row list mounts only the visible span and a small overscan. Headless and measurement-driven, it adapts the framework-agnostic `@tanstack/virtual-core` as the windowing half of the `view/compose` rows beside the headless table.
+`@tanstack/react-virtual` owns viewport windowing: from an item `count` and a size estimate it computes the intersecting items and their absolute offsets, so a hundred-thousand-row list mounts only the visible span and a small overscan. Headless and measurement-driven, it adapts the framework-agnostic `@tanstack/virtual-core` as the windowing half of the `view/table` rows beside the headless table.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,7 +8,7 @@
 - package: `@tanstack/react-virtual` (MIT)
 - module: ESM (`type: module`), `sideEffects: false`; first-party bundled `.d.ts` re-exporting the whole `@tanstack/virtual-core` surface
 - runtime: React render tree over a DOM scroll element or the window; the core is DOM-free and framework-agnostic; peer `react`/`react-dom` via the folder React spine
-- rail: view composition plane — the windowing half of the `view/compose` table/virtual rows
+- rail: view table plane — the windowing half of the `view/table` rows
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -100,7 +100,7 @@
 - `directDomUpdates` writes each item's position (`transform: translate3d` by default, or `top`/`left` in `'position'` mode) and the container main-axis size straight to the DOM during scroll, re-rendering React only when the visible index range or `isScrolling` changes — the long-list fast path, under a strict item-styling contract (absolute items, `containerRef` on the size container).
 
 [STACKING]:
-- `@tanstack/react-table` (`.api/tanstack-react-table.md`): the sibling half of the `view/compose` collection rows — `useVirtualizer({ count: table.getRowModel().rows.length, estimateSize, measureElement })` windows the derived rows into a virtualized data grid; sort/filter/group derivation stays in the table, windowing stays here, and the two share the headless-core + React-adapter shape.
+- `@tanstack/react-table` (`.api/tanstack-react-table.md`): the sibling half of the `view/table` collection rows — `useVirtualizer({ count: table.getRowModel().rows.length, estimateSize, measureElement })` windows the derived rows into a virtualized data grid; sort/filter/group derivation stays in the table, windowing stays here, and the two share the headless-core + React-adapter shape.
 - `react-aria` / `react-aria-components` (`.api/react-aria-components.md`): the grid keeps its `aria-rowcount`/`aria-rowindex` on the full logical count while only visible rows mount, and `scrollToIndex` pairs with react-aria focus management so keyboard navigation reveals off-screen rows.
 - `@floating-ui/react` (`.api/floating-ui-react.md`): the combobox/listbox seam — because only `getVirtualItems()` mount, `useListNavigation` runs `virtual: true` so focus rides `aria-activedescendant` on the input, and its `activeIndex`/`onNavigate` drives `scrollToIndex(activeIndex, { align })`; floating-ui's `scrollItemIntoView` stays off (it scrolls only a mounted node), this engine's imperative scroll owning reveal, `listRef` holding the windowed items while nav math runs over the full `count`, and `inner`/`useInnerOffset` anchoring the float geometry while this engine owns the `getTotalSize()` spacer.
 - `@effect-atom/atom-react` (`.api/effect-atom-atom-react.md`): a `GlobalId` selection atom drives `scrollToIndex(align: 'center')` to reveal the row the `viewer/mark/selection` set picked, keeping table selection and viewport in sync through one fold; `takeSnapshot()`/`initialMeasurementsCache` round-trip the measured window through a persistence atom so a remount restores exact scroll and item sizes.

@@ -1,6 +1,6 @@
 # [TS_CORE_API_CONNECTRPC_CONNECT_WEB]
 
-`@connectrpc/connect-web` mints the two browser `Transport` factories `interchange/invoke` selects between — `createConnectTransport` and `createGrpcWebTransport` — one options record behind a `protocol` discriminant, no client surface of its own. Both are fetch-based: the `fetch` override is the seam carrying `host/net` policy and OTel propagation, and an absent `grpc-web-text` routes binary-frame progress or an `arraybuffer` response to `@effect/platform-browser` XHR.
+`@connectrpc/connect-web` mints the two browser `Transport` factories `interchange/invoke` selects between — `createConnectTransport` and `createGrpcWebTransport` — one options record behind a `protocol` discriminant, no client surface of its own. Both are fetch-based: the `fetch` override is the seam carrying `net/client` policy and OTel propagation, and an absent `grpc-web-text` routes binary-frame progress or an `arraybuffer` response to `@effect/platform-browser` XHR.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -21,7 +21,7 @@
 | :-----: | :---------------------------------- | :--------------- | :------------------------------------------------------------------ |
 |  [01]   | `ConnectTransportOptions`           | transport policy | connect arm — `useBinaryFormat` default JSON, `useHttpGet`          |
 |  [02]   | `GrpcWebTransportOptions`           | transport policy | grpc-web arm — `useBinaryFormat` default binary                     |
-|  [03]   | `.baseUrl`                          | endpoint         | route root `<baseUrl>/<pkg>.<Service>/<Method>`; from `host/config` |
+|  [03]   | `.baseUrl`                          | endpoint         | route root `<baseUrl>/<pkg>.<Service>/<Method>`; from `proc/config` |
 |  [04]   | `.fetch?: typeof globalThis.fetch`  | transport seam   | instrumented-fetch override — net policy, OTel headers, credentials |
 |  [05]   | `.interceptors?: Interceptor[]`     | onion            | the `connect` `Interceptor` chain — trace propagation, auth, retry  |
 |  [06]   | `.useBinaryFormat?`                 | codec select     | binary vs JSON select; binary content-stable, JSON debuggable       |
@@ -37,7 +37,7 @@
 | :-----: | :-------------------------------- | :------------- | :------------------------------------------------------------------ |
 |  [01]   | `createConnectTransport`          | connect arm    | `protocol:"connect"` — JSON-default, `useHttpGet`-capable           |
 |  [02]   | `createGrpcWebTransport`          | grpc-web arm   | `protocol:"grpc-web"` — binary-default, gRPC gateway compat         |
-|  [03]   | `{ fetch: instrumentedFetch }`    | fetch seam     | `host/net` policy + `@effect/opentelemetry` `traceparent` on egress |
+|  [03]   | `{ fetch: instrumentedFetch }`    | fetch seam     | `net/client` policy + `@effect/opentelemetry` `traceparent` egress  |
 |  [04]   | `{ interceptors: [trace, auth] }` | onion          | the shared `connect` `Interceptor` chain applied to every call      |
 
 ## [04]-[IMPLEMENTATION_LAW]
@@ -48,16 +48,16 @@
 
 [STACKING]:
 - `@connectrpc/connect`(`.api/connectrpc-connect.md`): the factory output is the `Transport` argument to `createClient(service, transport)`; `interceptors` feed its shared `Interceptor` chain and `defaultTimeoutMs` seeds the deadline `CallOptions.timeoutMs` overrides per call.
-- `@effect/platform-browser`(`.api/effect-platform-browser.md`): the `fetch` override binds the transport to the `host/net` default-policy client wrapped as a `fetch`; a lane needing upload/download progress or an `arraybuffer` response bypasses the transport for `BrowserHttpClient.layerXMLHttpRequest` + `withXHRArrayBuffer`, since `grpc-web-text` is unimplemented here.
+- `@effect/platform-browser`(`.api/effect-platform-browser.md`): the `fetch` override binds the transport to the `net/client` default-policy client wrapped as a `fetch`; a lane needing upload/download progress or an `arraybuffer` response bypasses the transport for `BrowserHttpClient.layerXMLHttpRequest` + `withXHRArrayBuffer`, since `grpc-web-text` is unimplemented here.
 - `@effect/opentelemetry`: a `connect` `Interceptor` reads `Tracer.currentOtelSpan` and writes W3C `traceparent` on egress, continuing the active trace across both transport arms without rewriting `fetch`.
-- `effect`(`.api/effect.md`): `baseUrl`/`defaultTimeoutMs`/`useBinaryFormat`/`protocol` are `Config`-decoded from `host/config`; the transport builds once at the `interchange/invoke` root and the client wraps in `Effect.tryPromise`/`Stream.fromAsyncIterable`.
+- `effect`(`.api/effect.md`): `baseUrl`/`defaultTimeoutMs`/`useBinaryFormat`/`protocol` are `Config`-decoded from `proc/config`; the transport builds once at the `interchange/invoke` root and the client wraps in `Effect.tryPromise`/`Stream.fromAsyncIterable`.
 
 [LOCAL_ADMISSION]:
 - select one factory per configured client by the `protocol` discriminant; never instantiate both for one descriptor or branch on protocol downstream of `createClient`.
-- pass the instrumented `fetch` and the shared `Interceptor` chain through the options and keep `baseUrl`/`useBinaryFormat`/`defaultTimeoutMs`/`useHttpGet` `Config`-decoded; a bare transport bypassing `host/net` policy or a hardcoded endpoint is the parameterization defect.
+- pass the instrumented `fetch` and the shared `Interceptor` chain through the options and keep `baseUrl`/`useBinaryFormat`/`defaultTimeoutMs`/`useHttpGet` `Config`-decoded; a bare transport bypassing `net/client` policy or a hardcoded endpoint is the parameterization defect.
 
 [RAIL_LAW]:
 - Package: `@connectrpc/connect-web`
 - Owns: the two browser `Transport` factories and their near-identical option records that together are the `interchange/invoke` protocol axis
-- Accept: one factory per client on a `protocol` discriminant, the `Transport` handed to `connect`'s `createClient`, the `fetch` override carrying `host/net` policy + OTel propagation, `useBinaryFormat`/`binaryOptions` as the codec selector, `Config`-decoded `baseUrl`/`defaultTimeoutMs`
+- Accept: one factory per client on a `protocol` discriminant, the `Transport` handed to `connect`'s `createClient`, the `fetch` override carrying `net/client` policy + OTel propagation, `useBinaryFormat`/`binaryOptions` as the codec selector, `Config`-decoded `baseUrl`/`defaultTimeoutMs`
 - Reject: an invocation or client concept sourced here, both factories live for one descriptor, a bare transport bypassing net-client policy and trace propagation, hardcoded endpoint/timeout, expecting `grpc-web-text`/XHR streaming instead of `@effect/platform-browser`

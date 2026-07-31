@@ -10,7 +10,7 @@
 - package: `@tanstack/react-table` (MIT)
 - module: dual ESM+CJS, `sideEffects: false`; bundled `.d.ts` re-exporting `@tanstack/table-core`
 - runtime: React render tree over a DOM-free, framework-agnostic core; the adapter folds core derivation into a React refresh; peer `react`/`react-dom` via the folder React spine
-- rail: view composition plane — the headless collection-derivation half of the `view/compose` table/virtual rows
+- rail: view table plane — the headless collection-derivation half of the `view/table` rows
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -107,7 +107,7 @@
 - Function registries are named tables, never switches: `sortingFns`/`filterFns`/`aggregationFns` are string-keyed rosters a column references by id, and a custom function registers by declaration-merging `SortingFns`/`FilterFns`/`AggregationFns`. New sort, filter, or aggregation behavior is a registry row, never a new code path.
 
 [STACKING]:
-- `@tanstack/react-virtual` (`.api/tanstack-react-virtual.md`): the sibling half of the `view/compose` collection rows — `useVirtualizer({ count: table.getRowModel().rows.length, ... })` windows the derived rows so a 100k-row table renders only the visible span; the two share the headless-core and React-adapter architecture and compose into one virtualized data grid.
+- `@tanstack/react-virtual` (`.api/tanstack-react-virtual.md`): the sibling half of the `view/table` collection rows — `useVirtualizer({ count: table.getRowModel().rows.length, ... })` windows the derived rows so a 100k-row table renders only the visible span; the two share the headless-core and React-adapter architecture and compose into one virtualized data grid.
 - `react-aria` / `react-aria-components` (`.api/react-aria-components.md`): supply the grid interaction and ARIA semantics the headless table lacks — `columnheader` sort announcement, `gridcell` focus management, roving tabindex, multi-select keyboard model — so the table is accessible without `ui` hand-rolling the a11y layer.
 - `@effect-atom/atom` + `@effect-atom/atom-react` (`.api/effect-atom-atom-react.md`): the `ONE_FOLD_ONE_BINDING` law binds `Table` state — the sorting/filter/selection/pagination fold is one atom, `on*Change` writes it via `makeStateUpdater`, `state` reads it; a server-driven table binds an `AtomHttpApi` row to feed `data` and manual pagination.
 - `effect` `Schema` (`libs/typescript/.api/effect.md`): the decoded `wire` row type is the `TData` generic; `createColumnHelper<Schema.Type>()` types every accessor against it, and `RowSelectionState` keyed by the `GlobalId` brand carries the selection to `viewer/mark/selection` without re-deriving identity.

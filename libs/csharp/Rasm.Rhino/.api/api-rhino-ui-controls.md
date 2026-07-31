@@ -195,6 +195,7 @@ Every `Rhino.UI.Theme` constructor is internal: a consumer receives a `ThemeZone
 |  [11]   | `EtoPostEffectCollapsibleSection.GetPostEffects(PostEffectType) -> PostEffect[]` | instance | list post-effects by type          |
 
 - `EtoPostEffectCollapsibleSection.PostEffectId` is the abstract identity a subclass overrides.
+- `Rhino.UI.Controls.IRdkViewModel.GetData(Guid uuidDataType, bool bForWrite, bool bAutoChangeBracket) : object` / `Commit(Guid) : void` / `Discard(Guid) : void` — the editor data-source seam: a `DataSource.ProviderIds` row keys the payload, a `bForWrite` read is closed by `Commit` or rolled back by `Discard` on the SAME id, and `ICollapsibleSection.ViewModel` plus `RunScript(IRdkViewModel)` are where a section receives it. This is the ONLY producer of a `Rhino.Render.DataSources.RhinoSettings`, whose sole public constructor takes a native `nint` — nothing in the corpus mints one, so a settings bridge is borrowed for the callback and never held.
 
 [SECTION_HOLDER]:
 

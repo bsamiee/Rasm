@@ -7,7 +7,8 @@
 [PACKAGE_SURFACE]: `Grasshopper2`
 - package: `Grasshopper2` (Rhino 9 WIP host plug-in bundle)
 - assembly: `Grasshopper2`
-- namespace: `Grasshopper2.UI.Canvas`, `Grasshopper2.UI.Skinning`, `Grasshopper2.UI.Sparkles`, `Grasshopper2.UI.Flex`
+- namespace: `Grasshopper2.UI.Canvas`, `Grasshopper2.UI.Skinning`, `Grasshopper2.UI.Primitives`, `Grasshopper2.UI.Sparkles`, `Grasshopper2.UI.Flex`
+- namespace: `Eto.Drawing` — the host assembly declares `SlabF`, `CornerRadii`, `SlabVertex`, `SlabArc`, and `ArcF` into the Eto namespace, so they resolve bare beside genuine Eto types
 - asset: in-process `Grasshopper2.dll` under `Grasshopper2Plugin.rhp`, painting over `Eto.Drawing.Graphics` in the Rhino assembly-load context
 - rail: host-grasshopper
 
@@ -45,6 +46,18 @@
 |  [05]   | `FaceSparkle`   | sealed class  | face-highlight overlay                     |
 |  [06]   | `NoticeSparkle` | sealed class  | notice-badge overlay                       |
 |  [07]   | `ISparkle`      | interface     | custom-overlay contract                    |
+
+[PUBLIC_TYPE_SCOPE]: capsule primitives (`Grasshopper2.UI.Primitives`, `Eto.Drawing`)
+
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [CAPABILITY]                                    |
+| :-----: | :------------------------------------ | :------------ | :----------------------------------------------- |
+|  [01]   | `Primitives.Capsule`                  | sealed class  | slab plus plugs plus message bar; five draw legs |
+|  [02]   | `Primitives.Plug` / `PlugSide`        | class, enum   | one grip location with its side and kind         |
+|  [03]   | `Primitives.Parts`                    | flags enum    | `Plugs`/`Interior`/`Messaging`/`Overlay`/`Edge`  |
+|  [04]   | `Eto.Drawing.SlabF`                   | struct        | the rounded apex-and-side capsule geometry       |
+|  [05]   | `Eto.Drawing.CornerRadii`             | struct        | the four-corner radius set a slab carries        |
+|  [06]   | `Eto.Drawing.SlabVertex` / `SlabArc`  | enum          | the named vertex and arc a slab answers          |
+|  [07]   | `Eto.Drawing.ArcF` / `CircleF`        | struct        | the arc and circle the slab and grips project    |
 
 [PUBLIC_TYPE_SCOPE]: composed flex seam (`Grasshopper2.UI.Flex`, owned by `api-gh2-flex.md`)
 
@@ -117,6 +130,32 @@
 
 - align and gap factories take a `(RectangleF source, RectangleF target)` frame pair with a `float`/`int` offset; the wire factory takes a `PointF` pair
 
+[ENTRYPOINT_SCOPE]: capsule construction, geometry, and the five draw legs (`Grasshopper2.UI.Primitives`, `Eto.Drawing`)
+
+| [INDEX] | [SURFACE]                                                              | [SHAPE]  | [CAPABILITY]                                  |
+| :-----: | :---------------------------------------------------------------------- | :------- | :--------------------------------------------- |
+|  [01]   | `Capsule(SlabF slab, float barHeight = 0f)`                            | ctor     | throws on an empty slab bounds                 |
+|  [02]   | `Capsule.CreateFromOuter(Shape, RectangleF)` / `CreateFromInner(...)`  | static   | outer-bounds and apex-bounds construction      |
+|  [03]   | `Capsule.Bounds` / `Slab` / `BarHeight`                                | property | extent, geometry, and message-bar height       |
+|  [04]   | `Capsule.AddInputPlug(float, GripKind)` / `AddOutputPlug(...)`         | instance | append a grip at an elevation                  |
+|  [05]   | `Capsule.AddCustomPlug(Plug)` / `InputPlug(int)` / `OutputPlug(int)`   | instance | custom append and indexed read                 |
+|  [06]   | `InputPlugCount` / `OutputPlugCount` / `HasInputPlugs` / `HasOutputPlugs` | property | grip census                                 |
+|  [07]   | `HasInfoMessage` / `HasWarningMessage` / `HasErrorMessage` / `HasAnyMessage` | property | the three message flags and their fold    |
+|  [08]   | `Capsule.Draw(Graphics, Shade, Skin)` / `Draw(Graphics, Parts, ...)`   | instance | full draw and the `Parts`-selected draw        |
+|  [09]   | `DrawGrips` / `DrawFaces` / `DrawMessaging` / `DrawOverlay` / `DrawEdges` | instance | the five ordered legs `Draw` folds           |
+|  [10]   | `SlabF(RectangleF)` / `SlabF(RectangleF, float thickness, CornerRadii)` | ctor     | flat and thick rounded construction            |
+|  [11]   | `SlabF.Bounds` / `Apex` / `Side` / `Corners` / `Thickness`             | property | the outer, top-face, and side-face rectangles  |
+|  [12]   | `SlabF.FormPath` / `EdgePath` / `ApexPath` / `SidePath` / `SidePathExact` | property | the five `GraphicsPath` projections          |
+|  [13]   | `SlabF.Contains(PointF)`                                               | instance | the exact rounded-capsule hit test             |
+|  [14]   | `SlabF.WithCorners(CornerRadii)` / `Move` / `MoveTo` / `Depress(float)` | instance | non-destructive geometry edits                 |
+|  [15]   | `SlabF.VertexAt(SlabVertex)` / `ArcAt(SlabArc)`                        | instance | named vertex and arc reads                     |
+|  [16]   | `SlabF.PointOnLeftEdge(float)` / `PointOnRightEdge(float)`             | instance | parameterized edge points for grip placement   |
+|  [17]   | `SlabF.MessageBar(float, out GraphicsPath, out RectangleF)`            | instance | message-bar geometry, `false` when absent      |
+
+- `Capsule` mutates: `AddInputPlug`/`AddOutputPlug` grow internal arrays in blocks of six and `HasInfoMessage`/`HasWarningMessage`/`HasErrorMessage` are settable, so a capsule is a per-paint scratch value built inside the draw, never a cached one — `Attributes<T>.Draw(Context, Skin)` re-mints it every frame through `CreateFromOuter(skin.Shape, Bounds)`.
+- the draw legs are ordered — grips, faces, messaging, overlay, edges — and `Draw(Graphics, Parts, Shade, Skin)` selects a subset by flag; each leg fades its own geometry through `skin.Fades.Form`/`.Grip`, so a partial draw still matches the animated skin.
+- `SlabF.Contains` is the exact answer and `RectangleF.Contains` the coarse pre-filter; a hit test on bounds alone accepts the four rounded corners the capsule excludes.
+
 [ENTRYPOINT_SCOPE]: skin interpolation and sparkle draws (`Grasshopper2.UI.Skinning`, `Grasshopper2.UI.Sparkles`)
 
 | [INDEX] | [SURFACE]                                                      | [SHAPE]  | [CAPABILITY]                  |
@@ -138,6 +177,7 @@
 - `WireShape` is the closed wire-route family; `Create` discriminates endpoint pair versus parameter-attribute pair and every route answers `Project`/`DistanceTo`/`Intersects`/`IsCoincident`/`Draw`
 - snapping is document-scoped: `SnappingConstraints.CreateFromDocument` builds the constraint set, the `SnappingAction` factories mint align/gap/straighten candidates, and `SmallerMagnitude` folds the winning nudge under a `SnappingSettings` rule set
 - skin interpolation is value-parametric: `Skin.Interpolate`/`WireSkin.Interpolate` blend at a parameter and `WireSkin.ResolveColours` emits the wire end-colour pair by state
+- the capsule is the object silhouette every attributes draw folds: `Capsule.CreateFromOuter(Skin.Shape, Bounds)` mints it per frame, `SlabF` carries the rounded geometry and answers `Contains` exactly, and the `Parts` flag set selects which of the five ordered legs run
 
 [STACKING]:
 - `api-gh2-flex.md`(`.api/api-gh2-flex.md`): the `IFlexControl` seam owns projection (`Map`), navigation (`Navigate`), window-select (`BeginWindowSelect`/`EndWindowSelect`), responsive registration, redraw scheduling (`ScheduleRedraw`), and `Animate`; the canvas composes it and holds no parallel viewport transform
@@ -151,6 +191,6 @@
 
 [RAIL_LAW]:
 - Package: `Grasshopper2` (host assembly)
-- Owns: the canvas paint pipeline, pick-map resolution, wire-route geometry, snapping and alignment, skin interpolation, sparkle overlays, canvas-hosted inline editors
+- Owns: the canvas paint pipeline, pick-map resolution, wire-route geometry, snapping and alignment, skin interpolation, sparkle overlays, the `Capsule`/`SlabF` primitive geometry every attributes draw folds, canvas-hosted inline editors
 - Accept: paint-event composition, pick resolution, window selection, wire and skin rendering, snap solving
 - Reject: the `IFlexControl` seam internals (`api-gh2-flex.md`), document mutation, component execution, a re-derived paint-phase enum, an in-folder wire route, palette, or overlay, the GH1 `GH_Canvas`/`IGH_*` paint idiom

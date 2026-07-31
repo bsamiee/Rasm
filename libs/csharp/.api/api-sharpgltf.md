@@ -1,6 +1,6 @@
-# [RASM_BIM_API_SHARPGLTF]
+# [RASM_API_SHARPGLTF]
 
-`SharpGLTF` owns glTF 2.0 schema I/O, typed scene and mesh authoring, and runtime scene instancing: `SharpGLTF.Core` mints the read/write contexts and the `ModelRoot` logical-resource model, `SharpGLTF.Toolkit` folds typed vertex fragments through scene, mesh, and material builders into a `ModelRoot`, and `SharpGLTF.Runtime` templatizes a `Schema2.Scene` for per-instance animation decode. Core carries the extension framework but no geometry codec — Draco and meshopt encode ride sibling packages that rewrite the authored buffer views. This catalogue is the branch owner of the Core, Toolkit, and Runtime carriers: the Compute partition (`libs/csharp/Rasm.Compute/.api/api-sharpgltf.md`) registers them here and adds only its composition-root Tiles3D admission, and the Tiles3D emitter surface itself is `.api/api-sharpgltf-3dtiles.md`.
+`SharpGLTF` owns glTF 2.0 schema I/O, typed scene and mesh authoring, and runtime scene instancing: `SharpGLTF.Core` mints the read/write contexts and the `ModelRoot` logical-resource model, `SharpGLTF.Toolkit` folds typed vertex fragments through scene, mesh, and material builders into a `ModelRoot`, and `SharpGLTF.Runtime` templatizes a `Schema2.Scene` for per-instance animation decode. Core carries the extension framework but no geometry codec — Draco and meshopt encode ride sibling packages that rewrite the authored buffer views. Two folders compose the Core, Toolkit, and Runtime carriers — `Rasm.Bim` the exchange authoring and decode legs, `Rasm.Compute` the tile-partition composition root — and `ExtensionsFactory` is process-global mutable registration state both cross, so the whole distribution homes here beside its Tiles3D emitter surface at `api-sharpgltf-3dtiles.md`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -96,6 +96,8 @@
 |  [12]   | `AttributeFormat`            | struct        | encode/decode descriptor for vertex attribute bytes              |
 |  [13]   | `BufferMode`                 | enum          | `ARRAY_BUFFER`, `ELEMENT_ARRAY_BUFFER` hints                     |
 |  [14]   | `CameraType`                 | enum          | `PERSPECTIVE`, `ORTHOGRAPHIC`                                    |
+
+- [12]-[ATTRIBUTE_FORMAT]: readonly fields `Encoding`/`Dimensions`/`Normalized`/`ByteSize` plus `ByteSizePadded`; the static rows `Byte1`, `Float1`, `Float2`, `Float3`, `Float4`, `Float2x2`, `Float3x3`, `Float4x4` name a layout without spelling the `(EncodingType, DimensionType)` pair — `Float1` is the scalar declaration a custom per-vertex ordinal encodes through.
 
 [PUBLIC_TYPE_SCOPE]: Memory typed array views
 
@@ -196,14 +198,20 @@
 
 [PUBLIC_TYPE_SCOPE]: Toolkit vertex fragment interfaces
 
-| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [CAPABILITY]                                                                              |
-| :-----: | :---------------- | :------------ | :---------------------------------------------------------------------------------------- |
-|  [01]   | `IVertexGeometry` | interface     | geometry-fragment contract                                                                |
-|  [02]   | `IVertexMaterial` | interface     | `MaxColors`/`MaxTextCoords`, `GetColor(int)`/`GetTexCoord(int)`, `SetColor`/`SetTexCoord` |
-|  [03]   | `IVertexSkinning` | interface     | skinning-fragment contract                                                                |
-|  [04]   | `IVertexCustom`   | interface     | custom-attribute fragment (`: IVertexMaterial`); members in `[04]-[VCUSTOM]`              |
+Every fragment interface derives `IVertexReflection`, so its own members are always the declared set PLUS `GetEncodingAttributes()`.
 
-- [04]-[VCUSTOM]: `IVertexCustom.CustomAttributes` (`IEnumerable<string>`), `TryGetCustomAttribute(string, out object)`, `SetCustomAttribute(string, object)`; a `_FEATURE_ID_n` custom-attribute fragment implements the `IVertexMaterial`/`IVertexReflection` pair, assembled through the `VertexBuilder<TvG,TvM,TvS>` `(in TvG, in TvM)` ctor overload.
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                                                                                     |
+| :-----: | :------------------ | :------------ | :------------------------------------------------------------------------------------------------ |
+|  [01]   | `IVertexReflection` | interface     | `GetEncodingAttributes()` → `IEnumerable<KeyValuePair<string, AttributeFormat>>`; the shared base |
+|  [02]   | `IVertexGeometry`   | interface     | `: IVertexReflection`; members in `[04]-[VGEOMETRY]` — declares NO `Validate()`                   |
+|  [03]   | `IVertexMaterial`   | interface     | `: IVertexReflection`; members in `[04]-[VMATERIAL]` — declares NO `Validate()`                   |
+|  [04]   | `IVertexSkinning`   | interface     | `: IVertexReflection`; members in `[04]-[VSKINNING]`                                              |
+|  [05]   | `IVertexCustom`     | interface     | `: IVertexMaterial`; members in `[04]-[VCUSTOM]` — the ONE interface declaring `Validate()`       |
+
+- [04]-[VGEOMETRY]: `GetPosition()`, `TryGetNormal(out Vector3)`, `TryGetTangent(out Vector4)`, `SetPosition(in Vector3)`, `SetNormal(in Vector3)`, `SetTangent(in Vector4)`, `ApplyTransform(in Matrix4x4)`, and the morph pair `Subtract(IVertexGeometry)` → `VertexGeometryDelta` + `Add(in VertexGeometryDelta)`.
+- [04]-[VMATERIAL]: `MaxColors`/`MaxTextCoords`, `GetColor(int)`/`GetTexCoord(int)`, `SetColor(int, Vector4)`/`SetTexCoord(int, Vector2)`, and the morph pair `Subtract(IVertexMaterial)` → `VertexMaterialDelta` + `Add(in VertexMaterialDelta)` — the two morph members are MANDATORY on every material fragment; `VertexEmpty` answers them `VertexMaterialDelta.Zero` and an empty body, the shape a channel-free stamp fragment copies.
+- [04]-[VSKINNING]: `MaxBindings`, `JointsLow`/`JointsHigh`/`WeightsLow`/`WeightsHigh` (`Vector4`), `GetBinding(int)` → `(int Index, float Weight)`, `GetBindings()` → `SparseWeight8`, `SetBindings(in SparseWeight8)` and the `params (int, float)[]` overload.
+- [04]-[VCUSTOM]: the `IVertexMaterial` set PLUS `CustomAttributes` (`IEnumerable<string>`), `Validate()`, `TryGetCustomAttribute(string, out object)`, `SetCustomAttribute(string, object)`. The toolkit ships NO concrete `IVertexCustom` implementor, so a `_FEATURE_ID_n` fragment owes the whole three-deep set — reflection, material, morph pair, custom, `Validate` — and declares its accessor layout through `GetEncodingAttributes` (`AttributeFormat.Float1` for a scalar feature ordinal, `Float2` beside it for a `TEXCOORD_0`), assembled through the `VertexBuilder<TvG,TvM,TvS>` `(in TvG, in TvM)` ctor overload.
 
 [PUBLIC_TYPE_SCOPE]: Toolkit material and morph builders
 
@@ -455,17 +463,19 @@
 - Core carries the extension framework but zero geometry codec: no type matches `KHR_draco_mesh_compression` or `EXT_meshopt_compression` in the assembly, so `RuntimeOptions.IsolateMemory`/`GpuMeshInstancing`/`ExtrasConverterCallback` is the single decode-policy carrier and encode routes to a sibling codec.
 
 [STACKING]:
-- `Openize.Drako`(`.api/api-openize-drako.md`) and `Alimer.Bindings.MeshOptimizer`(`libs/csharp/.api/api-alimer-meshoptimizer.md`): the `ModelRoot` is authored uncompressed, then one export-codec dispatch row selects the Draco (`KHR_draco_mesh_compression`) or meshopt (`EXT_meshopt_compression`) encode leg, which rewrites the buffer-view payload — SharpGLTF owns the schema, the sibling owns the codec, both Compute-side outside Rhino.
-- `SharpGLTF.Ext.3DTiles`(`.api/api-sharpgltf-3dtiles.md`): per-tile `EXT_structural_metadata`/`EXT_mesh_features` overlays register on the shared `ExtensionsFactory` and mutate the same `ModelRoot`/`MeshPrimitive`/`Node` this surface authors.
-- `ProjNET`(`.api/api-projnet.md`): a decoded vertex span (`MeshDecoder.Decode` → `IMeshPrimitiveDecoder`) feeds the `Semantics/georeference` `MathTransform` batch reproject before frame normalization — the decode's `IGeometryTransform` arg and the ProjNET `Span<double>` batch are two stages of one ingest rail.
-- `System.IO.Hashing`(`libs/csharp/.api/api-hashing.md`): a `ModelRoot.WriteGLB(WriteSettings) -> ArraySegment<byte>` segment feeds `XxHash3`/`XxHash128` through `Append` zero-copy — `XxHash3` the fast export-snapshot fingerprint, `XxHash128` the persisted GLB content key the `Rasm.Persistence` artifact index is addressed by, joining the same content-identity rail the IFC/CityJSON/FBX siblings hold.
+- `Openize.Drako`(`Rasm.Bim/.api/api-openize-drako.md`) and `Alimer.Bindings.MeshOptimizer`(`api-alimer-meshoptimizer.md`): the `ModelRoot` is authored uncompressed, then one export-codec dispatch row selects the Draco (`KHR_draco_mesh_compression`) or meshopt (`EXT_meshopt_compression`) encode leg, which rewrites the buffer-view payload — SharpGLTF owns the schema, the sibling owns the codec, both Compute-side outside Rhino.
+- `SharpGLTF.Ext.3DTiles`(`api-sharpgltf-3dtiles.md`): per-tile `EXT_structural_metadata`/`EXT_mesh_features` overlays register on the shared `ExtensionsFactory` and mutate the same `ModelRoot`/`MeshPrimitive`/`Node` this surface authors.
+- `ProjNET`(`Rasm.Bim/.api/api-projnet.md`): a decoded vertex span (`MeshDecoder.Decode` → `IMeshPrimitiveDecoder`) feeds the `Semantics/georeference` `MathTransform` batch reproject before frame normalization — the decode's `IGeometryTransform` arg and the ProjNET `Span<double>` batch are two stages of one ingest rail.
+- `System.IO.Hashing`(`api-hashing.md`): a `ModelRoot.WriteGLB(WriteSettings) -> ArraySegment<byte>` segment feeds `XxHash3`/`XxHash128` through `Append` zero-copy — `XxHash3` the fast export-snapshot fingerprint, `XxHash128` the persisted GLB content key the `Rasm.Persistence` artifact index is addressed by, joining the same content-identity rail the IFC/CityJSON/FBX siblings hold.
+- Bim consumer anchor: `Exchange/export` folds the Toolkit build head into `ModelRoot.Save*`/`WriteGLB`, and `Exchange/export#TILE_METADATA` is the one fence authoring the Tiles3D overlay on the tessellated `ModelRoot`.
+- Compute consumer anchor: `Runtime/codecs#TILE_PARTITION` owns the tile pyramid, the geometric-error ladder, the content keys, and the tileset.json manifest through its own pooled `Utf8JsonWriter`, yielding one typed `LeafContent` per leaf naming a `{contentKey:x32}.glb` URI; it emits no glTF body, so `Tiles3DExtensions.RegisterExtensions()` at the composition root is its whole reach into this distribution and no `ModelRoot`, `SceneBuilder`, or `MeshDecoder` member is live there. `TileMetadata`, `PropertyTable`, and `MetadataProperty` at that page are Rasm records over the seam graph, never the same-named `SharpGLTF.Schema2.Tiles3D` types — the Rasm columns lower onto the package types at the Bim authoring fence alone.
 
 [LOCAL_ADMISSION]:
 - Export enters `SceneBuilder.ToGltf2()` → `ModelRoot.Save*`/`WriteGLB`; import enters `ModelRoot.Load*` or `ReadContext.ReadSchema2`; runtime evaluation enters `SceneTemplate.Create` → `CreateInstance` → animation frame drive.
-- Extension admission registers at `ExtensionsFactory` before any read or write that uses that extension.
+- Extension admission registers at `ExtensionsFactory` before any read or write that uses that extension, ONCE at a composition root — a per-tile or per-call registration is the deleted form.
 
 [RAIL_LAW]:
 - Packages: `SharpGLTF.Core`, `SharpGLTF.Toolkit`, `SharpGLTF.Runtime`
-- Owns: glTF read/write, typed mesh building, runtime scene instancing
-- Accept: geometry exchange, asset authoring, runtime mesh evaluation
-- Reject: rendering pipeline, GPU resource management, image decode, geometry codec
+- Owns: glTF read/write, typed mesh building, runtime scene instancing, and the process-global `ExtensionsFactory` admission both consuming folders cross
+- Accept: geometry exchange, asset authoring, runtime mesh evaluation, one composition-root extension registration per process
+- Reject: a folder-tier re-tabling of this surface, a leaf-tile glTF body emitted from the tile-partition lane, a hand-authored `JsonSerializable` extension over the raw registration, rendering pipeline, GPU resource management, image decode, geometry codec

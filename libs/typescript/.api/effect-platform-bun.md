@@ -39,13 +39,13 @@
 |  [01]   | `BunCommandExecutor.layer`                                           | exec layer    | `proc/exec` subprocess       |
 |  [02]   | `BunWorker.layer` / `layerPlatform` / `layerManager` / `layerWorker` | worker client | `proc/exec` worker pools     |
 |  [03]   | `BunWorkerRunner.layer`                                              | worker runner | worker-side entrypoint Layer |
-|  [04]   | `BunKeyValueStore.layerFileSystem`                                   | KV layer      | `proc/config` file source    |
+|  [04]   | `BunKeyValueStore.layerFileSystem`                                   | KV layer      | `proc/exec` kv file source   |
 
 [PUBLIC_TYPE_SCOPE]: socket transport + cluster runner
 
 | [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]  | [CAPABILITY]                           |
 | :-----: | :------------------------------------------------------- | :------------- | :------------------------------------- |
-|  [01]   | `BunSocket.layerWebSocket` / `layerWebSocketConstructor` | socket layer   | `net/channel`, EventLog WS sync        |
+|  [01]   | `BunSocket.layerWebSocket` / `layerWebSocketConstructor` | socket layer   | `proc/exec` socket row; EventLog sync  |
 |  [02]   | `BunSocketServer.*` (`node-shared`)                      | socket server  | inbound socket server                  |
 |  [03]   | `BunClusterHttp.layer` / `layerHttpServer`               | cluster runner | `work/entity` sharding runner (HTTP)   |
 |  [04]   | `BunClusterSocket.layer`                                 | cluster runner | `work/entity` sharding runner (socket) |
@@ -71,7 +71,7 @@
 | :-----: | :---------------------------------------------------------------- | :------------- | :----------------------------------------------- |
 |  [01]   | `BunCommandExecutor.layer`                                        | exec layer     | `proc/exec` subprocess execution                 |
 |  [02]   | `BunWorker.layer(spawn)`                                          | worker client  | `proc/exec` WorkerRunner pools                   |
-|  [03]   | `BunKeyValueStore.layerFileSystem(directory)`                     | KV layer       | `proc/config` filesystem KV; `EventLog` identity |
+|  [03]   | `BunKeyValueStore.layerFileSystem(directory)`                     | KV layer       | `proc/exec` kv row; `EventLog` identity          |
 |  [04]   | `BunSocket.layerWebSocket(url)` / `layerWebSocketConstructor`     | socket layer   | `EventLogRemote.layerWebSocket` constructor      |
 |  [05]   | `BunClusterHttp.layer(options)`                                   | cluster runner | `work/entity` sharding runner                    |
 |  [06]   | `BunClusterHttp.layerHttpServer` / `BunClusterSocket.layer(opts)` | cluster runner | HTTP-hosted / socket-transport runner            |

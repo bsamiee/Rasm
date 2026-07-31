@@ -33,8 +33,8 @@
 | :-----: | :-------------------------------------------------------------------------- | :--------------- | :------------------------------------ |
 |  [01]   | `--animate-in` / `--animate-out` (`@theme`, = `enter`/`exit` + timing vars) | master animation | the `animate-in`/`out` utilities      |
 |  [02]   | `--tw-animation-{delay,direction,duration,fill-mode,iteration-count}`       | timing axis      | set by the timing modifiers           |
-|  [03]   | `--animate-accordion-down/up`                                               | named animation  | accordion — `view/primitive`          |
-|  [04]   | `--animate-collapsible-down/up` / `--animate-caret-blink`                   | named animation  | collapsible, caret — `view/primitive` |
+|  [03]   | `--animate-accordion-down/up`                                               | named animation  | accordion — `system/act`              |
+|  [04]   | `--animate-collapsible-down/up` / `--animate-caret-blink`                   | named animation  | collapsible, caret — `system/act`     |
 |  [05]   | `--animation-delay-{0,75,100,150,200,300,500,700,1000}`                     | delay scale      | `delay-*`; `delay-[…]` arbitrary      |
 |  [06]   | `--animation-repeat-{0,1,infinite}`                                         | timing scale     | `repeat-*` values                     |
 |  [07]   | `--animation-direction-{normal,reverse,alternate,alternate-reverse}`        | timing scale     | `direction-*` values                  |
@@ -66,9 +66,9 @@ Timing modifiers set the `--tw-animation-*` axes the master `--animate-in/out` r
 |  [02]   | `direction-<normal\|reverse\|alternate\|alternate-reverse>`        | timing modifier | animation direction                     |
 |  [03]   | `fill-mode-<none\|forwards\|backwards\|both>`                      | timing modifier | `forwards` holds the exit state         |
 |  [04]   | `running` / `paused` / `play-state-*`                              | play state      | pause and resume motion — `act/gesture` |
-|  [05]   | `animate-accordion-down` / `animate-accordion-up`                  | named animation | accordion height — `view/primitive`     |
-|  [06]   | `animate-collapsible-down` / `animate-collapsible-up`              | named animation | collapsible height — `view/primitive`   |
-|  [07]   | `animate-caret-blink`                                              | named animation | `cmdk` caret blink — `view/compose`     |
+|  [05]   | `animate-accordion-down` / `animate-accordion-up`                  | named animation | accordion height — `system/act`         |
+|  [06]   | `animate-collapsible-down` / `animate-collapsible-up`              | named animation | collapsible height — `system/act`       |
+|  [07]   | `animate-caret-blink`                                              | named animation | `cmdk` caret blink — `system/act`       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

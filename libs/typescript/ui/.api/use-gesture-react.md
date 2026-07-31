@@ -98,7 +98,7 @@
 - `three` / `@deck.gl/core` / `maplibre-gl` (`viewer` rows, `libs/typescript/ui/.api/three.md`): `useGesture` is the camera-control input for the spatial canvas — drag→orbit/pan, pinch/wheel→zoom — feeding the `three` camera or the deck.gl/maplibre `viewState`, bound to the canvas ref with non-passive options so it owns the wheel; the renderers ship no gesture layer here.
 - `@effect-atom/atom-react` (`atom/binding`, `libs/typescript/ui/.api/effect-atom-atom-react.md`): camera/offset state is an atom — `from` reads `useAtomValue(cameraAtom)` for the origin and the handler dispatches through `useAtomSet(cameraAtom)`, so the view state is undoable and URL-syncable like any other atom, never a local `useState` the gesture mutates.
 - `react` (universal spine, `libs/typescript/ui/.api/react.md`): `useRef` supplies the `target` node, and a high-frequency gesture driving layout wraps the atom write in `startTransition` so the pointer stream stays responsive while the non-urgent camera commit deprioritizes.
-- `vaul` (`view/compose` sibling, `libs/typescript/ui/.api/vaul.md`): vaul owns its own drag-to-dismiss internally and never routes through this package; `@use-gesture` is the canvas/camera and free-drag recognizer, never double-bound on a vaul surface.
+- `vaul` (`view/overlay` sibling, `libs/typescript/ui/.api/vaul.md`): vaul owns its own drag-to-dismiss internally and never routes through this package; `@use-gesture` is the canvas/camera and free-drag recognizer, never double-bound on a vaul surface.
 
 [LOCAL_ADMISSION]:
 - One `useGesture` (or a specific `useX`) per interactive surface; a new gesture is a handler key or sub-config, never a second hook stacked on the same element.

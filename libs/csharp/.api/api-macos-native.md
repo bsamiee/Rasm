@@ -63,7 +63,7 @@
 |  [12]   | `NSScreen.MaximumReferenceExtendedDynamicRangeColorComponentValue -> NFloat` | property | EDR reference headroom    |
 
 - `CADisplayLink`, `NSView.GetDisplayLink`, and `NSScreen.GetDisplayLink` carry `SupportedOSPlatform("macos14.0")` and declare non-null while the native result still needs runtime validation.
-- `NSWindow.Screen` resolves to native null before the window belongs to a screen; a view-bound pacing decision reads `view.Window?.Screen`, never `NSScreen.MainScreen`, which describes the application main screen.
+- `NSWindow.Screen` resolves to native null before the window belongs to a screen; a view-bound pacing decision reads `view.Window?.Screen`, never `NSScreen.MainScreen`, which describes the application main screen. A windowless anchor resolves by the window walk — the key window's screen, else the first application window resolving one, else a typed refusal selecting the portable row.
 
 [ENTRYPOINT_SCOPE]: display-link lifecycle and run-loop attachment
 

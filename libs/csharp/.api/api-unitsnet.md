@@ -104,18 +104,21 @@ Each family is a `readonly struct` with native operators, keyed by its `Quantity
 |  [01]   | `IQuantity.QuantityInfo`                           | property | family metadata           |
 |  [02]   | `IQuantity.Unit`                                   | property | constructed unit          |
 |  [03]   | `IQuantity.Value`                                  | property | constructed scalar        |
-|  [04]   | `IQuantity.As(Enum)`                               | instance | scalar unit projection    |
-|  [05]   | `IQuantity.As(UnitSystem)`                         | instance | scalar policy projection  |
-|  [06]   | `IQuantity.Equals(IQuantity?, IQuantity)`          | instance | tolerance equality        |
-|  [07]   | `IQuantity.ToUnit(Enum)`                           | instance | boxed unit reprojection   |
-|  [08]   | `IQuantity.ToUnit(UnitSystem)`                     | instance | boxed policy reprojection |
-|  [09]   | `IQuantity.ToString(IFormatProvider?)`             | instance | culture-aware rendering   |
-|  [10]   | `QuantityValue.Type`                               | property | scalar storage kind       |
-|  [11]   | `QuantityValue.IsDecimal`                          | property | decimal-kind test         |
-|  [12]   | `QuantityValue.Zero`                               | static   | scalar identity           |
-|  [13]   | `implicit operator QuantityValue(<numeric-value>)` | operator | numeric admission         |
-|  [14]   | `explicit operator double(QuantityValue)`          | operator | double projection         |
-|  [15]   | `explicit operator decimal(QuantityValue)`         | operator | decimal projection        |
+|  [04]   | `IQuantity.Dimensions`                             | property | `BaseDimensions` read     |
+|  [05]   | `IQuantity.As(Enum)`                               | instance | scalar unit projection    |
+|  [06]   | `IQuantity.As(UnitSystem)`                         | instance | scalar policy projection  |
+|  [07]   | `IQuantity.Equals(IQuantity?, IQuantity)`          | instance | tolerance equality        |
+|  [08]   | `IQuantity.ToUnit(Enum)`                           | instance | boxed unit reprojection   |
+|  [09]   | `IQuantity.ToUnit(UnitSystem)`                     | instance | boxed policy reprojection |
+|  [10]   | `IQuantity.ToString(IFormatProvider?)`             | instance | culture-aware rendering   |
+|  [11]   | `QuantityValue.Type`                               | property | scalar storage kind       |
+|  [12]   | `QuantityValue.IsDecimal`                          | property | decimal-kind test         |
+|  [13]   | `QuantityValue.Zero`                               | static   | scalar identity           |
+|  [14]   | `implicit operator QuantityValue(<numeric-value>)` | operator | numeric admission         |
+|  [15]   | `explicit operator double(QuantityValue)`          | operator | double projection         |
+|  [16]   | `explicit operator decimal(QuantityValue)`         | operator | decimal projection        |
+
+- Row [04] is `[Obsolete]` on the installed surface — "This property will be removed in the next major release. Consider using QuantityInfo.BaseDimensions instead." — so a dimension read off a boxed quantity spells `q.QuantityInfo.BaseDimensions`, and `IQuantity.Dimensions` stays a read of last resort where no `QuantityInfo` is in hand.
 
 [ENTRYPOINT_SCOPE]: dimensional signature and unit policy
 
@@ -239,18 +242,24 @@ Per-unit projection property names PLURALIZE the singular `<Quantity>Unit` enum 
 |  [24]   | `QuantityInfo.BaseUnitInfo`                                                                 | property | base-unit projection            |
 |  [25]   | `QuantityInfo.UnitInfos`                                                                    | property | unit metadata projection        |
 |  [26]   | `QuantityInfo.GetUnitInfoFor(BaseUnits)`                                                    | instance | policy unit lookup              |
-|  [27]   | `UnitInfo.Name`                                                                             | property | singular unit name              |
-|  [28]   | `UnitInfo.PluralName`                                                                       | property | plural unit name                |
-|  [29]   | `UnitInfo.QuantityName`                                                                     | property | owning quantity name            |
-|  [30]   | `UnitInfo.BaseUnits`                                                                        | property | unit SI policy                  |
-|  [31]   | `UnitAbbreviationsCache.GetAbbreviations(UnitInfo, IFormatProvider?)`                       | instance | unit alias set                  |
-|  [32]   | `UnitAbbreviationsCache.GetDefaultAbbreviation<TUnit>(TUnit, IFormatProvider?)`             | instance | default abbreviation            |
-|  [33]   | `UnitAbbreviationsCache.MapUnitToAbbreviation<TUnit>(TUnit, string[])`                      | instance | abbreviation registration       |
-|  [34]   | `QuantityFormatter.Format<TUnit>(IQuantity<TUnit>, string?, IFormatProvider?)`              | static   | explicit quantity rendering     |
-|  [35]   | `UnitSystem.SI`                                                                             | static   | SI policy                       |
-|  [36]   | `new UnitSystem(BaseUnits)`                                                                 | ctor     | custom policy                   |
-|  [37]   | `new UnitsNetSetup(ICollection<QuantityInfo>, UnitConverter)`                               | ctor     | configured service root         |
-|  [38]   | `UnitsNetSetup.Default`                                                                     | static   | ambient service root            |
+|  [27]   | `QuantityInfo.GetUnitInfosFor(BaseUnits)`                                                   | instance | every policy-matching unit      |
+|  [28]   | `UnitInfo.Value`                                                                            | property | unit `Enum` token               |
+|  [29]   | `UnitInfo.Name`                                                                             | property | singular unit name              |
+|  [30]   | `UnitInfo.PluralName`                                                                       | property | plural unit name                |
+|  [31]   | `UnitInfo.QuantityName`                                                                     | property | owning quantity name            |
+|  [32]   | `UnitInfo.BaseUnits`                                                                        | property | unit SI policy                  |
+|  [33]   | `UnitAbbreviationsCache.GetAbbreviations(UnitInfo, IFormatProvider?)`                       | instance | unit alias set                  |
+|  [34]   | `UnitAbbreviationsCache.GetDefaultAbbreviation<TUnit>(TUnit, IFormatProvider?)`             | instance | default abbreviation            |
+|  [35]   | `UnitAbbreviationsCache.MapUnitToAbbreviation<TUnit>(TUnit, string[])`                      | instance | abbreviation registration       |
+|  [36]   | `QuantityFormatter.Format<TUnit>(IQuantity<TUnit>, string?, IFormatProvider?)`              | static   | explicit quantity rendering     |
+|  [37]   | `UnitSystem.SI`                                                                             | static   | SI policy                       |
+|  [38]   | `new UnitSystem(BaseUnits)`                                                                 | ctor     | custom policy                   |
+|  [39]   | `new UnitsNetSetup(ICollection<QuantityInfo>, UnitConverter)`                               | ctor     | configured service root         |
+|  [40]   | `UnitsNetSetup.Default`                                                                     | static   | ambient service root            |
+
+- Row [26] returns ONE `UnitInfo` and throws where the `BaseUnits` match is ambiguous or absent; row [27] returns the whole `IEnumerable<UnitInfo>` and is the read the boxed `ToUnit(UnitSystem)` runs internally. `UnitInfo<TUnit>` re-declares both as `UnitInfo<TUnit>`-typed, and re-declares `Value` as `TUnit`.
+- [BASEUNITS_PARTIALITY]: rows [26], [27], [32], [37] resolve through full SEVEN-AXIS `BaseUnits` equality, and the metadata that walk needs is absent from most of the roster — `UnitInfo.BaseUnits` is `BaseUnits.Undefined` on the majority of unit rows, `MassUnit.Kilogram` and every `LinearDensityUnit`/`ThermalResistanceUnit` member included. Consequence: `GetUnitInfosFor(UnitSystem.SI.BaseUnits)` returns EMPTY and `IQuantity.ToUnit(UnitSystem.SI)` throws `ArgumentException("No units were found for the given UnitSystem")` for 69 of the 135 registry quantities (`Mass`, `Density`, `Torque`, `Frequency`, `HeatTransferCoefficient`, `ThermalConductivity`, `LinearDensity`, `ThermalResistance`, `VolumeFlow`, `ElectricResistance` among them), while `Force`, `Pressure`, and `Area` succeed. `BaseUnits.IsSubsetOf` is no remedy — it returns `false` for an `Undefined` receiver against a defined target by construction, and a subset walk resolves only 49 of 135. A canonical-SI resolution therefore ELECTS its target from `QuantityInfo.BaseUnitInfo` (SI-coherent for all but a named handful — `Angle`→`Degree`, `MassFlow`→`GramPerSecond`, `ThermalResistance`→`SquareMeterKelvinPerKilowatt` are the prefixed/convention exceptions) and never walks `BaseUnits`.
+- [BASEUNIT_COHERENCE]: `QuantityInfo.BaseUnitInfo` is the DECLARED base, not a guaranteed SI-coherent one. Ten quantities carry no coherent unit anywhere in their roster: the logarithmic `Level`/`AmplitudeRatio`/`PowerRatio`, the volt-ampere-hour `ApparentEnergy`/`ElectricApparentEnergy`/`ReactiveEnergy`/`ElectricReactiveEnergy`, `RelativeHumidity` (`Percent` alone), `FuelEfficiency` (`LiterPer100Kilometers`), and `SpecificFuelConsumption` (`GramPerKiloNewtonSecond`). `UnitInfo.Name` IS `Value.ToString()` for every row, so a name-keyed index and an enum-keyed one join exactly.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -258,7 +267,7 @@ Per-unit projection property names PLURALIZE the singular `<Quantity>Unit` enum 
 - Every quantity is a `readonly struct` over generic-math static-abstract interfaces; native operators preserve quantity identity across same-quantity, scalar, ratio, and cross-quantity algebra, and cross-quantity operators yield typed results at compile time. `QuantityValue` holds an admitted scalar as `double` or `decimal` until construction, `IValueQuantity<TValue>` fixes each family's backing precision, and primitive projection stays a boundary cast.
 - `QuantityInfo.Name` is the quantity-type discriminator and `BaseDimensions` is the compatibility predicate, so two same-dimension families stay distinct while `Quantity.GetQuantitiesWithBaseDimensions` discovers derived quantities by signature.
 - `Quantity.From(value, quantityName, unitName)` admits a registry-named quantity; a quantity outside the registry composes its `BaseDimensions` and registers through `UnitsNetSetup`, `Quantity.AddUnitInfo`, `UnitConverter.SetConversionFunction`, and `UnitAbbreviationsCache.MapUnitToAbbreviation` rather than a local discriminant.
-- `UnitSystem` projects policy through the units `BaseUnits` selects, so a receipt declares one unit system for every quantity.
+- `UnitSystem` projects policy through the units `BaseUnits` selects, so it reaches only the quantities whose unit rows declare that metadata — see `[BASEUNITS_PARTIALITY]`; a receipt spanning the whole registry elects per-quantity targets instead of declaring one unit system.
 
 [STACKING]:
 - `Rasm.Compute/Symbolic/units` composes the metadata rail: `QuantityInfo.BaseUnitInfo`/`UnitInfos` source each `QuantityFamily` row's canonical and convert-target units, cross-quantity operators derive compound families, `UnitMath` folds a same-family sequence at a chosen unit, and `UnitConverter.TryConvert` guards numeric-only conversion on the typed-error rail.
@@ -266,7 +275,7 @@ Per-unit projection property names PLURALIZE the singular `<Quantity>Unit` enum 
 - `Rasm.AppUi/.api/api-reactiveui-avalonia.md`: resolves view-model display through `UnitAbbreviationsCache.GetAbbreviations` and the culture-scoped `Length.ToString`/`Length.TryParse` pair, an `IValueConverter` wrapping `As` and `Parse` binding the XAML seam.
 - `api-nodatime.md`: `Duration.ToTimeSpan()` and the `explicit operator TimeSpan(Duration)`, `DateTime + Duration`, and `Duration`↔`TimeSpan` comparison operators meet BCL time; the unit-bearing `UnitsNet.Duration` carries measured physical seconds on receipts while a NodaTime `Duration` carries a wall-clock span.
 - `Rasm.Compute` admission rail: the erased `IQuantity` face admits every family through one polymorphic entrypoint returning `Fin<UnitEvidence>`, `QuantityFamily` is a `[SmartEnum<string>]` under `StringComparer.OrdinalIgnoreCase` key policy reading `Info.BaseUnitInfo.Value` once at static construction, `DimensionMonomial` is a `[ValueObject]` over the Q⁷ `Seq<ERational>` exponent vector lifting the seven `BaseDimensions` `int` exponents so a symbolic `Powf` arm carries the non-integer exponent UnitsNet cannot, the dimensional proof accumulates every compound mismatch through `Validation<Error, DimensionMonomial>` with `BaseDimensions.Equals` as the leaf predicate, and the AngouriMath bridge matches the proven monomial against `QuantityFamily.Items` (`sqrt` lowering to `Powf(arg, 1/2)`); no UnitsNet type crosses a JSON or proto wire — `UnitEvidence` projects to plain `string`/`double` fields.
-- `Rasm.Bim`: `Rasm.Element/Properties/quantity#MEASURE_VALUE` `MeasureValue` `[ComplexValueObject]` and the `PropertyValue.Measure` `[Union]` arm own shape while UnitsNet owns dimension — the persisted scalar is always `ToUnit(UnitSystem.SI)`-coerced before entering the carrier; IFC ingest surfaces a foreign `(double measure, string unit)` pair off `IfcPhysicalSimpleQuantity.MeasureValue`/`.Unit`, `UnitParser.Default.TryParse<TUnit>` resolves the abbreviation and `Quantity.From(measure, parsedUnit)` constructs the typed quantity, an unparseable unit degrading to `Dimension.Dimensionless` or lowering onto `BimFault.CapabilityMiss`, never a thrown `UnitNotFoundException`; `Semantics/properties#BASE_QUANTITIES` `QuantityDerivation.Derive` wraps kernel `GeometryMeasures` through the matching `From*` factories, cross-dimensional operators closing each derivation (`Area * Length -> Volume`) without leaving the dimensioned algebra.
+- `Rasm.Bim`: `Rasm.Element/Properties/quantity#MEASURE_VALUE` `MeasureValue` (a `sealed record` whose private constructor is reachable only through the `Fin`-returning `Of(double, Enum|string, Op)` factories; its stored `Type`/`Dimension`/`Si`/`CanonicalUnit` is evidence the UnitsNet resolution already derived rather than raw admitted fields, so a `[ComplexValueObject]` graduation would re-validate derived evidence and is refused) and the `PropertyValue.Measure` `[Union]` arm own shape while UnitsNet owns dimension — the persisted scalar is always `ToUnit(UnitSystem.SI)`-coerced before entering the carrier; IFC ingest surfaces a foreign `(double measure, string unit)` pair off `IfcPhysicalSimpleQuantity.MeasureValue`/`.Unit`, `UnitParser.Default.TryParse<TUnit>` resolves the abbreviation and `Quantity.From(measure, parsedUnit)` constructs the typed quantity, an unparseable unit degrading to `Dimension.Dimensionless` or lowering onto `BimFault.CapabilityMiss`, never a thrown `UnitNotFoundException`; `Semantics/properties#BASE_QUANTITIES` `QuantityDerivation.Derive` wraps kernel `GeometryMeasures` through the matching `From*` factories, cross-dimensional operators closing each derivation (`Area * Length -> Volume`) without leaving the dimensioned algebra.
 - `Rasm.Fabrication`: each `PhysicsQuantity` row binds its quantity's `TryParse` delegate under `CultureInfo.InvariantCulture` and lowers `false` through one `Fin<double>` admission rail — `Feed`, `Spindle`, `Length`, `Pressure`, `Power`, and `Temperature` binding `Speed`, `RotationalSpeed`, `Length`, `Pressure`, `Power`, and `Temperature` to canonical machining units, `Duration.TryParse` with `Duration.Seconds` owning textual dwell, and `PhysicsAdmission.Quantity` carrying only the resulting canonical `double`; `Power.FromWatts * Duration.FromSeconds -> Energy` composes typed work, and `Mass.FromKilograms`/`Volume.Liters` carry the sustainability evidence scalars `FabricationFact.QualitySeal.Of` folds.
 - `Rasm.Materials`: `MaterialUnits` is the one in-folder boundary — `MaterialUnits.Admit(Illuminance.Info, value, unit, …)` gates membership through `q.QuantityInfo.BaseDimensions.Equals(Info.BaseDimensions)`, `UnitConverter.TryConvert` rescales to the family `BaseUnit`, and the boundary returns `Fin<UnitEvidence>` carrying `evidence.CanonicalValue`, the 683 lm/W luminous↔radiometric divide staying the author-kernel's outside UnitsNet conversion; `MaterialUnits.Coerce` targets the thermal `BaseUnit` set with layered-assembly resistance folding through `UnitMath.Sum<T>`, `interchange#MATERIAL_WIRE` carries the SI-base scalar with its unit `Enum` token the TS and Python peers decode, and IFC abbreviations resolve through `UnitParser.Default.Parse(abbr, CultureInfo.InvariantCulture)`.
 

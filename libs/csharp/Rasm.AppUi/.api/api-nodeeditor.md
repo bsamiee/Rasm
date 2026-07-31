@@ -47,7 +47,7 @@ Every mutation folds through the `IDrawingNode` command surface and the `Drawing
 [IConnector]: `CanSelect` `CanRemove` `On{Created,Removed,Selected,Deselected,StartChanged,EndChanged}`
 [IPin]: `CanConnect` `CanDisconnect` `On{Created,Removed,Moved,Selected,Deselected,Resized,Connected,Disconnected}`
 [IConnectablePin]: `Direction : PinDirection` `BusWidth : int`
-[IDrawingNodeSettings]: `EnableConnections` `RequireDirectionalConnections` `RequireMatchingBusWidth` `EnableMultiplePinConnections` `AllowSelfConnections` `AllowDuplicateConnections` `EnableInk` `IsInkMode` `EnableSnap` `SnapX` `SnapY` `NudgeStep` `NudgeMultiplier` `EnableGrid` `GridCellWidth` `GridCellHeight` `EnableGuides`
+[IDrawingNodeSettings]: `EnableConnections` `RequireDirectionalConnections` `RequireMatchingBusWidth` `EnableMultiplePinConnections` `AllowSelfConnections` `AllowDuplicateConnections` `ConnectionValidator : ConnectionValidationHandler?` `EnableInk` `IsInkMode` `InkPens : IList<InkPen>?` `ActivePen : InkPen?` `EnableSnap` `SnapX` `SnapY` `NudgeStep` `NudgeMultiplier` `EnableGrid` `GridCellWidth` `GridCellHeight` `EnableGuides` `GuideSnapTolerance` `EnableConnectorRouting` `RoutingGridSize` `RoutingObstaclePadding` — every toggle `bool`, every measure `double` (settable throughout)
 [IDrawingNodeFactory]: `CreatePin()` `CreateConnector()` `CreateList<T>()`
 [IUndoRedoHost]: `CanUndo` `CanRedo` `Undo()` `Redo()` `BeginUndoBatch()` `EndUndoBatch()`
 [IEditor]: `Drawing : IDrawingNode?` `Templates : IList<INodeTemplate>?`
@@ -76,6 +76,8 @@ Every mutation folds through the `IDrawingNode` command surface and the `Drawing
 [ConnectorRoutingMode]: `Manual` `Auto`
 [ConnectorRoutingAlgorithm]: `Auto` `Orthogonal` `Octilinear`
 [ConnectorStyle]: `Bezier` `Straight` `Orthogonal`
+[PinAlignment]: `None` `Left` `Right` `Top` `Bottom`
+[SnapHelper]: `Snap(double value, double snap) : double` / `Snap(Point point, double snapX, double snapY, bool enabled) : Point` — the package's own lattice; a hand-spelled `Round(x / snap) * snap` beside it is the deleted form
 
 [GRAPH_EVENTS]: `NodeEditor.Model` typed event-args family (classes)
 

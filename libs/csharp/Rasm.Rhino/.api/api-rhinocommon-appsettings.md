@@ -132,6 +132,7 @@ Every owner repeats this shape; `AppearanceSettings` stands for the family.
 
 [LOCAL_ADMISSION]:
 - a preference edit enters through the owning static class's state round-trip, never a raw `PersistentSettings` write at this tier.
+- `HistorySettings` accessors carry NO managed thread affinity — each is a bare `UnsafeNativeMethods.CRhinoHistoryManager_GetBool(int)`/`SetBool(int, bool)` P/Invoke over a process-global manager with no managed thread check — so exclusion is the consumer's own process-wide gate (`Objects/history` `HistoryConduct`), and no marshal crossing is owed.
 - color access enters through the keyed `GetPaintColor`/`GetWidgetColor` accessors, never a per-slot named field.
 - alias, shortcut, and never-repeat mutation enters through the registry's `Update(..., replaceAll)`; `PersistentSettings` typed I/O routes to `api-rhinocommon-persistence.md`.
 

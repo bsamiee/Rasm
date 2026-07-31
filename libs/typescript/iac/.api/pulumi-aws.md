@@ -114,7 +114,7 @@ Classes are `aws.*` with the prefix elided; `awsx.*` is called out. This bounded
 [LOCAL_ADMISSION]:
 - `aws` arm is one dispatch row reading a `StackSpec`, constructing one `aws.Provider`, and realizing the service-equivalence subset with that provider scoped in; the `provider/surface` map is the single place a capability resolves to an `aws.*`/`awsx.*` resource class.
 - `awsx` components own standard compositions (VPC, Fargate service, ALB) and raw `aws.*` resources own fine-grained control, both taking the arm's explicit StackSpec-derived provider.
-- Credentials and account selection ride the `StackSpec` Doppler project ref into `ProviderArgs` (`profile`/`assumeRoles`) marked `pulumi.secret`, sourced through the `@pulumiverse/doppler`/`security/secret` read path.
+- Credentials and account selection ride the `StackSpec` Doppler project ref into `ProviderArgs` (`profile`/`assumeRoles`) marked `pulumi.secret`, sourced through the `@pulumiverse/doppler`/`security/crypt/secret` read path.
 - `<Resource>.get(name, id)` adopts a pre-existing cloud resource, the whole plane lib code with zero authored `Pulumi.yaml`.
 
 [RAIL_LAW]:

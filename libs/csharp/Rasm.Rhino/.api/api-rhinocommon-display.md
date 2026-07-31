@@ -68,6 +68,13 @@
 
 `IsoDrawEffect` is a settable carrier whose mode member is `DrawMode` of type `IsoDrawMode` — never a member named `IsoDrawMode` — beside `Point` `Direction` `Frequency` `GapSize` `GapColor` `Falloff` `RotationRadians` `DiscardGap` `UsedBandColorCount` and per-band `GetBandColor`/`SetBandColor` over ten slots. Host defaults are declared on the type (`Frequency` 10, `GapSize` 0.5, `Falloff` 0.01, `GapColor` white, `UsedBandColorCount` 1, `Direction` +X, ten black bands), so a boundary default restating one is a forged value.
 
+`DisplayBitmap` mints the GPU sprite texture, disposes, and costs enough that the host doc names reuse the rule. Three ingresses admit it: `DisplayBitmap(Bitmap)` from memory, `DisplayBitmap(string path, Bitmap)` which ALSO seats the image in Rhino's path-keyed bitmap cache, and static `Load(string)` over a disk path or `http`/`https` URL, answering NULL on any failure. `Update(Bitmap)` re-images in place rather than re-minting and `Size` reads the extent.
+
+`SetBlendFunction(BlendMode source, BlendMode destination)` writes the `glBlendFunc` factors (host default `SourceAlpha`/`OneMinusSourceAlpha`) and `GetBlendModes(out BlendMode, out BlendMode)` reads them back, so blend is texture state a cache keys on, never a per-draw argument.
+
+[ENUM_ROSTERS]:
+- `public enum Rhino.Display.IsoDrawMode : byte` — `None` `DirectionalLight` `DirectionalLightXY` `DirectionalLightXYDots` `DirectionalLightCameraX` `DirectionalLightCameraY` `DirectionalLightCameraXY` `DirectionalLightCameraXYDots` `DirectionalLightCameraZ` `PointLight` `PointLightCamera` `CylindricalStatic` `DirectionalDistance` `DirectionalDistanceCamera` — fourteen rows, byte-backed, `IsoDrawEffect.DrawMode`'s type.
+
 [PUBLIC_TYPE_SCOPE]: retained overlays and capture
 
 | [INDEX] | [SYMBOL]              | [TYPE_FAMILY]    | [CAPABILITY]                   |
@@ -154,13 +161,19 @@
 |  [47]   | `DrawCurve(Curve, DisplayPen)`                                                 | vector draw   | pen-stroked curve            |
 |  [48]   | `DisplayBitmapDrawList.SetPoints(IEnumerable<Point3d>[, IEnumerable<Color>])`  | sprite draw   | cloud points, per-point tint |
 |  [49]   | `DrawAnnotationArrowhead(Arrowhead, Transform, Color)`                         | text draw     | placed arrowhead primitive   |
+|  [50]   | `Viewport`                                                                     | pass state    | pipeline's own live viewport |
+|  [51]   | `DisplayPipelineAttributes`                                                    | pass state    | pipeline's attribute set     |
+|  [52]   | `Clone(RhinoViewport)`                                                         | pass state    | pipeline clone on a viewport |
 
-- `IsometricCamera`: `None` `Northeast` `Northwest` `Southeast` `Southwest` — a quadrant roster, never a camera object, so `SetProjection` takes the quadrant and the resulting camera reads back off `RhinoViewport`.
+- `DisplayPipeline.Viewport : RhinoViewport` is the pipeline's OWN live viewport, lazily wrapped once and cached on the pipeline, so a draw phase that received only a `DisplayPipeline` — a realtime framebuffer or middleground event, a cloned pipeline — reads its viewport identity here rather than through a `DrawEventArgs` it never got; `DisplayPipelineAttributes` is the matching per-pipeline attribute set and `Clone(RhinoViewport)` re-seats the whole pipeline on another viewport.
+- `IsometricCamera`: `None` `Northeast` `Northwest` `Southeast` `Southwest` — a quadrant roster, never a camera object. `RhinoViewport.SetProjection(DefinedViewportProjection projection, string viewName, bool updateConstructionPlane) : bool` is the primary projection write and refuses `DefinedViewportProjection.None`; `SetProjection(IsometricCamera projection, string viewName, bool updateConstructionPlane) : bool` is the quadrant convenience that composes it over `Top`, so the resulting camera reads back off `RhinoViewport`. `LockedProjection : bool` and `CameraAngle : double` are get/set pairs on the same viewport, so a projection lock and a lens angle are read and written through one handle.
 - `Arrowhead`: `Arrowhead()` and `Arrowhead(DimensionStyle.ArrowType, Guid blockId)` ctors over the read-only `ArrowType`/`BlockId` pair — the arrow is a style row plus an optional user-block id, and `DrawAnnotationArrowhead` places it by `Transform`, so head shape, scale, and orientation ride one matrix and no consumer re-derives a triangle path.
 
 [ENTRYPOINT_SCOPE]: view, viewport, and page-view
 
-`DetailViewObject.GetFormattedScale` returns `true` with the scale string; its `ScaleFormat` enum selects the rendering, `OneToModelLength` spelling the `1:N` model ratio.
+`DetailViewObject.GetFormattedScale` returns `true` with the scale string; its nested `ScaleFormat` enum selects the rendering — `None` `PageLengthToOne` `OneToModelLength` `OneInchToModelLengthFeet` `ModelLengthInchToOneFoot` `ModelLengthInchToOneFootInch` `PageLengthToOneUnitSystem` `OneToModelLengthUnitSystem` — where `OneToModelLength` spells the bare `1:N` model ratio and the two `UnitSystem` rows name both unit systems inside the ratio.
+
+`DetailViewObject.Viewport` is minted once on first read and cached on the object, and it is NON-OWNING — its `Dispose` is inert — so a detail viewport carries no custody obligation despite `RhinoViewport : IDisposable`. `DetailGeometry` is `Geometry as DetailView`, so it answers null on any other geometry; `ParentPageView` answers null when the host resolves no page view; and the `IsActive` setter raises `RhinoPageView.PageViewSpaceChange`, so an activation write is an event edge, never a silent field.
 
 | [INDEX] | [SURFACE]                                                                          | [SHAPE]       | [CAPABILITY]             |
 | :-----: | :--------------------------------------------------------------------------------- | :------------ | :----------------------- |
@@ -192,6 +205,11 @@
 |  [26]   | `DetailView.PageToModelRatio`                                                      | detail scale  | live scale ratio         |
 |  [27]   | `DetailView.SetScale(double, LengthUnit, double, LengthUnit)`                      | detail scale  | detail scale write       |
 |  [28]   | `DetailViewObject.GetFormattedScale(ScaleFormat, out string) : bool`               | detail scale  | formatted scale text     |
+|  [29]   | `DetailViewObject.Viewport`                                                        | detail state  | non-owning viewport      |
+|  [30]   | `DetailViewObject.DetailGeometry`                                                  | detail state  | `Geometry as DetailView` |
+|  [31]   | `DetailViewObject.IsActive`                                                        | detail state  | mutable activation edge  |
+|  [32]   | `DetailViewObject.ParentPageView`                                                  | detail state  | owning page view         |
+|  [33]   | `DetailViewObject.DescriptiveTitle`                                                | detail state  | host descriptive title   |
 
 [ENTRYPOINT_SCOPE]: camera pose, frustum, depth, and gesture families
 
@@ -235,15 +253,19 @@ Bare members live on `RhinoViewport`; `ViewportInfo`, `ViewInfo`, and `Rhino.App
 |  [32]   | `ViewportInfo.GetFramePlaneCorners(double depth)`                            | snapshot read | host-ordered corner quad            |
 |  [33]   | `ViewportInfo.CalculateCameraUpDirection(Point3d, Vector3d, double)`         | snapshot read | static up derivation                |
 |  [34]   | `ViewportInfo.GetXform(CoordinateSystem, CoordinateSystem)`                  | snapshot read | Unset-on-failure transform          |
-|  [35]   | `ViewInfo.FocalBlurMode`                                                     | dof state     | `ViewInfoFocalBlurModes` row        |
-|  [36]   | `ViewInfo.FocalBlurDistance` / `FocalBlurAperture` / `FocalBlurJitter`       | dof state     | focal-blur scalars                  |
-|  [37]   | `ViewInfo.FocalBlurSampleCount`                                              | dof state     | `uint` sample count                 |
-|  [38]   | `Rhino.ApplicationSettings.ViewSettings.DefinedViewSetCPlane`                | restore scope | static defined-view cplane flag     |
-|  [39]   | `Rhino.ApplicationSettings.ViewSettings.DefinedViewSetProjection`            | restore scope | static defined-view projection flag |
-|  [40]   | `Rhino.ApplicationSettings.ViewSettings.DefinedViewSetClippingPlanes`        | restore scope | static defined-view clipping flag   |
-|  [41]   | `Rhino.ApplicationSettings.ViewSettings.DefinedViewSetDisplayMode`           | restore scope | static defined-view mode flag       |
-|  [42]   | `IsParallelProjection` / `IsPerspectiveProjection`                           | camera read   | `bool` projection-class reads       |
-|  [43]   | `IsTwoPointPerspectiveProjection`                                            | camera read   | two-point read; reflected has none  |
+|  [35]   | `ViewportInfo.CameraAngle`                                                   | snapshot lens | get/set half subtended angle        |
+|  [36]   | `ViewportInfo.Camera35mmLensLength`                                          | snapshot lens | get/set host 35mm lens length       |
+|  [37]   | `ViewInfo.FocalBlurMode`                                                     | dof state     | `ViewInfoFocalBlurModes` row        |
+|  [38]   | `ViewInfo.FocalBlurDistance` / `FocalBlurAperture` / `FocalBlurJitter`       | dof state     | focal-blur scalars                  |
+|  [39]   | `ViewInfo.FocalBlurSampleCount`                                              | dof state     | `uint` sample count                 |
+|  [40]   | `Rhino.ApplicationSettings.ViewSettings.DefinedViewSetCPlane`                | restore scope | static defined-view cplane flag     |
+|  [41]   | `Rhino.ApplicationSettings.ViewSettings.DefinedViewSetProjection`            | restore scope | static defined-view projection flag |
+|  [42]   | `Rhino.ApplicationSettings.ViewSettings.DefinedViewSetClippingPlanes`        | restore scope | static defined-view clipping flag   |
+|  [43]   | `Rhino.ApplicationSettings.ViewSettings.DefinedViewSetDisplayMode`           | restore scope | static defined-view mode flag       |
+|  [44]   | `IsParallelProjection` / `IsPerspectiveProjection`                           | camera read   | `bool` projection-class reads       |
+|  [45]   | `IsTwoPointPerspectiveProjection`                                            | camera read   | two-point read; reflected has none  |
+
+`ViewportInfo.CameraAngle` and `Camera35mmLensLength` are a get/set PAIR over one optic: writing the half-diagonal angle and reading the lens length back yields the length the host itself computes from its own 36×24mm frame, so a consumer never transcribes a half-frame diagonal. Both getters answer `0.0` when the native read refuses rather than throwing, so a zero is a refusal and not a measurement; the lens setter preserves camera location and frustum aspect while changing the frustum, and the lens property assumes a horizontal camera, cropping the film rather than the image when the frustum aspect is not 36/24. `ViewInfoFocalBlurModes` is `None`/`Automatic`/`Manual`, so a zero `FocalBlurSampleCount` under `None` is an unconfigured view rather than an invalid one.
 
 `ViewInfo` lives in `Rhino.DocObjects`; `ViewTypeFilter` (`Model`/`Page`/`ModelStyleViews`/`All`/`None`) lives in `Rhino.Display` and feeds `ViewTable.GetViewList`.
 
@@ -328,6 +350,11 @@ Grid/axis decor spells differently per owner: `ViewCaptureSettings.DrawAxis` sin
 |  [73]   | `ViewCapture.ScaleScreenItems`                                               | capture facade | screen-item scaling                   |
 |  [74]   | `ViewCapture.RealtimeRenderPasses`                                           | capture facade | raytrace pass count                   |
 |  [75]   | `ViewCapture.CaptureToBitmap(RhinoView sourceView)`                          | capture        | instance raster egress                |
+|  [76]   | `new DisplayBitmap(Bitmap)` / `(string path, Bitmap)`                        | sprite texture | mint, optionally path-cached          |
+|  [77]   | `DisplayBitmap.Load(string) : DisplayBitmap`                                 | sprite texture | disk or URL load, null on failure     |
+|  [78]   | `DisplayBitmap.Update(Bitmap)` / `Size : Size`                               | sprite texture | in-place re-image, extent read        |
+|  [79]   | `DisplayBitmap.SetBlendFunction(BlendMode, BlendMode)`                       | sprite texture | source/destination blend write        |
+|  [80]   | `DisplayBitmap.GetBlendModes(out BlendMode, out BlendMode)`                  | sprite texture | blend read-back                       |
 
 [ENTRYPOINT_SCOPE]: `ZBufferCapture` — depth-field capture
 
@@ -364,7 +391,14 @@ Policy-enum vocabularies (nested, referenced rather than defined):
 - `ClippingEdgeColorUse`: `PlaneColor` `SolidColor` `ObjectColor`
 - `LockedObjectUse`: `UseObjectAttributes` `SpecifyColor` `UseAppSettings`
 - `ActiveSpace`: `None` `ModelSpace` `PageSpace` `UVEditorSpace` `BlockEditorSpace`; `ActiveSpaceUse` maps the family for conduit filtering and gumball seating
-- Other nested enums: `FrameBufferFillMode` `BoundingBoxDisplayMode` `ContextsForDraw` `GridPlaneVisibilityMode` `WorldAxesIconColorUse` `GroundPlaneUsages` `LinearWorkflowUsages`, and the `*Use` families
+- Other nested enums: `FrameBufferFillMode` `BoundingBoxDisplayMode` `ContextsForDraw` `GridPlaneVisibilityMode` `WorldAxesIconColorUse` `GroundPlaneUsages` `LinearWorkflowUsages`
+
+The four thickness-use vocabularies are DISTINCT nested enums with divergent rosters, and each writer takes only its own — one shared two-row owner cannot feed all four, so a boundary vocabulary carries a native column per family:
+- `CurveThicknessUse`: `ObjectWidth` `Pixels` — `CurveThicknessUsage` (get/set) and the `SetCurveThicknessUsage`/`GetCurveThicknessUsage` pair.
+- `SurfaceThicknessUse`: `ObjectWidth` `Pixels` — `SetSurfaceEdgeThicknessUsage`/`GetSurfaceEdgeThicknessUsage`.
+- `SurfaceNakedEdgeThicknessUse`: `UseSurfaceEdgeSettings` `ObjectWidth` `Pixels` — three rows, the extra one deferring to the surface-edge setting; `SetSurfaceNakedEdgeThicknessUsage`/`Get…`.
+- `SurfaceIsoThicknessUse`: `ObjectWidth` `SingleWidthForAllCurves` `PixelsUV` — three rows over a different axis; `SetSurfaceIsoThicknessUsage`/`Get…` fold the `SurfaceIsoThicknessUsed` bool and the private edge-thickness flag mask together, and `SurfaceIsoThicknessUsed` (get/set) is the public half.
+- `SubDThicknessUse`: `ObjectWidth` `Pixels` — carried by FIVE direct get/set properties and NO `Set*Usage` method: `SubDThicknessUsage`, `SubDSmoothInteriorThicknessUsage`, `SubDCreaseInteriorThicknessUsage`, `SubDNonManifoldThicknessUsage`, `SubDBoundaryThicknessUsage`.
 
 Beyond the method rows below, the attribute model is property families written by direct assignment:
 - Shading/material: `ShadingEnabled` `ShadeVertexColors` `FrontFlatShaded` `UseAssignedObjectMaterial`/`UseCustomObjectColor`/`UseCustomObjectMaterial` `ObjectColor` `BackfaceDisplayStyle` `CullBackfaces` `Front`/`BackMaterialShine`/`Transparency` `FrontDiffuse` `BackMaterialDiffuseColor` `HighlightSurfaces` `UseBackfaceMaterial` `UseObjectBackfaceMaterial` `UseCustomBackface` `UseCustomObjectColorBackfaces` `FrontOverrideObject{Color,Transparency,Reflectivity}` `BackOverrideObject{Transparency,Reflectivity}`
@@ -377,7 +411,9 @@ Beyond the method rows below, the attribute model is property families written b
 - Clipping: `ShowClipping*` `ShowClipIntersection*` `Clipping*Color`/`Usage`/`Thickness`/`Transparency` `UseSectionStyles`
 - Locked objects: `LockedObjectUsage`/`Transparency` `LockedColor` `GhostLockedObjects` `LockedObjectsDrawBehindOthers` `LayersFollowLockUsage`
 - Points/grips: `ShowPoints`/`PointStyle`/`PointRadius` `ShowPointClouds` `PointCloud*` `ShowGrips` `ControlPolygon*`
-- Scene/pipeline: `XrayAllObjects` `IgnoreHighlights` `DisableConduits` `DisableTransparency` `ShowText` `ShowAnnotations` `BoundingBoxMode` `DynamicDisplayUsage` `LinearWorkflowUsage` `PreProcess*` `PostProcess*`
+- Scene/pipeline: `XrayAllObjects` `IgnoreHighlights` `DisableConduits` `DisableTransparency` `ShowText` `ShowAnnotations` `BoundingBoxMode` `DynamicDisplayUsage` `LinearWorkflowUsage` `PreProcessGamma` `PostProcessGamma` `BakeTextures` `RealtimeRenderPasses` `ShowRealtimeRenderProgressBar`
+
+`DisplayPipelineAttributes.RealtimeRenderPasses : int` (get/set) is the ATTRIBUTE-owned raytrace pass ceiling and is a different member from `ViewCapture.RealtimeRenderPasses`, which is the capture facade's own count — the two are unrelated owners with one name, so a write on the wrong one silently does nothing to the other. `BakeTextures : bool` and `ShowRealtimeRenderProgressBar : bool` complete the attribute-side realtime band.
 
 | [INDEX] | [SURFACE]                                                                       | [SHAPE]       | [CAPABILITY]                       |
 | :-----: | :------------------------------------------------------------------------------ | :------------ | :--------------------------------- |
@@ -421,6 +457,8 @@ Beyond the method rows below, the attribute model is property families written b
 |  [38]   | `RhinoView.CaptureToBitmap(Size, DisplayPipelineAttributes)`                    | capture       | sized attribute-scoped capture     |
 |  [39]   | `RhinoView.RuntimeSerialNumber`                                                 | identity      | detached view identity             |
 |  [40]   | `RhinoViewport.Id`                                                              | identity      | detached viewport identity         |
+
+`RhinoViewport.DisplayMode : DisplayModeDescription` is a get/set pair resolving by mode id, so a viewport bound to an unregistered or deleted mode reads NULL and the read traps like any other host resolution; a write seats the mode the descriptor names.
 
 [ENTRYPOINT_SCOPE]: built-in visual-analysis ids and object enablement
 

@@ -71,7 +71,7 @@ Every operator is one `PipedOperator<I, O>` composed by `pipe`; the roster is se
 
 [STACK: `@electric-sql/d2ts`(`.api/electric-sql-d2ts.md`) durable counterpart] — `state/fold` binds one algebra at two altitudes: d2mini folds in memory (`sendData(collection)`, no time coordinate), d2ts folds durably (`sendData(version, collection)`, `Index.reconstructAt`, `./sqlite`).
 
-[STACK: presence + `state/fold` (`.api/effect.md` `Subscribable`)] — an `output(fn)` sink drives a `SubscriptionRef`, so `state/fold` exposes the in-memory fold as an `effect` `Subscribable` re-fired each `run()`; `edge/live` serves that presence view, and `orderByWithFractionalIndex` keeps its live-list order incremental as rows churn.
+[STACK: presence + `state/fold` (`.api/effect.md` `Subscribable`)] — an `output(fn)` sink drives a `SubscriptionRef`, so `state/fold` exposes the in-memory fold as an `effect` `Subscribable` re-fired each `run()`; `serve/live` serves that presence view, and `orderByWithFractionalIndex` keeps its live-list order incremental as rows churn.
 
 ## [04]-[RAIL_LAW]
 

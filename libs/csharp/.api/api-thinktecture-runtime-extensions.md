@@ -57,6 +57,7 @@
 |  [12]   | `ThinktectureTypeConverter<T, TKey, TValidationError>` | class         | `TypeConverter` over the key      |
 
 - `ISmartEnum<TKey>` and `IObjectFactory<TValue>`: memberless arities, so a generic constraint names the owner kind without naming its case or error type.
+- `IObjectFactory<T, TValue, out TValidationError>`: one static abstract member — `Validate(TValue? value, IFormatProvider? provider, out T? item)` returning `TValidationError?` — null return means admitted with `item` populated; a constrained generic dispatches it with no instance.
 - `Argument<T>`: `readonly ref struct` carrying `IsSet` with an implicit conversion from `T`, so a generated update distinguishes an omitted argument from a null one.
 - `UnknownSmartEnumIdentifierException`: extends `KeyNotFoundException` and carries `EnumType` with the offending `Value`.
 

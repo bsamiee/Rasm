@@ -44,12 +44,13 @@
 [PUBLIC_TYPE_SCOPE]: response dispatch
 - namespace: `Grasshopper2.UI.Flex`
 
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                            |
-| :-----: | :------------------ | :------------ | :-------------------------------------- |
-|  [01]   | `Response`          | enum          | ignored-to-capture verdict precedence   |
-|  [02]   | `IResponsive`       | interface     | hit-test target with bound responder    |
-|  [03]   | `ResponseMouseArgs` | args          | both frames, input state, invalidation  |
-|  [04]   | `Responses`         | abstract      | handler, relay, hook, region, and focus |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]                                 |
+| :-----: | :--------------------- | :------------ | :------------------------------------------- |
+|  [01]   | `Response`             | enum          | ignored-to-capture verdict precedence        |
+|  [02]   | `IResponsive`          | interface     | hit-test target with bound responder         |
+|  [03]   | `ResponseMouseArgs`    | args          | both frames, input state, invalidation       |
+|  [04]   | `ResponseRotationArgs` | args          | clockwise-degree rotation gesture delta      |
+|  [05]   | `Responses`            | abstract      | virtual handlers beside ignored-fallback hooks |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -103,17 +104,39 @@
 |  [10]   | `Draw` / `WindowSelection` / `PopulateContextMenu`                         | event    | draw, selection, and menu signals       |
 |  [11]   | `FloatingButtons`                                                          | property | floating-button collection              |
 
-[ENTRYPOINT_SCOPE]: response dispatch
+[ENTRYPOINT_SCOPE]: `Responses` virtual handlers — the primary dispatch path a responder owns by override
 - namespace: `Grasshopper2.UI.Flex`
 
-| [INDEX] | [SURFACE]                                                                              | [SHAPE]  | [CAPABILITY]                      |
-| :-----: | :------------------------------------------------------------------------------------- | :------- | :-------------------------------- |
-|  [01]   | `MouseOver` / `MouseDown` / `MouseDrag` / `MouseUp` / `MouseWheel`                     | instance | pointer handlers                  |
-|  [02]   | `MouseSingleClick` / `MouseDoubleClick` / `MouseLeave`                                 | instance | click and leave handlers          |
-|  [03]   | `KeyDown` / `KeyUp` / `TextInput` / `Rotation`                                         | instance | keyboard, text, rotation handlers |
-|  [04]   | `InvokeMouseRelay` / `InvokeKeyRelay` / `InvokeTextInputRelay` / `InvokeRotationRelay` | static   | caller-handler routing            |
-|  [05]   | `RedrawRequired` / `OnRedrawRequired`                                                  | event    | handler-raised repaint            |
-|  [06]   | `new ResponseMouseArgs`                                                                | ctor     | dual-frame capture                |
+| [INDEX] | [SURFACE]                                                                                | [SHAPE]  | [CAPABILITY]                             |
+| :-----: | :--------------------------------------------------------------------------------------- | :------- | :---------------------------------------- |
+|  [01]   | `protected Responses(CoordinateSystem system = CoordinateSystem.Content)`                | ctor     | declares the frame the responder reads   |
+|  [02]   | `virtual void MouseOver(ResponseMouseArgs)` / `virtual void MouseLeave()`                | instance | hover entry and exit, no verdict         |
+|  [03]   | `virtual Response MouseDown` / `MouseDrag` / `MouseUp` / `MouseWheel(ResponseMouseArgs)` | instance | pointer verdicts                         |
+|  [04]   | `virtual Response MouseSingleClick` / `MouseDoubleClick(ResponseMouseArgs)`              | instance | click verdicts                           |
+|  [05]   | `virtual Response KeyDown(KeyEventArgs)` / `KeyUp(KeyEventArgs)`                         | instance | key verdicts                             |
+|  [06]   | `virtual Response TextInput(TextInputEventArgs)`                                         | instance | text-entry verdict                       |
+|  [07]   | `virtual Response Rotation(ResponseRotationArgs)`                                        | instance | rotation-gesture verdict                 |
+|  [08]   | `virtual bool HadEffect`                                                                 | property | `false` downgrades `Release` to `Ignored` |
+|  [09]   | `bool HasFocus` / `CoordinateSystem CoordinatesContext`                                  | property | host-set focus flag, declared frame      |
+|  [10]   | `RectangleF RegionBoundary` / `Func<PointF, bool> RegionFilter`                          | property | coarse region and exact in-region filter |
+|  [11]   | `bool IsCoincident(PointF controlPoint, PointF contentPoint)`                            | instance | frame-selecting hit test over both       |
+|  [12]   | `new ResponseMouseArgs`                                                                  | ctor     | dual-frame capture                       |
+
+[ENTRYPOINT_SCOPE]: `Responses` hook events — the plug-in path an attribute subclass takes without subclassing the responder
+- namespace: `Grasshopper2.UI.Flex`
+
+| [INDEX] | [SURFACE]                                                                                                 | [SHAPE] | [CAPABILITY]                                |
+| :-----: | :--------------------------------------------------------------------------------------------------------- | :------ | :------------------------------------------- |
+|  [01]   | `event Action<ResponseMouseArgs> MouseOverHook` / `event Action MouseLeaveHook`                            | event   | unconditional post-handler hover taps       |
+|  [02]   | `event Func<ResponseMouseArgs, Response> MouseDownHook` / `MouseDragHook` / `MouseUpHook` / `MouseWheelHook` | event   | pointer taps on the ignored fallback        |
+|  [03]   | `event Func<ResponseMouseArgs, Response> MouseSingleClickHook` / `MouseDoubleClickHook`                    | event   | click taps on the ignored fallback          |
+|  [04]   | `event Func<KeyEventArgs, Response> KeyDownHook` / `KeyUpHook`                                             | event   | key taps on the ignored fallback            |
+|  [05]   | `event Func<TextInputEventArgs, Response> TextInputHook`                                                   | event   | text tap on the ignored fallback            |
+|  [06]   | `event Func<ResponseRotationArgs, Response> RotationHook`                                                  | event   | rotation tap on the ignored fallback        |
+|  [07]   | `event EventHandler GotFocus` / `LostFocus`                                                                | event   | `HasFocus` transition edges                 |
+|  [08]   | `event EventHandler RedrawRequired` / `void OnRedrawRequired()`                                            | event   | handler-raised repaint request              |
+|  [09]   | `protected static Response InvokeMouseRelay(Func<ResponseMouseArgs, Response>, ResponseMouseArgs)`         | static  | first-non-`Ignored` invocation-list walk    |
+|  [10]   | `protected static Response InvokeKeyRelay` / `InvokeTextInputRelay` / `InvokeRotationRelay`                | static  | the same walk over the other three arg kinds |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -121,7 +144,9 @@
 - two namespaces meet at one seam: `Grasshopper2.UI.Animation` owns generic value interpolation, `Grasshopper2.UI.Flex` owns control projection and dispatch, joined where `IFlexControl.Animate` consumes an `Animated<T>`
 - `Animated<T>` is a two-state curve: `CreateUnfinished` animates, `CreateFinished` holds a settled value, `Evaluate(DateTime)` samples, `State` reports `Pending`/`Busy`/`Finished`, and `Chain` or `operator +` appends the next leg
 - `MotionEquations.Blend(Motion, double)` is the single easing evaluator every `Animated<T>` and `Animators` factory routes through; `Motion` names the base and delayed easing kinds and `Duration` the alphabetical spans whose enum value equals the millisecond count
-- response dispatch is a folded verdict: each `Responses` handler returns a `Response` under `Ignored` < `Release` < `Handled` < `Capture` precedence, and each `Invoke*Relay` threads a caller handler through the typed args
+- response dispatch is a folded verdict: each `Responses` handler returns a `Response` under `Ignored` < `Release` < `Handled` < `Capture` precedence, and `HadEffect` returning `false` downgrades that responder's `Release` to `Ignored` so a no-drag right click still reaches context-menu population
+- `Responses` carries TWO member families over one event set and the override is the primary one: each `*Hook` event fires only where the virtual member's own logic would return `Ignored`, because every base body is exactly `Invoke*Relay(hook, e)` and an override reaching `base.Member(e)` is what re-enters that relay; the relay walks the invocation list in subscription order and the first non-`Ignored` result wins, so a subscriber cannot pre-empt an override and an override that never calls base silences every subscriber on that event. `MouseOverHook`/`MouseLeaveHook` are the two exceptions — `Action`-shaped, no verdict, invoked unconditionally after the member's own logic
+- the family split is the extension seam: a responder the boundary constructs owns behavior by override, while an attribute subclass extends a host responder it cannot subclass (`ComponentAttributes` and `ResizableAttributes<T>` both expose theirs as a private sealed nested class behind `public Responses Responder`) by subscribing hooks, which fire exactly where that host responder declines
 - `IFlexControl` is the coordinate authority: `Map` converts between `Content` and `Control` frames, `Navigate` animates the viewport to a `ContentPosition`, point, or rect over a `Duration`, and `FlexControl`'s focus stack (`PushFocus`/`PopFocus`) routes capture
 - `AnimatedPath` models a named feedback-stroke set with time-parameterized `Draw` — the notice glyph the canvas and chrome compose
 
@@ -138,6 +163,6 @@
 
 [RAIL_LAW]:
 - Package: `Grasshopper2` (host assembly)
-- Owns: the `IFlexControl` coordinate/redraw/navigation seam, the animation value vocabulary, the easing evaluator, `Animated<T>`, `AnimatedPath` feedback factories, and the response mouse/key/text/rotation dispatch family
+- Owns: the `IFlexControl` coordinate/redraw/navigation seam, the animation value vocabulary, the easing evaluator, `Animated<T>`, `AnimatedPath` feedback factories, and both `Responses` families — the virtual mouse/key/text/rotation handlers and the ignored-fallback hook events beside them
 - Accept: value animation, viewport navigation, coordinate mapping, redraw scheduling, responsive registration, event dispatch
 - Reject: canvas paint composition (`api-gh2-canvas.md`), floating-button chrome (`api-gh2-editor.md`), a host pacer/spring/subscription carrier, the GH1 event idiom

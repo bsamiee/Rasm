@@ -41,32 +41,28 @@
 | [INDEX] | [SYMBOL]                    | [KIND]          | [CAPABILITY]                     |
 | :-----: | :-------------------------- | :-------------- | :------------------------------- |
 |  [01]   | `Dialogs`                   | native dialogs  | built-in dialog suite            |
-|  [02]   | `NamedColorList`            | color palette   | color-dialog palette             |
-|  [03]   | `NamedColor`                | named color     | palette entry                    |
-|  [04]   | `GumballObject`             | gumball state   | manipulator geometry             |
-|  [05]   | `GumballFrame`              | gumball frame   | geometry-derived or planar frame |
-|  [06]   | `GumballDisplayConduit`     | gumball conduit | drawing, picking, and transforms |
-|  [07]   | `GumballAppearanceSettings` | gumball config  | manipulator appearance           |
-|  [08]   | `GumballMode`               | discriminant    | active manipulation mode         |
-|  [09]   | `MouseCallback`             | mouse hook      | viewport mouse callbacks         |
-|  [10]   | `MouseCallbackEventArgs`    | mouse args      | viewport point and gumball hit   |
-|  [11]   | `MouseButton`               | discriminant    | callback button                  |
-|  [12]   | `MouseCursor`               | cursor          | tooltip-carrying cursor control  |
-|  [13]   | `WaitCursor`                | cursor          | scoped wait cursor               |
+|  [02]   | `OpenFileDialog`            | file dialog     | native open, single or multi     |
+|  [03]   | `SaveFileDialog`            | file dialog     | native save, single name         |
+|  [04]   | `NamedColorList`            | color palette   | color-dialog palette             |
+|  [05]   | `NamedColor`                | named color     | palette entry                    |
+|  [06]   | `GumballObject`             | gumball state   | manipulator geometry             |
+|  [07]   | `GumballFrame`              | gumball frame   | geometry-derived or planar frame |
+|  [08]   | `GumballDisplayConduit`     | gumball conduit | drawing, picking, and transforms |
+|  [09]   | `GumballAppearanceSettings` | gumball config  | manipulator appearance           |
+|  [10]   | `GumballMode`               | discriminant    | active manipulation mode         |
+|  [11]   | `MouseCallback`             | mouse hook      | viewport mouse callbacks         |
+|  [12]   | `MouseCallbackEventArgs`    | mouse args      | viewport point and gumball hit   |
+|  [13]   | `MouseButton`               | discriminant    | callback button                  |
+|  [14]   | `MouseCursor`               | cursor          | tooltip-carrying cursor control  |
+|  [15]   | `WaitCursor`                | cursor          | scoped wait cursor               |
 
-[PUBLIC_TYPE_SCOPE]: in-viewport UI objects
+[PUBLIC_TYPE_SCOPE]: prompt state
 
-| [INDEX] | [SYMBOL]                           | [KIND]            | [CAPABILITY]                  |
-| :-----: | :--------------------------------- | :---------------- | :---------------------------- |
-|  [01]   | `MouseState`                       | interaction state | picked state and hit tests    |
-|  [02]   | `UserInterfaceObjectBase`          | in-viewport UI    | registered draw/mouse widget  |
-|  [03]   | `GripUserInterfaceObject`          | draggable grip    | constrained snap-point grip   |
-|  [04]   | `DirectionGripUserInterfaceObject` | direction grip    | viewport-visible arrow grip   |
-|  [05]   | `RotationGripUserInterfaceObject`  | rotation grip     | viewport-visible rotation arc |
-|  [06]   | `TextDotUserInterfaceObject`       | in-viewport label | text and height               |
-|  [07]   | `UserInterfaceControl`             | control           | SVG-backed control            |
-|  [08]   | `UserInterfaceSlider`              | slider            | ranged value-changed control  |
-|  [09]   | `CommandPromptChangedEventArgs`    | prompt state      | prompt, default, and options  |
+| [INDEX] | [SYMBOL]                        | [KIND]       | [CAPABILITY]                 |
+| :-----: | :------------------------------ | :----------- | :--------------------------- |
+|  [01]   | `CommandPromptChangedEventArgs` | prompt state | prompt, default, and options |
+
+- Registers the in-viewport UI object family (`api-rhinocommon-custom-objects.md`): `UserInterfaceObjectBase` with its grip, direction, rotation, text-dot, control, and slider derivations, `MouseState`, and `ViewUserInterfaceTable` all carry their members there, beside the custom-object authoring surface sharing their derivation contract. This boundary supplies only the namespace and the pipeline seam.
 
 [PUBLIC_TYPE_SCOPE]: status, toolbar, and resources
 
@@ -76,11 +72,12 @@
 |  [02]   | `RuiUpdateUi`                  | menu state       | live menu synchronization        |
 |  [03]   | `ToolbarFile`                  | toolbar file     | `.rui` file access               |
 |  [04]   | `ToolbarFileCollection`        | toolbar registry | `.rui` open/find collection      |
-|  [05]   | `Toolbar`                      | toolbar state    | toolbar grouping and enumeration |
-|  [06]   | `DrawingUtilities`             | resource loader  | native UI resource utilities     |
-|  [07]   | `RhinoApp` (UI-thread members) | thread marshal   | main-thread dispatch             |
-|  [08]   | `RhinoView.ShowToast`          | transient notice | viewport toast                   |
-|  [09]   | `Localization`                 | locale service   | language id + unit formatting    |
+|  [05]   | `Toolbar`                      | toolbar state    | toolbar identity, global sizing  |
+|  [06]   | `ToolbarGroup`                 | toolbar group    | group identity and visibility    |
+|  [07]   | `DrawingUtilities`             | resource loader  | native UI resource utilities     |
+|  [08]   | `RhinoApp` (UI-thread members) | thread marshal   | main-thread dispatch             |
+|  [09]   | `RhinoView.ShowToast`          | transient notice | viewport toast                   |
+|  [10]   | `Localization`                 | locale service   | language id + unit formatting    |
 
 [PUBLIC_TYPE_SCOPE]: RDK data-source provider identities
 - namespace: `Rhino.UI.Controls.DataSource`
@@ -165,8 +162,27 @@
 |  [64]   | `StackedDialogPage.RemovePage()`                                          | page         | remove own page                |
 |  [65]   | `StackedDialogPage.NavigationTextColor` (get/set)                         | page         | Windows navigation color       |
 |  [66]   | `StackedDialogPage.NavigationTextIsBold` (get/set)                        | page         | Windows navigation bold        |
+|  [67]   | `ObjectPropertiesPage.EnglishPageTitle` (abstract) / `LocalPageTitle`     | page         | English and localized titles   |
+|  [68]   | `ObjectPropertiesPage.PageControl : object`                               | page         | host control carrier           |
+|  [69]   | `ObjectPropertiesPage.PageType : PropertyPageType` / `Index : int`        | page         | page kind and button order     |
+|  [70]   | `ObjectPropertiesPage.SupportedTypes : ObjectType`                        | page         | selection type filter          |
+|  [71]   | `ObjectPropertiesPage.AllObjectsMustBeSupported` / `SupportsSubObjects`   | page         | selection admission width      |
+|  [72]   | `ObjectPropertiesPage.PageIconEmbeddedResourceString`/`PageIcon(Size)`    | page         | page icon resolution           |
+|  [73]   | `ObjectPropertiesPage.OnActivate(bool)` / `OnHelp()`                      | page         | activation and help hooks      |
+|  [74]   | `ObjectPropertiesPage.OnCreateParent(nint)`/`OnSizeParent(int, int)`      | page         | native parent hooks            |
+|  [75]   | `ObjectPropertiesPage.SelectedObjects : RhinoObject[]`                    | page         | supported-type selection read  |
+|  [76]   | `ObjectPropertiesPage.GetSelectedObjects<T>() : T[]`                      | page         | typed selection read           |
+|  [77]   | `ObjectPropertiesPage.AnySelectedObject<T>()` / `<T>(bool allMatch)`      | page         | typed selection test           |
+|  [78]   | `ObjectPropertiesPage.RunScript(ObjectPropertiesPageEventArgs)`           | page         | scripted properties run        |
+|  [79]   | `OptionsDialogPage.OptionsPageType : PageType` (nested `enum`)            | page         | options versus doc properties  |
+|  [80]   | `OptionsDialogPage.RunScript(RhinoDoc, RunMode)`                          | page         | scripted options run           |
 
 `ThemeSettings.ThemeChanged` is a public static `EventHandler` field subscribed through `+=`; the `EtoExtensions` notifier behind it is private. Native styling, document-owned presentation, semi-modal display, and window position persistence are the registered branch bridge (`libs/csharp/.api/api-rhino-ui.md`), which the `RhinoEtoApp` parents above present against.
+
+- `OptionsDialogPage : StackedDialogPage` adds exactly three members — `OptionsPageType`, the nested `enum PageType` (`Options`, `DocumentProperties`), and `RunScript(RhinoDoc, RunMode)`. Every other member an options leaf overrides (`PageControl`, `LocalPageTitle`, `PageImage`, `ShowApplyButton`, `ShowDefaultsButton`, `OnApply`, `OnCancel`, `OnActivate`, `OnDefaults`, `OnHelp`, `OnCreateParent`, `OnSizeParent`) belongs to `StackedDialogPage` and is tabled above; `OptionsPageType` carries an `internal set`, so the host seats the kind and a page reads it.
+- `ObjectPropertiesPage` carries four `[Obsolete]` members the boundary never overrides — `Icon` (superseded by `PageIcon(Size)`), `ShouldDisplay(RhinoObject)`, `InitializeControls(RhinoObject)`, and `RunScript(RhinoDoc, RhinoObject[])`. Each is the default target of its live successor (`ShouldDisplay(e)` calls the obsolete arm, `UpdatePage(e)` calls `InitializeControls(null)`, `RunScript(e)` calls the pair-taking arm), so overriding the live member alone is complete and overriding both is the doubled form.
+- `ObjectPropertiesPage.PageControl`'s base implementation REFLECTS for a subclass property named `PageControl` typed `System.Windows.Forms.Control` and answers `null` on every other shape, swallowing the exception to the command line. An Eto or `NSView` page therefore overrides `PageControl` outright — inheriting it on macOS binds nothing and reports nothing.
+- `ObjectPropertiesPage.SelectedObjects` is `GetSelectedObjects(SupportedTypes)`, so the roster read and the type filter are one decision: widening `SupportedTypes` widens the read, and `AllObjectsMustBeSupported` flips `AnySelectedObject<T>` from any-match to every-match by substituting `ObjectType.AnyObject` for the per-type filter.
 
 [ENTRYPOINT_SCOPE]: dialogs, gumball, and mouse callbacks
 
@@ -187,57 +203,42 @@
 |  [13]   | `Dialogs.ShowSelectLinetypeDialog(ref int, bool)`                                         | dialog       | linetype index choice     |
 |  [14]   | `Dialogs.ShowPrintWidths(string, string)` / `(string, string, double)`                    | dialog       | print-width choice        |
 |  [15]   | `Dialogs.ShowSunDialog(Sun)`                                                              | dialog       | sun editor                |
-|  [16]   | `OpenFileDialog.ShowOpenDialog()` / `SaveFileDialog.ShowSaveDialog()`                     | dialog       | native file selection     |
-|  [17]   | `GumballDisplayConduit.SetBaseGumball(GumballObject, GumballAppearanceSettings)`          | gumball      | seat manipulator          |
-|  [18]   | `GumballDisplayConduit.PickGumball(PickContext, GetPoint)`                                | gumball      | pick manipulator          |
-|  [19]   | `GumballDisplayConduit.UpdateGumball(Point3d, Line)`                                      | gumball      | update drag from line     |
-|  [20]   | `GumballDisplayConduit.UpdateGumball(Plane)`                                              | gumball      | update drag from plane    |
-|  [21]   | `MouseCallback.OnMouseMove(MouseCallbackEventArgs)`                                       | override     | begin mouse-move phase    |
-|  [22]   | `MouseCallback.OnEndMouseMove(...)`                                                       | override     | end mouse-move phase      |
-|  [23]   | `MouseCallback.OnMouseDown(MouseCallbackEventArgs)`                                       | override     | begin mouse-down phase    |
-|  [24]   | `MouseCallback.OnEndMouseDown(...)`                                                       | override     | end mouse-down phase      |
-|  [25]   | `MouseCallback.OnMouseUp(MouseCallbackEventArgs)`                                         | override     | begin mouse-up phase      |
-|  [26]   | `MouseCallback.OnEndMouseUp(...)`                                                         | override     | end mouse-up phase        |
-|  [27]   | `MouseCallbackEventArgs.ViewportPoint`                                                    | read         | callback viewport point   |
-|  [28]   | `MouseCallbackEventArgs.IsOverGumball()`                                                  | read         | test gumball hover        |
-|  [29]   | `MouseCursor.SetToolTip(string)`                                                          | read         | set cursor tooltip        |
+|  [16]   | `new OpenFileDialog()` / `new SaveFileDialog()`                                           | dialog       | mint file dialog          |
+|  [17]   | `OpenFileDialog.DefaultExt`/`FileName`/`Title`/`Filter`/`InitialDirectory` (get/set)      | dialog       | open-dialog text state    |
+|  [18]   | `OpenFileDialog.MultiSelect` (get/set) / `FileNames` (get) / `ShowOpenDialog() : bool`    | dialog       | multi-select open run     |
+|  [19]   | `SaveFileDialog.DefaultExt`/`FileName`/`Title`/`Filter`/`InitialDirectory` (get/set)      | dialog       | save-dialog text state    |
+|  [20]   | `SaveFileDialog.ShowSaveDialog() : bool`                                                  | dialog       | save-name run             |
+|  [21]   | `new GumballObject()` / `GumballObject.Dispose()`                                         | gumball      | mint and release state    |
+|  [22]   | `GumballObject.SetFromBoundingBox(BoundingBox)` / `(Plane, BoundingBox)`                  | gumball      | seat from extents         |
+|  [23]   | `GumballObject.SetFromLine/Plane/Arc/Circle/Ellipse/Curve/Extrusion/Light/Hatch(...)`      | gumball      | seat from one carrier     |
+|  [24]   | `GumballObject.Frame : GumballFrame` (get/set)                                            | gumball      | plane, scale grip, mode   |
+|  [25]   | `new GumballDisplayConduit()` / `(ActiveSpace)` / `Dispose()`                             | gumball      | mint and release conduit  |
+|  [26]   | `GumballDisplayConduit.Enabled` (get/set)                                                 | gumball      | arm conduit participation |
+|  [27]   | `GumballDisplayConduit.SetBaseGumball(GumballObject[, GumballAppearanceSettings])`        | gumball      | seat manipulator          |
+|  [28]   | `GumballDisplayConduit.PickGumball(PickContext, GetPoint)`                                | gumball      | pick manipulator          |
+|  [29]   | `GumballDisplayConduit.UpdateGumball(Point3d, Line)` / `UpdateGumball(Plane)`             | gumball      | update drag, `bool`       |
+|  [30]   | `GumballDisplayConduit.TotalTransform` / `GumballTransform`                               | gumball      | cumulative and step xform |
+|  [31]   | `GumballDisplayConduit.PreTransform` (get/set) / `InRelocate`                             | gumball      | seed xform, relocate mode |
+|  [32]   | `GumballDisplayConduit.BaseGumball` / `Gumball` / `PickResult`                            | gumball      | conduit-owned projections |
+|  [33]   | `GumballDisplayConduit.CheckShiftAndControlKeys()`                                        | gumball      | live modifier refresh     |
+|  [34]   | `new GumballAppearanceSettings()`                                                         | gumball      | default appearance mint   |
+|  [35]   | `MouseCallback.Enabled` (get/set)                                                         | mouse        | arm the viewport hook     |
+|  [36]   | `MouseCallback.OnMouseMove/Down/Up(MouseCallbackEventArgs)`                               | override     | begin phase per button    |
+|  [37]   | `MouseCallback.OnEndMouseMove/Down/Up(MouseCallbackEventArgs)`                            | override     | end phase per button      |
+|  [38]   | `MouseCallback.OnMouseDoubleClick/Enter/Hover/Leave(MouseCallbackEventArgs)`              | override     | atomic pointer phases     |
+|  [39]   | `MouseCallbackEventArgs.Cancel` (get/set, `CancelEventArgs`)                              | veto         | suppress default handling |
+|  [40]   | `MouseCallbackEventArgs.ViewportPoint` / `View` / `MouseButton` / `Button`                | read         | point, view, and button   |
+|  [41]   | `MouseCallbackEventArgs.ShiftKeyDown` / `CtrlKeyDown`                                     | read         | modifier flags            |
+|  [42]   | `MouseCallbackEventArgs.IsOverGumball()`                                                  | read         | test gumball hover        |
+|  [43]   | `MouseCursor.SetToolTip(string)`                                                          | read         | set cursor tooltip        |
 
 - The `Dialogs` single-value prompts — `ShowEditBox` and both `ShowNumberBox` overloads — are the registered branch fast lane (`libs/csharp/.api/api-rhino-ui.md`); the rows above are the multi-value, document-scoped, and resource-scoped dialogs this boundary alone reaches.
-
-[ENTRYPOINT_SCOPE]: in-viewport UI objects
-
-| [INDEX] | [SURFACE]                                                                 | [CALL_SHAPE] | [CAPABILITY]                  |
-| :-----: | :------------------------------------------------------------------------ | :----------- | :---------------------------- |
-|  [01]   | `UserInterfaceObjectBase.RegisterForAllDocuments()`                       | lifecycle    | register across documents     |
-|  [02]   | `UserInterfaceObjectBase.Unregister()`                                    | lifecycle    | retire widget                 |
-|  [03]   | `UserInterfaceObjectBase.OnDraw(DrawEventArgs)`                           | override     | draw through display pipeline |
-|  [04]   | `UserInterfaceObjectBase.OnMouseClick(MouseState)`                        | override     | handle picked click           |
-|  [05]   | `UserInterfaceObjectBase.OnMouseDoubleClick(MouseState)`                  | override     | handle picked double-click    |
-|  [06]   | `UserInterfaceObjectBase.OnMouseDown(MouseState)`                         | override     | handle picked mouse-down      |
-|  [07]   | `UserInterfaceObjectBase.OnMouseMove(MouseState)`                         | override     | handle picked mouse-move      |
-|  [08]   | `UserInterfaceObjectBase.OnMouseUp(MouseState)`                           | override     | handle picked mouse-up        |
-|  [09]   | `UserInterfaceObjectBase.BoundToActiveView`                               | state        | bind active view              |
-|  [10]   | `UserInterfaceObjectBase.Visible`                                         | state        | control visibility            |
-|  [11]   | `GripUserInterfaceObject.SetSnapPoints(IEnumerable<Point3d>)`             | grip         | set snap points               |
-|  [12]   | `GripUserInterfaceObject.Constrain(Curve)`                                | grip         | constrain grip curve          |
-|  [13]   | `GripUserInterfaceObject.GripLocation`                                    | grip         | read grip location            |
-|  [14]   | `GripUserInterfaceObject.GripRadius`                                      | grip         | read grip radius              |
-|  [15]   | `GripUserInterfaceObject.ObjectSnapPermitted`                             | grip         | read object-snap permission   |
-|  [16]   | `DirectionGripUserInterfaceObject.ArrowsVisibleInViewport(RhinoViewport)` | grip         | test arrow visibility         |
-|  [17]   | `DirectionGripUserInterfaceObject.GripDirection`                          | grip         | read grip direction           |
-|  [18]   | `DirectionGripUserInterfaceObject.ArrowRadius`                            | grip         | read arrow radius             |
-|  [19]   | `RotationGripUserInterfaceObject.ArcVisibleInViewport(RhinoViewport)`     | grip         | test arc visibility           |
-|  [20]   | `RotationGripUserInterfaceObject.OnRotationDrag(double, MouseState)`      | grip         | rotation-drag hook            |
-|  [21]   | `UserInterfaceControl.SetSvg(string)`                                     | control      | set SVG resource              |
-|  [22]   | `UserInterfaceSlider.Range`                                               | control      | read slider range             |
-|  [23]   | `UserInterfaceSlider.Value`                                               | control      | read slider value             |
-|  [24]   | `UserInterfaceSlider.ValueChanged`                                        | event        | value-changed event           |
-|  [25]   | `UserInterfaceSlider.OnValueChanged()`                                    | control      | value-change hook             |
-|  [26]   | `MouseState.IsMouseOver(Curve, out double)`                               | hit test     | hit-test curve                |
-|  [27]   | `MouseState.IsMouseOver(Line)`                                            | hit test     | hit-test line                 |
-|  [28]   | `MouseState.Button`                                                       | state        | read mouse button             |
-|  [29]   | `MouseState.FrustumLine`                                                  | state        | read frustum line             |
-|  [30]   | `MouseState.View`                                                         | state        | read picked view              |
+- `MouseCallback.Enabled` is the sole arming member and it REFLECTS over the subclass to subscribe only the `RhinoView` static events whose overrides the subclass declares, so a hook that declares no override arms nothing; a `false` write detaches all ten unconditionally, and every callback runs on the host UI thread.
+- `MouseCallbackEventArgs` derives `System.ComponentModel.CancelEventArgs`, so the pointer seam IS veto-capable: a begin-phase override setting `Cancel = true` suppresses Rhino's own default handling of that event, and the matching `OnEnd*` override reads `Cancel` to learn whether the default ran. The read is the evidence, the write the veto — a page claiming the mouse seam is observe-only contradicts the type's own base.
+- `GumballObject` and `GumballDisplayConduit` are both `IDisposable` with public constructors, and both `SetFrom*` and `UpdateGumball*` answer `bool`; `GumballAppearanceSettings` carries the whole look as plain settables behind a public parameterless constructor — per-axis translate, rotate, and scale toggles, `FreeTranslate`, axis colors, `Radius`, arrowhead and grip sizing, `AxisThickness`/`ArcThickness`, menu placement — so appearance is one value the seat call takes, never a mutation sequence.
+- The conduit's `BaseGumball`, `Gumball`, and `PickResult` are lazily minted conduit-owned projections, not caller-owned handles: reading one binds it to the conduit for the conduit's lifetime, so a lease disposes the conduit and never those.
+- `Rhino.UI.OpenFileDialog` and `SaveFileDialog` are plain `public class` with a public parameterless constructor and NO disposer — they hold a private managed `FileDialogBase` and free the native dialog inside the show call. Their Eto siblings bracket because `Eto.Forms.CommonDialog : Widget : IDisposable`; these two never do, and a `using` over either is the wrong shape rather than a missing one. `SaveFileDialog` carries no multi-select axis at all: `MultiSelect`/`FileNames` are `OpenFileDialog`-only, and a save run reads `FileName` back off the instance.
+- `OpenFileDialog.ShowDialog()` and `SaveFileDialog.ShowDialog()` are `[Obsolete]` `System.Windows.Forms.DialogResult` shims over `ShowOpenDialog()`/`ShowSaveDialog()`; the `bool` members are the admitted run, and the `DialogResult` return drags a Windows Forms type across a cross-platform boundary.
 
 [ENTRYPOINT_SCOPE]: status, toolbar, resources, and UI thread
 
@@ -280,6 +281,18 @@
 |  [33]   | `DrawingUtilities.CreateCurvePreviewGeometry(Curve, Linetype, int, int)`                         | resource     | create curve preview   |
 |  [34]   | `NamedColorList.Default`                                                                         | resource     | default named palette  |
 |  [35]   | `WaitCursor()` / `Dispose()`                                                                     | cursor       | scope host wait cursor |
+|  [36]   | `RhinoApp.ToolbarFiles : ToolbarFileCollection` (static get)                                     | toolbar      | process `.rui` set     |
+|  [37]   | `ToolbarFileCollection.Count` / `this[int]` / `GetEnumerator() : IEnumerator<ToolbarFile>`       | toolbar      | enumerate open files   |
+|  [38]   | `ToolbarFile.Id : Guid` / `Name : string` / `Path : string`                                      | toolbar      | file identity, alias   |
+|  [39]   | `ToolbarFile.GroupCount : int` / `ToolbarCount : int`                                            | toolbar      | file roster arity      |
+|  [40]   | `ToolbarFile.GetSvg(Guid imageId, bool darkMode) : string`                                       | toolbar      | per-image SVG payload  |
+|  [41]   | `ToolbarGroup.Id`/`Name`; `Toolbar.Id`/`Name` (each `Guid`/`string` get)                         | toolbar      | group and bar identity |
+
+- `RhinoApp.ToolbarFiles` is the process-wide `.rui` set — a lazily minted `ToolbarFileCollection : IEnumerable<ToolbarFile>` whose `Count`/`this[int]` read the native file registry live, so the collection is a cursor over host state, never a snapshot to retain.
+- `ToolbarFile.Path` and `Name` are the SAME native read (`CRhinoUiFile_FileName`) with the `isAlias` flag flipped: `Path` is the file location and `Name` its display alias. A page treating `Name` as a filename addresses nothing.
+- `ToolbarFile.GetGroup(int)`/`GetToolbar(int)` answer `null` for an index the host does not resolve, and `GetGroup(string)` is a linear `GroupCount` scan over the index overload with a culture-sensitive `string.Compare` — a name lookup is O(groups) and case-sensitive, so an identity walk keys on `ToolbarGroup.Id`.
+- `Toolbar` carries identity only; `BitmapSize`/`TabSize` are STATIC process settings, not per-toolbar state, so writing either re-sizes every toolbar in the session.
+- `ToolbarFile.Close(bool prompt)` shows a host yes/no `Dialogs.ShowMessage` when `prompt` is true and answers `false` on a declined close, so the `bool` discriminates user refusal from failure only when `prompt` is false.
 
 [ENTRYPOINT_SCOPE]: `Localization` — locale identity and unit-aware formatting
 
@@ -317,7 +330,7 @@
 [TOPOLOGY]:
 - Native chrome registers once per plug-in in one owner: `Panels.RegisterPanel` seats a panel type, `StackedDialogPage`/`OptionsDialogPage`/`ObjectPropertiesPage` seat pages, and the host resolves instances through `GetPanel`/`GetPanels<T>`; a second registration of the same type is the collapsed form.
 - Every Eto surface reaches a Rhino window through one path: `RhinoEtoApp` resolves the document-owned parent and the registered bridge applies native styling and presents the surface against a document; the control tree is authored through the folder Eto catalogs, never re-implemented here.
-- Interaction runs two tiers: `MouseCallback` is the document-wide viewport mouse hook with begin/end phase pairs, while `UserInterfaceObjectBase` and its grip/slider subclasses are registered in-viewport widgets that draw through the display pipeline and receive a picked `MouseState`; a gumball is the dedicated third manipulator — a `GumballDisplayConduit` seated from a `GumballObject`, never a hand-rolled grip cluster.
+- Interaction runs three tiers with disjoint owners: `MouseCallback` is the document-wide viewport mouse hook with begin/end phase pairs and a per-event veto, a gumball is the dedicated manipulator — a `GumballDisplayConduit` seated from a `GumballObject`, never a hand-rolled grip cluster — and the registered in-viewport widget family is `api-rhinocommon-custom-objects.md`'s, reached here only as the namespace and pipeline seam it draws through.
 - Every host callback runs on the UI thread: work touching document or UI state from a background context marshals through `RhinoApp.InvokeOnUiThread`/`InvokeAndWait`, gated by `IsOnMainThread`.
 
 [STACKING]:
@@ -325,7 +338,8 @@
 - `api-eto-forms.md`/`api-eto-drawing.md`/`api-eto-runtime.md`: a panel or dialog's content is an Eto control tree from those catalogs; this boundary supplies the `RhinoEtoApp` window ownership the registered bridge presents against.
 - `api-languageext.md`(`../../.api/api-languageext.md`): panel registration, page activation, dialog results, and resource loads trap onto the rail — `Try.lift(() => Panels.RegisterPanel(...)).Run()` and `Optional(Dialogs.ShowColorDialog(...)).ToFin(error)`; a dialog result or a loaded preview image crosses as `Fin<A>`, never a nullable host handle.
 - `api-thinktecture-runtime-extensions.md`(`../../.api/api-thinktecture-runtime-extensions.md`): host UI enums (`PanelType`, `FloatPanelMode`, `ShowPanelReason`, `MouseButton`, `GumballMode`, `PropertyPageType`, the dialog button/icon selectors) map at the edge to `[SmartEnum]` owners, and a panel/page `Guid` is a `[ValueObject<Guid>]`.
-- `api-rhinocommon-display.md`: in-viewport `UserInterfaceObjectBase.OnDraw` receives a `DrawEventArgs` and draws through the same `DisplayPipeline` the display catalog owns, and the gumball is a display conduit — the UI widget is a pipeline participant, not a private renderer.
+- `api-rhinocommon-custom-objects.md`: the whole in-viewport widget family — `UserInterfaceObjectBase` and its grip, direction, rotation, text-dot, control, and slider derivations, `MouseState`, and `ViewUserInterfaceTable` — carries its members there beside the custom-object derivation contract it shares; this boundary registers it and tables none of it.
+- `api-rhinocommon-display.md`: a widget's `OnDraw` receives a `DrawEventArgs` and draws through the same `DisplayPipeline` the display catalog owns, and the gumball is a display conduit — the UI widget is a pipeline participant, not a private renderer.
 - `api-rhino-ui-controls.md`: `Rhino.UI.dll`'s full control library composes into a panel or page hosted through this boundary; a `DataSource.ProviderIds` `Guid` binds a UI data source, and an `EventInfoArgs.EventInfoPtr` native pointer traps at the edge, never crossing into a domain signature.
 
 [LOCAL_ADMISSION]:
@@ -335,6 +349,6 @@
 
 [RAIL_LAW]:
 - Partition: `RhinoCommon` + `Rhino.UI` Rhino host-boundary subsystem over the registered host bridge
-- Owns: panel and page registration and lifecycle, `RhinoEtoApp` window ownership, the multi-value and document-scoped native dialogs, the gumball manipulator, mouse callbacks and in-viewport UI objects, status, toolbar, and RUI state, SVG and preview resources, locale-aware formatting, the RDK data-source provider identities, and UI-thread marshaling
-- Accept: a panel or page registered once and resolved through the host, an Eto surface parented through `RhinoEtoApp` and presented by the registered bridge, a gumball conduit or in-viewport widget drawing through the display pipeline, host handles trapped through `Try.lift(...).Run()`, and UI work marshaled onto the main thread
-- Reject: a re-tabling of the registered host bridge or its single-value prompts, a duplicate registration of one panel or page type, a hand-rolled control where an Eto surface fits, a hand-rolled grip cluster where the gumball or a `UserInterfaceObject` fits, a cross-thread UI mutation without `InvokeOnUiThread`, and a `Panels`/`Dialogs`/`MouseCallback`/`StackedDialogPage` handle escaping into a domain signature
+- Owns: panel and page registration and lifecycle, `RhinoEtoApp` window ownership, the multi-value and document-scoped native dialogs, the gumball manipulator, mouse callbacks, status, toolbar, and RUI state, SVG and preview resources, locale-aware formatting, the RDK data-source provider identities, and UI-thread marshaling
+- Accept: a panel or page registered once and resolved through the host, an Eto surface parented through `RhinoEtoApp` and presented by the registered bridge, a gumball conduit drawing through the display pipeline, a mouse hook armed once and vetoing through `Cancel`, host handles trapped through `Try.lift(...).Run()`, and UI work marshaled onto the main thread
+- Reject: a re-tabling of the registered host bridge, its single-value prompts, or the registered in-viewport widget family, a duplicate registration of one panel or page type, a hand-rolled control where an Eto surface fits, a hand-rolled grip cluster where the gumball or a `UserInterfaceObject` fits, a claim that the mouse seam cannot veto, a cross-thread UI mutation without `InvokeOnUiThread`, and a `Panels`/`Dialogs`/`MouseCallback`/`StackedDialogPage` handle escaping into a domain signature

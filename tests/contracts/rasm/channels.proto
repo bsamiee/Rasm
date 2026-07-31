@@ -33,7 +33,9 @@ message WireProvenance {
   // Chart-solve tail: the flag separating a chart-corrected capture from a camera's guess, the mean CIEDE2000
   // residual over the twenty-four measured patches, and the digest of the inferred row's own weights.
   bool calibrated = 15;
-  double calibration_delta_e = 16;
+  // Explicit presence: an uncalibrated capture measured no residual, and a zero here reads to a divergence
+  // gate as a perfect chart fit; mirrors optional gpu_delta_max below and the C#/python nullable ends.
+  optional double calibration_delta_e = 16;
   string model_artefact = 17;
 }
 

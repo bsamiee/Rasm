@@ -123,8 +123,8 @@
 
 [STACKING]:
 - `opentelemetry-sdk`(`.api/opentelemetry-sdk.md`): a `oneshot` reading feeds OTel observable gauges/counters — `proc.memory_info().rss` and `proc.cpu_percent()` register through the API `Meter`, shape through an SDK `View`, and ship via the OTLP exporter; read inside one `oneshot` so the gauge callback costs one collection. psutil is the source, the SDK owns temporality and aggregation.
-- `loky`(`.api/loky.md`): `cpu_count(only_physical_cores=True)` reads the physical-core count through psutil to size the pool; `Supervisor` reads pool worker RSS via `psutil.Process().oneshot()` over `children(recursive=True)`/`memory_info().rss` against the `SupervisionPolicy` ceiling, scoped through `WorkerPool.pids()`, rolling the cooperative arm on a breach.
-- `pebble`(`.api/pebble.md`): `Supervisor._probe` reads worker RSS via `psutil.Process().oneshot()` over `children(recursive=True)` and `memory_info().rss` against the `SupervisionPolicy.rss_ceiling`, rolling the terminal (pebble) arm on a `DEGRADED` breach and retiring-then-respawning on `DEAD`; psutil is the live-ceiling arm, `max_tasks` recycling the fixed-cadence arm.
+- `loky`(`.api/loky.md`): `cpu_count(only_physical_cores=True)` reads the physical-core count through psutil to size the pool; `Supervisor` weighs each arm's OWN named pids (`WorkerPool.pids()`, total across arms) under one `oneshot()` per worker with `memory_info().rss` against the `SupervisionPolicy` ceiling, off the loop under the supervisor's own band — no process-tree walk and no complement — rolling the cooperative arm on a breach.
+- `pebble`(`.api/pebble.md`): the same total-pids probe weighs the terminal (pebble) arm — its pids read off `worker_manager.workers` — rolling on a `DEGRADED` breach and retiring-then-respawning on `DEAD`; psutil is the live-ceiling arm, `max_tasks` recycling the fixed-cadence arm.
 - within-lib: the named-tuple reading is the boundary value carrier — map field names to canonical metric attribute keys at the edge, never thread a raw tuple through domain code.
 
 [LOCAL_ADMISSION]:

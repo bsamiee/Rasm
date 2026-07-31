@@ -2,7 +2,7 @@
 
 `@pulumi/postgresql` is the Terraform-bridged Pulumi provider SDK for PostgreSQL's logical surface; every managed object is one generated resource quadruple (`class X extends pulumi.CustomResource` + `XArgs` + `XState` + `X.get`/`X.isInstance`), so the package is ONE pattern over a roster.
 
-In the `iac` plane it is the `kube/data` egress — finalizing per-app databases, roles, and extensions against the CNPG cluster `@pulumi/kubernetes` exposes, the declarative half of the `store/capability` seam `store` verifies at startup.
+In the `iac` plane it is the `kube/data` egress — finalizing per-app databases, roles, and extensions against the CNPG cluster `@pulumi/kubernetes` exposes, the declarative half of the `lane/capability` seam the data branch proves at startup.
 
 [EXPORTS]: `Provider`
 [EXPORTS]: `Database` `Schema` `Role` `Grant` `GrantRole` `Extension` `Function` `DefaultPrivileges` `DefaultPrivileg` `Publication` `Subscription` `ReplicationSlot` `PhysicalReplicationSlot` `SecurityLabel` `UserMapping` `Server`
@@ -115,11 +115,11 @@ Explicit `Provider` carries the DSN and binds every resource in the arm to the C
 - `@pulumi/pulumi`(`.api/pulumi-pulumi.md`): the per-app subgraph runs inside a `Layer`-composed program under `LocalWorkspace.createOrSelectStack`; realized `Output`s decode through a `Schema` `StackOutputs` record — the DB host/port/role crossing to `work` as `ShardingConfig`.
 - `@pulumi/policy`(`.api/pulumi-policy.md`): `validateResourceOfType(postgresql.Role, (role, _, report) => role.superuser && report(...))` narrows CrossGuard against the exact `Role`/`Grant` classes exported here.
 - `@pulumiverse/doppler`(`.api/pulumiverse-doppler.md`) / `@pulumi/random`(`.api/pulumi-random.md`): `Role`/`Provider` `password` takes a secret `Output` — a Doppler config read or `RandomPassword.result` — marked `pulumi.secret(...)`, never a literal.
-- within-lib: the `Extension` roster realizes the PG18.4 capability profile the `StackSpec` capability column names, one `Extension` per `store/capability` entry with `database` bound to the per-app `Database` and `version` pinned; `getSchemas`/`getTables` feed the `policy/drift` read-back and any `store`-side conformance check; `provider/dispatch` `Match.exhaustive` selects this subgraph as the `selfhosted-k8s` arm.
+- within-lib: the `Extension` roster realizes the PG18.4 capability profile the `StackSpec` capability column names, one `Extension` per `lane/capability` ensure entry with `database` bound to the per-app `Database` and `version` pinned; `getSchemas`/`getTables` feed the `policy/drift` read-back and any `store`-side conformance check; `provider/dispatch` `Match.exhaustive` selects this subgraph as the `selfhosted-k8s` arm.
 
 [RAIL_LAW]:
 - Package: `@pulumi/postgresql`
-- Owns: declarative PostgreSQL logical-object provisioning — the DDL half of `store/capability`, applied against a running server
+- Owns: declarative PostgreSQL logical-object provisioning — the DDL half of the `lane/capability` rail, applied against a running server
 - Accept: `pulumi.Input<T>` for every arg; an explicit `Provider` bound to the CNPG service; a secret `Output` for `password`; a `Schema`-decoded `StackOutputs` crossing to `work`
 - Reject: raw libpq or `pg`-client DDL in the deploy program; ambient package `config` where an explicit `Provider` binds the cluster; a mutable knob on a `forceNew` field
 - Faults: apply failures carry no typed `Result` here; bridged-provider `diagnostics` fold into the run receipt at the `@pulumi/pulumi` engine rail

@@ -173,7 +173,7 @@ Two provider tokenizers bind this tag — `AnthropicTokenizer` a bare `Service` 
 - `modelcontextprotocol-sdk.md` (`@modelcontextprotocol/sdk`): admits as MCP client only; `McpServer.toolkit` registering a `Toolkit` under one transport layer is the sole host path.
 - `@effect/platform`: every provider `layer*` requires `HttpClient` from `net/client`; `McpServer.layerHttp` composes `HttpRouter`.
 - `ai/model.ts`: folds the provider rows into one guardrail gate over `generateText`/`streamText` — input moderation before the call, output moderation and `Schema`-refusal admission over the `Response.Part` stream, a rejected call short-circuiting into `AiError`; tier-routing reads `Model.ProviderName` and finish-part cost metadata; `disableToolCallResolution: true` hands execution to the gate, `failureMode: "return"` keeps a failed call in-band.
-- `ai/embed.ts`: publishes the `EmbeddingModel` tag as the `Layer` wired into the `store/retrieve` `Embedder` port, retrieval folding into a `Prompt` via `merge`/`appendSystem`; `ai/agent.ts` composes `Chat.Persistence` over `work` cluster entities.
+- `ai/embed.ts`: publishes the `EmbeddingModel` tag as the `Layer` wired into the `read/search` `Embedder` port, retrieval folding into a `Prompt` via `merge`/`appendSystem`; `ai/agent.ts` composes `Chat.Persistence` over `work` cluster entities.
 
 [LOCAL_ADMISSION]:
 - `@effect/ai` with its five provider siblings is the admitted LLM surface; `@modelcontextprotocol/sdk` admits as MCP client only, never a second host.

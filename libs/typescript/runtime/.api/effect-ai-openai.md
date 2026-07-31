@@ -89,7 +89,7 @@ Every provider symbol is one parameterized surface over the `Generated` REST cor
 |  [05]   | `withConfigOverride(Config.Service) -> (Effect) -> Effect`                                | fold    | dual per-effect override |
 
 - every constructor requires the `OpenAiClient` tag; `model` discriminates on `mode` — `"batched"` coalesces calls up to `maxBatchSize` with an optional bounded cache, `"data-loader"` windows requests over a `Duration`.
-- `makeDataLoader` also requires `Scope` for its background batcher; the layers scope internally, and `ai/embed.ts` reads this binding as the `store/retrieve` `Embedder` port source.
+- `makeDataLoader` also requires `Scope` for its background batcher; the layers scope internally, and `ai/embed.ts` reads this binding as the `read/search` `Embedder` port source.
 
 ## [05]-[TOKENIZER]
 
@@ -182,7 +182,7 @@ Every provider symbol is one parameterized surface over the `Generated` REST cor
 - `@effect/ai`(`.api/effect-ai.md`): `OpenAiLanguageModel.model`/`.layer` resolve `LanguageModel.LanguageModel`, `OpenAiEmbeddingModel.layerBatched`/`layerDataLoader` resolve `EmbeddingModel.EmbeddingModel`, `OpenAiTokenizer.layer`/`OpenAiLanguageModel.layerWithTokenizer` resolve `Tokenizer.Tokenizer`, the four `OpenAiTool` ctors return `Tool.ProviderDefined`, `OpenAiTelemetry.addGenAIAnnotations` extends `Telemetry.GenAITelemetryAttributes`, and the `Prompt`/`Response` `declare module` augmentations attach the `openai` slot onto the core interfaces.
 - `@effect/platform`(`.api/effect-platform.md`): `make`/`layer`/`layerConfig` require `HttpClient.HttpClient` from the `net/client` default-policy row, `Service.streamRequest` takes an `HttpClientRequest.HttpClientRequest`, and a `Generated` op fails into `HttpClientError.HttpClientError | ParseError`; `FetchHttpClient.layer`, `NodeHttpClient.layerUndici`, or `BrowserHttpClient.layerXMLHttpRequest` satisfy the tag at the app root.
 - `@effect/ai-openrouter`(`.api/effect-ai-openrouter.md`): a peer provider carrying its own `OpenRouterClient` and `Generated`, sharing only the `@effect/ai` `LanguageModel` tag — no direct member seam; both are `Model.make` rows the `ai/model.ts` Layer selects between.
-- `ai/model.ts`: composes the `OpenAiLanguageModel.model(id)` row and writes `OpenAiLanguageModel.Config` per call for tier routing; `ai/embed.ts` binds `OpenAiEmbeddingModel` to the `store/retrieve` `Embedder` port; `ai/tool.ts` projects the four `OpenAiTool` constructors through `Toolkit.make` onto the MCP lane; `OpenAiTelemetry.addGenAIAnnotations` writes the active `otel` span.
+- `ai/model.ts`: composes the `OpenAiLanguageModel.model(id)` row and writes `OpenAiLanguageModel.Config` per call for tier routing; `ai/embed.ts` binds `OpenAiEmbeddingModel` to the `read/search` `Embedder` port; `ai/tool.ts` projects the four `OpenAiTool` constructors through `Toolkit.make` onto the MCP lane; `OpenAiTelemetry.addGenAIAnnotations` writes the active `otel` span.
 
 [LOCAL_ADMISSION]:
 - OpenAI is the reference provider row of `@effect/ai` — the only admitted provider populating language, embedding, tokenizer, and telemetry.

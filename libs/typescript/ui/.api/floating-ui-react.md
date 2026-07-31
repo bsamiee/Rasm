@@ -11,7 +11,7 @@ It owns placement and the interaction primitives react-aria leaves headless; rea
 - module: ESM + UMD, `sideEffects: false`; subpaths `.` and `./utils` (focus-order and environment probes — `getNextTabbable`, `getGridNavigatedIndex`, `isMac`)
 - runtime: React DOM browser — the interaction layer binds pointer/keyboard events and the DOM focus model
 - depends: `@floating-ui/react-dom`, `@floating-ui/utils`, `tabbable` (focus-order enumeration for `FloatingFocusManager`); peers `react`, `react-dom`
-- rail: position + interaction — the `view/compose` floating-anchor/sheet/palette rows and the `view/primitive` overlay row
+- rail: position + interaction — the `view/overlay` anchor-host, sheet, palette, and presence-cohort rows
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -127,13 +127,13 @@ It owns placement and the interaction primitives react-aria leaves headless; rea
 - `TransitionStatus` sequences `unmounted → initial → open → close → unmounted` and `useTransitionStyles` maps each phase to a style object, so enter/exit is a value the render folds and the element unmounts only after the exit transition.
 
 [STACKING]:
-- `@floating-ui/react-dom`(`.api/floating-ui-react-dom.md`): the positioning substrate re-exported whole — `useFloating`, every middleware factory, and the geometry types — with interaction/focus/portal/tree layered on top; a `view/compose` row imports `@floating-ui/react` and drops to `react-dom` only for interaction-free anchoring.
+- `@floating-ui/react-dom`(`.api/floating-ui-react-dom.md`): the positioning substrate re-exported whole — `useFloating`, every middleware factory, and the geometry types — with interaction/focus/portal/tree layered on top; a `view/overlay` row imports `@floating-ui/react` and drops to `react-dom` only for interaction-free anchoring.
 - react-aria(`.api/react-aria.md`): the reciprocal positioning split — react-aria's `useOverlayTrigger`/`usePopover`/`useModalOverlay` own overlay ARIA, dismiss, focus trap, and scroll lock, while `useFloating` + `offset`/`flip`/`shift`/`size` supplant `useOverlayPosition` wherever scroll-tracked flip/shift/clamp is required; they meet at the overlay node where react-aria's `mergeProps` folds its aria bundle with `floatingStyles` and `useMergeRefs` bridges the ref systems.
 - `@effect-atom/atom-react`(`.api/effect-atom-atom-react.md`): open-state is an atom — `useFloatingRootContext({ open: useAtomValue(openAtom), onOpenChange: useAtomSet(openAtom) })` binds visibility to the store, undoable and URL-syncable, never local `useState`.
 - `cmdk`(`.api/cmdk.md`): floating-ui HOSTS it, never drives it — an anchored palette mounts a bare `Command` inside `useFloating` + `FloatingPortal` + `FloatingFocusManager` (non-modal), floating-ui owning position/portal/focus-return and cmdk owning the keyboard and filter; `useListNavigation`/`useTypeahead` are the ALTERNATIVE hand-built list, never layered over a cmdk list (the double-keyboard defect).
-- `vaul`(`.api/vaul.md`): the overlay-class division — floating-ui owns ANCHORED overlays through its own portal/focus/overlay stack, vaul owns the DRAG-DISMISSABLE SHEET through its bundled Radix Dialog; a `view/compose` row picks the class by interaction and the two stacks never wrap one surface.
+- `vaul`(`.api/vaul.md`): the overlay-class division — floating-ui owns ANCHORED overlays through its own portal/focus/overlay stack, vaul owns the DRAG-DISMISSABLE SHEET through its bundled Radix Dialog; a `view/overlay` row picks the class by interaction and the two stacks never wrap one surface.
 - `@tanstack/react-virtual`(`.api/tanstack-react-virtual.md`): a virtualized combobox binds `useListNavigation` with `virtual: true` (aria-activedescendant focus stays on the input, since windowed rows unmount) and the virtualizer's `activeIndex`/`onNavigate`, delegating row reveal to `scrollToIndex`; `inner`/`useInnerOffset` anchors the fixed-height scroll container at the reference while the virtualizer owns the total-size spacer and row offsets.
-- within-lib: a `view/compose` floating-anchor, sheet, palette, or combobox row threads one `useFloating` `context` through its interaction hooks and merges with `useInteractions`; `useTransitionStyles` consumes the `token/theme` motion tokens for enter/exit and the `act/transition` View-Transitions row wraps the mount/unmount that `TransitionStatus` gates.
+- within-lib: a `view/overlay` floating-anchor, sheet, palette, or combobox row threads one `useFloating` `context` through its interaction hooks and merges with `useInteractions`; `useTransitionStyles` consumes the `token/theme` motion tokens for enter/exit and the `act/transition` View-Transitions row wraps the mount/unmount that `TransitionStatus` gates.
 
 [LOCAL_ADMISSION]:
 - Thread the `context` from `useFloating` through every interaction hook and merge with `useInteractions`; a hand-spread `ElementProps` or a raw handler where a hook covers the interaction drops handler chaining and ARIA wiring.

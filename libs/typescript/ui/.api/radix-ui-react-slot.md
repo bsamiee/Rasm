@@ -8,7 +8,7 @@
 - package: `@radix-ui/react-slot` (MIT)
 - module: ESM `dist/index.mjs` + CJS `dist/index.js`; `sideEffects: false`; one `.` barrel, no subpaths
 - runtime: React render-time only — no DOM read, effect, or async; internalizes `@radix-ui/react-compose-refs` as its one dependency
-- rail: `view/compose` — the `asChild` element-override primitive
+- rail: `system/primitive` — the `asChild` element-override primitive
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -48,7 +48,7 @@
 - `@radix-ui/react-label`/`@radix-ui/react-separator` (`.api/radix-ui-react-label.md`, `.api/radix-ui-react-separator.md`): both render `@radix-ui/react-primitive`, which is `Slot` behind an `asChild` flag, so each inherits this exact merge under its own owner name rather than re-cloning.
 - `react-aria-components` (`.api/react-aria-components.md`): the aria spine owns element override through each component's `render` prop; `Slot.asChild` owns override for the non-aria `cva` atoms off the react-aria state machine — one override per node, an RAC `render` and a `Slot` never stacked on one element.
 - `@effect-atom/atom-react` (`.api/effect-atom-atom-react.md`): `useAtomValue` resolves the child element's props (`href`, `isDisabled`) and `Slot` relays them onto the host element, the state binding staying the one fold while `Slot` only forwards the resolved props.
-- within-lib `view/compose`: a polymorphic atom names its slot with `createSlot(name)`, forwards its `cva` class through `Slot className`, and lands each new atom as a row on the compose spine.
+- within-lib `system/primitive`: a polymorphic atom names its slot with `createSlot(name)`, forwards its `cva` class through `Slot className`, and lands each new atom as a row on the primitive spine.
 
 [LOCAL_ADMISSION]:
 - folder-local to the `ui` composition plane; render-time only, no runtime side-effect.

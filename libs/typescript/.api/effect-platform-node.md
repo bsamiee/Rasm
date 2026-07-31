@@ -56,7 +56,7 @@
 
 | [INDEX] | [SURFACE]                                                        | [SHAPE]       | [CAPABILITY]                                         |
 | :-----: | :--------------------------------------------------------------- | :------------ | :--------------------------------------------------- |
-|  [01]   | `NodeSocket.layerWebSocket`                                      | socket        | `net/channel` — `ws` WS client                       |
+|  [01]   | `NodeSocket.layerWebSocket`                                      | socket        | `proc/exec` socket row — `ws` WS client              |
 |  [02]   | `NodeSocketServer.layer` / `.layerWebSocket`                     | socket server | inbound `ws` WS server                               |
 |  [03]   | `NodeWorker.layer(spawn)` / `.layerManager` / `.layerPlatform`   | worker pool   | `proc/worker` — pool for `Worker.makePoolSerialized` |
 |  [04]   | `NodeWorkerRunner.layer`                                         | worker runner | worker-thread entrypoint side of a `WorkerRunner`    |

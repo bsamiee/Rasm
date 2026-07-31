@@ -82,13 +82,13 @@
 [TOPOLOGY]:
 - `BiArcFit2(p1, t1, p2, t2)` fits two spans meeting at a `G1`-continuous junction; `Arc1IsSegment` and `Arc2IsSegment` select the `Segment2d` fallback per span, exposed uniformly through `Curves` / `Curve1` / `Curve2` as `IParametricCurve2d`.
 - Input tangents are unit-length via `Vector2d.Normalized`; a zero tangent routes to the straight-span path before fitting.
-- Arc endpoints read through `SampleT(0.0)` and `SampleT(1.0)`; the G-code `I`/`J` offset is `Center - SampleT(0.0)`, `IsReversed == true` maps to clockwise `G2`, `false` to counter-clockwise `G3`.
+- Arc endpoints read through `SampleT(0.0)` and `SampleT(1.0)`; the G-code `I`/`J` offset is `Center - SampleT(0.0)`, `IsReversed == true` maps to clockwise `G2`, `false` to counter-clockwise `G3`, and `AngleEndDeg - AngleStartDeg` (signed by `IsReversed`) is the included-angle source feeding `Move.Circular.SweepRadians`.
 - `SampleArcLength(a)` samples by distance along the fitted span, so tab and micro-bridge spacing follows arc length rather than parameter position.
 
 [STACKING]:
 - `CavalierContours`(`.api/api-cavaliercontours.md`): its `PlineVertex.Bulge` maps directly to a `G2`/`G3` move, so a bulge-carrying offset, lead-arc, or adaptive-spiral loop emits arcs without a refit; `g3.BiArcFit2` fires only on a genuinely line-sourced chord run — a line-only path densified through `ArcsToApproxLines` then clipped, or a kernel mesh-section chain — and stays the sole biarc owner for that residual.
 - `geometry3Sharp`(`libs/csharp/Rasm.Bim/.api/api-geometry3sharp.md`): the Bim partition owns the disjoint mesh-text decode surface of the same distribution — `StandardMeshReader`, the per-format `MeshFormatReader` handlers, and the `DMesh3`/`DMesh3Builder` carrier grounding the OBJ/STL/OFF import leg — none of which this fitter reaches.
-- `Posting/program`, `Toolpath/motion`: the fitted `Arc2d`/`Segment2d` span drives arc emit — `Arc2d.Center - SampleT(0.0)` is the `Move.ArcCenter` `I`/`J` offset, `IsReversed` selects `G2` vs `G3`, `Segment2d.P1` the `G1` fallback, `SampleArcLength` the tab and lead-point spacing.
+- `Posting/program`, `Toolpath/motion`: the fitted `Arc2d`/`Segment2d` span drives arc emit — `Arc2d.Center - SampleT(0.0)` is the `Move.ArcCenter` `I`/`J` offset, `IsReversed` selects `G2` vs `G3`, `Arc2d.AngleEndDeg - AngleStartDeg` signed by `IsReversed` supplies the required `Move.Circular.SweepRadians`, `Segment2d.P1` the `G1` fallback, `SampleArcLength` the tab and lead-point spacing.
 
 [LOCAL_ADMISSION]:
 - Feed `BiArcFit2` a `Vector2d` point/tangent pair with tangents pre-normalized through `Normalized`; the two-arg constructor solves the symmetric fit, the explicit-`d1` constructor pins the first arc distance.

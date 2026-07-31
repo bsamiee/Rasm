@@ -124,11 +124,12 @@
 |  [02]   | `PlainTextWithFields` / `GetPlainTextWithRunMap(int[])`          | instance | text keeping tokens, with a run map |
 |  [03]   | `DimensionStyleId` / `DimensionStyle` / `ParentDimensionStyle`   | property | bound style, effective, parent      |
 |  [04]   | `Font` / `FirstCharFont`                                         | property | annotation and first-run font       |
-|  [05]   | `HasPropertyOverrides` / `IsPropertyOverridden(Field)`           | property | per-instance override presence      |
-|  [06]   | `AnnotationType`                                                 | property | kind discriminant (virtual)         |
-|  [07]   | `GetBoundingBox(Transform) -> BoundingBox`                       | instance | transformed bounds (override)       |
-|  [08]   | `SetOverrideDimStyle(DimensionStyle)`                            | instance | attach an override style            |
-|  [09]   | `ClearPropertyOverrides()` / `GetDimensionStyle(DimensionStyle)` | instance | clear or resolve the override style |
+|  [05]   | `IsAllBold()` / `IsAllItalic()` / `IsAllUnderlined()`            | instance | whole-run decoration verdicts       |
+|  [06]   | `HasPropertyOverrides` / `IsPropertyOverridden(Field)`           | property | per-instance override presence      |
+|  [07]   | `AnnotationType`                                                 | property | kind discriminant (virtual)         |
+|  [08]   | `GetBoundingBox(Transform) -> BoundingBox`                       | instance | transformed bounds (override)       |
+|  [09]   | `SetOverrideDimStyle(DimensionStyle)`                            | instance | attach an override style            |
+|  [10]   | `ClearPropertyOverrides()` / `GetDimensionStyle(DimensionStyle)` | instance | clear or resolve the override style |
 
 [FRAME]: `Plane` `TextHeight` `TextRotationRadians` `TextRotationDegrees` `TextIsWrapped` `FormatWidth` `TextModelWidth`
 [MASK_STATE]: `MaskEnabled` `MaskColor` `MaskColorSource` `MaskFrame` `MaskOffset` `MaskUsesViewportColor` `DrawTextFrame`
@@ -184,8 +185,15 @@
 |  [04]   | `PageNumber` / `PageName` / `PaperName` / `DetailScale` / `LayoutUserText`  | static  | layout fields                              |
 |  [05]   | `ObjectName` / `ObjectLayer` / `LayerName` / `PointCoordinate` / `UserText` | static  | object fields                              |
 |  [06]   | `BlockName` / `BlockDescription` / `BlockInstanceCount`                     | static  | block fields                               |
+|  [07]   | `DateModified()` / `(string)` / `(string, string)`                          | static  | last-write stamp, format and language      |
+|  [08]   | `NumPages() : int` / `PageWidth() : double` / `PageHeight() : double`       | static  | layout page count and paper extent         |
+|  [09]   | `ObjectPageName(string) : string` / `ObjectPageNumber(string) : int`        | static  | the page an object lives on, by id         |
+|  [10]   | `BlockInsertionCoordinate(string blockId, string axis) : string`            | static  | one insertion-point axis of a block        |
+|  [11]   | `GetInstanceAttributeFields(string)` / `(TextObject)` / `(InstanceDefinition)` | static | `InstanceAttributeField[]` census          |
+|  [12]   | `DimValue(string)` / `(string, string)`                                     | static  | a dimension's measured text                |
 
 - `TryFormat`/`TryParse` are the only document-explicit members; every evaluator resolves against the ambient document, so composed tokens evaluate through `TryFormat`, never direct evaluator calls.
+- No decoration member exists on `AnnotationBase` — `SetRunsFontAttribute` is `internal`, `FirstCharProperties` is documented obsolete in favour of `FirstCharFont`, and the first-run underline reads `FirstCharFont.Underlined`; a `FirstCharUnderlined` property is a phantom.
 - `PaperName` normalizes through a `StartsWith` ladder where the `Arch E` arm precedes `Arch E1`, so an Arch E1 paper answers `"Arch E"`.
 
 [DIMENSION_OVERRIDES]: `Dimension` overrides ~52 `DimensionStyle` properties per instance with dimension-only state.
@@ -218,6 +226,8 @@
 |  [06]   | `RadialDimension.Create(DimensionStyle, AnnotationType, Plane, Point3d×3)`                   | static   | radius or diameter per type  |
 |  [07]   | `OrdinateDimension.Create(DimensionStyle, Plane, MeasuredDirection, Point3d×3, double×2)`    | static   | x/y ordinate + kink offsets  |
 |  [08]   | `Centermark.Create(DimensionStyle, Plane, Point3d, double)`                                  | static   | from center and radius       |
+|  [09]   | `new AngularDimension(Arc arc, double offset)`                                               | ctor     | arc-and-offset angular mint  |
+|  [10]   | `AngularDimension.GetAngleDisplayText(DimensionStyle) : string`                              | instance | formatted angle measurement  |
 
 - `LinearDimension.FromPoints` builds a default-style linear; `AngularDimension.Create` adds id, two-extension-point, and line-pair overloads; `Centermark.Create(…, Curve, double)` builds from a curve point.
 - `RadialDimension`/`OrdinateDimension` mirror the linear `AdjustFromPoints`/`Get3dPoints`/`GetDisplayLines`/`GetTextRectangle`/`GetDistanceDisplayText` set; `Centermark` carries only `AdjustFromPoints` and `Radius`, no display-line or point readers.

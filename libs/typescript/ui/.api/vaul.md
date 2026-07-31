@@ -1,6 +1,6 @@
 # [TS_UI_API_VAUL]
 
-`vaul` owns the drag-dismissable drawer/sheet: the `Drawer` compound wraps a `@radix-ui/react-dialog` and layers pointer-drag translation, snap-point detents, velocity dismiss past `closeThreshold`, four-way `direction`, and background scale over it — Radix owns the accessible modal semantics, vaul owns the pointer math. It hosts the `view/compose` overlay sheet, distinct from the `@floating-ui/react` anchored-overlay rail.
+`vaul` owns the drag-dismissable drawer/sheet: the `Drawer` compound wraps a `@radix-ui/react-dialog` and layers pointer-drag translation, snap-point detents, velocity dismiss past `closeThreshold`, four-way `direction`, and background scale over it — Radix owns the accessible modal semantics, vaul owns the pointer math. It hosts the `view/overlay` sheet, distinct from the `@floating-ui/react` anchored-overlay rail.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,7 +9,7 @@
 - module: ESM + CJS, single `.` entry (`dist/index.mjs`/`.js`, types `.d.mts`/`.d.ts`)
 - runtime: browser React DOM client component; peer `react`/`react-dom`
 - depends: `@radix-ui/react-dialog` — vaul IS a Radix Dialog, drag physics layered on top
-- rail: `view/compose` overlay — the drag-dismissable sheet host
+- rail: `view/overlay` — the drag-dismissable sheet host
 
 ## [02]-[PUBLIC_TYPES]
 

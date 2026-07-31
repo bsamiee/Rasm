@@ -777,7 +777,7 @@
 
 [STACKING]:
 - `geometry3sharp`(`api-geometry3sharp.md`): `IfcTriangulatedFaceSet.CoordIndex` over `IfcCartesianPointList3D.Coordinates` lowers to a `g3.DMesh3` indexed triangle mesh for host-free geometry.
-- `sharpgltf`(`api-sharpgltf.md`): the same tessellated face-set stream feeds `SceneBuilder.AddRigidMesh(IMeshBuilder<M>, ...)` -> `ToGltf2` glTF export.
+- `sharpgltf`(`libs/csharp/.api/api-sharpgltf.md`): the same tessellated face-set stream feeds `SceneBuilder.AddRigidMesh(IMeshBuilder<M>, ...)` -> `ToGltf2` glTF export.
 - `honeybee-schema`(`api-honeybee-schema.md`): the `IfcSpace`/`IfcBuildingStorey` spatial graph maps to `HoneybeeSchema.Room` on the energy-exchange rail.
 - Bim `Exchange` owner: composes `DatabaseIfc` import/export and `BaseClassIfc.Extract<T>` traversal as the IFC leg of the model-exchange owner feeding the geometry-interchange rail.
 

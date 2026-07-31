@@ -88,7 +88,7 @@
 - `ToByteArray` sizes its buffer `(bits.Length - 1) / 8 + 1` and `CopyTo`s, so a bitstream round-trips index-for-index through `new BitArray(byte[])` and the trailing pad bits of the final byte read as unset.
 
 [STACKING]:
-- `SharpGLTF.Ext.3DTiles`(`.api/api-sharpgltf-3dtiles.md`): SharpGLTF owns per-tile glTF CONTENT and `EXT_structural_metadata`, `subtree` the tileset AVAILABILITY bitstream; both key off the shared `MortonOrder` index, so a tile is "available with content" exactly when both bitstreams set the same Morton bit.
+- `SharpGLTF.Ext.3DTiles`(`libs/csharp/.api/api-sharpgltf-3dtiles.md`): SharpGLTF owns per-tile glTF CONTENT and `EXT_structural_metadata`, `subtree` the tileset AVAILABILITY bitstream; both key off the shared `MortonOrder` index, so a tile is "available with content" exactly when both bitstreams set the same Morton bit.
 - EXPORT authoring fold: selects `SubtreeCreator`/`SubtreeCreator3D` and its `ImplicitSubdivisionScheme` once from the subdivision kind, emits each `GenerateSubtreefiles` overflow binary keyed by its root tile with `GetSubtreeTiles`/`GetRelativeTile` re-basing coordinates so child-subtree pointers resolve, and asserts receipts via `SubtreeReader.ReadSubtree` round-trip and `BitstreamReader.Read` level slices.
 
 [LOCAL_ADMISSION]:

@@ -8,7 +8,7 @@
 - package: `@radix-ui/react-label` (MIT)
 - module: single `.` barrel, dual ESM/CJS, no subpaths; `"use client"`
 - runtime: `runtime:browser`, core `ui` composition plane; React peer via workspace catalog
-- rail: view/compose — the `<label>` primitive binding visible copy to its control
+- rail: system/primitive — the `<label>` primitive binding visible copy to its control
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -16,7 +16,7 @@
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY]       | [CAPABILITY]                                                          |
 | :-----: | :--------------- | :------------------ | :-------------------------------------------------------------------- |
-|  [01]   | `Label` / `Root` | primitive component | `view/compose` field-label row; ref forwards to `HTMLLabelElement`    |
+|  [01]   | `Label` / `Root` | primitive component | `system/primitive` field-label; ref forwards to `HTMLLabelElement`    |
 |  [02]   | `LabelProps`     | prop contract       | native `<label>` attrs + `htmlFor` + inherited `asChild` (empty body) |
 
 ## [03]-[ENTRYPOINTS]

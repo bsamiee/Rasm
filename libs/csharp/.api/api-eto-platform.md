@@ -125,6 +125,8 @@
 |  [03]   | `Style.Add<TWidget>(string?, StyleWidgetHandler<TWidget>)` | static  | register a widget-facade style    |
 |  [04]   | `Style.Add<THandler>(string?, StyleHandler<THandler>)`     | static  | register a concrete-handler style |
 
+- `Style.Add` APPENDS into the active provider's per-key `IList<Action<object>>`; the only removal is the provider's whole-registry `Clear()`, so a second `Add` under a live key stacks a handler beside the first and retires nothing — a detachable registration owns its own dispatch cell and empties it, never re-`Add`s.
+
 [ENTRYPOINT_SCOPE]: `NativeControlHost` — hosting a raw platform view
 
 | [INDEX] | [SURFACE]                                                          | [SHAPE]  | [CAPABILITY]                     |

@@ -84,14 +84,16 @@
 
 | [INDEX] | [SYMBOL]                                      | [TYPE_FAMILY] | [CAPABILITY]                                                       |
 | :-----: | :-------------------------------------------- | :------------ | :----------------------------------------------------------------- |
-|  [01]   | `Notifications.NotificationCenter`            | static class  | application notification set observed by the host UI               |
+|  [01]   | `Notifications.NotificationCenter`            | static class  | one `public static readonly` set; membership is what renders       |
 |  [02]   | `Notifications.Notification`                  | class         | assembly-restricted notification with modal show/hide and metadata |
-|  [03]   | `Notifications.NotificationButtonClickedArgs` | class         | payload naming the notification and clicked `ButtonType`           |
-|  [04]   | `Notifications.ButtonType`                    | enum          | notification button (`CancelOrClose`/`Confirm`/`Alternate`)        |
-|  [05]   | `Notifications.IAssemblyRestrictedObject`     | interface     | assembly-restriction contract guarding notification mutation       |
-|  [06]   | `NodeInCode.Components`                       | class         | abstract node-in-code component root exposing the function table   |
-|  [07]   | `NodeInCode.ComponentFunctionInfo`            | class         | callable Grasshopper-component descriptor with typed IO metadata   |
-|  [08]   | `NodeInCode.NodeInCodeTable`                  | class         | dynamic dispatch table of component functions keyed by full name   |
+|  [03]   | `Notifications.Notification.Severity`         | nested enum   | `Debug`/`Info`/`Warning`/`Serious`/`Critical`                      |
+|  [04]   | `TrulyObservableOrderedSet<T>`                | class         | the center's `IList<T>` + `INotifyCollectionChanged` backing store |
+|  [05]   | `Notifications.NotificationButtonClickedArgs` | class         | free `EventArgs` carrier; NOT the `ButtonClicked` delegate payload |
+|  [06]   | `Notifications.ButtonType`                    | enum          | notification button (`CancelOrClose`/`Confirm`/`Alternate`)        |
+|  [07]   | `Notifications.IAssemblyRestrictedObject`     | interface     | sole member `Editable() : bool`; the mutation guard's contract     |
+|  [08]   | `NodeInCode.Components`                       | class         | abstract node-in-code component root exposing the function table   |
+|  [09]   | `NodeInCode.ComponentFunctionInfo`            | class         | callable Grasshopper-component descriptor with typed IO metadata   |
+|  [10]   | `NodeInCode.NodeInCodeTable`                  | class         | dynamic dispatch table of component functions keyed by full name   |
 
 [PUBLIC_TYPE_SCOPE]: account tokens (`Rhino.Runtime.RhinoAccounts`)
 
@@ -153,9 +155,12 @@
 - `InProcess.Interop.StartupInProcess(int, string[], ref StartupInfo, nint) : void` / `LaunchInProcess(int, int) : int` / `RunMessageLoop() : int` / `ShutdownInProcess() : void` / `EnterHostContext()` / `ExitHostContext()` / `StartedAsRhinoExe() : bool`
 
 [ENTRYPOINT_SCOPE]: notifications and node-in-code
-- `NotificationCenter.Notifications` — observable application notification set the host UI renders
-- `new Notification()` / `Notification(IEnumerable<Assembly>)` / `ShowModal() : void` / `HideModal() : void` / `RemoveMetadata(string) : bool` / `Editable() : bool`; `Notification.AllowedAssemblies : ICollection<Assembly>` / `MetadataCopy : IDictionary<string, string>` / `ShowEventId : Guid?` / `DateUpdated : DateTime`
-- `Notification.ExecuteAssemblyProtectedCode(Action) : void` / `ExecuteAssemblyProtectedCode<TResult>(Func<TResult>) : TResult` — run inside the assembly-restriction guard
+- `NotificationCenter.Notifications : TrulyObservableOrderedSet<Notification>` — one `static readonly` set holds every notification; `Add(Notification) : void` (no guard check, no-op on a duplicate) and `Remove(Notification) : bool` / `RemoveAt(int)` / `Clear()` (each `_ThrowIfIllegalAssembly` first) are membership, and MEMBERSHIP IS RENDERING — a notification never added renders nowhere and its `ShowModal` queues against nothing
+- `new Notification()` / `Notification(IEnumerable<Assembly> allowedAssemblies)` — `Notification()` delegates `null`, so `AllowedAssemblies` lands empty and every assembly may edit; a non-empty set restricts editing to those assemblies
+- `Notification` mutable surface, EVERY setter routed through `_ThrowIfIllegalAssembly`: `Title` / `Description` / `Message` / `ConfirmButtonTitle` / `CancelButtonTitle` / `AlternateButtonTitle : string` get-set, `SeverityLevel : Notification.Severity` get-set (host default `Info`), `ButtonClicked : Action<ButtonType>` get-set (a BARE `ButtonType`, never `NotificationButtonClickedArgs`), `this[string key] : string` metadata get-set, and `RemoveMetadata(string) : bool`
+- `Notification.HideModal() : void` is guarded, `ShowModal() : void` is NOT (it writes `ShowEventId` with the assembly check off), so hide and every field write need the guard and show does not
+- `Notification` read surface: `AllowedAssemblies : ICollection<Assembly>` get-only (a `ReadOnlyCollection` of the distinct ctor set) / `MetadataCopy : IDictionary<string, string>` get-only detached copy / `ShowEventId : Guid?` get-only / `DateUpdated : DateTime` get-only (visible-property writes stamp it, metadata writes do not); `PropertyChanged : PropertyChangedEventHandler` fires per visible-property change
+- `Notification.ExecuteAssemblyProtectedCode(Action) : void` / `ExecuteAssemblyProtectedCode<TResult>(Func<TResult>) : TResult` — both `public static`, NOT instance. Each pushes the delegate's `MethodBase` on a process-static stack for the call's duration, and `Editable()` passes only when some frame on that stack declares in an allowed assembly, so the guard admits by the LAMBDA'S OWN assembly: a restricted notification whose allowed set omits the mutating assembly throws `InvalidOperationException` even inside the wrapper
 - `Components.NodeInCodeFunctions : NodeInCodeTable` / `Components.FindComponent(string) : ComponentFunctionInfo`
 - `ComponentFunctionInfo.Invoke(params object[]) : object[]` / `InvokeKeepTree(params object[]) : object[]` / `InvokeSilenceWarnings(...)` / `Evaluate(IEnumerable, bool, out string[]) : object[]`; `Name` / `Namespace` / `Description : string` / `InputNames` / `OutputNames : IReadOnlyList<string>` / `InputsOptional : IReadOnlyList<bool>` / `ComponentGuid : Guid` / `Delegate` / `DelegateTree : Delegate`
 - `NodeInCodeTable.Contains(string) : bool` / `Add(ComponentFunctionInfo) : void` / `GetDynamicMembers() : IEnumerable<ComponentFunctionInfo>` / `Count : int` — the `DynamicObject` dispatch reaches functions by member name

@@ -53,7 +53,7 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- engine law: one epoch-armed `Engine` per interpreter; the daemon pacer increments the engine-global epoch every `EPOCH_TICK` while per-store deadlines stay relative ticks, so one heartbeat serves every concurrent guest and none kills another.
+- engine law: one epoch-armed `Engine` per interpreter; the daemon pacer increments the engine-global epoch every `EPOCH_TICK` while per-store deadlines stay relative ticks, so one heartbeat serves every concurrent guest and none kills another. Engine and compiled-module memos resolve as a PAIR under one gate — concurrent first guests on the thread arm are the ordinary case, a bare memo re-enters its body on a concurrent first miss, and a store on one engine instantiating a module compiled on another refuses.
 - compile law: `Module(engine, payload)` compiles once per module bytes and instantiation stays per call, so the per-call cost is instantiation alone and guest state never leaks across kernels.
 - isolation law: `Instance(store, module, [])` constructs with zero imports, so a guest owns no ambient capability by construction; `store.set_limits(memory_size=GUEST_MEMORY)` bounds linear memory and refuses growth past the ceiling.
 - abi law: request and reply cross as bytes over the `GUEST_ABI` exports — `alloc(store, len)` reserves guest memory, `memory.write` lands the request, `run(store, ptr, len)` returns one packed `i64` (`(ptr << 32) | len`), and `memory.read` copies the reply out before the store drops.
@@ -72,4 +72,4 @@
 - Package: `wasmtime`
 - Owns: in-process WASM guest execution — the epoch-armed engine, per-call store isolation with memory limits, once-per-bytes compilation, zero-import instantiation, and the byte-exchange ABI over exports
 - Accept: `Kernel.of(wasm_bytes)` as the sole ingress, the `GUEST_ABI` export triple, `set_epoch_deadline` relative ticks under the one pacer, `set_limits(memory_size=)` ceilings, `except WasmtimeError` with elapsed-budget discrimination
-- Reject: WASI or host imports on a guest, fuel metering beside the epoch kill, a per-call `Engine` or `Module` compile, `Trap` caught where `WasmtimeError` is the raise, a second sandbox runtime, and guest state carried across calls through a reused `Store`
+- Reject: WASI or host imports on a guest, fuel metering beside the epoch kill, a per-call `Engine` or `Module` compile, an unserialized engine/module memo pair, `Trap` caught where `WasmtimeError` is the raise, a second sandbox runtime, and guest state carried across calls through a reused `Store`

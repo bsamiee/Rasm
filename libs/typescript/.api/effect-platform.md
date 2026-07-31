@@ -118,7 +118,7 @@
 |  [02]   | `KeyValueStore`                          | kv store       | `data/lane`, `browser/persist` — schema-typed KV, prefix-scoped        |
 |  [03]   | `Worker` / `WorkerRunner`                | worker pool    | `proc/worker`, `browser/fetch` — `Schema`-serialized off-thread pools  |
 |  [04]   | `Socket`                                 | socket channel | `net/channel`, `core/interchange/frame` — duplex bytes as a `Channel`  |
-|  [05]   | `MsgPack` / `Ndjson`                     | frame codec    | `core/interchange/codec`, `serve/live` — MsgPack/NDJSON framing        |
+|  [05]   | `MsgPack` / `Ndjson`                     | frame codec    | `interchange/invoke`, `net/channel`, `serve/live` framing              |
 |  [06]   | `Multipart`                              | upload         | `serve/api` — decode multipart uploads to persisted files under limits |
 |  [07]   | `Transferable` / `Template` / `HttpBody` | payload        | `browser/fetch` transfer, `serve` templating, request/response bodies  |
 

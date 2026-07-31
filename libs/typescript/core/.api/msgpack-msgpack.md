@@ -58,7 +58,7 @@
 [STACKING]:
 - Stack with the codec siblings (`@bufbuild/protobuf`/`cbor-x`/`rfc6902`, `core/.api/`): the interchange plane is multi-codec and `interchange/codec` is the MessagePack arm — this owns the `CrdtOpWire`/`OpLog` union, the 16-byte `Hlc` cell riding a MessagePack ext type here, never a proto field. A `codec` page picks ONE codec by the C# mint format; each sibling's format ownership binds at its own `RAIL_LAW`.
 - Stack with `effect` `Stream` (`.api/effect.md`): `Stream.fromAsyncIterable(decodeMultiStream(bytes, opts), onError)` is the CRDT log source; `Stream.mapEffect` decodes each op with bounded concurrency and `Stream.haltWhen` ends on a quarantine signal — the journal decode is one backpressured pipeline into `data/journal/append`.
-- Stack with `effect` `Data`/`Match` (`.api/effect.md`): the decoded `CrdtOpWire` discriminant dispatches through `Data.taggedEnum().$match`/`Match.exhaustive` into the `state/crdt` op family (a missing arm is a compile error); an unregistered ext surfaces as `ExtData` and is `Match`-dispatched, never dropped.
+- Stack with `effect` `Data`/`Match` (`.api/effect.md`): the decoded `CrdtOpWire` discriminant dispatches through `Data.taggedEnum().$match`/`Match.exhaustive` into `interchange/codec`'s `CrdtOp` family (a missing arm is a compile error); an unregistered ext surfaces as `ExtData` and is `Match`-dispatched, never dropped.
 - Stack with `effect` `Schema` (`.api/effect.md`): `decode` output crosses `Schema.decodeUnknown(CrdtOpSchema)` once; `useBigInt64:true` feeds the `Schema.BigIntFromSelf`/branded HLC fields, so the interior sees a branded `Hlc`/`bigint`, never a raw MessagePack value.
 - Stack with `value/identity`: the `ExtensionCodec` `Hlc` row mints through the interner carried on `context`; `wire` composes the mint and never re-implements the 16-byte layout — a TS re-mint of the `Hlc` cell is the named cross-language drift defect.
 - Stack with `@effect/platform` `Worker` (`.api/effect-platform.md`): `Encoder.encodeSharedRef` returns a view over the encoder's internal `ArrayBuffer` for a zero-copy `Transferable` into the decode worker; `interchange/codec` bounds untrusted frames with the `max*Length` ceilings before decode.
@@ -66,7 +66,7 @@
 [LOCAL_ADMISSION]:
 - construct one `new Decoder({ extensionCodec, context, useBigInt64:true, ...max*Length })` per policy and register the `Hlc` and domain CRDT ext rows once; the top-level `decode` cannot see the 16-byte `Hlc` ext without the shared `ExtensionCodec`.
 - thread the `value/identity` interner through `context`; the ext decoder is where the `Hlc` is interned.
-- decode output crosses `Schema.decodeUnknown` before a consumer reads it; a raw MessagePack object or an `ExtData` reaching `state/crdt` undispatched is the leak defect.
+- decode output crosses `Schema.decodeUnknown` before a consumer reads it; a raw MessagePack object or an `ExtData` reaching a `core/state` consumer undispatched is the leak defect.
 - `EXT_TIMESTAMP` (`-1`) stays registered for `Date` fields; domain ext type-bytes ride the contract-allocated positive range, each byte numbered once at the corpus.
 
 [RAIL_LAW]:

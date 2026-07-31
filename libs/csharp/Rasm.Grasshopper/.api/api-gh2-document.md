@@ -7,7 +7,7 @@
 [PACKAGE_SURFACE]: `Grasshopper2` document graph
 - host: `Grasshopper2.dll` inside `Grasshopper2Plugin.rhp`, loaded in-process by Rhino 9 WIP
 - namespace: `Grasshopper2.Doc` — document graph, object list, connectivity, solution server
-- namespace: `Grasshopper2.Doc.Attributes` — `IAttributes` layout and draw contract
+- namespace: `Grasshopper2.Doc` — `IAttributes` layout and draw contract; the concrete `Attributes<T>`/`ComponentAttributes`/`ResizableAttributes<T>` bases are `api-gh2-components.md`'s
 - namespace: `Grasshopper2.Parameters` — wire mutation, parameter and pin endpoints
 - namespace: `Grasshopper2.Undo` / `Grasshopper2.Undo.Actions` — undo history and action records
 - namespace: `Grasshopper2.Framework` / `GrasshopperIO` — snippet and `IWriter`/`IStorable` persistence seam
@@ -45,74 +45,104 @@
 
 [PUBLIC_TYPE_SCOPE]: solution execution and undo history
 
-| [INDEX] | [SYMBOL]          | [KIND] | [CAPABILITY]                                                                   |
-| :-----: | :---------------- | :----- | :----------------------------------------------------------------------------- |
-|  [01]   | `SolutionServer`  | class  | the execution controller — start, stop, delayed expiry, and solution lifecycle |
-|  [02]   | `Solution`        | class  | one in-flight run — id, phase, invalid parameters, cooperative cancellation    |
-|  [03]   | `SolutionRecord`  | class  | a completed run — culmination, expired/solved counts, progress                 |
-|  [04]   | `History`         | class  | undo as a `Node` tree — do, undo, redo, and branch navigation                  |
-|  [05]   | `ActionList`      | class  | the mutation-action buffer a verb fills, sealed into a `Record` by `VerbNoun`  |
-|  [06]   | `Node` / `Record` | class  | an undo-tree node and the replayable action record it carries                  |
-|  [07]   | `VerbNoun`        | struct | the verb-plus-noun label naming one undoable act                               |
+| [INDEX] | [SYMBOL]                            | [KIND] | [CAPABILITY]                                                                   |
+| :-----: | :---------------------------------- | :----- | :----------------------------------------------------------------------------- |
+|  [01]   | `SolutionServer`                    | class  | the execution controller — start, stop, delayed expiry, and solution lifecycle |
+|  [02]   | `Solution`                          | sealed class | one in-flight run — id, phase, mode, counters, cooperative cancellation  |
+|  [03]   | `SolutionRecord`                    | class  | a completed run — id, culmination phase, and the start/end window              |
+|  [04]   | `SolutionId` / `SolutionPhase`      | type   | the run identity and the phase vocabulary both run views carry                 |
+|  [05]   | `ServerState`                       | enum   | the server-wide posture beside any one run's phase                             |
+|  [06]   | `History`                           | class  | undo as a `Node` tree — do, undo, redo, and branch navigation                  |
+|  [07]   | `ActionList`                        | class  | the mutation-action buffer a verb fills, sealed into a `Record` by `VerbNoun`  |
+|  [08]   | `Node` / `Record`                   | class  | an undo-tree node and the replayable action record it carries                  |
+|  [09]   | `VerbNoun`                          | struct | the verb-plus-noun label naming one undoable act                               |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document lifecycle, persistence, state
 
-[Document facets]: `File` `Display` `Dependencies` `Notes` `Hash` `NamedViews` `Globals` `CustomValues`
+[Document facets]: `File : FileUtility` `Display : DocumentDisplay` `Dependencies : DocumentDependencies` `Notes : string` `Hash : Guid` `Identity : Guid` `NamedViews : NamedViews` `Globals : GlobalServer` `CustomValues : KeyedValues` `Projection : (PointF centre, float zoom)` `IsEmpty : bool`
 
-| [INDEX] | [SURFACE]                                            | [SHAPE]                   | [CAPABILITY]                                 |
-| :-----: | :--------------------------------------------------- | :------------------------ | :------------------------------------------- |
-|  [01]   | `Document.New*Document`                              | static → `Document`       | mint at the inert, inactive, or active tier  |
-|  [02]   | `Document.AllDocuments`                              | static property           | the live open-document roster                |
-|  [03]   | `Document.Store`                                     | `(IWriter, FileContents)` | serialize through the `GrasshopperIO` writer |
-|  [04]   | `Document.Close`                                     | `()`                      | tear down and release objects                |
-|  [05]   | `Document.Objects` / `Methods` / `Undo` / `Solution` | property                  | object list, verbs, undo, solution server    |
-|  [06]   | `Document.Modified` / `State` / `Parent`             | property                  | dirty flag, state, parent for nested graphs  |
-|  [07]   | `Document.Modify` / `Unmodify`                       | `()`                      | raise and clear the modified flag            |
+| [INDEX] | [SURFACE]                                            | [SHAPE]                     | [CAPABILITY]                            |
+| :-----: | :--------------------------------------------------- | :-------------------------- | :--------------------------------------- |
+|  [01]   | `Document.New*Document`                              | static → `Document`         | mint at inert, inactive, or active tier |
+|  [02]   | `Document.AllDocuments`                              | static property             | the live open-document roster           |
+|  [03]   | `Document.Store`                                     | `(IWriter[, FileContents])` | serialize through the `GrasshopperIO` writer |
+|  [04]   | `Document.Close`                                     | `()`                        | tear down and release objects           |
+|  [05]   | `Document.Objects` / `Methods` / `Undo` / `Solution` | property                    | object list, verbs, undo, solution server |
+|  [06]   | `Document.State` / `Parent`                          | property                    | `DocumentState`, `IDocumentParent`      |
+|  [07]   | `Document.Modified` / `Modifications`                | property                    | `bool` deriving from an `int` count     |
+|  [08]   | `Document.Modify` / `Unmodify`                       | `()`                        | raise and clear the modified flag       |
+
+- `Parent` is `null` on a root document, so the read projects at the boundary; `Identity` is the runtime id that survives no save, while `Hash` is the content identity.
 
 [ENTRYPOINT_SCOPE]: mutation verbs (`DocumentMethods`)
 
-[Whole-graph selection]: `SelectAll` `DeselectAll` `InvertSelection`
+[Whole-graph selection]: `SelectAll` `DeselectAll` `InvertSelection` `ShiftSelection(bool upstream)` `GrowSelection(bool upstream, bool downstream)` `MoveSelection(int, int)` — each `-> int`, the touched count
+[Explicit-set twins]: every `*Selected` verb has an `*Objects(IDocumentObject[], …)` peer, and `GroupObjects` / `ChainObjects` / `ClusterObjects` / `DeleteObjectData` mirror their selection forms
+[Preflight]: `CanCreateChain` / `CanCreateCluster(IEnumerable<IDocumentObject>, out string whyNot) -> bool`
+[Verb tail]: every row below closes on a trailing `ActionList actions = null`; `CopySelection` alone omits it
+[Posture verbs]: `Enable` `Disable` `Show` `Hide` `ToggleDisplay` + `Selected`, and `Show`/`Hide` + `SelectedInputs`/`SelectedOutputs`
 
-| [INDEX] | [SURFACE]                                                | [SHAPE]                        | [CAPABILITY]                          |
-| :-----: | :------------------------------------------------------- | :----------------------------- | :------------------------------------ |
-|  [01]   | `DropObject` / `DropSnippet`                             | `(object, PointF, …)`          | drop an object or snippet at a point  |
-|  [02]   | `DeleteSelection` / `DeleteObjects`                      | `(…, WireEnds[], …)`           | delete selection or an explicit set   |
-|  [03]   | `CopySelection` / `CutSelection` / `PasteFromClipboard`  | `(ClipboardKind, …)`           | clipboard round-trip                  |
-|  [04]   | `PasteGrasshopper1XmlFromClipboard`                      | `(ActionList)`                 | ingest a legacy GH1 clipboard payload |
-|  [05]   | `GroupSelection` / `ChainSelection` / `ClusterSelection` | `([string, Family?] …)`        | wrap into group, chain, or cluster    |
-|  [06]   | `EnableSelected` / `DisableSelected`                     | `(ActionList)`                 | flip activity on the selection        |
-|  [07]   | `ShowSelected` / `HideSelected`                          | `(ActionList)`                 | flip display on the selection         |
-|  [08]   | `SetColourOverrideSelected`                              | `(Colour, …)`                  | apply a display colour override       |
-|  [09]   | `IsolateObject`                                          | `(IDocumentObject, bool×3, …)` | isolate one object's reach            |
-|  [10]   | `SplitWire`                                              | `(…, out Shout, out Listen)`   | split a wire into a wireless pair     |
-|  [11]   | `MigrateObjects`                                         | `(IEnumerable<…>, PointF, …)`  | relocate a transferred object set     |
-|  [12]   | `AddDependency` / `ShowDependencyGraph`                  | `(PointF, …)` / `()`           | add and reveal dependencies           |
+| [INDEX] | [SURFACE]                                  | [SHAPE]                                    | [RETURNS]                   |
+| :-----: | :------------------------------------------ | :------------------------------------------ | :--------------------------- |
+|  [01]   | `DropObject` / `DropSnippet`               | `(IDocumentObject\|Guid\|Snippet, PointF)` | `bool` changed              |
+|  [02]   | `DeleteSelection` / `DeleteObjects`        | `([IDocumentObject[], WireEnds[]])`        | `int` deleted               |
+|  [03]   | `DeleteSelectionData` / `DeleteObjectData` | `([IDocumentObject[]])`                    | `int` cleared               |
+|  [04]   | `CopySelection`                            | `(ClipboardKind)` — no tail                | `bool` changed              |
+|  [05]   | `CutSelection` / `PasteFromClipboard`      | `(ClipboardKind[, PasteBehaviour])`        | `bool` changed              |
+|  [06]   | `PasteGrasshopper1XmlFromClipboard`        | `()`                                       | `bool` changed              |
+|  [07]   | `GroupSelection`                           | `(string?, OpenColor.Family?)`             | `GroupObject`               |
+|  [08]   | `ChainSelection` / `ClusterSelection`      | `()`                                       | `Chain` / `IDocumentObject` |
+|  [09]   | the nine posture verbs above               | `()`                                       | `int` touched               |
+|  [10]   | `SetColourOverrideSelected`                | `(Colour?)`                                | `int` touched               |
+|  [11]   | `IsolateObject`                            | `(IDocumentObject, bool ×3[, HashSet<Guid>])` | `void`                   |
+|  [12]   | `SplitWire`                                | `(IParameter ×2, string, PointF, out ×2)`  | `bool`; out `Shout`/`Listen` |
+|  [13]   | `MigrateObjects`                           | `(IEnumerable<IDocumentObject>, PointF)`   | `Dictionary<Guid,Guid>`     |
+|  [14]   | `AddDependency` / `ShowDependencyGraph`    | `(PointF)` / `()`                          | `Listen` / `void`           |
+|  [15]   | `MakeRoom`                                 | `(RectangleF before, RectangleF after)`    | `void`                      |
+
+- Every mutating verb ANSWERS: a touched `int`, a changed `bool`, the wrapper it minted, or an id map. Discarding that return publishes a settled act no producer measured, and the count is the only evidence that a selection verb reached anything.
+- `IsolateObject`'s three flags are `pins`, `inputs`, `outputs` — never an upstream/downstream/remainder reach — and they forward positionally, so a consumer vocabulary names the axis and the order once.
+- `CopySelection` alone takes no `ActionList`: copying mutates nothing, so it seals no undo record.
 
 [ENTRYPOINT_SCOPE]: object list, traversal, connection mutation
 
-[ObjectList projections]: `Forwards` `Backwards` `Groups` `ActiveObjects` `ExpiredObjects` `AllWires` `SelectedWires` `AttributeBounds` `PivotBounds`
+[ObjectList projections]: `Forwards` `Backwards` `Groups` `ActiveObjects` `ExpiredObjects` `AllWires` `SelectedWires` `Pins` `SupportedPins` `AttributeBounds` `PivotBounds` `Connectivity`
 
-| [INDEX] | [SURFACE]                                                        | [SHAPE]                    | [CAPABILITY]                         |
-| :-----: | :--------------------------------------------------------------- | :------------------------- | :----------------------------------- |
-|  [01]   | `ObjectList.Find` / `FindParameter`                              | `(Guid)`                   | resolve an object or parameter by id |
-|  [02]   | `ObjectList.SearchUpstream` / `SearchDownstream`                 | `(IParameter)`             | transitive parameter reach one way   |
-|  [03]   | `ObjectList.WindowSelect`                                        | `(WindowSelection, …)`     | rectangle selection over the graph   |
-|  [04]   | `ObjectList.Transfer` / `ChangeAllIds` / `ApplyIdMap`            | `(IDocumentObject)`        | cross-document pull and id remap     |
-|  [05]   | `ObjectList.AddGlobalPin` / `RepairPins` / `ExpireAll`           | `(IPin)` / `(PinRepair)`   | pin membership, repair, expiry       |
-|  [06]   | `Connectivity.FindImmediate*` / `FindAll*`                       | `(ConnectiveObject)`       | immediate and transitive reach       |
-|  [07]   | `Connectivity.FindConnections -> IEnumerable<ConnectiveObject[]>` | `(ConnectiveObject ×2)`   | every causal path between a pair      |
-|  [08]   | `Connectivity.IsLinear(…, out ConnectiveObject ×2) -> bool`       | `(IEnumerable<Guid>\|node)` | chain verdict with head/tail witness |
-|  [09]   | `Connectivity.SubsetTopology -> GraphTopology`                    | `(Guid\|IDocumentObject)`  | subset topology CLASS, not a view     |
-|  [10]   | `Connectivity.SortCausally -> ConnectiveObject[]`                 | `(ConnectiveObject[])`     | topological order                     |
-|  [11]   | `Connectivity.WithoutRelays(bool, bool, bool) -> Connectivity`    | instance                   | relay-elided view                     |
-|  [12]   | `Connections.Connect` / `Disconnect`                             | `(IParameter×2, …)`        | add or remove one wire               |
-|  [13]   | `Connections.DisconnectAll*Except`                               | `(IParameter, HashSet, …)` | prune one side but a kept set        |
-|  [14]   | `Connections.ReplaceSource` / `ReplaceTarget`                    | `(IParameter×3, …)`        | re-point a wire endpoint             |
-|  [15]   | `Connections.CutOutMiddleMan`                                    | `(IParameter×3, …)`        | bypass an intermediate parameter     |
-|  [16]   | `Connections.CopyAllInputs` / `MigrateAllOutputs`                | `(IParameter×2, …)`        | duplicate or move a wire set         |
+[ObjectList grips]: `FindByInlet` / `FindByOutlet(PointF) -> IParameter`; `FindByInletOrOutlet(PointF) -> (IParameter, bool inletWithinRange, bool outletWithinRange)`; all `null` on a miss
+[Repair report]: `RepairPins` rows are `(PinRepair method, Guid pin, Guid cushion)`; `FindNear<T>` constrains `where T : IDocumentObject`
 
+| [INDEX] | [SURFACE]                                         | [SHAPE]                          | [RETURNS]                          |
+| :-----: | :-------------------------------------------------- | :-------------------------------- | :---------------------------------- |
+|  [01]   | `ObjectList.Find` / `FindParameter`               | `(Guid)`                         | `IDocumentObject` / `IParameter`   |
+|  [02]   | `ObjectList.SearchUpstream` / `SearchDownstream`  | `(IParameter)`                   | `IEnumerable<IDocumentObject>`     |
+|  [03]   | `ObjectList.WindowSelect`                         | `(WindowSelection, SelectionMode, bool ×3)` | `SelectionResult`       |
+|  [04]   | `ObjectList.ChangeAllIds` / `ApplyIdMap`          | `()` / `(Dictionary<Guid,Guid>)` | `Dictionary<Guid,Guid>` / `void`   |
+|  [05]   | `ObjectList.AddGlobalPin` / `ExpireAll`           | `(IPin)` / `()`                  | `bool` admitted / `void`           |
+|  [06]   | `ObjectList.RepairPins`                           | `(PinRepair = Default)`          | `(PinRepair, Guid, Guid)[]`        |
+|  [07]   | `ObjectList.FindNear<T>`                          | `(PointF, int, float)`           | `T[]` relevance-sorted             |
+|  [08]   | `ObjectList.Pins` / `SupportedPins`               | property                         | `IEnumerable<IPin>` / `<Guid>`     |
+|  [09]   | `ObjectList.AttributeBounds` / `PivotBounds`      | property                         | `RectangleF` envelopes             |
+|  [10]   | `ObjectList.Connectivity`                         | property                         | a fresh `Connectivity` snapshot    |
+|  [11]   | `Connectivity.FindImmediate*` / `FindAll*`        | `(ConnectiveObject)`             | immediate and transitive reach     |
+|  [12]   | `Connectivity.FindConnections`                    | `(ConnectiveObject ×2)`          | `IEnumerable<ConnectiveObject[]>`  |
+|  [13]   | `Connectivity.IsLinear(…, out ConnectiveObject ×2)` | `(IEnumerable<Guid>\|node)`    | `bool` with head/tail witness      |
+|  [14]   | `Connectivity.SubsetTopology`                     | `(Guid\|IDocumentObject)`        | `GraphTopology` CLASS, not a view  |
+|  [15]   | `Connectivity.SortCausally`                       | `(ConnectiveObject[])`           | `ConnectiveObject[]` in order      |
+|  [16]   | `Connectivity.WithoutRelays(bool ×3)`             | instance                         | `Connectivity` relay-elided view   |
+|  [17]   | `Connections.Connect` / `Disconnect`              | `(IParameter×2, …)`              | add or remove one wire             |
+|  [18]   | `Connections.DisconnectAll*Except`                | `(IParameter, HashSet, …)`       | prune one side but a kept set      |
+|  [19]   | `Connections.ReplaceSource` / `ReplaceTarget`     | `(IParameter×3, …)`              | re-point a wire endpoint           |
+|  [20]   | `Connections.CutOutMiddleMan`                     | `(IParameter×3, …)`              | bypass an intermediate parameter   |
+|  [21]   | `Connections.CopyAllInputs` / `MigrateAllOutputs` | `(IParameter×2, …)`              | duplicate or move a wire set       |
+
+- The spatial finders and the near search live on `ObjectList`, never on `Connectivity` — the connection snapshot carries no coordinate, and `ObjectList.Connectivity` mints a fresh one per read.
+- `FindByInlet`/`FindByOutlet` answer the closest grip EVEN WHERE OCCLUDED; `FindByInletOrOutlet` refuses an occluded grip and reports which side fell within range. All three return `null` on a miss.
+- `FindNear<T>` filters by `T` inside its bounded `(maxResults, maxDistance)` search, so post-filtering an `IDocumentObject` result returns fewer rows than requested whenever a nearer foreign object consumed a slot.
+- `ObjectList.Transfer` is `private` on both its `IDocumentObject` and `IPin` overloads: there is no public cross-document pull, and a consumer reaches one through the clipboard round-trip or `MigrateObjects`.
+- `WindowSelect(window, mode, considerForeground = true, considerBackground = true, considerWires = true)` INCLUDES each band on true; its `SelectionResult` is a mutable pick accumulator, not a value.
+- `AttributeBounds` unions the laid-out attribute bounds and the wires joining them may exceed it; `PivotBounds` grows over pivots alone, needing no layout pass — quicker and less accurate.
 - `SubsetTopology` MEASURES rather than projects: it answers `GraphTopology.{Empty, Singleton, Convex, Disjoint, Concave}` for the subset. Reading it as a `Connectivity` view is the defect the name invites, and only `WithoutRelays` returns a view.
 - `WithoutRelays(dangling, simple, complex)` REMOVES on true, keyed by relay arity — `dangling` has no inputs or no outputs, `simple` exactly one of each, `complex` two or more on a side. A consumer vocabulary spells the arity and the removal polarity; three positional bools carry neither.
 - `FindConnections` yields one `ConnectiveObject[]` per causal PATH between the pair, never the wires joining them.
@@ -128,21 +158,31 @@ Solution events fire in the listed lifecycle order; document, object-list, and h
 
 `PivotAction(IDocumentObject)` snapshots the pre-move pivot; its `Extends` relation folds consecutive nudges into one undo record.
 
-| [INDEX] | [SURFACE]                                        | [SHAPE]      | [CAPABILITY]                     |
-| :-----: | :----------------------------------------------- | :----------- | :------------------------------- |
-|  [01]   | `IDocumentObject.InstanceId` / `Nomen` / `State` | properties   | identity and object state        |
-|  [02]   | `IDocumentObject.Expire` / `Compute`             | operations   | expiry and evaluation            |
-|  [03]   | `AddUndoRecord` / `RequestAutoSave`              | operations   | undo and autosave admission      |
-|  [04]   | `IAttributes.Move` / `Layout` / `Draw`           | operations   | relocation, layout, paint        |
-|  [05]   | `Undo.Actions.PivotAction`                       | constructor  | deduplicating pivot undo         |
-|  [06]   | `KeyedValues.Get<T>` / `Set` / `Delete`          | keyed access | typed read, write, remove        |
-|  [07]   | `SolutionServer.Start` / `StartWait` / `Stop`    | execution    | begin, await, halt               |
-|  [08]   | `DelayedExpire` / `ExpireDelayedObjects`         | execution    | queue and flush expiry           |
-|  [09]   | `Solution.Cancel` / `Id` / `Phase`               | run state    | cancellation and inspection      |
-|  [10]   | `History.Do` / `Undo` / `Redo`                   | history      | record and traverse              |
-|  [11]   | `FindCommonAncestor` / `FindShortestPath`        | history      | branch reconciliation            |
-|  [12]   | `ActionList.ToRecord` / `Node.PromoteChild`      | history      | seal and rebranch                |
-|  [13]   | `Record.Undo` / `Record.Redo`                    | replay       | backward and forward application |
+[Solution start]: `Start` / `StartWait(CancellationTokenSource?, SolutionMode = Regular)`
+[Live run state]: `Solution.Id : SolutionId` `Phase : SolutionPhase` `Mode : SolutionMode` `Token` `Time` `Age`; `ComputableCount` `InvalidParameters` `OverallProgress` are measured `int`s
+[Completed run]: `SolutionRecord.SolutionId` `Culmination : SolutionPhase` `StartTime` `EndTime` `Duration`
+
+| [INDEX] | [SURFACE]                                        | [SHAPE]      | [CAPABILITY]                        |
+| :-----: | :----------------------------------------------- | :----------- | :----------------------------------- |
+|  [01]   | `IDocumentObject.InstanceId` / `Nomen` / `State` | properties   | identity and object state           |
+|  [02]   | `IDocumentObject.Expire` / `Compute`             | operations   | expiry and evaluation               |
+|  [03]   | `AddUndoRecord` / `RequestAutoSave`              | operations   | undo and autosave admission         |
+|  [04]   | `IAttributes.Move` / `Layout` / `Draw`           | operations   | relocation, layout, paint           |
+|  [05]   | `Undo.Actions.PivotAction`                       | constructor  | deduplicating pivot undo            |
+|  [06]   | `KeyedValues.Get<T>` / `Set` / `Delete`          | keyed access | typed read, write, remove           |
+|  [07]   | `SolutionServer.Start`                           | execution    | `Task<Solution>` on a pool worker   |
+|  [08]   | `SolutionServer.StartWait`                       | execution    | `Solution`; deadlocks on the marshal |
+|  [09]   | `SolutionServer.Stop` / `DelayedExpire` / `State` | execution   | halt, queue expiry, `ServerState`   |
+|  [10]   | `Solution.Cancel` / `Cancelled` / `StateChanged` | run control  | cooperative cancel and phase edge   |
+|  [11]   | `History.Do` / `Undo` / `Redo`                   | history      | record and traverse                 |
+|  [12]   | `FindCommonAncestor` / `FindShortestPath`        | history      | branch reconciliation               |
+|  [13]   | `ActionList.ToRecord` / `Node.PromoteChild`      | history      | seal and rebranch                   |
+|  [14]   | `Record.Undo` / `Record.Redo`                    | replay       | backward and forward application    |
+
+- `IAttributes` publishes `Pivot` (settable), `Bounds`, `AggregateBounds`, `Owner`, `Snappable`, the three hit tests, `ShowTooltipAt`, `HandleDoubleClick`, `InvalidateLayout`, `InvalidateDisplay`, and `Draw(Context, Skin)`; a policy surface reading placement therefore takes the interface, never a concrete attributes base.
+- `Start` settles the whole solve on a threadpool worker, so its `Task<Solution>` completes independently of the UI idle loop and a caller may block its OWN thread on it; `StartWait` does that block inside the host and deadlocks when the caller holds the UI thread.
+- `SolutionServer.ExpireDelayedObjects` is `private`: the server drains its own deferred queue at run start, and there is no consumer-drivable flush.
+- `SolutionRecord.ExpiredCount`, `SolvedCount`, and `Progress` are auto-properties its only constructor never assigns — every record reads them as zero, so they are a structural zero, not a measurement.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -154,7 +194,7 @@ Solution events fire in the listed lifecycle order; document, object-list, and h
 - Undo is a branching `Node` tree, not a linear stack; `FindCommonAncestor`/`FindShortestPath` reconcile branches and `PromoteChild` re-roots one.
 
 [STACKING]:
-- `api-languageext`(`.api/api-languageext.md`): `Store` and document load fold onto `Fin<Document>`; `ObjectList.Find`/`FindParameter` and `KeyedValues.Get<T>` return `Option`; a `SolutionServer` run lowers to `Eff<SolutionRecord>` with `SolutionFaulted`/`SolutionCancelled` mapping to `Error`; `MigrateObjects` and clipboard paste accumulate faults through `Validation<Error, Seq<IDocumentObject>>`; `ObjectList` projections carry as `Seq`/`HashMap` and `Solution.Phase`/`SolutionRecord.Progress` ride an `Atom` cell.
+- `api-languageext`(`.api/api-languageext.md`): `Store` and document load fold onto `Fin<Document>`; `ObjectList.Find`/`FindParameter` and `KeyedValues.Get<T>` return `Option`; a `SolutionServer` run lowers to `Eff<SolutionRecord>` with `SolutionFaulted`/`SolutionCancelled` mapping to `Error`; the three grip finders and `Find`/`FindParameter` project their `null` miss to `Option`; `MigrateObjects` returns its id correspondence as a `HashMap<Guid, Guid>` and every `int`-returning verb its touched count on the settlement receipt; `ObjectList` projections carry as `Seq`/`HashMap` and `Solution.Phase` rides an `Atom` cell.
 - `api-thinktecture-runtime-extensions`(`.api/api-thinktecture-runtime-extensions.md`): host discriminants — `SolutionMode`, `ClipboardKind`, `PasteBehaviour`, `AutoSaveReason`, `SelectionMode`, `PinRepair`, `VerbNoun`, `SolutionRecord.Culmination` — own `[SmartEnum]`/`[Union]` vocabularies so a mutation verb dispatches through exhaustive `Switch`, and a `WireEnds` endpoint pair is a `[ComplexValueObject]` with structural equality.
 
 [LOCAL_ADMISSION]:

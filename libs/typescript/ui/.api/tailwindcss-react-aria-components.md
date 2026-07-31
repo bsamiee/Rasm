@@ -51,7 +51,7 @@
 - `tailwind-merge` (`.api/tailwind-merge.md`): the variants are modifiers `twMerge` preserves as conflict scopes, flowing through the one `cn = twMerge(clsx(...))` rail; an order-sensitive interaction registers `orderSensitiveModifiers`.
 - `tw-animate-css` (`.api/tw-animate-css.md`): `entering:`/`exiting:` drive RAC transition phases — pairing them with `animate-in`/`animate-out` declares overlay motion in classes off RAC's `data-entering`/`data-exiting`.
 - `class-variance-authority` (`.api/class-variance-authority.md`): a `cva` slot's class string carries these state variants (`selected:` inside a variant), binding RAC state declaratively while `cva` selects the design variant.
-- `view/primitive` + `view/compose`: the folder styles every RAC state through these variants, so the `Schema`→aria `FormBinding` surfaces `invalid:`/`required:` in classes and no styled row hand-writes a state branch.
+- `system/primitive` + `view/form`: the folder styles every RAC state through these variants, so the `Schema`→aria `Form.standard` binding surfaces `invalid:`/`required:` in classes and no styled row hand-writes a state branch.
 
 [LOCAL_ADMISSION]:
 - Register once via `@plugin` in the `token` entry CSS; a component never imports the plugin or lists it in a JS `plugins: []` array, and a `prefix` is chosen only when an unprefixed name genuinely collides.

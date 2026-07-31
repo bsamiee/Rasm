@@ -81,6 +81,9 @@ Words carrying live senses no context disambiguates refuse bare use, and every s
 - `descriptor`: refuses bare use, and every site spells one qualified sense below.
 - `capability descriptor`: rows an open consumption axis — key, supplied capability, reached isolation — filled by its supplying branch alone.
 - `descriptor set`: snapshots a proto source's compiled form beside it as the drift gate's per-source baseline.
+- `frame budget`: refuses bare use, and every site spells one qualified sense below.
+- `viewport frame budget`: bounds one rendered frame's spend — time, draws, residency — so a breach names its axis and degrades the frame alone.
+- `solver frame budget`: stops a coarse iterative solve inside one frame deadline between iteration floor and ceiling, forking refinement onto a background lane.
 - `landing`: refuses bare use, and every site spells one qualified sense below.
 - `wire landing`: declares a decoded wire family's one branch-side shape at the codec owner, so a consumer imports it and re-derives no field.
 - `landing grain`: states a fact at task resolution — the exact file or sub-domain a card's work lands in.

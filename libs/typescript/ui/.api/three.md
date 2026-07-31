@@ -17,7 +17,7 @@
 | [INDEX] | [SYMBOL]                                                             | [TYPE_FAMILY]   | [CONSUMER]                                     |
 | :-----: | :------------------------------------------------------------------- | :-------------- | :--------------------------------------------- |
 |  [01]   | `Scene` / `Object3D` / `Group`                                       | scene node      | `viewer/scene/glb` — residency root, GLB graft |
-|  [02]   | `Mesh` / `InstancedMesh` / `BatchedMesh` / `SkinnedMesh`             | drawable        | `viewer/scene/glb` — repeats to one draw call  |
+|  [02]   | `Mesh` / `InstancedMesh` / `BatchedMesh` / `SkinnedMesh` / `Points`  | drawable        | `viewer/scene/glb` — repeats to one draw call  |
 |  [03]   | `PerspectiveCamera` / `OrthographicCamera` / `ArrayCamera`           | camera          | `viewer/geo/project` — camera sync, bounds     |
 |  [04]   | `Raycaster` / `Layers`                                               | pick / mask     | `viewer/mark/selection` — `GlobalId` hit-test  |
 |  [05]   | `BufferGeometry` / `BufferAttribute` / `InterleavedBufferAttribute`  | geometry buffer | `viewer/scene/glb` — typed-array attributes    |
@@ -119,7 +119,7 @@ Every row is consumed by `viewer/scene/glb`.
 - [11]-[SH_LAYOUT]: `SphericalHarmonics3` holds nine `Vector3` coefficients and `fromArray(v, offset)` reads three floats per band at stride `i*3` from any `ArrayLike<number>`, so a band-major RGB-interleaved 27-value carrier transcribes with neither a permutation nor a defensive copy. `getIrradianceAt(normal, target)` reconstructs under the `π`, `2π/3`, `π/4` convolution constants against a `+Y`-up direction, so a `+Z`-up producer un-rotates its query normal at the read rather than rotating the coefficients; it reads `normal.x/y/z` into locals before its first write to `target`, so passing one vector as both arguments is exact. `LightProbe` evaluates the same set on the GPU and ADDS to `scene.environment` irradiance, never replacing it.
 
 [ENTRYPOINT_SCOPE]: TSL node-shader and GPU-compute authoring (`three/tsl`)
-- `Fn(cb)` builds a node function; `Fn(cb)().compute(count)` yields a compute node the unified `Renderer` dispatches through `renderer.compute(node)`. Node-material fields (`material.colorNode`/`.roughnessNode`/`.positionNode`) bind TSL graphs onto `MeshStandardNodeMaterial`/`MeshPhysicalNodeMaterial`/`PointsNodeMaterial`.
+- `Fn(cb)` builds a node function; `Fn(cb)().compute(count)` yields a compute node the unified `Renderer` dispatches through `renderer.compute(node)`. Node-material fields (`material.colorNode`/`.roughnessNode`/`.positionNode`) bind TSL graphs onto `MeshStandardNodeMaterial`/`MeshPhysicalNodeMaterial`/`PointsNodeMaterial`. `PointsNodeMaterial extends SpriteNodeMaterial` and adds `sizeNode`, which the WebGPU backend HONOURS ONLY on `Sprite` — point primitives are fixed at one pixel there, so binding it on a `Points` draw is a knob the backend ignores; `vertexColor(index?)` reads the geometry's own `vec4` colour attribute, which is what a per-point radiance payload binds through `colorNode` with `transparent` set for the live alpha channel.
 
 | [INDEX] | [SURFACE]                                                                  | [ENTRY_FAMILY]   | [CONSUMER]                    |
 | :-----: | :------------------------------------------------------------------------- | :--------------- | :---------------------------- |
@@ -134,6 +134,9 @@ Every row is consumed by `viewer/scene/glb`.
 |  [09]   | `atomicAdd` / `atomicSub` / `atomicMax` / `atomicMin` / `atomicOr`         | atomic op        | thread-safe accumulate        |
 |  [10]   | `pass(scene, cam)` / `.setMRT(mrt(...))` / `.getTextureNode(n)` / `output` | post / MRT       | `viewer/probe/receipt` — pass |
 |  [11]   | `wgslFn(src)`                                                              | raw WGSL         | escape-hatch kernel           |
+|  [12]   | `renderer.getArrayBufferAsync(attr, target?, offset?, count?)`             | compute readback | `viewer/scene/glb` — cull     |
+
+- [12]-[COMPUTE_READBACK]: a `StorageBufferNode`'s `.value` IS the `StorageBufferAttribute`/`StorageInstancedBufferAttribute` its constructor wrapped, so the readback handle is the node itself and no parallel attribute roster exists; `getArrayBufferAsync(attribute)` allocates a fresh `ArrayBuffer` per call while the `(attribute, target)` overload writes into a caller-held one and returns it, which is what keeps a per-frame pass allocation-free. `instancedArray(count | TypedArray, type)` handed a typed array wraps THAT array, so a CPU-side write into it plus `attribute.needsUpdate = true` IS the upload — no second staging copy.
 
 [ENTRYPOINT_SCOPE]: interaction, geometry folding, and evidence
 - `BufferGeometryUtils` is `three/addons`; `OrbitControls extends Controls extends EventDispatcher`.
@@ -145,6 +148,9 @@ Every row is consumed by `viewer/scene/glb`.
 |  [03]   | `renderer.getPixelRatio()` / `.readRenderTargetPixelsAsync(rt, ...)` | frame readback    | `viewer/probe/receipt` — pixel readback |
 |  [04]   | `BufferGeometryUtils.mergeGeometries(list)` / `.mergeVertices(geo)`  | geometry fold     | `viewer/scene/glb` — merge submeshes    |
 |  [05]   | `controls.addEventListener("change", fn)` / `controls.target`        | control events    | `viewer/geo` — `change` folds camera    |
+|  [06]   | `frustum.setFromProjectionMatrix(m, coordinateSystem?)` / `.planes`  | frustum derive    | `viewer/scene/glb` — cluster cull, [06] |
+
+- [06]-[CLIP_CONVENTION]: `renderer.coordinateSystem` is the second argument, not an optional nicety — the WebGPU clip volume is `[0, 1]` in Z where WebGL2's is `[-1, 1]`, so the default convention culls a near band on one backend and not the other; each `Plane` in the returned six carries `normal` (a `Vector3`) and `constant`, which is the `(xyz, w)` pair a shader-side signed-distance test reads. `Matrix4.getMaxScaleOnAxis()` is the conservative radius scale for a non-uniformly placed instance.
 
 [ENTRYPOINT_SCOPE]: animation drive and draw-call collapse
 - Every row serves `viewer/scene`; loop-mode constants are core `three`.
@@ -163,6 +169,8 @@ Every row is consumed by `viewer/scene/glb`.
 |  [10]   | `.setMatrixAt(i, matrix)` / `.setVisibleAt(i, flag)` / `.getVisibleAt(i)`        | batched slot    | per-instance matrix + visible |
 |  [11]   | `.setColorAt(i, Color \| Vector4)` / `.setGeometryIdAt(i, geoId)`                 | batched slot    | per-instance tint + geometry  |
 |  [12]   | `renderer.initTexture(texture)`                                                  | eager upload    | upload ahead of first frame   |
+|  [13]   | `.getMatrixAt(i, Matrix4)` / `.getGeometryIdAt(i)` / `.instanceCount`            | batched read    | per-instance cull bound, [13] |
+|  [14]   | `.getBoundingSphereAt(geoId, Sphere): Sphere \| null` / `.maxInstanceCount`       | batched bound   | geometry sphere, capacity     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

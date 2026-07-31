@@ -11,7 +11,7 @@ Driver owns the pool, wire protocol, LISTEN/NOTIFY, and the OTel span; every pg 
 - effect-peer: `effect`, `@effect/sql`, `@effect/experimental`, `@effect/platform`
 - backing: bundles `pg` (`node-postgres`) with `pg-pool`, `pg-cursor` (server-side cursor behind `SqlStream`), `pg-types` (OID codec), `pg-connection-string`
 - runtime: `runtime:node`/bun — imports `node:stream`, `node:tls`; the browser plane binds `lane/sqlite`'s wasm profile on `@effect/sql-sqlite-wasm` instead
-- rail: store/journal
+- rail: journal/append
 - modules: `PgClient`, `PgMigrator`
 
 ## [02]-[PUBLIC_TYPES]
@@ -29,17 +29,17 @@ Driver owns the pool, wire protocol, LISTEN/NOTIFY, and the OTel span; every pg 
 |  [06]   | `PgClient.config: PgClientConfig`                                   | resolved config | span/transform introspection; `applicationName`                       |
 
 [PUBLIC_TYPE_SCOPE]: configuration and bring-your-own pool
-- `PgClientConfig` parameterizes pool, TLS, timeouts, and name transforms; secrets are `Redacted`. `PgClientFromPoolOptions.acquire` (`Effect<pg.Pool, SqlError, Scope>`) hands an app-owned `pg.Pool` to the driver so `scope/handle` shares one pool across tenant Layers.
+- `PgClientConfig` parameterizes pool, TLS, timeouts, and name transforms; secrets are `Redacted`. `PgClientFromPoolOptions.acquire` (`Effect<pg.Pool, SqlError, Scope>`) hands an app-owned `pg.Pool` to the driver so `lane/postgres` shares one pool across tenant Layers.
 
 | [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                                 |
 | :-----: | :------------------------------------------------ | :------------- | :------------------------------------------------------------------ |
 |  [01]   | `url`/`host`/`port`/`database`/`ssl`              | connection     | the composition root's `Config` provider; `url`/`password` are `Redacted.Redacted`    |
-|  [02]   | `maxConnections`/`minConnections`/`connectionTTL` | pool sizing    | `scope/handle` per-app pool budget; `iac` deployment facts          |
+|  [02]   | `maxConnections`/`minConnections`/`connectionTTL` | pool sizing    | `lane/postgres` per-app pool budget; `iac` deployment facts          |
 |  [03]   | `idleTimeout`/`connectTimeout`                    | pool timeout   | idle reclaim + connect deadline; `iac` facts                        |
 |  [04]   | `transformResultNames`/`transformQueryNames`      | name transform | snake_case ⇄ camelCase at the wire; rows stay camelCase             |
 |  [05]   | `transformJson` / `types` (`CustomTypesConfig`)   | codec          | jsonb toggle; `pg-types` OID parser overrides (`numeric`)           |
 |  [06]   | `applicationName` / `spanAttributes`              | telemetry      | `pg_stat_activity` correlation; per-query OTel span attributes      |
-|  [07]   | `PgClientFromPoolOptions.acquire`                 | pool adopt     | `scope/handle` — share one app-owned `pg.Pool` across tenant Layers |
+|  [07]   | `PgClientFromPoolOptions.acquire`                 | pool adopt     | `lane/postgres` — share one app-owned `pg.Pool` across tenant Layers |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -48,9 +48,9 @@ Driver owns the pool, wire protocol, LISTEN/NOTIFY, and the OTel span; every pg 
 
 | [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                   |
 | :-----: | :---------------------------------------------------------- | :------------- | :---------------------------------------------------- |
-|  [01]   | `PgClient.layer(config: PgClientConfig)`                    | driver layer   | `scope/handle` per-app driver row (fixed config)      |
+|  [01]   | `PgClient.layer(config: PgClientConfig)`                    | driver layer   | `lane/postgres` per-app driver row (fixed config)      |
 |  [02]   | `PgClient.layerConfig(config: Config.Wrap<PgClientConfig>)` | driver layer   | the composition root's `Config` env/secret resolution; standing row     |
-|  [03]   | `PgClient.layerFromPool(options: PgClientFromPoolOptions)`  | driver layer   | `scope/handle` shared-pool tenancy fan-out            |
+|  [03]   | `PgClient.layerFromPool(options: PgClientFromPoolOptions)`  | driver layer   | `lane/postgres` shared-pool tenancy fan-out            |
 |  [04]   | `PgClient.make(config)` / `PgClient.fromPool(options)`      | scoped make    | scoped construction inside a larger acquire graph     |
 |  [05]   | `PgClient.makeCompiler(transform?, transformJson?)`         | compiler       | custom identifier transform / raw-SQL testkit harness |
 
@@ -61,7 +61,7 @@ Driver owns the pool, wire protocol, LISTEN/NOTIFY, and the OTel span; every pg 
 | :-----: | :----------------------------------------------------------------------- | :------------- | :----------------------------------------- |
 |  [01]   | `sql`\``INSERT … ON CONFLICT (idempotency_key) … RETURNING (xmax = 0)`\` | idempotency    | `journal/append` `[05]-[ATOMIC_PUBLISH]` first-writer claim        |
 |  [02]   | `client.withTransaction(`\``SELECT pg_advisory_xact_lock($claim)`\``)`   | xact lock      | `journal/append` OCC; lock frees at commit |
-|  [03]   | `client.reserve` → `conn` → `sql`\``SELECT pg_advisory_lock($k)`\`       | session lock   | `project/rebuild` compaction; unlock       |
+|  [03]   | `client.reserve` → `conn` → `sql`\``SELECT pg_advisory_lock($k)`\`       | session lock   | `read/fold` `Lane.rebuild` replay; unlock       |
 |  [04]   | `sql`\``… FOR UPDATE SKIP LOCKED LIMIT $n`\`                             | async lane     | `read/fold` competing-consumer drain   |
 |  [05]   | `client.reserve` → `conn` → `COPY … FROM STDIN` write stream             | COPY bulk      | `journal`/`retrieve` bulk ingest           |
 |  [06]   | `client.listen(channel)` ⇒ `Stream` ← `client.notify(channel, id)`       | notify wake    | `read/fold` LISTEN/NOTIFY-woken lanes  |

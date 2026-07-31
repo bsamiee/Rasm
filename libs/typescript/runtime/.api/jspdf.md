@@ -51,7 +51,7 @@
 | :-----: | :----------------------------------------------------- | :-------------- | :------------------------------------------------------- |
 |  [01]   | `new jsPDF(options?)`                                  | construct       | one `Effect.sync`; `unit`/`format`/`encryption` policy   |
 |  [02]   | `doc.output("arraybuffer")` -> `ArrayBuffer`           | node egress     | durable-job bytes -> `Uint8Array` -> `FileSystem`/jszip  |
-|  [03]   | `doc.output(t, opts?)`                                 | browser egress  | DOM-only `Blob`/`URL`/`Window`; `browser/transport` only |
+|  [03]   | `doc.output(t, opts?)`                                 | browser egress  | DOM-only `Blob`/`URL`/`Window`; `browser/persist` only   |
 |  [04]   | `doc.text(text, x, y, options?)`                       | text + measure  | placement; `splitTextToSize` wraps `maxWidth`            |
 |  [05]   | `doc.rect` / `circle` / `line` / `path`                | vector draw     | primitive + path drawing surface, chainable              |
 |  [06]   | `doc.addPage(format?, orientation?)`                   | paginate        | report loop appends pages, stamps headers/footers        |

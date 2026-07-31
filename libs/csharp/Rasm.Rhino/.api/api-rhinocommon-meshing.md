@@ -29,7 +29,7 @@
 |  [03]   | `ReduceMeshParameters`    | config carrier | polygon target, accuracy, distortion, locked components, progress |
 |  [04]   | `ShrinkWrapParameters`    | config carrier | target edge length, offset, hole fill, smoothing, optimization    |
 |  [05]   | `MeshBooleanOptions`      | config carrier | tolerance, text log, progress, cancellation for mesh booleans     |
-|  [06]   | `MeshCheckParameters`     | config carrier | validity-check thresholds for `Mesh.Check`                        |
+|  [06]   | `MeshCheckParameters`     | config carrier | eleven check toggles and their per-defect counts for `Mesh.Check` |
 |  [07]   | `SubDCreationOptions`     | config carrier | corner, crease, texture, and interpolation policy for from-mesh   |
 |  [08]   | `SubDToBrepOptions`       | config carrier | face packing and extraordinary-vertex processing for to-brep      |
 |  [09]   | `SubDSurfaceInterpolator` | solver         | fixed/interpolated vertex solve for surface-point interpolation   |
@@ -111,7 +111,6 @@
 |  [13]   | `CreateRefinedLoopMesh(Mesh, LoopFormula, RefinementSettings)`                                      | static  | Loop refinement        |
 |  [14]   | `CreateRefinedCatmullClarkMesh(Mesh, RefinementSettings)`                                           | static  | Catmull-Clark refine   |
 
-- `QuadRemeshBrepAsync(...)` returns `Task<Mesh>`.
 - `ShrinkWrap` also wraps `IEnumerable<Mesh>` and `PointCloud` sources directly.
 - `RequireIterativeCleanup(IEnumerable<Mesh>, double) -> bool` probes whether cleanup is needed.
 - `MeshRefinements.RefinementSettings` carries `Level : int`, `NakedEdgeMode : CreaseEdges`, `ContinueRequest : CancellationToken`.
@@ -144,7 +143,7 @@
 | :-----: | :-------------------------------------------------------------------------------------------------- | :------- | :---------------------- |
 |  [01]   | `Reduce(ReduceMeshParameters, bool) -> bool`                                                        | instance | decimate in place       |
 |  [02]   | `QuadRemesh(QuadRemeshParameters, IEnumerable<Curve>) -> Mesh`                                      | instance | instance quad-remesh    |
-|  [03]   | `QuadRemeshAsync(QuadRemeshParameters, IProgress<int>, CancellationToken) -> Task<Mesh>`            | instance | async quad-remesh       |
+|  [03]   | `QuadRemeshAsync(QuadRemeshParameters, IProgress<int>, CancellationToken) -> Task<Mesh>`            | instance | async whole-mesh remesh |
 |  [04]   | `ShrinkWrap(ShrinkWrapParameters, CancellationToken) -> Mesh`                                       | instance | instance shrink-wrap    |
 |  [05]   | `Offset(double, bool, Vector3d, out List<int>) -> Mesh`                                             | instance | offset/solidify         |
 |  [06]   | `Weld(double) -> void` / `Weld(double, bool) -> void`                                               | instance | weld by angle           |
@@ -165,7 +164,30 @@
 
 - `CollapseFacesByEdgeLength(bool, double)`, `CollapseFacesByArea(double, double)`, and `CollapseFacesByByAspectRatio(double)` each return `int`, collapsing faces by edge length, area, and aspect ratio; the doubled `By` is the host spelling.
 - `Reduce(int, bool, int, bool, CancellationToken, IProgress<double>, out string)` overload exposes cancellation and a diagnostic string.
-- `QuadRemesh` also takes a face-block overload that scopes the remesh.
+- `Reduce(ReduceMeshParameters)` delegates to `threaded: false`, and the host declares `threaded: true` as "run computation inside a worker thread and IGNORE any provided CancellationTokens and ProgressReporters" — so a rig carrying `CancelToken` or `ProgressReporter` demands the main-thread path, and a worker-thread reduce strands both controls.
+- Quad-remesh spans six members over three axes — sync-versus-async, whole-mesh-versus-face-block, and mesh-versus-brep source: `QuadRemesh(QuadRemeshParameters)` and `(QuadRemeshParameters, IEnumerable<Curve>)` take NEITHER progress nor cancellation, `QuadRemesh(IEnumerable<int>, QuadRemeshParameters, IEnumerable<Curve>, IProgress<int>, CancellationToken)` takes both but demands a face grouping, and the async triple carries both on every shape.
+
+[MESH_QUAD_REMESH_ASYNC]: `Mesh` async quad-remesh; every row returns `Task<Mesh>` and closes on the same trailing `IProgress<int>, CancellationToken` pair, so the cells carry the leading arguments alone.
+
+| [INDEX] | [SURFACE]                                                                    | [SHAPE]  | [CAPABILITY]              |
+| :-----: | :---------------------------------------------------------------------------- | :------- | :------------------------ |
+|  [01]   | `QuadRemeshAsync(QuadRemeshParameters, IEnumerable<Curve>)`                  | instance | whole mesh, guide curves  |
+|  [02]   | `QuadRemeshAsync(IEnumerable<int>, QuadRemeshParameters, IEnumerable<Curve>)` | instance | face-block scoped remesh  |
+|  [03]   | `QuadRemeshBrepAsync(Brep, QuadRemeshParameters, IEnumerable<Curve>)`        | static   | brep source, guide curves |
+
+- Each async row drops its guide-curve argument in a sibling overload; progress is `IProgress<int>` on every quad-remesh member, never `IProgress<double>`.
+
+[MESH_CHECK]: `Mesh` reasoned validity verdict against caller-chosen defect classes.
+
+| [INDEX] | [SURFACE]                                             | [SHAPE]  | [CAPABILITY]                                 |
+| :-----: | :---------------------------------------------------- | :------- | :------------------------------------------- |
+|  [01]   | `Check(TextLog, ref MeshCheckParameters) -> bool`     | instance | per-defect verdict with counts and a log     |
+|  [02]   | `MeshCheckParameters.Defaults() -> MeshCheckParameters` | static | every check enabled, distance unset          |
+
+[CHECK_TOGGLES]: `CheckForDegenerateFaces` `CheckForInvalidNgons` `CheckForNakedEdges` `CheckForNonManifoldEdges` `CheckForExtremelyShortEdges` `CheckForBadNormals` `CheckForDuplicateFaces` `CheckForRandomFaceNormals` `CheckForDisjointMeshes` `CheckForUnusedVertices` `CheckForSelfIntersection` — all public get/set `bool`
+[CHECK_COUNTS]: `DegenerateFaceCount` `InvalidNgonCount` `NakedEdgeCount` `NonManifoldEdgeCount` `ExtremelyShortEdgeCount` `NonUnitVectorNormalCount` `ZeroLengthNormalCount` `VertexFaceNormalsDifferCount` `DuplicateFaceCount` `RandomFaceNormalCount` `DisjointMeshCount` `UnusedVertexCount` `SelfIntersectingPairsCount` — all public read-only `int`
+- `MeshCheckParameters` is a `public struct` whose PUBLIC surface is those eleven toggles, those thirteen counts, and `Defaults()`; the short-edge distance it holds is a private field defaulting to `RhinoMath.UnsetValue` with no accessor, so no threshold is settable and the bad-normals axis reports through three separate counts.
+- `Check` takes the parameters by `ref` and writes the counts back into the caller's struct, so the verdict `bool` and the per-axis tallies read off one value.
 - `Offset` reduced overloads drop the direction and wall-face output; `Smooth` whole-mesh overloads drop the vertex set; `Subdivide` with no face set subdivides the whole mesh.
 - `MeshVertexList.GetTopologicalIndenticalVertices` carries the host misspelling.
 - `GetOutlines(RhinoViewport)` and `(ViewportInfo, Plane)` overloads project to view.
@@ -256,6 +278,24 @@
 - `ToBrep()` overload uses defaults.
 - `InterpolateSurfacePoints(uint[], Point3d[])` overload constrains a vertex subset.
 
+[SUBD_INTERPOLATOR]: `SubDSurfaceInterpolator` (`public class SubDSurfaceInterpolator : IDisposable`) surface-point solve; the four factories each report the free-vertex census through `out uint`.
+
+| [INDEX] | [SURFACE]                                                                             | [SHAPE]  | [CAPABILITY]                        |
+| :-----: | :------------------------------------------------------------------------------------- | :------- | :---------------------------------- |
+|  [01]   | `CreateFromSubD(SubD, out uint) -> SubDSurfaceInterpolator`                            | static   | every free vertex interpolates      |
+|  [02]   | `CreateFromMarkedVertices(SubD, bool, out uint) -> SubDSurfaceInterpolator`            | static   | mark polarity selects the free set  |
+|  [03]   | `CreateFromSelectedVertices(SubD, out uint) -> SubDSurfaceInterpolator`                | static   | document selection is the free set  |
+|  [04]   | `CreateFromVertexIdList(SubD, IEnumerable<uint>, out uint) -> SubDSurfaceInterpolator` | static   | explicit vertex ids are the free set |
+|  [05]   | `Solve(Point3d[]) -> bool`                                                             | instance | fit the surface through the points  |
+|  [06]   | `InterpolatedVertexCount() -> uint` / `FixedVertexCount() -> uint`                     | instance | free and pinned vertex censuses     |
+|  [07]   | `VertexIdList() -> uint[]` / `InterpolatedVertexIndex(uint) -> uint`                   | instance | id roster and per-id ordinal        |
+|  [08]   | `IsInterpolatedVertex(uint) -> bool` / `IsInterpolatedVertex(SubDVertex) -> bool`      | instance | membership probe by id or component |
+|  [09]   | `Clear() -> void` / `Transform(Transform) -> void`                                     | instance | reset and re-place the solve state  |
+
+- `MaximumRecommendedInterpolatedVertexCount` is a `static uint` PROPERTY reading `1000`, `ContextId` is a `Guid` property, and the censuses are METHODS — the call parentheses discriminate the two families, and a `Guid`-keyed context row survives a `Clear()`.
+- `Solve` answers `bool` alone with no cause, so an arity mismatch is gated against `InterpolatedVertexCount()` BEFORE the call; the point array length must equal that census, which only the minted solver knows.
+- `SubD.InterpolateSurfacePoints` covers the whole-surface and explicit-id cases alone and publishes no free-vertex census, so the interpolator strictly subsumes it.
+
 [SUBD_TOPOLOGY]: `SubD` component reads and tag authoring.
 
 | [INDEX] | [SURFACE]                                | [SHAPE]  | [CAPABILITY]                     |
@@ -297,6 +337,6 @@
 
 [RAIL_LAW]:
 - Package: `RhinoCommon`
-- Owns: parameter-driven meshing from surfaces and primitives, quad-remesh and shrink-wrap generation, mesh booleans, the reduce/weld/offset/heal/smooth/split edit family, the mesh extruder, and the SubD create/subdivide/offset/to-brep object model.
-- Accept: native mesh and subd outcomes projected onto `Fin`/`Option`/`Seq` rails, boolean `Result` and `int[][]` index maps folded into typed receipts, async quad-remesh on the effect rail, and disposable solvers leased.
-- Reject: re-deriving kernel-altitude remesh and decimation, exception-style handling of null construction results, discarding the boolean and hull index-map side-channels, and leaking host mesh/subd/collection types past the boundary.
+- Owns: parameter-driven meshing from surfaces and primitives, quad-remesh and shrink-wrap generation, mesh booleans, the reduce/weld/offset/heal/smooth/split edit family, the threshold-free `Mesh.Check` verdict, the mesh extruder, and the SubD create/subdivide/offset/to-brep/interpolate object model.
+- Accept: native mesh and subd outcomes projected onto `Fin`/`Option`/`Seq` rails, boolean `Result` and `int[][]` index maps folded into typed receipts, every `TextLog` out-channel detached as receipt text before its bracket closes, async quad-remesh on the effect rail, and disposable solvers leased.
+- Reject: re-deriving kernel-altitude remesh and decimation, exception-style handling of null construction results, discarding the boolean and hull index-map side-channels, passing `null` where a member accepts a `TextLog`, threading a reduce that carries live cancellation or progress, and leaking host mesh/subd/collection types past the boundary.

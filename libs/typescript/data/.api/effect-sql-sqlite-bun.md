@@ -1,6 +1,6 @@
 # [TS_DATA_API_EFFECT_SQL_SQLITE_BUN]
 
-`@effect/sql-sqlite-bun` binds the neutral `@effect/sql` `SqlClient` (`.api/effect-sql.md`) to Bun's synchronous `bun:sqlite` as a `SqliteClient` — the server durability lane running the PG spine's journal and projection statements, dialect-selected by `sql.onDialect`. It carries no native addon, adds `export` (whole-database `Uint8Array` snapshot) and `loadExtension` over the neutral contract, and marks `updateValues: never` — the one member SQLite drops and the anchor of the `lane/sqlite` degradation table. `SqliteMigrator` ships branch-banned; with no RLS, tenancy is `filename`-per-app.
+`@effect/sql-sqlite-bun` binds the neutral `@effect/sql` `SqlClient` (`.api/effect-sql.md`) to Bun's synchronous `bun:sqlite` as a `SqliteClient` — the server durability lane running the PG spine's journal and projection statements, dialect-selected by `sql.onDialect`. It carries no native addon, adds `export` (whole-database `Uint8Array` snapshot) and `loadExtension` over the neutral contract, and marks `updateValues: never` — the one member SQLite drops and the the driver's own missing-member proof behind `lane/sqlite`'s `_degrades` verdicts. `SqliteMigrator` ships branch-banned; with no RLS, tenancy is `filename`-per-app.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -22,7 +22,7 @@
 |  [01]   | `SqliteClient.SqliteClient` (Tag) / `interface SqliteClient`       | service Tag     | `lane/sqlite` journal/projection rows            |
 |  [02]   | `SqliteClient.export: Effect<Uint8Array, SqlError>`                | serialize       | `journal/retain` whole-db backup; snapshot bytes |
 |  [03]   | `SqliteClient.loadExtension(path: string): Effect<void, SqlError>` | extension       | `retrieve` `sqlite-vec`/FTS; `lane/capability`    |
-|  [04]   | `SqliteClient.updateValues: never`                                 | degradation     | anchor of the `lane/sqlite` degradation table    |
+|  [04]   | `SqliteClient.updateValues: never`                                 | degradation     | the driver's own missing-member proof behind `lane/sqlite`'s `_degrades` verdicts    |
 |  [05]   | `SqliteClient.config: SqliteClientConfig`                          | resolved config | `filename`/WAL introspection                     |
 
 [PUBLIC_TYPE_SCOPE]: configuration

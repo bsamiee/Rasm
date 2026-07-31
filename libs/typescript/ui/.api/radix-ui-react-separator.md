@@ -9,7 +9,7 @@
 - module: single `.` barrel, `sideEffects:false`; one component under `Separator`/`Root` and its `SeparatorProps` type
 - runtime: `runtime:browser`, core `ui` composition plane
 - depends: `@radix-ui/react-primitive` → `@radix-ui/react-slot` (`.api/radix-ui-react-slot.md`) — the `asChild` merge source
-- rail: `view/compose` divider primitive
+- rail: `system/primitive` divider primitive
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -17,7 +17,7 @@
 
 | [INDEX] | [SYMBOL]                                   | [TYPE_FAMILY]       | [CAPABILITY]                                                        |
 | :-----: | :----------------------------------------- | :------------------ | :------------------------------------------------------------------ |
-|  [01]   | `Separator` / `Root`                       | primitive component | `view/compose` divider; ref forwards to `<div>`                     |
+|  [01]   | `Separator` / `Root`                       | primitive component | `system/primitive` divider; ref forwards to `<div>`                 |
 |  [02]   | `SeparatorProps`                           | prop contract       | native `<div>` attrs + `orientation` + `decorative` + `asChild`     |
 |  [03]   | `orientation?: "horizontal" \| "vertical"` | closed axis         | drives `aria-orientation` (vertical) + always-on `data-orientation` |
 |  [04]   | `decorative?: boolean`                     | a11y gate           | `true` → `role="none"` (off a11y tree); else `role="separator"`     |

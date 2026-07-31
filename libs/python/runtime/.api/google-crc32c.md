@@ -1,6 +1,6 @@
 # [PY_RUNTIME_API_GOOGLE_CRC32C]
 
-`google-crc32c` binds Google's CRC32C (Castagnoli) C library at one runtime seam: the admission cloud-arm integrity fence. Secret Manager's client never self-verifies `SecretPayload.data_crc32c`, so the `cloud_read` fence compares it against `google_crc32c.value(payload.data)` before trusting the payload — a mismatch raises the retried transport `OSError` on the `RetryClass.SECRET` row. Streaming `Checksum` and `extend` stay unconsumed: the payload arrives as one buffer, so the one-shot digest is the whole slice.
+`google-crc32c` binds Google's CRC32C (Castagnoli) C library at one runtime seam: the admission cloud-arm integrity fence. Secret Manager's client never self-verifies `SecretPayload.data_crc32c`, so the `CloudVault.read` fence compares it against `google_crc32c.value(payload.data)` before trusting the payload — a mismatch raises `IntegrityError` (the admission-owned `OSError` subclass the `RetryClass.SECRET` target still catches while the fault detail names itself). Streaming `Checksum` and `extend` stay unconsumed: the payload arrives as one buffer, so the one-shot digest is the whole slice.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -23,10 +23,10 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `value(payload.data) != payload.data_crc32c` is corrupted transport — a retryable transient on the `RetryClass.SECRET` `OSError` target, never a MISS and never a trusted payload; the check runs inside the one `guarded` tier envelope, never a second verification surface.
+- `value(payload.data) != payload.data_crc32c` is corrupted transport — the admission `IntegrityError(OSError)` the `RetryClass.SECRET` target retries, never a MISS and never a trusted payload; the check runs inside the one `guarded` tier envelope, never a second verification surface.
 
 [STACKING]:
-- `google-cloud-secret-manager`(`.api/google-cloud-secret-manager.md`): `value(payload.data)` compares against `SecretPayload.data_crc32c` inside the `cloud_read` fence between `access_secret_version` and a trusted payload; a mismatch is the retried transport fault, never a trusted read.
+- `google-cloud-secret-manager`(`.api/google-cloud-secret-manager.md`): `value(payload.data)` compares against `SecretPayload.data_crc32c` inside the `CloudVault.read` fence between `access_secret_version` and a trusted payload; a mismatch is the retried `IntegrityError`, never a trusted read.
 - within-lib: a module-scope `lazy` import beside the Secret Manager client in the `admission.md` `[03]-[SETTINGS]` prelude, so the digest costs nothing until the gated cloud arm first fires.
 
 [LOCAL_ADMISSION]:
@@ -35,5 +35,5 @@
 [RAIL_LAW]:
 - Package: `google-crc32c`
 - Owns: the `SecretPayload.data_crc32c` integrity comparison on the admission cloud arm — the one digest between `access_secret_version` and a trusted payload
-- Accept: `value(data) -> int` compared against `data_crc32c` inside the `cloud_read` fence
+- Accept: `value(data) -> int` compared against `data_crc32c` inside the `CloudVault.read` fence
 - Reject: a trusted `payload.data` without the digest, a hand-rolled CRC32C, a `Checksum` admission ahead of a live fence, a second integrity owner beside the one cloud-arm check

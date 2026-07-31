@@ -136,7 +136,7 @@ Each direct engine receives its typed option carrier directly; `RhinoDoc.Import`
 | [INDEX] | [SURFACE]                                                                                                    | [CAPABILITY]             |
 | :-----: | :----------------------------------------------------------------------------------------------------------- | :----------------------- |
 |  [01]   | `File3dm.Read(string [, TableTypeFilter, ObjectTypeFilter])` -> `File3dm?`                                   | full or filtered read    |
-|  [02]   | `File3dm.ReadWithLog(string [, TableTypeFilter, ObjectTypeFilter], out string)` -> `File3dm?`                | read with diagnostic log |
+|  [02]   | `File3dm.ReadWithLog(string path [, TableTypeFilter tableTypeFilterFilter, ObjectTypeFilter objectTypeFilter], out string errorLog)` -> `File3dm?` | read with diagnostic log; the doubled `tableTypeFilterFilter` is the host spelling |
 |  [03]   | `File3dm.FromByteArray(byte[])` -> `File3dm?`                                                                | deserialize from bytes   |
 |  [04]   | `File3dm.ReadNotes(string)` -> `string`                                                                      | header notes             |
 |  [05]   | `File3dm.ReadArchiveVersion(string)` -> `int`                                                                | archive format version   |
@@ -217,7 +217,9 @@ Each direct engine receives its typed option carrier directly; `RhinoDoc.Import`
 |  [11]   | `FilePdf.Read(string, RhinoDoc, FilePdfReadOptions)` -> `bool`             | static   | PDF import                       |
 
 - `FilePdf.DrawText(int, string, double x, double y, float heightPoints, Font, Color fill, Color stroke, float strokeWidth, float angleDegrees, TextHorizontalAlignment, TextVerticalAlignment)` draws text on one page.
-- `FilePdf.LayersAsOptionalContentGroups`: document-level state read at emission, never per-page.
+- `FilePdf` is `public abstract class FilePdf` with NO base list — never `IDisposable`, so the instance is held as a value and never bracketed.
+- `FilePdf.LayersAsOptionalContentGroups`: defaults `true`; document-level state set once before the first page mints, read at emission, never per-page.
+- `FilePdf.PreWrite` fires immediately before `Write`.
 - `FilePdf.SetCustomPages`: REPLACE semantics over the host-process-global custom-page list, so a writer saves and restores the prior roster; `null` clears the set.
 - `FilePdfReadOptions`: `PreserveModelScale : bool`, `RhinoScale : double`, `PdfUnits : FilePdfReadOptions.PDF_UNITS`, `PDFScale : double`, `ImportFillsAsHatches : bool`, `LoadText : bool`.
 

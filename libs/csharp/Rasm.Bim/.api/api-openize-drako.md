@@ -117,7 +117,7 @@
 - `AttributeType.Invalid` and `NamedAttributesCount` bound the `Position`..`Generic` named channels as sentinels.
 
 [STACKING]:
-- `SharpGLTF.Core`(`.api/api-sharpgltf.md`): `Draco.Encode(mesh, opts) -> byte[]` is the bufferView payload SharpGLTF references under the `KHR_draco_mesh_compression` extension.
+- `SharpGLTF.Core`(`libs/csharp/.api/api-sharpgltf.md`): `Draco.Encode(mesh, opts) -> byte[]` is the bufferView payload SharpGLTF references under the `KHR_draco_mesh_compression` extension.
 - `Alimer.Bindings.MeshOptimizer`(`libs/csharp/.api/api-alimer-meshoptimizer.md`): the sibling `EXT_meshopt_compression` leg; one export-codec dispatch row selects Draco vs meshopt by extension policy, both emitting `byte[]`/`Span<byte>` the same glTF buffer writer absorbs.
 - within-lib: project the canonical triangle-soup (positions/normals/UVs + index buffer) through `PointAttribute.Wrap(AttributeType.Position, Span<Vector3>)` / `Wrap(AttributeType.TexCoord, Span<Vector2>)` and `DracoMesh.AddFace(int[])`, feeding Draco intake from the same buffers meshopt consumes; a Compute codec rail wraps `Draco.Encode`/`Draco.Decode` in the `Fin`/`Eff` rail, maps `DrakoException` to a typed codec fault, and emits the pre/post byte-count compression-ratio receipt.
 

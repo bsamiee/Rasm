@@ -8,7 +8,7 @@
 - package: `@effect/cli` (MIT)
 - module: dual ESM/CJS; one subpath export per namespace, types under `dist/dts/`
 - runtime: node or bun; peers `effect`, `@effect/platform`, `@effect/printer`(-ansi)
-- rail: `edge/cli`
+- rail: `serve/cli`
 
 ## [02]-[COMMAND]
 

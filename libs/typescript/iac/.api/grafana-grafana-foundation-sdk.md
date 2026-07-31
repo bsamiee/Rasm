@@ -58,8 +58,9 @@ Entries the estate's UCUM vocabulary maps onto: `NoUnit = "none"`, `Short = "sho
 [geomap.PanelBuilder]: `.view(MapViewConfigBuilder)` `.controls(ControlsOptionsBuilder)` `.basemap(MapLayerOptionsBuilder)` `.layers(MapLayerOptionsBuilder[])` — `.view` and `.controls` come from `./geomap`, both layer arguments from `./common`
 [MapViewConfigBuilder]: `.id(string)` `.lat(number)` `.lon(number)` `.zoom(number)` `.minZoom(number)` `.maxZoom(number)` `.padding(number)` `.allLayers(boolean)` `.lastOnly(boolean)` `.layer(string)` `.shared(boolean)` — `.allLayers` frames every layer's data instead of pinning a centre no dataset shares
 [ControlsOptionsBuilder]: `.showZoom(boolean)` `.mouseWheelZoom(boolean)` `.showAttribution(boolean)` `.showScale(boolean)` `.showDebug(boolean)` `.showMeasure(boolean)` — the visible control and the wheel binding are independent halves, so a reader-facing zoom posture answers both
-[MapLayerOptionsBuilder]: `.type` `.name` `.config` `.location(FrameGeometrySourceBuilder)` `.filterData` `.opacity` `.tooltip(boolean)`
+[MapLayerOptionsBuilder]: `.type` `.name` `.config(any)` `.location(FrameGeometrySourceBuilder)` `.filterData` `.opacity` `.tooltip(boolean)` — `config` is UNTYPED (`MapLayerOptions.config?: any`); the markers style envelope is `{ showLegend, style: { color?, text?, size?, rotation?, symbol? } }`, each slot filled by a typed `./common` dimension builder below
 [FrameGeometrySourceBuilder]: `.mode(Auto | Geohash | Coords | Lookup)` `.geohash` `.latitude` `.longitude` `.wkt` `.lookup` `.gazetteer`
+[DIMENSION_BUILDERS]: `./common` ships the typed field-binding builders every geomap style slot compiles through — `ColorDimensionConfigBuilder` (`.field` `.fixed`), `TextDimensionConfigBuilder` (`.mode(TextDimensionMode)` REQUIRED for a field-driven label, `.field`, `.fixed`; `TextDimensionMode = Fixed | Field | Template`), `ScaleDimensionConfigBuilder` (`.field` `.fixed` `.min` `.max` both REQUIRED, `.mode(ScaleDimensionMode)`; `ScaleDimensionMode = Linear | Quad`), `ScalarDimensionConfigBuilder`, `ResourceDimensionConfigBuilder` — so the `.field` spellings type-check even though the enclosing `config` envelope does not
 
 ### [03.2]-[TABLE]
 
@@ -70,6 +71,7 @@ Entries the estate's UCUM vocabulary maps onto: `NoUnit = "none"`, `Short = "sho
 ### [03.3]-[NODEGRAPH]
 
 [nodegraph.PanelBuilder]: `.nodes(cog.Builder<NodeOptions>)` `.edges(cog.Builder<EdgeOptions>)` `.zoomMode(ZoomMode)` — `ZoomMode = Cooperative | Greedy`, greedy taking the wheel outright and cooperative demanding a modifier; `NodeOptions` carries `mainStatUnit`/`secondaryStatUnit`/`arcs`, `EdgeOptions` the two stat units. Node and edge IDENTITY is frame-column convention, never a builder member, so an identity mapping lands as a rename transformation.
+[NODEGRAPH_FRAMES]: frame ADMISSION requires one of `meta.preferredVisualisationType === "nodeGraph"`, a frame `name`/`refId` of `nodes`/`edges`, or a field named exactly `id`; the nodes-vs-edges SPLIT keys on `name === "edges"` or a field named exactly `source` — both lookups CASE-SENSITIVE even though later column reads lowercase. Node columns: `id` (required), `title`/`subtitle`, `mainstat`/`secondarystat` (first numeric field is the `mainstat` fallback), `color` XOR `arc__<suffix>` (sum to 1), `detail__<suffix>`, `noderadius` (pixels), `highlighted`, `icon`, `fixedx`/`fixedy`. Edge columns: `id` (REQUIRED), `source`, `target`, `mainstat`/`secondarystat`, `thickness`, `color`, `strokedasharray`. No "weight" column exists on either frame — a stat magnitude lands on `mainstat`.
 
 ### [03.4]-[TIMESERIES]
 

@@ -37,7 +37,9 @@ Object read/mutate and history route to the objects catalog, placement and event
 |  [05]   | `GripsDrawEventArgs`      | class, `DrawEventArgs`        | grip draw callback payload                                        |
 |  [06]   | `TurnOnGripsEventHandler` | delegate                      | grips-enabler callback registered against a custom-grips type     |
 
-[PUBLIC_TYPE_SCOPE]: on-canvas grip widgets
+[PUBLIC_TYPE_SCOPE]: in-viewport UI objects
+
+This catalog is the sole member-depth home for the whole `Rhino.UI` in-viewport widget family; `api-rhino-ui.md` registers it and tables none of it.
 
 | [INDEX] | [SYMBOL]                           | [KIND]                           | [CAPABILITY]                                                 |
 | :-----: | :--------------------------------- | :------------------------------- | :----------------------------------------------------------- |
@@ -46,8 +48,13 @@ Object read/mutate and history route to the objects catalog, placement and event
 |  [03]   | `DirectionGripUserInterfaceObject` | class                            | axis-constrained grip-widget variant                         |
 |  [04]   | `RotationGripUserInterfaceObject`  | class                            | rotation grip-widget variant                                 |
 |  [05]   | `TextDotUserInterfaceObject`       | class, `UserInterfaceObjectBase` | on-canvas text-dot widget                                    |
-|  [06]   | `ViewUserInterfaceTable`           | sealed table                     | per-document widget registration via `doc.ViewUserInterface` |
-|  [07]   | `GripUserInterfaceObjectShape`     | enum                             | grip-widget glyph vocabulary                                 |
+|  [06]   | `UserInterfaceControl`             | class, `UserInterfaceObjectBase` | placed SVG/text control with alignment and tracking point    |
+|  [07]   | `UserInterfaceSlider`              | class, `UserInterfaceControl`    | ranged value control with precision and value-changed event  |
+|  [08]   | `MouseState`                       | picked interaction state         | button, frustum ray, view, and geometry hit tests            |
+|  [09]   | `ViewUserInterfaceTable`           | sealed table                     | per-document widget registration via `doc.ViewUserInterface` |
+|  [10]   | `GripUserInterfaceObjectShape`     | enum                             | grip-widget glyph vocabulary                                 |
+|  [11]   | `ControlHorizontalAlignment`       | enum                             | control horizontal placement axis                            |
+|  [12]   | `ControlVerticalAlignment`         | enum                             | control vertical placement axis                              |
 
 [ENUM_ROSTERS]:
 - `public enum Rhino.UI.GripUserInterfaceObjectShape` — `Circle = 0`, `Square = 1`, `Triangle = 2`, `X = 3`.
@@ -111,10 +118,20 @@ Object read/mutate and history route to the objects catalog, placement and event
 - `Rhino.UI.GripUserInterfaceObject.GripUserInterfaceObject()` (protected) / `OnDrag(Point3d newLocation, MouseState mouse) : void` (protected virtual) — the widgets are derivation surfaces too: the drag channel is a protected virtual, and `Rhino.UI.RotationGripUserInterfaceObject.OnRotationDrag(double angle, MouseState mouse) : void` (protected virtual) defaults to rotating the plane about its Z axis.
 - `Rhino.UI.TextDotUserInterfaceObject.TextDotUserInterfaceObject(Point3d location, string text)` — text-dot widget; `Text : string` / `TextColor : Color` / `TextHeight : int` / `MouseOverTextHeight : int` / `DotBackgroundColor : Color` / `DotBorderColor : Color` (all get/set).
 
+[CONTROL_WIDGETS]:
+- `Rhino.UI.UserInterfaceControl.UserInterfaceControl(System.Drawing.Point location, System.Drawing.Size size)` — the one accessible constructor is PROTECTED, so the control family enters only by derivation; the parameterless sibling is internal.
+- `Rhino.UI.UserInterfaceControl.SetSvg(string svg) : void` / `Text : string` — the two content channels; both re-push to native on write.
+- `Rhino.UI.UserInterfaceControl.Location : PointF` / `Size : SizeF` / `HorizontalAlignment : ControlHorizontalAlignment` / `VerticalAlignment : ControlVerticalAlignment` / `TrackingPoint : Point3d?` — placement in screen space, alignment within it, and an optional world point the control tracks; a null `TrackingPoint` leaves the control screen-anchored.
+- `Rhino.UI.UserInterfaceControl.ComputedRectangle(RhinoView view, bool logicalPixels) : RectangleF` — the resolved on-screen rectangle in logical or device pixels, the only hit-region read the control publishes.
+- `Rhino.UI.UserInterfaceSlider` declares NO constructor, so its implicit public parameterless form is the ingress and a subclass chains it; every field is a plain settable with a host default: `HorizontalOrientation : bool` (true), `Range : Interval` (`0..1`), `Value : double` (0.5), `DisplayValue : bool` (true), `DigitPrecision : int` (3), `AllowValueBeforeRangeStart : bool` (false), `AllowValueAfterRangeEnd : bool` (false) — a boundary default restating one is a forged value.
+- `Rhino.UI.UserInterfaceSlider.ValueChanged : EventHandler` / `OnValueChanged() : void` (protected virtual) / `ValueAsFormattedString() : string` — the change event, its override seam, and the precision-formatted render.
+
 [WIDGET_BASE_AND_REGISTRATION]:
 - `Rhino.UI.UserInterfaceObjectBase` (abstract) — `Visible : bool` (get/set; invisible widgets neither draw nor receive mouse events) / `BoundToActiveView : bool` (get/set) / `RegisterForAllDocuments() : bool` / `Unregister() : void` / `IsRegistered() : bool` — visibility and the all-documents registration path.
 - `Rhino.UI.UserInterfaceObjectBase` protected virtuals — `OnDraw(DrawEventArgs) : void`, `IsMouseOver(MouseState) : bool`, `OnMouseDown` / `OnMouseUp` / `OnMouseMove` / `OnMouseEnter` / `OnMouseLeave` / `OnMouseClick` / `OnMouseDoubleClick(MouseState) : void` — the widget mouse and draw hook roster; the drag callback fires only on `GripUserInterfaceObject`.
+- `Rhino.UI.MouseState` — `Button : MouseButton` / `FrustumLine : Line` / `View : RhinoView` reads the picked state, and `IsMouseOver(Curve, out double t) : bool` / `IsMouseOver(Line) : bool` hit-test a geometry carrier against it; the state is handed into every widget mouse hook and never minted by a consumer.
 - `Rhino.DocObjects.Tables.ViewUserInterfaceTable` (`RhinoDoc.ViewUserInterface`) — `Add(UserInterfaceObjectBase) : bool` / `Add(UserInterfaceObjectBase, Guid userInterfaceGroupId) : bool` / `Remove(UserInterfaceObjectBase) : int` / `Remove(IEnumerable<UserInterfaceObjectBase>) : int` / `RemoveByGroupId(Guid) : int` / `Find<T>() : T[] where T : UserInterfaceObjectBase` / `Document : RhinoDoc` — the per-document widget registration table.
+- The two registration paths are exclusive per widget: `RegisterForAllDocuments`/`Unregister` seats it across every document, `ViewUserInterfaceTable.Add`/`Remove` seats it in one — a widget registered both ways draws twice and retires once.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -123,11 +140,13 @@ Object read/mutate and history route to the objects catalog, placement and event
 - grips register the same way: `RegisterGripsEnabler` binds an enabler keyed on the grips type's own `[Guid]`, `NewGeometry` fires once at drag end returning geometry as a pure function of grip positions, and the instance `GripsMoved`/`NewLocation` flags and the static `Dragging()` probe gate temp-display rebuilds.
 - `GripObject` needs no subclassing — its move, weight, and parameter reads are value-shaped edits of an existing grip resolved from `RhinoObject.GetGrips` in the objects catalog.
 - grip widgets are constructed carriers AND derivation surfaces: visual state, constraints, and snap targets are plain values, while the drag channel (`OnDrag`/`OnRotationDrag`) and the base mouse roster are protected virtuals a thin shim forwards to a value program; registration rides the document `ViewUserInterfaceTable`.
+- the control family inverts that balance: `UserInterfaceControl`'s only accessible constructor is protected, so placement, SVG, text, alignment, and tracking point are set through a derived shim rather than on a constructed instance, and `UserInterfaceSlider` adds its own settable band with host defaults a shim overwrites only where the domain has a value.
 
 [STACKING]:
 - `LanguageExt.Core`(`libs/csharp/.api/api-languageext.md`): each override hook returns `Fin<Unit>` or `Fin<A>` so a custom-object program is a total record of result-returning delegates; grip topology reads fold to `Option<GripObject>` and `Seq<A>`, and the disposable `CustomObjectGrips` rides a leased using-scope.
 - `Thinktecture.Runtime.Extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): the grip-widget shape vocabulary wraps as a keyed `SmartEnum`; draw marks, transform policies, and the four custom-object geometry kinds collapse into generated unions owning total dispatch inside the override program.
 - `Rasm` kernel: grip frames, CV parameters, widget constraint geometry, and rebuilt custom geometry compose the kernel numeric owners; the override program is an immutable value unit-tested off the host before any registration.
+- `api-rhino-ui.md`: that catalog owns panel, page, dialog, gumball, mouse-callback, status, toolbar, resource, and locale surface and REGISTERS this one for every in-viewport widget type; a widget's `OnDraw` receives the `DrawEventArgs` and `DisplayPipeline` `api-rhinocommon-display.md` owns, so a widget is a pipeline participant, never a private renderer.
 
 [LOCAL_ADMISSION]:
 - subclassing enters only at the registration boundary: one thin adapter per custom kind stamped with `ClassIdAttribute`, one enabler per custom-grips type through `RegisterGripsEnabler`; no derivation owns state or a dispatch table.
@@ -135,7 +154,7 @@ Object read/mutate and history route to the objects catalog, placement and event
 - grip editing and grip widgets are admitted as value owners; a live `GripObject` resolves from the owning object inside its document grant and never leases outward.
 
 [RAIL_LAW]:
-- Surface: `Rhino.DocObjects.Custom` authoring, `Rhino.DocObjects.GripObject` editing, and `Rhino.UI` grip widgets
-- Owns: custom-object registration and the virtual override program, grip-set authoring and rebuild, the grip edit surface, and on-canvas grip widgets.
-- Accept: registration shims over immutable override programs, value-shaped grip edits, and constrained grip widgets projected onto `Fin`/`Option` rails.
-- Reject: a second host-derived base owning state or dispatch, domain logic inside a subclass, and live custom objects or grips crossing the session boundary.
+- Surface: `Rhino.DocObjects.Custom` authoring, `Rhino.DocObjects.GripObject` editing, and the whole `Rhino.UI` in-viewport widget family
+- Owns: custom-object registration and the virtual override program, grip-set authoring and rebuild, the grip edit surface, and every in-viewport widget — grip, direction, rotation, text-dot, control, and slider — with `MouseState` and the `ViewUserInterfaceTable` registration path.
+- Accept: registration shims over immutable override programs, value-shaped grip edits, constrained grip widgets and placed controls projected onto `Fin`/`Option` rails, and exactly one registration path per widget.
+- Reject: a second host-derived base owning state or dispatch, domain logic inside a subclass, a widget registered on both the all-documents and per-document paths, a boundary default restating a host slider default, and live custom objects, grips, or `MouseState` crossing the session boundary.

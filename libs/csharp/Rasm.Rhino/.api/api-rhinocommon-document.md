@@ -19,7 +19,7 @@
 | [INDEX] | [SYMBOL]               | [KIND] | [CAPABILITY]                                                                     |
 | :-----: | :--------------------- | :----- | :------------------------------------------------------------------------------- |
 |  [01]   | `RhinoDoc`             | class  | live/headless document root owning tables, units, tolerances, undo, events       |
-|  [02]   | `ModelComponent`       | class  | base of every table component; carries the component identity                    |
+|  [02]   | `ModelComponent`       | class  | base of every table component; `: CommonObject : IDisposable`, so a minted row leases |
 |  [03]   | `ModelComponentType`   | enum   | component-kind discriminant shared across every table                            |
 |  [04]   | `UnitSystem`           | enum   | model and page unit-system vocabulary                                            |
 |  [05]   | `LengthUnit`           | struct | known + custom length-unit carrier behind `ModelUnits`/`PageUnits`               |
@@ -74,9 +74,20 @@
 
 [PUBLIC_TYPE_SCOPE]: event and undo carriers
 - `DocumentOpenEventArgs` / `DocumentSaveEventArgs` / `DocumentEventArgs` — lifecycle open, save, and document-scope payloads
-- `UnitsChangedWithScalingEventArgs` / `WorksessionFileChangedEventArgs` — unit-scale and worksession-file-change payloads
+- `UnitsChangedWithScalingEventArgs` — `Scale : double` beside the document serial
+- `RhinoDoc.WorksessionFileChangedEventArgs` — `Document : RhinoDoc` / `WorksessionModelRuntimeSerialNumber : uint` (`[CLSCompliant(false)]`, not persistent across sessions) / `FilePath : string` / `ChangeKind : RhinoDoc.WorksessionFileChangeKind`; at notification the document state ALREADY reflects the change, so an attached model's rows are present and a detached model's are purged
+- `RhinoDoc.WorksessionFileChangeKind` — nested enum, full roster `Attached` / `Detached` / `BeforeDetach`; `BeforeDetach` is the one pre-purge window where the reference content is still readable
 - `RhinoObjectEventArgs` / `RhinoReplaceObjectEventArgs` / `RhinoModifyObjectAttributesEventArgs` — object add, delete, replace, and attribute payloads
-- `RhinoTransformObjectsEventArgs` / `RhinoAfterTransformObjectsEventArgs` — before and after transform payloads
+- `RhinoTransformObjectsEventArgs` — `TransformEventId : uint` (`[CLSCompliant(false)]`) / `Transform : Transform` / `ObjectsWillBeCopied : bool` / `ObjectCount` / `GripCount` / `GripOwnerCount : int` / `Objects : RhinoObject[]` / `Grips : GripObject[]` / `GripOwners : RhinoObject[]`; the arrays are lazily built and the host warns the objects may be deleted any time after notification, so a subscriber keeps runtime serial numbers, never the handles
+- `RhinoAfterTransformObjectsEventArgs` — `TransformEventId : uint` (`[CLSCompliant(false)]`) and NOTHING else; the closing side carries no object, grip, or grip-owner roster, so the pair correlates on the shared `TransformEventId` alone and a consumer wanting the moved set reads it from the opening arm
+- `Rhino.Display.DisplayModeChangedEventArgs` — `Viewport : RhinoViewport` / `RhinoDoc : RhinoDoc` / `OldDisplayModeId` / `ChangedDisplayModeId : Guid`
+- `Rhino.Display.ViewEventArgs` — `View : RhinoView`; `RhinoView.RuntimeSerialNumber : uint` / `MainViewport : RhinoViewport` / `Document : RhinoDoc`, and `RhinoViewport.ParentView : RhinoView` closes the reverse hop
+- `RhinoDoc.TextureMappingEventArgs` — `Document : RhinoDoc` / `EventType : RhinoDoc.TextureMappingEventType` / `NewMapping` / `OldMapping : TextureMapping`; the ctor assigns the OLD pointer from the NEW one, so both properties wrap ONE native mapping and `OldMapping` carries no prior state — read `NewMapping` alone
+- `RhinoDoc.TextureMappingEventType` — nested enum, full roster `Added` / `Deleted` / `Undeleted` / `Modified`
+- `RhinoDoc.RenderContentTableEventArgs` — `Document : RhinoDoc` / `EventType : RhinoDoc.RenderContentTableEventType`
+- `RhinoDoc.RenderContentTableEventType` — nested enum, full roster `Loaded` / `Clearing` / `Cleared` / `MaterialAssignmentChanged`
+- `RhinoDoc.RenderMaterialAssignmentChangedEventArgs : RenderContentTableEventArgs` — `LayerId` / `ObjectId` / `OldRenderMaterial` / `NewRenderMaterial : Guid` with `IsLayer` / `IsObject : bool` derived as `LayerId != Guid.Empty` / `ObjectId != Guid.Empty`, so both false means neither target and both true is unreachable
+- `ModelComponent.DeletedName : string` — the name a deleted row retains, since `Name` reads empty once `IsDeleted` holds
 - `LayerTableEventArgs` / `MaterialTableEventArgs` / `GroupTableEventArgs` — core table-mutation payloads
 - `InstanceDefinitionTableEventArgs` / `SectionStyleTableEventArgs` / `MarkupTableEventArgs` / `PageViewGroupTableEventArgs` — definition, section-style, markup, and page-group table payloads
 - `LightTableEventArgs` — `Document : RhinoDoc` / `EventType : LightTableEventType` / `LightIndex : int` / `OldState : Light` / `NewState : LightObject`; the prior state is a bare `Light` while the current lazily resolves `Document.Lights[LightIndex]` as a `LightObject`, so the two sides never share a `ModelComponent` shape
@@ -200,6 +211,35 @@
 - `NamedPositionTable.Delete(string name) : bool` / `Rename(string oldName, string name) : bool` / `Append(string name, IEnumerable<Guid> objectIds) : bool` / `Names : string[]`
 - `RestoreLayerProperties` — carries the host restore-scope flags `NamedLayerStateTable.Restore` consumes
 
+[ENTRYPOINT_SCOPE]: layer table
+- `LayerTable : RhinoDocCommonTable<Layer>, ICollection<Layer>` — enumerable, so LanguageExt lifts it directly; `Count : int` spans deleted rows while `ActiveCount : int` excludes them
+- `LayerTable.Add(Layer layer) : int` / `Add() : int` / `Add(string layerName, Color layerColor) : int` / `AddReferenceLayer(Layer)` / `AddReferenceLayer() : int` — the table COPIES its argument, so a caller-minted `Layer` is disposed by the caller
+- `LayerTable.AddPath(string layerPath) : int` / `AddPath(string layerPath, Color layerColor) : int` — creates every missing ancestor in one call
+- `LayerTable.CreateLayer(Layer newLayer, LayerType layerType, uint worksessionReferenceModelSerialNumber, uint linkedInstanceDefinitionSerialNumber) : int` — the reference-provenance form behind `Add`
+- `LayerTable.Modify(Layer newSettings, int layerIndex, bool quiet) : bool` / `Modify(Layer newSettings, Guid layerId, bool quiet) : bool` — whole-row replace from a staged copy; there is no per-field write path
+- `LayerTable.Delete(int layerIndex, bool quiet) : bool` / `Delete(Guid layerId, bool quiet)` / `Delete(Layer, bool quiet)` / `Delete(IEnumerable<int> layerIndices, bool quiet) : int` / `Undelete(int layerIndex) : bool`
+- `LayerTable.Purge(int layerIndex, bool quiet) : bool` / `Purge(Guid layerId, bool quiet) : bool` / `PurgeUnused() : int`
+- `LayerTable.FindIndex(int index) : Layer` / `FindName(string layerName[, int startIndex]) : Layer` / `FindNameHash(NameHash) : Layer` — row reads; the returned `Layer` is table-backed, never caller-owned
+- `LayerTable.Find(Guid layerId, bool ignoreDeletedLayers[, int notFoundReturnValue]) : int` / `Find(Guid parentId, string layerName, ...) : int` / `FindNext(int index, string layerName, bool ignoreDeletedLayers) : int`
+- `LayerTable.CurrentLayer : Layer` / `CurrentLayerIndex : int` / `SetCurrentLayerIndex(int layerIndex, bool quiet) : bool` — `CurrentLayer` MINTS a fresh doc-backed wrapper per read
+- `LayerTable.ForceLayerVisible(Guid layerId) : bool` / `ForceLayerVisible(int layerIndex) : bool` — turns on the layer and every ancestor
+- `LayerTable.UndoModify(int layerIndex[, uint undoRecordSerialNumber]) : bool` / `UndoModify(Guid layerId[, uint undoRecordSerialNumber]) : bool`
+- `LayerTable.SortByLayerName(bool bAscending) : void` / `Sort(IEnumerable<int> layerIndices) : void` / `GetSorted() : int[]` — explicit sort takes a complete permutation
+- `LayerTable.Duplicate(int layerIndex, bool duplicateObjects, bool duplicateSublayers) : int[]` / `Duplicate(IEnumerable<int>, bool, bool) : int[]`
+- `LayerTable.GetSelected(out List<int> layerIndices) : bool` / `Select(IEnumerable<int> layerIndices, bool bDeselect) : bool` / `GetUnusedLayerName([bool ignoreDeleted]) : string`
+
+[ENTRYPOINT_SCOPE]: layer row state and path grammar
+- `Layer : ModelComponent, IEquatable<Layer>` — inherits `IDisposable` through `CommonObject`; `new Layer()` mints an unowned row a caller disposes, `GetDefaultLayerProperties() : Layer` seeds one from host defaults, `CopyAttributesFrom(Layer otherLayer) : void` fills one from a live row
+- `Layer.Name` / `FullPath : string` / `LayerIndex : int` / `Id` / `ParentLayerId : Guid` / `SortIndex` / `IgesLevel` / `LinetypeIndex` / `RenderMaterialIndex` / `SectionStyleIndex : int` / `Description : string`
+- `Layer.Color` / `PlotColor : Color` / `PlotWeight : double` / `IsVisible` / `IsLocked` / `IsExpanded` / `IsCurrent` / `IsReference` / `IsDeleted` / `IsReferenceParentLayer` / `IsVisibleInUserInterface : bool`
+- `Layer.PathSeparator : string` (static) / `IsValidName(string name) : bool` (static) / `GetLeafName(string fullPath)` / `GetParentName(string fullPath) : string` (static, also `Layer`-taking overloads) — the whole path grammar; a consumer never re-derives separator arithmetic
+- `Layer.HasPerViewportSettings(Guid viewportId) : bool` — the ONE probe proving a viewport carries overrides; the host publishes no roster of override-bearing viewports, so an unprobed viewport is absent evidence and every per-detail read is probe-parameterized
+- `Layer.PerViewportColor(Guid)` / `PerViewportPlotColor(Guid) : Color` / `PerViewportPlotWeight(Guid) : double` / `PerViewportIsVisible(Guid)` / `PerViewportPersistentVisibility(Guid) : bool` — the readers matching the five `Set*` writers below; `PerViewportIsVisibleInNewDetails : bool` is the document-wide default for details not yet created
+- `Layer.GetPersistentVisibility()` / `GetPersistentLocking() : bool` with `SetPersistentVisibility(bool)` / `SetPersistentLocking(bool)` / `UnsetPersistentVisibility()` / `UnsetPersistentLocking()` — three-state persistence, where unset restores inheritance rather than writing a value
+- `Layer.ParentLayer(bool rootLevelParent) : Layer` / `GetChildren([bool allChildren]) : Layer[]` / `IsChildOf(Guid otherlayerId)` / `IsParentOf(Guid otherLayer) : bool` (also index- and `Layer`-taking overloads) — the host misspells `otherlayerId` on the `Guid` child probe
+- `Layer.GetCustomSectionStyle() : SectionStyle` / `SetCustomSectionStyle(SectionStyle)` / `RemoveCustomSectionStyle()` — the custom axis, independent of `SectionStyleIndex`
+- `Layer.HasSelectedObjects(bool checkSubObjects) : bool` / `CommitChanges() : bool` / `Default() : void`; the user-string family is `SetUserString` / `GetUserString` / `GetUserStrings` / `DeleteUserString` / `DeleteAllUserStrings` / `UserStringCount`
+
 [ENTRYPOINT_SCOPE]: per-viewport layer overrides and clipping planes
 - `Layer.SetPerViewportColor(Guid viewportId, Color color)` / `DeletePerViewportColor(Guid viewportId)`
 - `Layer.SetPerViewportVisible(Guid viewportId, bool visible)` / `DeletePerViewportVisible(Guid viewportId)`
@@ -207,10 +247,10 @@
 - `Layer.SetPerViewportPlotColor(Guid viewportId, Color color)` / `DeletePerViewportPlotColor(Guid viewportId)`
 - `Layer.SetPerViewportPlotWeight(Guid viewportId, double plotWeight)` / `DeletePerViewportPlotWeight(Guid viewportId)` / `DeletePerViewportSettings(Guid viewportId)`
 - `LayerTable.FindByFullPath(string layerPath, int notFoundReturnValue) : int` / indexer `this[int index] : Layer`
-- `ObjectTable.AddClippingPlane(Plane plane, double uMagnitude, double vMagnitude, IEnumerable<Guid> clippedViewportIds, ObjectAttributes attributes) : Guid`
-- `ObjectTable.FindClippingPlanesForViewport(RhinoViewport viewport) : ClippingPlaneObject[]`
-- `ClippingPlaneObject.AddClipViewport(RhinoViewport viewport, bool commit) : bool` / `RemoveClipViewport(RhinoViewport viewport, bool commit) : bool` / `ClippingPlaneGeometry`
-- `ClippingPlaneSurface.ViewportIds() : Guid[]` / `SetClipParticipation(IEnumerable<Guid> objectIds, IEnumerable<int> layerIndices, bool isExclusionList)`
+- `ObjectTable.AddClippingPlane(Plane plane, double uMagnitude, double vMagnitude, Guid clippedViewportId | IEnumerable<Guid> clippedViewportIds [, ObjectAttributes attributes]) : Guid` — returns `Guid.Empty` on a null or empty viewport set
+- `ObjectTable.FindClippingPlanesForViewport(RhinoViewport viewport) : ClippingPlaneObject[]` — filters `FindByObjectType(ObjectType.ClipPlane)` by `ViewportIds()` membership
+- `ClippingPlaneObject.AddClipViewport(RhinoViewport viewport, bool commit) : bool` / `RemoveClipViewport(RhinoViewport viewport, bool commit) : bool` / `ClippingPlaneGeometry : ClippingPlaneSurface`
+- `ClippingPlaneSurface : PlaneSurface` — `PlaneDepth : double`, `PlaneDepthEnabled : bool`, `ParticipationListsEnabled : bool`, `DimensionStyleId : Guid`, `ViewportIds() : Guid[]`, `AddClipViewportId(Guid) : bool`, `RemoveClipViewportId(Guid) : bool`, `SetClipParticipation(IEnumerable<Guid> objectIds, IEnumerable<int> layerIndices, bool isExclusionList) : void`, `GetClipParticipation(out IEnumerable<Guid>, out IEnumerable<int>, out bool) : void`, `ClearClipParticipationLists() : void` — the participation writes return `void`, so a caller confirms through `CommitChanges`
 
 [ENTRYPOINT_SCOPE]: light table
 - `LightTable.Add(Light light) : int` / `Add(Light light, ObjectAttributes attributes) : int` — index of the added light, `-1` on failure
@@ -221,6 +261,9 @@
 - `LightTable.Sun : Sun` / `Skylight : Skylight` — RDK-gated accessors throwing `RdkNotLoadedException` when the RDK is absent
 - `LightTable.DefaultLight : LightObject` — fallback light `Rhino` renders with when no document light illuminates the scene
 - `LightTable.ComponentType : ModelComponentType` — `ModelComponentType.RenderLight`; the table enumerates as `IEnumerable<LightObject>`
+
+[ENTRYPOINT_SCOPE]: material row scale
+- `Rhino.DocObjects.Material.MaxShine : double` (static, `255.0`) — the shine ceiling every `DisplayPipelineAttributes` shine axis (`FrontMaterialShine`, `BackMaterialShine`) admits against; `Rhino.Display.DisplayMaterial.Shine` is a DIFFERENT axis running `0.0..1.0`, so one boundary value fanned across both scales is a silent hundredfold error and each carries its own admission
 
 [ENTRYPOINT_SCOPE]: earth anchor and document state
 - `RhinoDoc.EarthAnchorPoint : EarthAnchorPoint` (get/set, disposable) / `Modified : bool` / `Name : string` / `Path : string` / `RenderSettings.Sun : Sun`
@@ -255,8 +298,8 @@
 - one `RhinoDoc` handle keyed by `RuntimeSerialNumber` projects every table; `FromRuntimeSerialNumber` re-resolves that handle inside a host callback where the reference is not carried
 - live and headless documents expose one identical table, event, and undo surface; `IsHeadless` is the only discriminant a consumer branches on
 - every table component is a `ModelComponent` keyed by `ModelComponentType`; the owning table mutates, and the component never writes itself back
-- structural change is delivered through the object, table, and lifecycle event families; a `BeforeTransformObjects`/`AfterTransformObjects` pair brackets a transform the same way a table event brackets a table edit
-- undo is a bracketed record between `BeginUndoRecord` and `EndUndoRecord`, and `AddCustomUndoEvent` folds non-geometry state into that same record
+- structural change is delivered through the object, table, and lifecycle event families; a `BeforeTransformObjects`/`AfterTransformObjects` pair brackets a transform the way a table event brackets a table edit, and the shared `TransformEventId` is the pair's ONLY correlation — the closing side carries no document, no objects, and no grips, so a consumer that needs either resolves them from the opening side keyed on that id
+- undo is a bracketed record between `BeginUndoRecord` and `EndUndoRecord`, and `AddCustomUndoEvent` folds non-geometry state into that same record; there is no remove counterpart, so the document retains the handler, its captured graph, and its `object tag` until `ClearUndoRecords`, and a handler capturing live host state outlives the commit that minted it
 
 [STACKING]:
 - `LanguageExt`(`libs/csharp/.api/api-languageext.md`): the out-`bool` and out-parameter table lookups fold to `Fin<A>`/`Option<A>`, and a multi-object mutation batch accumulates failures through `Validation<Error, A>` where a single edit short-circuits on `Fin`

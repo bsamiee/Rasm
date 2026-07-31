@@ -78,7 +78,7 @@ Doppler is the canonical store in the generate → store → inject rail; `effec
 | :-----: | :--------------------------- | :--------------------------------- | :------------------------------------------------------------ |
 |  [01]   | `Secret.value` (secret)      | `@pulumi/random` / `@pulumi/tls`   | `pulumi.secret(`.result`/`.privateKeyPem`)` → canonical store |
 |  [02]   | bootstrap + `Provider`       | `Config.redacted` + `Layer.effect` | `DOPPLER_TOKEN` via `Config`; provider as a `Layer`           |
-|  [03]   | `ServiceToken.key`           | `security/secret` (`doppler run`)  | env injection at the process boundary; never imported         |
+|  [03]   | `ServiceToken.key`           | `security/crypt/secret` (`doppler run`) | env injection at the process boundary; never imported         |
 |  [04]   | `getSecrets(config).map`     | `Schema.decodeUnknown(AppSecrets)` | whole-config read → typed app config                          |
 |  [05]   | `secretssync.<Target>`       | external stores (AWS/CI/Fly)       | mirror the canonical config outward; one pair per target      |
 |  [06]   | `Secret.computed` (`${ref}`) | `interpolate` / `Output` graph     | referenced/composed secrets resolve server-side               |

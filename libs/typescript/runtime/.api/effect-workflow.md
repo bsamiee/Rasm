@@ -15,7 +15,7 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: `Workflow` + `Activity` definitions — Schema-typed durable computations
-- A `Workflow` and its `Activity` steps carry closed payload/success/error `Schema`s under the decode-once law of `store/journal`; an `Activity` IS an `Effect`.
+- A `Workflow` and its `Activity` steps carry closed payload/success/error `Schema`s under the decode-once law of `journal/append`; an `Activity` IS an `Effect`.
 
 | [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY] | [CAPABILITY]                                                     |
 | :-----: | :------------------------------------------------- | :------------ | :--------------------------------------------------------------- |

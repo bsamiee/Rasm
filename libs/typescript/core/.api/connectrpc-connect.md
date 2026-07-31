@@ -65,7 +65,7 @@
 
 [ENTRYPOINT_SCOPE]: the `./protocol` kit — a custom Effect-native transport
 - rail: interchange/invoke
-- `./protocol` assembles a fully `Effect`-owned `Transport` over `@effect/platform` `HttpClient` instead of the fetch-bound `connect-web` factories, inheriting the `host/net` client policy.
+- `./protocol` assembles a fully `Effect`-owned `Transport` over `@effect/platform` `HttpClient` instead of the fetch-bound `connect-web` factories, inheriting the `net/client` client policy.
 
 | [INDEX] | [SURFACE]                          | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                 |
 | :-----: | :--------------------------------- | :------------- | :-------------------------------------------------- |
@@ -104,7 +104,7 @@
 - `value/fault` + `effect` `Schedule` (`.api/effect.md`): `Effect.retry(Schedule)` retries only on retryable `Code` (`Unavailable`/`DeadlineExceeded`/`Aborted`/`ResourceExhausted`), discriminated over `ConnectError.code` by `Match.exhaustive`; `CallOptions.timeoutMs` and `createDeadlineSignal` carry the per-call deadline.
 - `effect` interruption: `CallOptions.signal` is the running fiber's `AbortSignal`, so a scope close or race loss aborts the in-flight RPC with `Code.Canceled`.
 - `@effect/opentelemetry` (`.api/effect-opentelemetry.md`): an `Interceptor` reads the active span via `Tracer.currentOtelSpan` and writes `traceparent` into `req.header` on egress, `ContextValues` carrying the tenant/HLC it annotates — W3C propagation without a call-site change.
-- `@effect/platform` `HttpClient` (`.api/effect-platform.md`): the `./protocol` kit assembles a `Transport` whose body is an `Effect` over the shared `host/net` `HttpClient`, inheriting its retry/proxy/tracing posture instead of a bare `fetch`.
+- `@effect/platform` `HttpClient` (`.api/effect-platform.md`): the `./protocol` kit assembles a `Transport` whose body is an `Effect` over the shared `net/client` `HttpClient`, inheriting its retry/proxy/tracing posture instead of a bare `fetch`.
 
 [RAIL_LAW]:
 - Package: `@connectrpc/connect`

@@ -42,7 +42,7 @@ Identical to `@pulumi/postgresql`'s pattern — the shared Pulumi Terraform-brid
 
 [PUBLIC_TYPE_SCOPE]: capability → gcp resource
 
-Integration shape of the prepared row: the `provider/surface` `gcp` column maps each `store/capability` and `selfhosted-k8s` concern to a named managed-GCP resource. Finalizing the `gcp` target instantiates only this subset with `StackSpec` values; every namespace outside the profile stays dormant.
+Integration shape of the prepared row: the `provider/surface` `gcp` column maps each `lane/capability` and `selfhosted-k8s` concern to a named managed-GCP resource. Finalizing the `gcp` target instantiates only this subset with `StackSpec` values; every namespace outside the profile stays dormant.
 
 | [INDEX] | [SELFHOSTED_K8S_CONCERN]           | [GCP_SERVICE_RESOURCE]                                                          |
 | :-----: | :--------------------------------- | :------------------------------------------------------------------------------ |
@@ -90,7 +90,7 @@ One explicit `Provider` per target project binds every resource in the arm. Cred
 - Every resource is the quadruple: `XArgs` fields are `pulumi.Input<T>`, `X` attributes are `pulumi.Output<T>`, `X.get` adopts, `X.isInstance` brand-checks. Compose cross-resource with `Output.apply`/`pulumi.all`; never read an `Output` synchronously.
 - Replace-on-change fields (region/zone/name on most resources) are `StackSpec` create-time constants, never mutable knobs.
 - One `new gcp.Provider(name, { project, region, zone, credentials })` per target project; every resource passes `{ provider }` in `opts`, and credential mode discriminates by field presence, never a mode enum.
-- Prepared-row worth is the equivalence map, not the resource count: each `store/capability` and `selfhosted-k8s` concern names one `service.Resource`, and a new capability is one more map row, never a structural change.
+- Prepared-row worth is the equivalence map, not the resource count: each `lane/capability` and `selfhosted-k8s` concern names one `service.Resource`, and a new capability is one more map row, never a structural change.
 
 [STACKING]:
 - `pulumi-pulumi.md`(`.api/pulumi-pulumi.md`): the `gcp` arm is a `Layer`-composed inline program run by `LocalWorkspace.createOrSelectStack`; realized `Output`s (Cloud SQL host, GKE endpoint, bucket URL) decode through `Schema` into the `RunReceipt` `StackOutputs` record — the `iac`→`work` `ShardingConfig` crossing.

@@ -1,6 +1,6 @@
 # [TS_SECURITY_API_NODE_RS_ARGON2]
 
-`@node-rs/argon2` owns argon2id credential hashing at rest for `security/sign/crypto`: a NAPI native addon whose async members run the Rust hash off the libuv threadpool under an `AbortSignal`. One `Options` carrier holds the whole cost surface, so a named policy row per credential class replaces call-site knobs, and the PHC string `hash` emits self-describes salt and cost so `verify` needs no options.
+`@node-rs/argon2` owns argon2id credential hashing at rest for `crypt/sign`'s `Crypto`: a NAPI native addon whose async members run the Rust hash off the libuv threadpool under an `AbortSignal`. One `Options` carrier holds the whole cost surface, so a named policy row per credential class replaces call-site knobs, and the PHC string `hash` emits self-describes salt and cost so `verify` needs no options.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,7 +9,7 @@
 - module: CommonJS root entry; the per-platform `.node` loader resolves through the root import, never a deep subpath
 - runtime: node-only — the Rust `argon2` crate ships as a per-target prebuilt addon with a `wasm32-wasi` recovery, which makes `sign/crypto` a node boundary
 - abi: the arch-matched prebuilt resolves at install; a missing or ABI-mismatched binary fails at load, never at typecheck
-- rail: `security/sign` — the credential-digest primitive inside the crypto owner
+- rail: `crypt/sign` — the credential-digest primitive inside the crypto owner
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -53,7 +53,7 @@
 - `@oslojs/encoding`(`.api/oslojs-encoding.md`): `hashRaw` bytes and the `secret` pepper render at rest through `encodeHexLowerCase` and parse back through `decodeHex`; the `hash` PHC string stores verbatim and never re-encodes.
 - `@oslojs/crypto`(`.api/oslojs-crypto.md`): `constantTimeEqual` guards fixed-length token lookup where argon2 is the wrong tool; a stored argon2 digest checks through `verify` alone, so the two never double-wrap.
 - `otplib`(`.api/otplib.md`): recovery and backup codes minted by `generateSecret`/`generateRandomString` take `hash` for digest-at-rest and `verify` for redemption — otplib owns no credential-storage row.
-- `security/sign/crypto` (in-folder owner): argon2 sits beside HMAC signing and the AES-GCM envelope under one owner; `secret/material` derives key material through it, and `authn/apikey` delegates its digest-at-rest, storing the `hash` PHC string prefix-indexed for `byHash` resolution while the plaintext shows once.
+- `crypt/sign`'s `Crypto` (in-folder owner): argon2 sits beside HMAC signing and the AES-GCM envelope under one owner; `secret/material` derives key material through it, and `authn/apikey` delegates its digest-at-rest, storing the `hash` PHC string prefix-indexed for `byHash` resolution while the plaintext shows once.
 
 [LOCAL_ADMISSION]:
 - `Algorithm.Argon2id` with `Version.V0x13` on a named cost `Options` row per credential class fixes both the variant and the cost.

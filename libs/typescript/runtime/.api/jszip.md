@@ -20,7 +20,7 @@
 |  [01]   | `JSZip`                      | interface     | archive tree — `files` map, static `support`/`version`/`external`                      |
 |  [02]   | `JSZip.JSZipObject`          | interface     | entry: `name`, `dir`, `date`, `comment`, `unixPermissions`/`dosPermissions`, `options` |
 |  [03]   | `InputByType`                | interface     | `file` data codomain; `InputByType[K]` selects the input type; alias `JSZip.InputType` |
-|  [04]   | `OutputByType`               | interface     | `generateAsync<T>` codomain; alias `JSZip.OutputType`; Node vs browser/transport arm   |
+|  [04]   | `OutputByType`               | interface     | `generateAsync<T>` codomain; alias `JSZip.OutputType`; Node vs browser arm             |
 |  [05]   | `JSZip.JSZipMetadata`        | interface     | `{ percent, currentFile }` progress payload folded into a `Ref`/`Metric`               |
 |  [06]   | `JSZip.JSZipStreamHelper<T>` | interface     | event source — `on`, `accumulate`, `pause`, `resume`                                   |
 
@@ -70,7 +70,7 @@
 
 [TOPOLOGY]:
 - `file` is one polymorphic method: `(path, data, options?)` adds and returns the tree for chaining, `(path)` fetches one entry or `null`, `(RegExp)` returns matches. `report` folds the artifact list through the add arm and reads through the accessor arm.
-- Output is a type-indexed family: `generateAsync<T>` and `entry.async<T>` narrow through `OutputByType[T]`. `report`'s Node path pins `type: "uint8array"` once; `blob`/`base64` are browser/transport arms of the same call.
+- Output is a type-indexed family: `generateAsync<T>` and `entry.async<T>` narrow through `OutputByType[T]`. `report`'s Node path pins `type: "uint8array"` once; `blob`/`base64` are the `browser/persist` egress arms of the same call.
 - Compression is a policy value: `{ compression: "DEFLATE", compressionOptions: { level } }` per entry or archive-wide, defaulting to `STORE`; `streamFiles: true` generates without holding the whole archive. `pako` is pure-JS, so DEFLATE is CPU-bound and a large archive belongs off the request path.
 - `JSZip`'s tree is mutable and imperative but the seam stays pure: `report` folds it inside `Effect.sync` and crosses to the rail once at `generateAsync`/`loadAsync` via `Effect.tryPromise`; no archive state leaks across the boundary.
 - `unsafeOriginalName` is the zip-slip control: a loaded entry's stored path may carry `..`; the owner resolves every name against a fixed root and rejects an escape before `FileSystem.writeFile`.

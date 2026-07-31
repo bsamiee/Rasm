@@ -138,8 +138,9 @@
 |  [08]   | `LinetypeTable.LoadDefaultLinetypes(bool) -> int`                         | instance | load the built-in set                |
 |  [09]   | `LinetypeTable.SetCurrentLinetypeIndex(int, bool)`                        | instance | set the active linetype              |
 |  [10]   | `LinetypeTable.LinetypeIndexForObject(RhinoObject) -> int`                | instance | resolve an object's effective index  |
-|  [11]   | `LinetypeTable.GetUnusedLinetypeName(bool) -> string`                     | instance | mint an unused name                  |
+|  [11]   | `LinetypeTable.GetUnusedLinetypeName() -> string`                         | instance | mint an unused name                  |
 
+- `GetUnusedLinetypeName(bool ignoreDeleted)` is `[Obsolete]` and its body calls the parameterless form, discarding the argument, so the live spelling carries no deleted-row discriminant.
 [LINETYPE_TABLE_STATE]: `CurrentLinetype` `CurrentLinetypeIndex` `CurrentLinetypeSource` `LinetypeScale` `ActiveCount` — current and active-count state
 [LINETYPE_NAMED_DEFAULTS]: `ContinuousLinetypeName` `ByLayerLinetypeName` `ByParentLinetypeName` — the built-in name anchors
 
@@ -168,6 +169,7 @@
 |  [04]   | `SectionStyle.ReadFromFile(string, out SectionStyle[], out HatchPattern[])` | static   | read styles + referenced patterns  |
 
 - no `Duplicate()` member exists; the copy constructor is the duplicate seed.
+- `SectionStyle` splits the boundary linetype across TWO independent channels: `BoundaryLinetypeIndex` anchors a `LinetypeTable` row, while `GetBoundaryLinetype()`/`SetBoundaryLinetype(Linetype)`/`RemoveBoundaryLinetype()` own an EMBEDDED copy the style holds outright. `GetBoundaryLinetype` reads only the embedded channel, answers `null` when unset, and MINTS a fresh `Linetype` per call, so its result is owned and its `Id` need not resolve in the table.
 [SECTION_FILL]: `BackgroundFillMode` `BackgroundFillColor` `BackgroundFillPrintColor` — cut-face fill
 [SECTION_BOUNDARY]: `BoundaryVisible` `BoundaryColor` `BoundaryPrintColor` `BoundaryWidthScale` `BoundaryPlotWeightMillimeters` `BoundaryLinetypeIndex` — cut-boundary stroke, index through `LinetypeTable`
 [SECTION_HATCH]: `HatchIndex` `HatchScale` `HatchRotationRadians` `HatchPatternColor` `HatchPatternPrintColor` — cut-fill hatch, index through `HatchPatternTable`
@@ -185,6 +187,7 @@
 |  [06]   | `SectionStyleTable.InUse(int, out int, out int, out int) -> bool`                       | instance | usage census before delete       |
 
 - `SectionStyleTable.InUse`: three-way census of definitions, objects, and layers before a delete.
+- `Delete(IEnumerable<int>, bool quiet, int deleteWarning)` reads its third argument as an in-use-warning verdict — `0` refuses every warned row, `1` admits every warned row, `2` asks the operator — and the two-argument overload derives it as `quiet ? 0 : 2`, so a bare literal at a call site re-spells a derivation the host already owns.
 [SECTION_TABLE_STATE]: `GetUnusedSectionStyleName()` `ActiveCount` — name-mint and active-count state
 
 ## [04]-[IMPLEMENTATION_LAW]

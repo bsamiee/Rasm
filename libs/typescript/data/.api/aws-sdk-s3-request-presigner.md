@@ -9,7 +9,7 @@
 - module: ESM/CJS dual, `sideEffects: false`; exports `getSignedUrl`, `presigner`
 - runtime: `runtime:node` mints server-side (holds credentials); the minted URL is consumed anywhere with no SDK
 - backing: `@aws-sdk/signature-v4-multi-region` — the SigV4 / SigV4a multi-region query signer
-- rail: store/object — one presign entry over any `S3Client` + command value
+- rail: object/store — one presign entry over any `S3Client` + command value
 
 ## [02]-[PUBLIC_TYPES]
 

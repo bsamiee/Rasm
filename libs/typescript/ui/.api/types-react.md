@@ -47,7 +47,7 @@
 |  [06]   | `ElementRef<T>` (deprecated → `ComponentRef<T>`) / `LegacyRef<T>` (deprecated)                       | retired ref    |
 
 [CONSUMER_BOUNDARY]:
-- [01]: `view/compose` — lift a wrapped element/component's props + ref-target; supersedes a hand-written interface
+- [01]: `system/primitive` — lift a wrapped element/component's props + ref-target; supersedes a hand-written interface
 - [02]: `act/gesture` + `view` — React `ref` value; `RefObject.current` mutable, `MutableRefObject` the retired alias
 - [03]: `view` — React ref callbacks return a cleanup; `react-aria` `useObjectRef`/`mergeRefs` reconcile these
 - [04]: `forwardRef` render-fn ref param + prop ref-stripping; retired where `ref` is a plain prop
@@ -87,7 +87,7 @@
 - [01]: `SyntheticEvent<T, E>` is the root all event rows extend, carrying `currentTarget`/`nativeEvent`/`preventDefault`
 - [02]: `act/gesture` — pointer/touch rows; `PointerEvent`/`DragEvent`/`WheelEvent` extend `MouseEvent`
 - [03]: `act/gesture` — key + focus rows; `getModifierState(key: ModifierKey)` on `KeyboardEvent`
-- [04]: `view/compose` `FormBinding` — the input/submit handler payloads a `Schema` decode validates
+- [04]: `view/form` `Form.standard` — the input/submit handler payloads a `Schema` decode validates
 - [05]: `act/transition` — `AnimationEvent` fires the CSS-motion end
 - [06]: `TransitionEvent` fires the CSS-motion end; `ToggleEvent` the `<dialog>`/popover state
 - [07]: `EventHandler<E>` types the `on*` props — one bivariant handler, one alias per event row
@@ -105,7 +105,7 @@
 |  [07]   | `FragmentInstance` / `SuspenseListProps` (canary/overlay)                                    | gated upgrade     |
 
 [CONSUMER_BOUNDARY]:
-- [01]: `view/primitive` — the spread target for a `react-aria` `DOMAttributes` bundle; `AllHTMLAttributes` the union
+- [01]: `system/primitive` — the spread target for a `react-aria` `DOMAttributes` bundle; `AllHTMLAttributes` the union
 - [02]: `view` — the `aria-*` prop set `react-aria` populates; `AriaRole` the `role` union
 - [03]: one interface per element extending `HTMLAttributes<T>` — SEED DATA; a new element is a row
 - [04]: every `.tsx` — the tag→props map the compiler resolves; `global.d.ts` makes it ambient
@@ -133,7 +133,7 @@
 - [03]: react-compiler OWNS these — never hand-write in a row; present for library/interop code only
 - [04]: `act/transition` defers work; `useSyncExternalStore` is the external-store subscription `@effect-atom` builds on
 - [05]: `view` — unwrap a promise (suspends) or context in render/loops; the `Result`-atom async seam
-- [06]: `view/compose` `FormBinding` — server-action pending/error + optimistic UI; pairs `react-dom` `useFormStatus`
+- [06]: `view/form` submit trip — server-action pending/error + optimistic UI; pairs `react-dom` `useFormStatus`
 - [07]: `act/transition` — behind a capability flag; import from `./canary`/`./experimental`
 
 [ENTRYPOINT_SCOPE]: the typed factories + exotic components — React makes `ref` a plain prop, so `forwardRef` is soft-deprecated and a new row takes `ref` in props; JSX (automatic runtime `./jsx-runtime`) is the normal element-construction path and `createElement` the escape hatch.
@@ -170,9 +170,9 @@
 - `@types/react-dom` (`.api/types-react-dom.md`): declares `@types/react` as its peer and shares `ReactNode`/`ReactElement`/`Ref`/`Container`; `createPortal`'s result is a `ReactPortal`, and `flushSync` forces the commit `act/transition` and `react-aria` `FocusScope` depend on; the DOM renderer types over these element types.
 - `react-aria` / `react-stately` (`.api/react-aria.md`, `.api/react-stately.md`): every `use<Widget>` hook returns a record of `DOMAttributes`/`HTMLAttributes` bundles a `view` row spreads onto a JSX element, consuming `Ref<T>` and emitting the `aria-*`/`role`/event props typed here; `react-aria` is the behavior over this type vocabulary, the types the DOM contract it targets.
 - `@effect-atom/atom-react` (`.api/effect-atom-atom-react.md`): the hooks build on `useSyncExternalStore` and integrate `Suspense`/`use`/`startTransition`, and `useAtomValue`'s selector overload replaces the `useMemo`-over-selector idiom so the memo hooks stay compiler-owned; the atom is the store, these types the render projection.
-- `class-variance-authority` (`.api/class-variance-authority.md`): `VariantProps<typeof cva>` lifts the variant axes into a component's prop type, intersected with `ComponentProps<T>` and `PropsWithChildren` — the three-way prop composition that is a `view/compose` row's typed surface.
+- `class-variance-authority` (`.api/class-variance-authority.md`): `VariantProps<typeof cva>` lifts the variant axes into a component's prop type, intersected with `ComponentProps<T>` and `PropsWithChildren` — the three-way prop composition that is a `system/primitive` row's typed surface.
 - `effect` `Schema` (`libs/typescript/.api/effect.md`): a `Schema.standardSchemaV1` decoder validates form input and its `ParseError` projects into the `react-aria` `ValidationResult`; `useActionState`'s payload and `ChangeEvent` target type against the decoded value, so one `Schema` owns wire decode and live field validity. Renderable `Schema` output crosses into the tree only as `ReactNode`.
-- `cmdk` / `@radix-ui/*` / `@floating-ui/react` / `@tanstack/react-*` (sibling `.api/*.md`): every third-party React component is typed through `ComponentProps`/`ComponentPropsWithRef`/`ExoticComponent` and returns `ReactNode` — a `view/compose` row wraps them by lifting their props, never re-declaring them.
+- `cmdk` / `@radix-ui/*` / `@floating-ui/react` / `@tanstack/react-*` (sibling `.api/*.md`): every third-party React component is typed through `ComponentProps`/`ComponentPropsWithRef`/`ExoticComponent` and returns `ReactNode` — a `view` row wraps them by lifting their props, never re-declaring them.
 - `view`/`act`/`token` (within-lib): every row types its props with `ComponentPropsWithRef` + `PropsWithChildren` + `VariantProps`, its `on*` handlers with the `EventHandler` aliases, and its `style` with `CSSProperties`.
 
 [LOCAL_ADMISSION]:

@@ -71,6 +71,9 @@
 |  [02]   | `writer.addWorksheet(name).addRow(row).commit()` | instance | row sink; each row leaves memory    |
 |  [03]   | `writer.commit() -> Promise<void>`               | instance | release; flush strings, styles, zip |
 |  [04]   | `new stream.xlsx.WorkbookReader(input, options)` | ctor     | async-iterate a huge xlsx           |
+|  [05]   | `reader.name` / `reader.id` / `reader.state`     | property | declared sheet coordinate per read  |
+
+- `WorksheetReader` assigns `id`, `name`, and `state` at runtime and declares none of them: the constructor seats `id` from the zip path with `name` as a synthesized `Sheet<id>` placeholder, and the workbook-registry match reassigns all three from the sheet row its rel resolves — so a numeric `id` (the registry's parsed `sheetId`) proves the declared name landed while a surviving string leaves only the read ordinal, and the consumer declares the trio in one `declare module "exceljs"` block beside its engine.
 
 [ENTRYPOINT_SCOPE]: worksheet authoring — the `worksheet.*` grid a template drives from a spec; the `workbook.addWorksheet`/`addImage` assembler builds at the workbook level, `columns` declares header/key/width, and `addRow` maps an object by column key.
 

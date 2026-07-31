@@ -15,7 +15,7 @@
 
 [PUBLIC_TYPE_SCOPE]: the client mount types, the root + React error triple — `createRoot`/`hydrateRoot` option and result types fold error handling into the root, `onUncaughtError`/`onCaughtError`/`onRecoverableError` on `RootOptions`/`HydrationOptions` replacing the ad-hoc boundary-only model and `identifierPrefix` scoping `useId`; `ui` never imports `browser`, so these are consumed at the app composition root that boots the tree, not inside a `view` row.
 
-Every row is consumed at app-boot; `react-error-boundary` (sibling `view/primitive`) owns in-tree recovery.
+Every row is consumed at app-boot; `react-error-boundary` (sibling `system/primitive`) owns in-tree recovery.
 
 | [INDEX] | [SYMBOL]                                                                 | [TYPE_FAMILY]     | [CONSUMER]                              |
 | :-----: | :----------------------------------------------------------------------- | :---------------- | :-------------------------------------- |
@@ -29,7 +29,7 @@ Every row is consumed at app-boot; `react-error-boundary` (sibling `view/primiti
 
 | [INDEX] | [SYMBOL]                                                    | [TYPE_FAMILY] | [CONSUMER]                                  |
 | :-----: | :---------------------------------------------------------- | :------------ | :------------------------------------------ |
-|  [01]   | `FormStatus` = `FormStatusPending \| FormStatusNotPending`  | form status   | `view/compose` — `useFormStatus()` return   |
+|  [01]   | `FormStatus` = `FormStatusPending \| FormStatusNotPending`  | form status   | `view/form` — `useFormStatus()` return      |
 |  [02]   | `PreloadOptions` (`as: PreloadAs`) / `PreloadAs`            | preload param | `view`/app — asset hint; `as` discriminates |
 |  [03]   | `PreinitOptions` (`as: PreinitAs`) / `PreinitModuleOptions` | preinit param | `view`/app — eager script/style init        |
 |  [04]   | `PreconnectOptions` (`crossOrigin?`)                        | connect param | app — `preconnect`/`prefetchDNS` hints      |
@@ -62,11 +62,11 @@ Resource hints are one preload space discriminated by `as`; `flushSync` forces t
 
 | [INDEX] | [SURFACE]                                                                           | [ENTRY_FAMILY]   | [CONSUMER]                 |
 | :-----: | :---------------------------------------------------------------------------------- | :--------------- | :------------------------- |
-|  [01]   | `createPortal(children, container: Element \| DocumentFragment, key?): ReactPortal` | portal           | `view/primitive` overlays  |
+|  [01]   | `createPortal(children, container: Element \| DocumentFragment, key?): ReactPortal` | portal           | `view/overlay` portals     |
 |  [02]   | `flushSync<R>(fn: () => R): R`                                                      | sync commit      | `act/transition` commit    |
 |  [03]   | `preload` / `preinit` / `preloadModule` / `preinitModule`                           | resource hint    | `view`/app preload by `as` |
 |  [04]   | `prefetchDNS` / `preconnect`                                                        | origin hint      | `view`/app origin hints    |
-|  [05]   | `useFormStatus(): FormStatus` / `requestFormReset(form: HTMLFormElement)`           | form action      | `view/compose` form        |
+|  [05]   | `useFormStatus(): FormStatus` / `requestFormReset(form: HTMLFormElement)`           | form action      | `view/form` submit         |
 |  [06]   | `unstable_batchedUpdates<A, R>(cb, a)` / `version`                                  | retired/identity | interop; auto-batches      |
 
 [ENTRYPOINT_SCOPE]: the server + static render, one space per runtime target — `renderTo*` streams a live shell and `prerender*` produces static/resumable output, the subpath (`./server.node` vs `./server.edge`) picking the runtime target while the shape stays uniform.
@@ -86,7 +86,7 @@ Every row is consumed at app-ssr (edge for the Web shell); `renderToPipeableStre
 - Three disjoint planes by subpath: `react-dom/client` mounts (`createRoot`/`hydrateRoot` — app boot), `react-dom` is the in-tree DOM API (`createPortal`/`flushSync`/resource-hints/`useFormStatus` — `view` rows), and `react-dom/server`+`react-dom/static` stream SSR/prerender output (app SSR); a `ui` row touches only the middle plane, the mount and the stream app/`browser`-root concerns because `ui` never imports `browser`.
 - `preload`/`preinit`/`preloadModule`/`preinitModule` share ONE preload option shape discriminated by `as` (`PreloadAs`/`PreinitAs`), with `prefetchDNS`/`preconnect` the origin-hint arm; a new asset hint is a call with a different `as`, never a new function family.
 - `renderToPipeableStream` (Node) and `renderToReadableStream` (Web) are ONE render space over different stream primitives, `prerender*`/`resume*` the resumable arm, and the subpath picks the runtime target.
-- `createRoot`/`hydrateRoot` are the only mounts — `ReactDOM.render`/`hydrate`/`unmountComponentAtNode` are removed; error handling is root-level, `onUncaughtError`/`onCaughtError`/`onRecoverableError` on `RootOptions`/`HydrationOptions` the app-wide net while `react-error-boundary` (sibling `view/primitive`) owns in-tree recovery.
+- `createRoot`/`hydrateRoot` are the only mounts — `ReactDOM.render`/`hydrate`/`unmountComponentAtNode` are removed; error handling is root-level, `onUncaughtError`/`onCaughtError`/`onRecoverableError` on `RootOptions`/`HydrationOptions` the app-wide net while `react-error-boundary` (sibling `system/primitive`) owns in-tree recovery.
 - `useFormState` is deprecated → `useActionState` moved to `react` (`.api/types-react.md`); `react-dom` keeps `useFormStatus` (ambient form pending state) and `requestFormReset`, and auto-batching makes `unstable_batchedUpdates` interop-only.
 - `preload`/`preinit` warm assets and React hoists `<title>`/`<meta>`/`<link>` rendered anywhere in the tree, so the viewer's tile/font/model assets are hinted declaratively rather than through a head-manager library.
 

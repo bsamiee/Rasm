@@ -2,7 +2,7 @@
 
 `@floating-ui/react-dom` binds the `@floating-ui/dom` positioning engine to React: one `useFloating` hook projects live geometry into a spread-ready `floatingStyles`, and React-aware middleware factories take `Derivable` options with a `deps` array so reactive positioning recomputes without stale closures.
 
-`view/compose` reaches this package directly only for interaction-free anchoring — a static positioned badge, a measured non-dismissible label; anything dismissible, focus-trapped, or portaled composes `@floating-ui/react`.
+`view/overlay` reaches this package directly only for interaction-free anchoring — a static positioned badge, a measured non-dismissible label; anything dismissible, focus-trapped, or portaled composes `@floating-ui/react`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -11,7 +11,7 @@
 - module: ESM + UMD, single `.` entry, `sideEffects: false`
 - runtime: React DOM browser — binds real DOM nodes and emits inline `position`/`transform` styles
 - depends: `@floating-ui/dom` (the framework-agnostic engine wrapped here)
-- rail: position — the geometry layer under the `view/compose` floating-anchor and sheet rows
+- rail: position — the geometry layer under the `view/overlay` floating-anchor and sheet rows
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -77,11 +77,11 @@
 - `Strategy` `'fixed'` escapes `overflow`/`transform`/`contain` clipping ancestors; `'absolute'` positions within the nearest positioned ancestor.
 
 [STACKING]:
-- `@floating-ui/react`(`.api/floating-ui-react.md`): the superset re-exporting this whole surface and adding interaction/focus/portal/tree; a `view/compose` row composes it and drops to `@floating-ui/react-dom` only for interaction-free anchoring where `useClick`/`useDismiss`/`FloatingFocusManager` are dead weight.
-- within-lib: `view/compose` spreads `floatingStyles` onto the float `style` beside the design-token classes — floating-ui owns only `position`/`top`/`left`/`transform`, the token layer owns the visual box; a row also composing react-aria gives react-aria ARIA and dismiss and this engine placement, so one positioner drives each element.
+- `@floating-ui/react`(`.api/floating-ui-react.md`): the superset re-exporting this whole surface and adding interaction/focus/portal/tree; a `view/overlay` row composes it and drops to `@floating-ui/react-dom` only for interaction-free anchoring where `useClick`/`useDismiss`/`FloatingFocusManager` are dead weight.
+- within-lib: `view/overlay` spreads `floatingStyles` onto the float `style` beside the design-token classes — floating-ui owns only `position`/`top`/`left`/`transform`, the token layer owns the visual box; a row also composing react-aria gives react-aria ARIA and dismiss and this engine placement, so one positioner drives each element.
 
 [LOCAL_ADMISSION]:
-- `view/compose` composes `@floating-ui/react`, importing `@floating-ui/react-dom` directly only when the float needs no interaction, focus, portal, or dismiss.
+- `view/overlay` composes `@floating-ui/react`, importing `@floating-ui/react-dom` directly only when the float needs no interaction, focus, portal, or dismiss.
 - Every persistent float supplies `whileElementsMounted: autoUpdate`; a one-shot `computePosition` serves measurement alone, and `open` in options resets `isPositioned` when the float hides.
 
 [RAIL_LAW]:

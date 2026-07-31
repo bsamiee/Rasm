@@ -122,7 +122,7 @@
 |  [06]   | `setConfigProvider` / `setTracer`                    | override policy | `proc/config`/`otel` swap services in the graph            |
 |  [07]   | `setClock` / `setRequestBatching`                    | override policy | testkit `TestClock`; batching under the graph              |
 |  [08]   | `ManagedRuntime.make(layer)`                         | runtime root    | `.runFork`/`.runPromise`/`.dispose`; `LayerMap.make` keyed |
-|  [09]   | `Reloadable.auto(Tag, {...})` / `Reloadable.reload`  | hot reload      | `proc/flag` re-evaluates a provider on a schedule          |
+|  [09]   | `Reloadable.auto(Tag, {...})` / `Reloadable.reload`  | hot reload      | `interchange/contract` gate re-grade; `crypt/sign` ring    |
 
 [ENTRYPOINT_SCOPE]: dispatch — `Match` builder and `Data` closed families
 - rail: surfaces-and-dispatch
@@ -235,7 +235,7 @@
 |  [04]   | `Order.*` / `Equivalence.*` / `Predicate.*`     | comparison   | ordering + `Predicate.and`/`or` refinement algebra |
 |  [05]   | `Equal.equals` / `Hash.hash`                    | comparison   | `Data`-backed structural equality                  |
 |  [06]   | `Cache.make({...})` / `RcMap.make`              | cache / pool | TTL + refcount + `cacheStats` census; `data/lane`  |
-|  [07]   | `KeyedPool.make` / `Pool.make`                  | cache / pool | `net/client` connection pools, `ai` clients        |
+|  [07]   | `KeyedPool.make` / `Pool.make`                  | cache / pool | `lane/cache` origins; `lane/olap` engine pool      |
 |  [08]   | `RateLimiter.make({...})` / `Request.Class`     | rate / batch | `net` API-key limits; request de-duplication       |
 |  [09]   | `RequestResolver.makeBatched`                   | rate / batch | batch requests under one resolver                  |
 |  [10]   | `Encoding.encodeBase64` / `Encoding.decodeHex`  | codec        | `security` byte encodings, `core/interchange`      |

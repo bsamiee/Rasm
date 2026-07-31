@@ -63,7 +63,7 @@
 
 - [01]-[SUSPEND_READ]: reads an atom-suspended value or a context conditionally; a resolved `Effect` promise crosses here at a `view` boundary.
 - [02]-[BOUNDARY]: `viewer/scene/glb` and the geo tier are `lazy` behind `Suspense` — the `scope:viewer` split; skeletons are the recovery.
-- [03]-[TRANSITION]: non-urgent updates for `view/compose` table/filter/route churn; `isPending` drives a pending affordance.
+- [03]-[TRANSITION]: non-urgent updates for `view/table` filter and route churn; `isPending` drives a pending affordance.
 - [04]-[DEFERRAL]: `useDeferredValue` lags a fast-changing value (search box → virtualized `view` list) so typing stays responsive.
 
 [ENTRYPOINT_SCOPE]: effects, refs, and identity — `react-compiler` owns memoization, so `useMemo`/`useCallback`/`memo` are compiler-emitted, not hand-authored; `useEffectEvent` extracts the non-reactive part of an effect so the dependency set stays honest.
@@ -100,7 +100,7 @@
 - [02]-[PRE_RENDER_HIDE]: hide a subtree keeping state + defer its effects, or pre-render a hidden route — stable.
 - [03]-[ELEMENT_TRANSITION]: animates ONLY inside a transition (`startTransition`/`useDeferredValue`/a Suspense recovery→content reveal — sync updates opt out) and only as the first element above a DOM node; `share` + a repeated `name` drives shared-element morphs; styling lands on `::view-transition-old/new(.class)`.
 - [04]-[TRANSITION_TAG]: called inside the SAME `startTransition` as the update it annotates; the string keys the per-type class maps on `enter`/`exit`/`update`/`share` (unmatched falls to `default`, `"none"` disables).
-- [05]-[REVEAL_ORDER]: `view/compose` staged reveal; ordering is Suspense-boundary placement, not an API knob.
+- [05]-[REVEAL_ORDER]: `view` staged reveal; ordering is Suspense-boundary placement, not an API knob.
 - [06]-[ELEMENT_ESCAPE]: slot/`asChild` internals (`@radix-ui/react-slot`), prop-injecting a passed element; JSX is the authored path.
 - [07]-[RETIRED]: present but never authored — ref-as-prop, `<Context>` provider, and function components supersede the class/forwardRef forms.
 - [08]-[SERVER_MEMO]: RSC-only request-scoped memoization; inert in the client SPA build — a boundary row, not a client capability.

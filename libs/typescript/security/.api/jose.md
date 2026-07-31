@@ -1,6 +1,6 @@
 # [TS_SECURITY_API_JOSE]
 
-`jose` owns every JOSE operation the `security/sign/jwt` design composes, over WebCrypto with zero runtime dependencies. Its surface collapses on three axes — crypto op, token profile, serialization — so Compact, Flattened, and General render one sign/verify to three wire forms; `createRemoteJWKSet` is the key-rotation seam, and every failure is a `JOSEError` subclass discriminated by a stable `code`.
+`jose` owns every JOSE operation the `crypt/sign` `Jwt` design composes, over WebCrypto with zero runtime dependencies. Its surface collapses on three axes — crypto op, token profile, serialization — so Compact, Flattened, and General render one sign/verify to three wire forms; `createRemoteJWKSet` is the key-rotation seam, and every failure is a `JOSEError` subclass discriminated by a stable `code`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,7 +9,7 @@
 - module: ESM (`type: module`, `sideEffects: false`); per-concern subpaths resolve the members the root barrel re-exports, so a root import tree-shakes to the composed surface
 - runtime: isomorphic — WebCrypto with global `fetch` across node, bun, deno, workerd, and browser; no native addon, so `sign/jwt.ts` stays host-neutral
 - asset: pure-TypeScript runtime library (`.js` + `.d.ts`); `JWTPayload` stays open (`[propName: string]: unknown`), so a `Schema` decode gates the verified claim set
-- rail: `security/sign` — token-crypto owner, admitted in `sign/` only
+- rail: `crypt/sign` — token-crypto owner, admitted in `sign/` only
 
 ## [02]-[PUBLIC_TYPES]
 

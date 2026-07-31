@@ -6,7 +6,7 @@ import { Array, Effect, HashMap, HashSet, Number, Option, Order, pipe, Record, S
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type LedgerRow = { readonly folder: string; readonly edges: ReadonlyArray<string>; readonly wave: number };
+type LedgerRow = { readonly folder: string; readonly edges: ReadonlyArray<string>; readonly stratum: number };
 type TagTriple = { readonly folder: string; readonly scope: string; readonly runtime: string; readonly plane: string };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -147,20 +147,29 @@ const _resolved = (from: string, specifier: string): ReadonlyArray<string> =>
         part === '..' ? Array.dropRight(stack, 1) : Array.append(stack, part),
     );
 
+// The strata letter is the fence's one cluster vocabulary — a cluster id and its title both open with
+// it — so the live-parse grammar here and the falsification fixture at the tail derive from this
+// anchor alone, and a re-lettered strata fence moves both ends in one edit.
+const _STRATUM = 'S';
+
+const _clusterId = (stratum: number): string => `${_STRATUM}${stratum}`;
+
+const _clusterLine = (stratum: number, title: string): string => `    subgraph ${_clusterId(stratum)}["${_clusterId(stratum)} ${title}"]`;
+
 // The permitted-edge ledger parses live from the owning page's strata flowchart — the page is the
-// law's single source, never a transcribed copy. `subgraph W<n>` clusters carry the wave marks, a
-// single-word cluster title names the cluster's own folder, bracket nodes name the rest.
-const _CLUSTER = /^\s*subgraph (W(\d))\["W\d ([A-Z][A-Z +]*)"\]\s*$/;
+// law's single source, never a transcribed copy. A cluster carries its stratum mark, a single-word
+// cluster title names the cluster's own folder, and bracket nodes name the rest.
+const _CLUSTER = new RegExp(String.raw`^\s*subgraph (${_STRATUM}(\d))\["${_STRATUM}\d ([A-Z][A-Z +]*)"\]\s*$`);
 const _NODE = /^\s*(\w+)\[([a-z]+)\]\s*$/;
 
 // Only solid `[IMPORT]`-labeled edges join the ledger: port bindings, the forbidden exemplar,
 // layout links, and core-interior member edges are other grammars and never mint a permitted row.
 const _IMPORT_EDGE = /^[ \t]*(\w+) e\d+@-->\|"\[IMPORT\]: [^"]*"\| (\w+)[ \t]*$/gm;
 
-const _declared = (page: string): HashMap.HashMap<string, readonly [folder: string, wave: number]> =>
+const _declared = (page: string): HashMap.HashMap<string, readonly [folder: string, stratum: number]> =>
     Array.reduce(
         page.split('\n'),
-        { names: HashMap.empty<string, readonly [folder: string, wave: number]>(), wave: Option.none<number>() },
+        { names: HashMap.empty<string, readonly [folder: string, stratum: number]>(), stratum: Option.none<number>() },
         (state, line) => {
             const cluster = _CLUSTER.exec(line);
             const node = _NODE.exec(line);
@@ -175,18 +184,18 @@ const _declared = (page: string): HashMap.HashMap<string, readonly [folder: stri
                         ]),
                         {
                             onNone: () => state.names,
-                            onSome: ([id, title, wave]) => HashMap.set(state.names, id, [title.toLowerCase(), wave] as const),
+                            onSome: ([id, title, stratum]) => HashMap.set(state.names, id, [title.toLowerCase(), stratum] as const),
                         },
                     ),
-                    wave: opened,
+                    stratum: opened,
                 };
             }
             return /^\s*end\s*$/.test(line)
-                ? { names: state.names, wave: Option.none<number>() }
+                ? { ...state, stratum: Option.none<number>() }
                 : node !== null
-                  ? Option.match(Option.all([Option.fromNullable(node[1]), Option.fromNullable(node[2]), state.wave]), {
+                  ? Option.match(Option.all([Option.fromNullable(node[1]), Option.fromNullable(node[2]), state.stratum]), {
                         onNone: () => state,
-                        onSome: ([id, folder, wave]) => ({ names: HashMap.set(state.names, id, [folder, wave] as const), wave: state.wave }),
+                        onSome: ([id, folder, stratum]) => ({ ...state, names: HashMap.set(state.names, id, [folder, stratum] as const) }),
                     })
                   : state;
         },
@@ -211,13 +220,13 @@ const _parsedLedger = (page: string): ReadonlyArray<LedgerRow> =>
                     pipe(
                         Array.dedupeWith(
                             Array.flatMap(edges, ([from, to]) => [from, to]),
-                            (a: readonly [folder: string, wave: number], b: readonly [folder: string, wave: number]) => a[0] === b[0],
+                            (a: readonly [folder: string, stratum: number], b: readonly [folder: string, stratum: number]) => a[0] === b[0],
                         ),
                         Array.sortBy(
-                            Order.mapInput(Order.number, (endpoint: readonly [folder: string, wave: number]) => endpoint[1]),
-                            Order.mapInput(Order.string, (endpoint: readonly [folder: string, wave: number]) => endpoint[0]),
+                            Order.mapInput(Order.number, (endpoint: readonly [folder: string, stratum: number]) => endpoint[1]),
+                            Order.mapInput(Order.string, (endpoint: readonly [folder: string, stratum: number]) => endpoint[0]),
                         ),
-                        Array.map(([folder, wave]) => ({
+                        Array.map(([folder, stratum]) => ({
                             folder,
                             edges: Array.sort(
                                 Array.dedupe(
@@ -227,7 +236,7 @@ const _parsedLedger = (page: string): ReadonlyArray<LedgerRow> =>
                                 ),
                                 Order.string,
                             ),
-                            wave,
+                            stratum,
                         })),
                     ),
             },
@@ -370,7 +379,10 @@ layer(NodeContext.layer)('edge ledger', (it) => {
                 Array.filterMap(row.edges, (edge) =>
                     Option.flatMap(
                         Array.findFirst(rows, (other) => other.folder === edge),
-                        (target) => (target.wave > row.wave ? Option.some(`${row.folder}(W${row.wave}) -> ${edge}(W${target.wave})`) : Option.none()),
+                        (target) =>
+                            target.stratum > row.stratum
+                                ? Option.some(`${row.folder}(${_clusterId(row.stratum)}) -> ${edge}(${_clusterId(target.stratum)})`)
+                                : Option.none(),
                     ),
                 ),
             );
@@ -505,23 +517,32 @@ layer(NodeContext.layer)('edge ledger', (it) => {
 });
 
 describe('gauge falsification', () => {
+    // The fixture speaks the parser's own vocabulary: cluster lines mint through `_clusterLine` and
+    // cluster-id endpoints through `_clusterId`, so a re-lettered strata fence can never leave this
+    // block asserting a grammar the live parse no longer reads.
     const rows = _parsedLedger(
         [
             'flowchart TB',
-            '    subgraph W2["W2 DATA"]',
+            _clusterLine(3, 'APP + DEPLOY'), // a multi-word title contributes its stratum alone; its member nodes name the folders
+            '        Shell[shell]',
+            '        Plan[plan]',
+            '    end',
+            _clusterLine(2, 'DATA'),
             '        Data[data]',
             '    end',
-            '    subgraph W1["W1 SECURITY"]',
+            _clusterLine(1, 'SECURITY'),
             '        Security[security]',
             '    end',
-            '    subgraph W0["W0 CORE"]',
+            _clusterLine(0, 'CORE'),
             '        Value[value]',
             '    end',
             '    Data e1@-->|"[IMPORT]: TenantScope"| Security',
-            '    Data e2@-->|"[IMPORT]: ContentKey"| W0',
-            '    Security e3@-->|"[IMPORT]: TenantContext"| W0',
+            `    Data e2@-->|"[IMPORT]: ContentKey"| ${_clusterId(0)}`,
+            `    Security e3@-->|"[IMPORT]: TenantContext"| ${_clusterId(0)}`,
+            `    Shell e4@-->|"[IMPORT]: Feed.Document"| ${_clusterId(0)}`,
+            '    Plan e5@-->|"[IMPORT]: Pg.rows"| Data',
             '    Security p1@-.->|"[PORT]: Shredder"| Data',
-            '    W0 f1@-->|"forbidden: upward import"| W2',
+            `    ${_clusterId(0)} f1@-->|"forbidden: upward import"| ${_clusterId(2)}`,
             '    Value i1@--> Value',
             '    Data ~~~ Security',
         ].join('\n'),
@@ -529,9 +550,11 @@ describe('gauge falsification', () => {
 
     it('the ledger parser reads the strata fence and refuses undeclared endpoints', () => {
         expect(rows).toEqual([
-            { folder: 'core', edges: [], wave: 0 },
-            { folder: 'security', edges: ['core'], wave: 1 },
-            { folder: 'data', edges: ['core', 'security'], wave: 2 },
+            { folder: 'core', edges: [], stratum: 0 }, // the single-word title names the cluster's own folder; `value` never crosses an import edge
+            { folder: 'security', edges: ['core'], stratum: 1 },
+            { folder: 'data', edges: ['core', 'security'], stratum: 2 },
+            { folder: 'plan', edges: ['data'], stratum: 3 }, // no `app` or `deploy` folder exists: the multi-word cluster named none
+            { folder: 'shell', edges: ['core'], stratum: 3 },
         ]);
         expect(_parsedLedger('| [FROM] | [MAY_IMPORT] | [NOTES] |')).toEqual([]);
         expect(_parsedLedger('flowchart TB\n    Data e1@-->|"[IMPORT]: ContentKey"| Ghost')).toEqual([]);
@@ -541,8 +564,8 @@ describe('gauge falsification', () => {
         expect(_acyclic(rows)).toBe(true);
         expect(
             _acyclic([
-                { folder: 'runtime', edges: ['security'], wave: 3 },
-                { folder: 'security', edges: ['runtime'], wave: 1 },
+                { folder: 'runtime', edges: ['security'], stratum: 3 },
+                { folder: 'security', edges: ['runtime'], stratum: 1 },
             ]),
         ).toBe(false);
     });

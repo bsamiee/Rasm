@@ -57,6 +57,9 @@
 |  [16]   | `Lens<A, B>`            | readonly struct | composable get and immutable set                        |
 |  [17]   | `Range<A>`              | record          | generated bounded sequence, `Range.fromMinMax` mints it |
 |  [18]   | `AtomChangedEvent<A>`   | delegate        | `Atom.Change` handler over the new value                |
+|  [19]   | `Change<A>`             | abstract class  | `TrackingHashMap` change-log entry, cases below         |
+
+- `Change<A>` cases: `NoChange<A>` (`NoChange<A>.Default`, also `Change<A>.None`), `EntryAdded<A>.Value`, `EntryRemoved<A>.OldValue`, and `EntryMapped<A, B>` carrying `.From`/`.To` through the `EntryMappedFrom<A>`/`EntryMappedTo<B>` interfaces — the pair a mapped entry is matched on when the from-type is open. `Change<A> : Monoid<Change<A>>`, so consecutive entries for one key `Combine` into the net change.
 
 [PUBLIC_TYPE_SCOPE]: traits and monad transformers (`LanguageExt.Traits`)
 
@@ -235,6 +238,23 @@
 |  [38]   | `Prelude.use(Func<A>, Action<A>)`                             | static   | resource-scoped acquisition          |
 |  [39]   | `Prelude.tail(IO<A>)`                                         | static   | tail-recursion marker for deep binds |
 
+- `IO.lift` overload selection for a `Fin`-returning thunk is silent, not ambiguous: `Func<Fin<A>>` is the more specific candidate, so `IO.lift(() => <Fin<T>>)` resolves to the railed row [20] and lands `IO<T>` with the `Fail` folded onto the error channel — NEVER `IO<Fin<T>>`. A body that means to carry the `Fin` as its value spells the type argument (`IO.lift<Fin<T>>(…)`); a downstream `Bind` treating the payload as a `Fin` after the bare spelling is the defect this row forecloses.
+
+[ENTRYPOINT_SCOPE]: `FinT<M, A>` — the `Fin`-over-`M` transformer
+
+| [INDEX] | [SURFACE]                                | [SHAPE]     | [CAPABILITY]                                             |
+| :-----: | :--------------------------------------- | :---------- | :------------------------------------------------------- |
+|  [01]   | `new FinT<M, A>(K<M, Fin<A>> runFin)`    | constructor | the carrier's own `IO<Fin<A>>`-shaped ingress            |
+|  [02]   | `FinT.Succ(A)` / `FinT.Fail(Error)`      | static      | settled construction                                     |
+|  [03]   | `FinT.lift(Fin<A>)`                      | static      | settled-rail ingress                                     |
+|  [04]   | `FinT.lift(K<M, A>)`                     | static      | bare-monad ingress                                       |
+|  [05]   | `FinT.lift(K<M, Fin<A>>)`                | static      | named twin of the constructor                            |
+|  [06]   | `FinT.liftIO(IO<A>)`                     | static      | bare-`IO` ingress under `MonadIO<M>`                     |
+|  [07]   | `FinT.liftIO(IO<Fin<A>>)`                | static      | railed-`IO` ingress — the carrier shape, lifted directly |
+|  [08]   | `FinT.runFin`                            | property    | `K<M, Fin<A>>` egress the queries end on                 |
+|  [09]   | `FinT.Bind` / `SelectMany` overload set  | instance    | binds `FinT`, `K<FinT<M>,B>`, `K<M,B>`, bare `Fin<B>`, `Pure<B>`, `Fail<Error>` — a bare `Fin` step in a `FinT` query needs NO lift |
+|  [10]   | `FinT.Match(Succ, Fail)` / `MapFail`     | instance    | `K<M, B>` fold / failure map                             |
+
 [ENTRYPOINT_SCOPE]: `Seq`, `Arr`, `HashMap`, `Set` — immutable carriers
 
 | [INDEX] | [SURFACE]                                                        | [SHAPE]  | [CAPABILITY]                        |
@@ -292,6 +312,25 @@
 |  [51]   | `IterableExtensions.AsIterable(IEnumerable<A>)`                  | static   | lazy sync lift                      |
 |  [52]   | `IterableExtensions.AsIterable(IAsyncEnumerable<A>)`             | static   | lazy async lift                     |
 |  [53]   | `Iterable<A>.FromSpan(ReadOnlySpan<A>)`                          | static   | `params` span into the carrier rail |
+|  [54]   | `List.unfold(S, Func<S,Option<(A,S)>>)`                          | static   | state-seeded lazy generation        |
+
+- `LanguageExt.List.unfold` runs the state seed until the unfolder answers `None`, returning `IEnumerable<A>`; five overloads cover `Func<S,Option<S>>` (state-only) and one-to-four state slots as a tuple seed. A host walk over a linked native cursor (`node.Next`) is the generation this replaces, so no `while` loop accumulates into a mutable list before `toSeq`.
+
+[ENTRYPOINT_SCOPE]: `TrackingHashMap<K, V>` — the change-logged map (`HashMap.ToTrackingHashMap()` lifts into it)
+
+| [INDEX] | [SURFACE]                                                         | [SHAPE]  | [CAPABILITY]                                        |
+| :-----: | :---------------------------------------------------------------- | :------- | :-------------------------------------------------- |
+|  [01]   | `TrackingHashMap.Changes`                                         | property | `HashMap<K, Change<V>>` log since the last snapshot |
+|  [02]   | `TrackingHashMap.Snapshot()`                                      | instance | zeroes the change log, holds the data               |
+|  [03]   | `TrackingHashMap.AddOrUpdate(K, V)`                               | instance | logged unconditional upsert                         |
+|  [04]   | `TrackingHashMap.AddOrUpdate(K, Func<V,V>, Func<V>)`              | instance | logged matched upsert, `None` mints the miss        |
+|  [05]   | `TrackingHashMap.AddOrUpdate(K, Func<V,V>, V)`                    | instance | logged matched upsert, value fills the miss         |
+|  [06]   | `TrackingHashMap.AddOrUpdateRange(IEnumerable<(K Key, V Value)>)` | instance | logged bulk upsert                                  |
+|  [07]   | `TrackingHashMap.Remove(K)`                                       | instance | logged delete                                       |
+|  [08]   | `TrackingHashMap.Find(K)`                                         | instance | `Option<V>` lookup, logs nothing                    |
+|  [09]   | `TrackingHashMap.ContainsKey(K)`                                  | instance | total key membership                                |
+|  [10]   | `TrackingHashMap.TryGetValue(K, out V)`                           | instance | `IReadOnlyDictionary` probe                         |
+|  [11]   | `TrackingHashMap.ToHashMap()`                                     | instance | drops the log, holds the data                       |
 
 [ENTRYPOINT_SCOPE]: state, optics, and the prelude vocabulary
 
@@ -337,6 +376,8 @@
 - `Iterable<A>.FromSpan` is the one lift a `params ReadOnlySpan<A>` parameter takes to reach the carrier rail, because a span cannot cross into a lambda or an iterator; it copies at the call, so the returned carrier outlives the frame.
 - Lookups return `Option`: `HashMap.Find`, `Seq.Head`, `Seq.Last`.
 - `HashMap<K, V>` declares NO fold of its own; the carrier-generic `Fold` reaches it through `K<HashMap<K>, V>`, whose element is `V` ALONE. Folding with the key runs over `AsIterable()`, whose element is the `(K Key, V Value)` pair — `map.Fold(seed, (state, pair) => … pair.Key …)` does not type, and the three-argument `Fold(S, Func<S,K,V,S>)` belongs to the `Eq`-parameterized `HashMap<EqK, K, V>`, not to the two-parameter map.
+- `TrackingHashMap<K, V>` accumulates its own delta: each `AddOrUpdate*` and `Remove*` writes a `Change<V>` entry beside the value, `Changes` reads that log as a `HashMap<K, Change<V>>`, and `Snapshot()` returns the SAME data with the log zeroed — so a delta between two points is `snapshot` then mutate then `Changes`, never a diff of two maps. `Find`, `ContainsKey`, and `TryGetValue` log nothing, and `ToHashMap()` drops the log at the seam where the delta stops mattering.
+- A `Change<A>` reads through `HasNoChange`/`HasChanged`/`HasAdded`/`HasRemoved`/`HasMapped` or the open `HasMappedFrom<FROM>()`, never a `switch` over the sealed case classes; `HasMapped` answers the mapped-TO side, and `ToOption()` projects the post-change value — `Some` for `EntryAdded` and a mapped-to entry, `None` for `EntryRemoved` and `NoChange`.
 - Indexed enumeration is the instance `Map((value, index) => …)`; the module `Seq.map(seq, (index, value) => …)` transposes, so a mechanical rewrite between the two silently swaps the lambda arguments.
 - `Traverse` inverts effect and shape applicatively (`Seq<Fin<A>>` to `Fin<Seq<A>>`); `TraverseM` inverts monadically and short-circuits on the first failure; `Partition` inverts without exiting, keeping both branches.
 - `Option : Traversable<Option>`, so traversing an optional value is total over absence — `None` yields the applicative's own `Pure`, which makes `option.TraverseM(f).As()` the fold an optional payload's conditional effect takes and deletes the `Match` arm pair a rail forbids mid-pipeline.

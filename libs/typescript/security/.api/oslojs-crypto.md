@@ -8,7 +8,7 @@
 - package: `@oslojs/crypto` (MIT)
 - module: ESM-only, no root export; subpaths `/hash` `/hmac` `/subtle` `/random` `/sha1` `/sha2` `/sha3` `/ecdsa` `/rsa`
 - runtime: neutral — pure JS, zero dependencies, no `node:*`
-- rail: `security/sign` — the HMAC, timing-safe-compare, digest, verify, and CSPRNG-port primitives `sign/crypto` folds
+- rail: `crypt/sign` — the HMAC, timing-safe-compare, digest, verify, and CSPRNG-port primitives `sign/crypto` folds
 
 ## [02]-[PUBLIC_TYPES]
 

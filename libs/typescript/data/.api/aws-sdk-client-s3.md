@@ -9,7 +9,7 @@
 - module: ESM/CJS dual, `sideEffects: false`, per-command deep-import subpaths, tree-shakeable
 - runtime: `runtime:node` server object plane, browser presigned-direct; `credentialDefaultProvider` is node-only
 - transport: own `requestHandler` — `@smithy/node-http-handler` (Node `https.Agent`/HTTP2) or `@smithy/fetch-http-handler`; never the `@effect/platform` `HttpClient`
-- rail: store/object — one `send` over every command value
+- rail: object/store — one `send` over every command value
 
 ## [02]-[PUBLIC_TYPES]
 

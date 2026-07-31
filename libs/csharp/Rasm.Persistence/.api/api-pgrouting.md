@@ -137,7 +137,7 @@
 [STACKING]:
 - `api-postgis`(`.api/api-postgis.md`): PostGIS owns the linework the Edges SQL reads — `pgr_extractVertices`, `pgr_findCloseEdges`, and the `pgr_separate*` pair consume the `LINESTRING` `geom` column directly, and a returned `edge` id joins back to `ST_*` geometry to render the route.
 - `api-h3-pg`(`.api/api-h3-pg.md`): `h3_latlng_to_cell` mints the `h3index` values the Edges SQL binds as `source`/`target`, so an `h3_cell = ANY(@cells)` membership test narrows the routing subgraph before the fold runs.
-- `api-h3`(`.api/api-h3.md`): `H3Index.FromPoint(Point, int)` computes the same 64-bit cell the server computes, so `GridPathCells`/`GridDistance` in-process and `pgr_dijkstra` in-database agree on node identity.
+- `api-h3`(`libs/csharp/.api/api-h3.md`): `H3Index.FromPoint(Point, int)` computes the same 64-bit cell the server computes, so `GridPathCells`/`GridDistance` in-process and `pgr_dijkstra` in-database agree on node identity.
 - `api-quikgraph`(`../../.api/api-quikgraph.md`): `Query/topology` answers the authoritative walk from `AlgorithmExtensions.ShortestPathsDijkstra` under unit weights, and metric, capacity, and turn-restricted routing folds here — the two lanes split on weight semantics over one edge projection.
 - within-lib: `Query/cypher#GRAPH_QUERY` selects one member per case through the `RouteMode`/`FlowKind`/`CleaveKind` rows and decodes each `[SHAPE]` into its own space — PATH and VIA into the cell mesh, `pgr_bridges` and `pgr_biconnectedComponents` into the edge space, FLOW into the per-edge assignment — so the whole roster composes under one `[Union]` verb.
 

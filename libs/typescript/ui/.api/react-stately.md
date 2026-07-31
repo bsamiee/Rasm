@@ -10,7 +10,7 @@ Domain state is the `@effect-atom` fold reached only through the mutable data ho
 - package: `react-stately` (Apache-2.0)
 - module: ESM/CJS dual with a per-hook `./*` subpath mirroring each `@react-stately/*` module; `sideEffects`-clean, so the barrel tree-shakes to the used hooks
 - runtime: isomorphic — renderer-agnostic state, no DOM; pairs with react-aria for behavior and a renderer for DOM
-- rail: the `view` headless plane — `view/primitive` composes a state hook with its react-aria behavior hook, `view/compose` drives dynamic collections through the data hooks
+- rail: the headless plane — `system/primitive` composes a state hook with its react-aria behavior hook, `view/table` drives dynamic collections through the data hooks
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -106,12 +106,12 @@ Domain state is the `@effect-atom` fold reached only through the mutable data ho
 
 [STACKING]:
 - `react-aria`(`.api/react-aria.md`): the state hook is the first-class `state` argument to `use<P>(props, state, ref)` — `const state = useListState(props); const { listBoxProps } = useListBox(props, state, ref)`; field validity is the exception, built internally by `@react-stately/form`'s `useFormValidationState` reading `FormValidationContext`.
-- `react-aria-components`(`.api/react-aria-components.md`): fuses the state hook and behavior hook into ready components and re-exports the data hooks; a `view/primitive` row composes the raw `use<P>State`+`use<P>` pair only when authoring a primitive RAC does not ship.
+- `react-aria-components`(`.api/react-aria-components.md`): fuses the state hook and behavior hook into ready components and re-exports the data hooks; a `system/primitive` row composes the raw `use<P>State`+`use<P>` pair only when authoring a primitive RAC does not ship.
 - `@effect-atom`(`.api/effect-atom-atom-react.md`): domain state lives in an atom, `useAsyncList.load` runs an `Effect` to fetch a page, and an atom-derived array feeds `useListData({ initialItems })` — react-stately never becomes a second store.
 - `effect` `Schema`(`libs/typescript/.api/effect.md`): a `Schema` decode failure at the `FormBinding` seam projects into `FormValidationContext`, and field state (`NumberFieldState`/`ComboBoxState`/…) reads it to surface `invalid`/`required` for the tw-rac `invalid:`/`required:` variants.
-- `@tanstack/react-virtual`(`.api/tanstack-react-virtual.md`): `view/compose` picks per collection — the built-in `useVirtualizerState` integrates the selection substrate natively, TanStack virtual owns a non-collection virtualized surface; one per list, never both.
+- `@tanstack/react-virtual`(`.api/tanstack-react-virtual.md`): `view/table` picks per collection — the built-in `useVirtualizerState` integrates the selection substrate natively, TanStack virtual owns a non-collection virtualized surface; one per list, never both.
 - `@internationalized/date` + `colorjs.io`(`.api/colorjs.io.md`): calendar/date state operates on `DateValue`/`CalendarDate` and color state on `parseColor`'s `Color`, latent until a date/color `view` lands, display owned by `intl/format` and `colorjs.io`.
-- within-lib: `view/primitive` composes a state hook with its behavior hook; `view/compose` drives a dynamic collection through the data hooks and the built-in virtualizer.
+- within-lib: `system/primitive` composes a state hook with its behavior hook; `view/table` drives a dynamic collection through the data hooks and the built-in virtualizer.
 
 [LOCAL_ADMISSION]:
 - Reach react-stately through react-aria-components by default; drop to a standalone `use<P>State` only for a custom primitive RAC does not ship or a standalone selection model / `ToastQueue`.

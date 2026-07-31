@@ -20,9 +20,9 @@
 |  [02]   | `BrowserKeyValueStore.layerLocalStorage` / `layerSessionStorage`         | KV layer      | `browser/persist`; EventLog identity        |
 |  [03]   | `BrowserWorker.layer` / `layerPlatform` / `layerManager` / `layerWorker` | worker client | `browser/fetch` decode worker pool          |
 |  [04]   | `BrowserWorkerRunner.layer` / `make` / `layerMessagePort`                | worker runner | worker entry; `ui/viewer` GLB decode        |
-|  [05]   | `BrowserHttpClient.layerXMLHttpRequest`                                  | HTTP client   | `net/client` browser XHR; OTLP transport    |
+|  [05]   | `BrowserHttpClient.layerXMLHttpRequest`                                  | HTTP client   | `browser/fetch` client row; OTLP transport  |
 |  [06]   | `BrowserHttpClient.currentXHRResponseType` / `withXHRArrayBuffer`        | XHR control   | force arraybuffer for binary frames         |
-|  [07]   | `BrowserSocket.layerWebSocket` / `layerWebSocketConstructor`             | socket layer  | `net/channel`, `core/interchange`, EventLog |
+|  [07]   | `BrowserSocket.layerWebSocket` / `layerWebSocketConstructor`             | socket layer  | `browser/fetch` socket rows; EventLog       |
 |  [08]   | `BrowserStream.fromEventListenerWindow` / `fromEventListenerDocument`    | DOM stream    | `browser/boot` connectivity/visibility rows |
 
 [PUBLIC_TYPE_SCOPE]: Web-API capability services
@@ -48,7 +48,7 @@
 |  [02]   | `BrowserKeyValueStore.layerLocalStorage` / `layerSessionStorage`       | KV layer        | `EventLog.layerIdentityKvs` backing           |
 |  [03]   | `BrowserWorker.layer(spawn)`                                           | worker client   | `browser/fetch` decode pool                   |
 |  [04]   | `BrowserWorkerRunner.layer` / `layerMessagePort(port)` / `make(self)`  | worker runner   | worker-side runner entrypoint Layer           |
-|  [05]   | `BrowserHttpClient.layerXMLHttpRequest` + `withXHRArrayBuffer(effect)` | HTTP client     | `net/client`; binary-frame download           |
+|  [05]   | `BrowserHttpClient.layerXMLHttpRequest` + `withXHRArrayBuffer(effect)` | HTTP client     | `browser/fetch`; binary-frame download        |
 |  [06]   | `BrowserSocket.layerWebSocket(url)` / `layerWebSocketConstructor`      | socket layer    | `EventLogRemote.layerWebSocket` constructor   |
 |  [07]   | `BrowserStream.fromEventListenerWindow` / `fromEventListenerDocument`  | DOM stream      | connectivity/visibility/network `Stream` rows |
 |  [08]   | `Geolocation.watchPosition` / `Clipboard.layer` / `Permissions.layer`  | Web-API service | `ui`/`viewer` capability Layers               |

@@ -29,7 +29,7 @@
 |  [08]   | `LinkedInstanceDefinitionUpdateStyle` | enum            | per-document refresh policy; namespace `Rhino`, not `Rhino.DocObjects`       |
 
 [ENUM_CASES]:
-- `InstanceDefinitionUpdateType`: `Static` `LinkedAndEmbedded` `Linked`
+- `InstanceDefinitionUpdateType`: `Static` `Embedded` `LinkedAndEmbedded` `Linked` — `Embedded` (ordinal `1`) is `[Obsolete("Always use Static")]` and never composed; the host's own `Static` documentation records that the Rhino UI uses the word "embedded" for the static mode, so a boundary vocabulary folds the retired ordinal onto `Static` at admission rather than spelling the case, and a legacy archive carrying it still reads.
 - `InstanceDefinitionArchiveFileStatus`: `NotALinkedInstanceDefinition` `LinkedFileNotReadable` `LinkedFileNotFound` `LinkedFileIsUpToDate` `LinkedFileIsNewer` `LinkedFileIsOlder` `LinkedFileIsDifferent`
 - `InstanceDefinitionLayerStyle`: `None` `Active` `Reference`
 - `LinkedInstanceDefinitionUpdateStyle`: `Prompt = 1` `AlwaysUpdate` `NeverUpdate` — a `Rhino`-namespace enum read off `RhinoDoc.LinkedInstanceDefinitionUpdate`, so it is the DOCUMENT's refresh policy against the DEFINITION's `InstanceDefinitionUpdateType` source mode and its `InstanceDefinitionArchiveFileStatus` availability; the three axes are independent and a refresh decision reads all three.
@@ -85,7 +85,7 @@
 - `InstanceDefinition.SkipNestedLinkedDefinitions { get; set; } -> bool` — settable on the live definition; nested linked definitions excluded from load.
 - `RhinoDoc.LinkedInstanceDefinitionUpdate -> LinkedInstanceDefinitionUpdateStyle` — the document-scoped refresh policy every linked definition resolves against.
 - `InstanceDefinition.Object(int) -> RhinoObject` / `GetObjects() -> RhinoObject[]` — a member object, or the roster.
-- `InstanceDefinition.GetReferences(int) -> InstanceObject[]` — placed references; `0` top-level, `1` top and nested, `2` from other definitions; thread-affine.
+- `InstanceDefinition.GetReferences(int) -> InstanceObject[]` — placed references; `0` top-level, `1` top and nested, `2` from other definitions; thread-affine, and the document-session demand is the rail that satisfies the affinity — it resolves on the host command thread, marshalling a live session through `RhinoApp.InvokeAndWait` and leaving a headless one on the caller.
 - `InstanceDefinition.GetContainers() -> InstanceDefinition[]` — definitions nesting this one.
 - `InstanceDefinition.UsesDefinition(int) -> int` — nesting depth into another definition.
 
@@ -98,7 +98,7 @@
 - `InstanceDefinition.CreatePreviewBitmap(DefinedViewportProjection, DisplayMode, Size, bool) -> Bitmap` — definition preview.
 - `InstanceDefinition.CreatePreviewBitmap(Guid, DefinedViewportProjection, DisplayMode, Size, bool) -> Bitmap` — preview with one definition member selected.
 - `InstanceDefinition.CreatePreviewBitmap(Guid, DefinedViewportProjection, IsometricCamera, bool, Size, bool) -> Bitmap` — preview with an isometric camera and display-mode id.
-- every overload is UI-thread bound, returns null on failure, and hands the caller a bitmap it disposes.
+- every overload is UI-thread bound, returns null on failure, and hands the caller a bitmap it disposes; the document-session demand is the rail that satisfies the affinity, so a preview minted inside a demand needs no second crossing and one minted outside a demand has none.
 
 [INSTANCE_RESOLUTION]:
 - `InstanceObject.InstanceDefinition -> InstanceDefinition` — referenced live definition, null when the definition is in error; member count reads through `InstanceDefinition.ObjectCount`.

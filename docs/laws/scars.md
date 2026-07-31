@@ -23,6 +23,7 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Trigger: Asserted flags, tenancy claims, and capability columns diverge silently the first time the surface they mirror moves, and nothing raises.
 - Boundary: This scar spans fence literals and prose claims alike — a comment asserting a behavior the member contradicts falls with the literal.
 - Boundary: Inference substituting for a declared fact falls with the asserted copy — total coverage never separates two states one probe reads alike.
+- Boundary: A transform resolved into a column applies once; an egress helper re-applying it over the resolved column is the defect both sites hide.
 
 [FORGED_ZERO]:
 - Law: Tallies, levels, and receipt fields publish measured values alone, and a construction reading zero for absent measurement spells absence.
@@ -30,6 +31,8 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Law: Multiplicative scores fan each measured component onto its own dimension and COUNT refusals on their own series, never into the distribution.
 - Trigger: Zero-fallback reads, retired-owner slots republishing a last value, and zero-filled receipts each read as a measurement no producer took.
 - Boundary: `libs/.planning/RULINGS.md` `[02]-[SHAPE]` owns the diagnostic-plane UNMEASURED shape, and this scar binds every other construction.
+- Boundary: Cross-language wires convict the producer — a zero-filled required slot strands the peer's absence arm while both ends read correct.
+- Boundary: A structurally-zero slot states why at its site, so a sweep tells structural from fabricated zeros without re-deriving the domain.
 
 [STRATA_TWIN]:
 - Law: Concepts two strata peers both spell home at the lowest stratum every consumer reaches, seated before either peer declares them.
@@ -40,6 +43,7 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 [UNREAD_KEY_ROW]:
 - Law: Policy, config, and provisioning rows prove their consumer reads the keys they spell, and a row keyed past that read governs nothing.
 - Law: Keys accepted and discarded fail worse than rejected ones; a conformance or capability table is decoration until a boot refuses on it.
+- Law: Write vocabularies register as a projection of the recording row set, strict-name armed; an unregistered name drops its writes silently.
 - Trigger: Governance rows bind keys no deploy plane publishes, a chart reads a key name its secret never spells, a driver ignores its row's field.
 - Boundary: Proof runs the consumer's own read path — chart template, options binder, driver config — never the key's presence in documentation.
 
@@ -50,5 +54,43 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 
 [LAW_WITHOUT_PRODUCER]:
 - Law: Rows added to a data anchor land with their construction in the same edit.
+- Law: The inverse holds — a sole-construction entrypoint proves by its call site, and a producer no consumer reaches is inert whatever it declares.
 - Trigger: Severed or partial writes leave columns half-landed and laws producer-less, each reading complete to a prose scan while inert.
 - Boundary: Construction and call sites on disk prove a producer; a declaration, census row, or exported type never does.
+- Boundary: Wire-complete chains prove at the owning evaluator's read — a column that evaluator never reads passes every producer census inert.
+
+[SEEDED_FROM_STRING_HASH]:
+- Law: A reproducible lane derives its seed from a declared ordinal, index, or literal — never a runtime hash of a name.
+- Trigger: A stream seeded from `string.GetHashCode()` or any per-process-randomized hash voids replay while reading stable within one run.
+
+[EXACT_ORACLE_INFERRED_FROM_RESULT]:
+- Law: A page owning an exact predicate decides degeneracy by that predicate on the inputs, never off a floating result's finiteness or magnitude.
+- Trigger: A cancelling denominator lands a finite wrong answer that every non-finiteness probe passes.
+
+[SUCCESS_ARM_RELEASE]:
+- Law: Release brackets the acquisition (`IO.Bracket`, `use`), never the outcome; release inside a result-rail `.Map`/`.Bind` leaks on every failure.
+- Trigger: The tuple-projection idiom `(fun(x.Dispose)(), y).Item2` reads as a release beside the value while binding release to success.
+
+[DECISION_UNDERIVABLE_FROM_STATE]:
+- Law: A lock-free transition's verdict rides in the swapped value — identical accepted/rejected states let no caller re-derive its outcome.
+- Trigger: A swap returning only the new value reports success to every contender, and the losing writer proceeds on a decision it never won.
+
+[BAND_WIDENS_BOTH_BOUNDS]:
+- Law: A hysteresis band shifts one threshold of a half-open partition predicate; applied to both sides it destroys the partition.
+- Trigger: The two comparisons stop sharing one threshold and adjacent members both admit.
+
+[PRESENCE_AS_BREACH]:
+- Law: A budgeted resource gates on a rate against its own ceiling column; normal budget operation — eviction, retry, cache miss — is never a breach.
+- Trigger: A governor counting presence pins itself at its floor tier under ordinary load.
+
+[CONTIGUITY_ASSUMED_FROM_COUNT]:
+- Law: Rank and index bounds clamp against a vocabulary's measured extremes, never `Count - 1`.
+- Trigger: `Items.Count - 1` assumes contiguous zero-based keys, and the vocabulary's own declared growth move breaks it.
+
+[DISCARDED_DISCRIMINANT]:
+- Law: A predicate over a multi-valued foreign attribute carries the value with its verdict — a kept boolean forces fabrication of the dropped fact.
+- Trigger: A round-trip re-authors a declared choice as a constant, invisible to parse and diff — ingest kept a boolean, egress hardcoded the value.
+
+[REFUTED_MECHANISM_RECORD]:
+- Law: A mechanism disproved on its owning rail lands the refutation at the generating catalog clause, never in the receipt alone.
+- Trigger: An untouched generating clause re-derives the refuted prescription on the next pass.

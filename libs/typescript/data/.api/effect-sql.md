@@ -52,7 +52,7 @@
 
 | [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                             |
 | :-----: | :---------------------------------------------- | :-------------- | :-------------------------------------------------------------- |
-|  [01]   | `SqlError` (tagged `YieldableError`)            | fault rail      | driver failure on the `Effect` channel; `wire/fault` classifies |
+|  [01]   | `SqlError` (tagged `YieldableError`)            | fault rail      | driver failure on the `Effect` channel; `value/fault` `FaultClass` rows classify |
 |  [02]   | `ResultLengthMismatch`                          | tagged error    | `SqlResolver.ordered` guard — result count ≠ request count      |
 |  [03]   | `SqlResolver` / `SqlRequest`                    | batched request | a resolver over `RequestResolver` (generics in lead)            |
 |  [04]   | `Model.Any` / `Model.AnyNoContext`              | model bound     | constraint `makeRepository`/`makeDataLoaders` accept            |
@@ -99,7 +99,7 @@
 |  [02]   | `SqlClient.makeWithTransaction(opts)` | driver txn       | driver transaction machinery; nested depth → savepoint (opts in lead) |
 |  [03]   | `sql.reserve`                         | lease conn       | scoped raw-connection lease for LISTEN/NOTIFY, COPY, advisory locks   |
 |  [04]   | `sql.reactive(keys, effect)`          | reactive read    | `read/live` — re-run when `Reactivity.invalidate(keys)` fires    |
-|  [05]   | `sql.reactiveMailbox(keys, effect)`   | reactive mailbox | pull-model reactive consumer for `browser/persist` read lanes         |
+|  [05]   | `sql.reactiveMailbox(keys, effect)`   | reactive mailbox | pull-model reactive consumer; `read/live` owns the reactive read lanes         |
 |  [06]   | `SqlClient.make(options)`             | assemble client  | a driver builds the neutral client from `MakeOptions`                 |
 
 [ENTRYPOINT_SCOPE]: schema-typed query and batching resolver
@@ -134,7 +134,7 @@
 | [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY]    | [CONSUMER_BOUNDARY]                                         |
 | :-----: | :----------------------------------------------- | :---------------- | :---------------------------------------------------------- |
 |  [01]   | `SqlEventJournal.layer(opts)`                    | journal store     | durable-node `EventJournal` entry store                     |
-|  [02]   | `SqlEventLogServer.layerStorage(opts)`           | sync server store | E2E-encrypted sync-server storage; `edge/live` mounts it    |
+|  [02]   | `SqlEventLogServer.layerStorage(opts)`           | sync server store | E2E-encrypted sync-server storage; `serve/live` mounts it    |
 |  [03]   | `SqlEventLogServer.layerStorageSubtle(options?)` | sync server store | zero-knowledge Web-Crypto variant, no `EventLogEncryption`  |
 |  [04]   | `SqlPersistedQueue.layerStore(opts)`             | durable queue     | `runtime/work` durable-job store — SKIP-LOCKED poll + lease refresh |
 
