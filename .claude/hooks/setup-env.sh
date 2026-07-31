@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # SessionStart hook: persist session credentials + tool PATH for sub-agents.
-# Canonical across all repos, owned by Parametric_Forge. Two paths keep the
-# network out of the hook budget: a session with a warm cache REPLAYS it into
-# CLAUDE_ENV_FILE instantly and dispatches a detached `--refresh`; the refresh
-# path (or a cold first boot, inline) resolves Doppler and rewrites the cache
-# for the next session. Doppler-first: each DOPPLER_SOURCES row resolves
+# Two paths keep the network out of the hook budget: a session with a warm
+# cache REPLAYS it into CLAUDE_ENV_FILE instantly and dispatches a detached
+# `--refresh`; the refresh path (or a cold first boot, inline) resolves Doppler
+# and rewrites the cache for the next session.
+# Doppler-first: each DOPPLER_SOURCES row resolves
 # independently — live fetch refreshes its encrypted snapshot under the
 # doppler cache; a failed fetch serves the snapshot; a dead row is loud and
 # names the keys it owes (names only, never values).
