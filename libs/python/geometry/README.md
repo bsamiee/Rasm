@@ -36,10 +36,10 @@
 - [21]-[FEATURES](.planning/graph/features.md): `networkx` centrality, community, cycle, and connectivity analytics over the network graph.
 
 [ENERGY]:
-- [22]-[CLIMATE](.planning/energy/climate.md): EPW weather admission, series algebra, solar geometry, and the point-comfort tier.
-- [23]-[MODEL](.planning/energy/model.md): `BuildingModel` HBJSON and BIM-to-BEM admission under one `check_all` gate, energy-assigned.
-- [24]-[DISTRICT](.planning/energy/district.md): Dragonfly 2.5-D urban massing exploding onto the model owner.
-- [25]-[SIMULATE](.planning/energy/simulate.md): Simulation egress — offloaded translation, recipe binding, and self-describing result decode.
+- [22]-[CLIMATE](.planning/energy/climate.md): EPW admission and one `ClimateQuery` read surface — series, derived documents, solar, comfort, scalar indices, MRT, spatial maps.
+- [23]-[MODEL](.planning/energy/model.md): `BuildingModel` HBJSON and BIM-to-BEM admission under one `check_all` census, energy-assigned through the shared host fold.
+- [24]-[DISTRICT](.planning/energy/district.md): Dragonfly 2.5-D urban massing exploding onto the model owner under one shared explosion policy.
+- [25]-[SIMULATE](.planning/energy/simulate.md): Simulation egress — parent-woven translation, recipe-parameterized binding, columnar result decode.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -78,7 +78,7 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `sectionproperties` — Warping, plastic, and shear enrichment.
 - `rtree` — R-tree bounding-box index for the spatial bounds arm.
 - `python-fcl` — Narrow-phase collision and signed-distance for the clearance arm.
-- `gmsh`
+- `gmsh` — Unstructured mesh generation; the compute `MeshExchange` generation arm owns it at the branch, and this folder consumes the meshes it produces rather than the kernel.
 
 [ENERGY]:
 - `ladybug-geometry` — Planar and solid value-object substrate of the Ladybug band.
@@ -92,8 +92,8 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `dragonfly-core` — District 2.5-D massing model exploding to Honeybee.
 - `dragonfly-energy` — District-energy translation.
 - `queenbee` — Recipe and workflow schema contract; the schema binding homes to `runtime`.
-- `lbt-recipes` — Recipe binding and input coercion.
-- `pollination-handlers` — Model-to-recipe-input handler adapters.
+- `lbt-recipes` — Recipe binding and input coercion; consumed through the runtime recipe rail, catalog homes to `runtime`.
+- `pollination-handlers` — Model-to-recipe-input handler adapters; consumed through the runtime recipe rail, catalog homes to `runtime`.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 

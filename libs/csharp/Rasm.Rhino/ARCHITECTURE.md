@@ -179,13 +179,14 @@ flowchart LR
         Commands[Command lifecycle]
         Blocks[Block domain]
         Modeling[Modeling gate]
+        Annotation[Drafting annotation]
         Viewport[Viewport rail]
         Display[Display composers]
         Render[Render content]
         Eto[Eto UI]
     end
     Rasm([Rasm])
-    Rasm e1@-->|"[BOUNDARY]: ModelUnit"| Document
+    Rasm e1@-->|"[BOUNDARY]: ModelUnit + Context + AnalysisQuery + Placement + Requirement + Lease + HookPoint + InstrumentSpec + Dimension"| Document
     Rasm e2@-->|"[BOUNDARY]: VectorFrame"| Viewport
     Rasm e3@-->|"[BOUNDARY]: AnalysisQuery"| Commands
     Rasm e4@-->|"[BOUNDARY]: PerceptualColor"| Eto
@@ -195,13 +196,16 @@ flowchart LR
     Rasm e8@-->|"[BOUNDARY]: ContentHash"| Blocks
     Rasm e9@-->|"[BOUNDARY]: PerceptualColor"| Display
     Rasm e10@-->|"[BOUNDARY]: PerceptualColor"| Render
+    Rasm e11@-->|"[BOUNDARY]: PerceptualColor"| Viewport
+    Rasm e12@-->|"[BOUNDARY]: Context"| Annotation
+    Rasm e13@-->|"[BOUNDARY]: Context"| Blocks
 ```
 
-Every kernel contract is a frozen-name value type the host binds and never re-mints — one `[BOUNDARY]` rail per consuming sub-domain, each carrying the exact member set its owner consumes. Kernel source is host-neutral and consumes nothing back, so the strata-locked dependency is source-only by construction; the kernel seam registry mirrors each edge from its producing side.
+Every kernel contract is a frozen-name value type the host binds and never re-mints — one `[BOUNDARY]` rail per consuming sub-domain, each carrying the exact member set its owner consumes. The Document rail's set in full: `ModelUnit`, `Context`, `AnalysisQuery`/`Analyze`, `TransformSpec`/`Placement.Build`, `Requirement.ForKind`/`KindOf`, `Lease<T>`/`GeometryForm`, `HookModality`/`HookId`/`HookPoint`, `InstrumentSpec`/`TelemetryContributorPort`/`MeasureForm`, and `Dimension` with `AbsoluteTolerance`/`RelativeTolerance`/`AngleTolerance` — `AnalysisQuery` rides both the Document and Commands rails, each end consuming it live. Kernel source is host-neutral and consumes nothing back, so the strata-locked dependency is source-only by construction; the kernel seam registry mirrors each edge from its producing side.
 
 ## [04]-[INTERNAL]
 
-Every host mutation walks one path — no sub-domain opens the document directly. Document-session demand gates capability, the shared `DocumentCommit.Sealed` envelope frames the change over `UndoBracket`, the sub-domain executor runs inside it, and the sealing commit lands the typed receipt with redraw compensation; a denied demand and every mid-stage fault converge on the one rail that still releases the bracket. Exact per-stage wiring lives on the owning implementation pages.
+Every host mutation walks one path — no sub-domain opens the document directly, the one carve being the worksession attach/detach rail, whose reference-set change Rhino's undo stack does not record and which therefore compensates through its declared per-verb inverse instead of the sealed envelope. Document-session demand gates capability, the shared `DocumentCommit.Sealed` envelope frames the change over `UndoBracket`, the sub-domain executor runs inside it, and the sealing commit lands the typed receipt with redraw compensation; a denied demand and every mid-stage fault converge on the one rail that still releases the bracket. Exact per-stage wiring lives on the owning implementation pages.
 
 ```mermaid
 ---
@@ -235,4 +239,4 @@ Namespace mirrors folder path — `.editorconfig` sets `dotnet_style_namespace_m
 
 Boundary compiles as ONE assembly — the single `Rasm.Rhino.csproj` — so internal members cross namespaces with no build edge, and the project references only `Rasm.csproj`. Kernel-neutral value types compose freely from the kernel, while a live host handle, a native carrier, or a `System.Drawing` screen struct never crosses out of the sub-domain that leases it.
 
-Host-name resolution is one law: inside `Rasm.Rhino.*` a partial qualification re-resolves against the boundary's namespaces (`Rhino.UI.X` binds `Rasm.Rhino`), so fences name host members BARE — each `[RUNTIME_PRELUDE]` imports its host namespaces ahead of the file-scoped namespace declaration, resolving at global scope, and `Rasm.Rhino.csproj` carries the same rows as project-level usings. Host types the prelude cannot reach unshadowed spell `global::` in full; host simple-name collisions resolve through one csproj `<Using Alias="..." />` row — the resolution law homes at `libs/csharp/.planning/RULINGS.md`.
+Host-name resolution is one law: inside `Rasm.Rhino.*` a partial qualification re-resolves against the boundary's namespaces (`Rhino.UI.X` binds `Rasm.Rhino`), so fences name host members BARE — each `[RUNTIME_PRELUDE]` imports its host namespaces ahead of the file-scoped namespace declaration, resolving at global scope, and `Rasm.Rhino.csproj` carries the same rows as project-level usings. Host types the prelude cannot reach unshadowed spell `global::` in full, and a host simple-name collision resolves through one csproj `<Using Alias="..." />` row the branch rulings own.

@@ -20,30 +20,13 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[ENV_KEY_CATALOG]-[QUEUED]: Channel-to-variable spellings become a typed catalog both seam ends derive.
-- Capability: environment spellings crossing `StackOutputs` into process config derive from one typed key owner, so a rename breaks both ends at compile time and the OTLP endpoint's two live spellings reconcile to one.
-- Shape: the typed catalog at the `StackOutputs` owner in `libs/typescript/iac/.planning/program/spec.md` (or beside `kube/workload.md` `_KEYS`); runtime `proc/config.md` `Setting` group and row names derive from the same owner; the divergence — runtime reads `RUNTIME_OTEL_ORIGIN`, `_KEYS` emits `OTEL_EXPORTER_OTLP_ENDPOINT` — resolves to one spelling.
-- Unlocks: publishing a channel to processes is one catalog row; the hand-comment-maintained match dies.
-- Anchors: `kube/workload.md` `_KEYS`/`_POLICY`; runtime `proc/config.md` `Setting` `RUNTIME` nesting; the env-catalog ruling at `libs/typescript/.planning/RULINGS.md` `[01]-[SHAPE]`.
-
-[PROVIDER_CREDENTIAL_ROSTER]-[QUEUED]: Generated-credential entries spell once — two byte-identical arm blocks collapse.
-- Capability: the credential `entries` roster is one value both selfhosted arms compose, so a credential addition is one row edit and the arms cannot drift on membership.
-- Shape: one roster value in `libs/typescript/iac/.planning/program/provider.md` composed by both arm blocks carrying the identical `entries` records.
-- Unlocks: credential membership has one spelling across the metal bootstrap and the escalation arm.
-- Anchors: `provider.md` byte-identical `entries` blocks (`DB_ADMIN_PASSWORD`/`DB_PASSWORD`/`DB_ANALYST_PASSWORD`/`OBJECT_USER`/`OBJECT_PASSWORD`/`GRAFANA_PASSWORD`) at the two arms.
-- Atomic: one hoist, two compositions.
-
-[SITE_DECODER_ROWS]-[QUEUED]: Converging arms hand their decoder identities to the distribution they publish.
-- Capability: every arm converging a folder publishes the viewer's decoder leaves under the same digest-directory law its app artifacts already ride, so the ui codec gate resolves `draco`, `ktx2`, and `meshopt` off the served plane instead of refusing `codec-absent` against addresses nothing published.
-- Shape: `program/provider.md` — `Dispatch.Pins.site.assets` gains the `siblings` column so a multi-leaf identity survives the pin, and the aws and gcp `Source.distribute` calls pass the site roster carrying `Source.decoder(slug, digest)` rows the composing root minted beside the app's own artifacts.
-- Unlocks: the `_DECODERS` roster reaches a published address; today `Source.decoder` has no caller on disk and the three decoder directories exist only as a table.
-- Anchors: `program/source.md` `_DECODERS`/`Source.decoder`/`_assetsUnder`; `program/provider.md` `Pins.site.assets` and the two `Source.distribute` call sites; `libs/typescript/ui/.planning/viewer/scene.md` `Glb.AssetRoster` reading the same three slugs.
-
-[LEASE_CUSTODY_CELLS]-[QUEUED]: Lease custody cells decode from the security-encoded `LeaseSpec`.
-- Capability: the app-root fold realizes each lease as a Doppler token and namespace custody cell; drives from IDEAS `[LEASE_REALIZATION]`.
-- Shape: the custody-cell fold on `operate/secret.md`'s `Secrets` custodian, decoding the security-owned `LeaseSpec` into a keys-only Doppler config, a read-only config-scoped service token, and one namespace secret keyed by `scope + epoch`.
-- Unlocks: IDEAS.md [LEASE_REALIZATION] — lease-bounded credential custody across workloads.
-- Anchors: `libs/typescript/security/.planning/crypt/secret.md` `LeaseSpec` and its `SECURITY_LEASE_SPEC` fold; `operate/secret.md` `Secrets` custodian; `kube/workload.md` `Workload.Args`.
+[PULSE_BUDGET_COMPOSE]-[QUEUED]: The deploy recurrence reads the branch budget ledger instead of composing its own curve.
+- Capability: the drive's re-attempt geometry becomes a ledger row rather than a page-local chain, so jitter, quiet reset, and elapsed ceiling are one branch decision and a tuning change lands at the owner.
+- Shape: `_PULSE` on `libs/typescript/iac/.planning/program/automation.md` `[04]-[AUTOMATION_RUN]` becomes a `Budget.schedule` row intersected with the deploy's own attempt ceiling; the class gate is already the ledger default and the run's `Effect.timeoutFail` budget stands unchanged.
+- Unlocks: completeness bar — every in-process retry recurrence in the branch composes the ledger compile, this plane included.
+- Anchors: `core/value/fault#RETRY_BUDGET` `Budget.schedule(kind, gate = FaultClass.retryable)` over the compiled `_budgetRows`; `runtime/net/pubsub.md` intersecting that compile with a per-row redelivery ceiling is the ledger-plus-local-bound precedent; `DeployFault` already deriving retryability through `FaultClass.family`.
+- Ripple: mirrors `data` `[BOOT_BUDGET_COMPOSE]`.
+- Atomic: one policy swap.
 
 ## [02]-[CLOSED]
 
@@ -51,6 +34,11 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[FAULT_CLASS_CONFORMANCE]-[COMPLETE]: `DeployFault` re-minted through `FaultClass.family` with `roster` + `override get message()`; the local `_POLICY` rank/retry columns died to the core lattice (which also repaired a silent severity disagreement — `cancelled` now outranks `absent`), `halting` survives as the genuine deploy-local row column, `byRank` became `bySeverity`, `_PULSE` gates on `FaultClass.retryable`, and the `<budget-exhausted>` string sentinel became the closed `budget` reason.
+[ENV_KEY_CATALOG]-[COMPLETE]: `StackOutputs.channels` at `program/spec.md` is the typed deploy-to-process key catalog, TOTAL by derivation over the encoded output planes; `kube/workload.md` deleted `_KEYS` and derives, the OTLP divergence resolved to `RUNTIME_OTEL_ORIGIN` with the reason as law, and the previously unspelled `analytics` trio gained its rows. The runtime `proc/config.md` `Setting` counterpart obligation is recorded at the seam.
+[PROVIDER_CREDENTIAL_ROSTER]-[COMPLETE]: already landed on disk — one hoisted `_credentials(spec, "data")` composes both selfhosted arms (`_estate` and docker); the gcp and cloudflare `Secrets` entries differ by design, carrying no k8s estate. The card's two-byte-identical-blocks claim was stale at close.
+[SITE_DECODER_ROWS]-[COMPLETE]: `Source.Distribution.decoders` (one digest per slug) folds `Source.decoder(slug, digest)` rows through `_decoders` BEFORE admission, so `Source.decoder` gains its caller, `_DECODERS` owns every leaf name, collision and presence prove over the whole published set, and both aws and gcp arms forward `pins.site.decoders` with no filename in any arm body; `Pins.site.assets` re-typed to `ReadonlyArray<Source.AssetInput>`.
+[LEASE_CUSTODY_CELLS]-[COMPLETE]: `operate/secret.md` `Secrets.lease(owner, { lease, namespace }, child)` realizes the three leased resources — keys-only `BranchConfig`, read-only config-scoped `ServiceToken`, one namespace cell carrying `DOPPLER_TOKEN` beside the encoded `SECURITY_LEASE_SPEC` — all named `scope + epoch`; the roster and the cell shape seat at `program/spec.md` as `StackOutputs.custody`/`StackOutputs.Cell` because the minting and stamping tiers sit on different strata, and `kube/workload.md` `Workload.rows` consumes both cell shapes through that one value. The driving idea `[LEASE_REALIZATION]` stays open on the app-root composition the security branch owns.
 [EDGE_POSTURE_ROWS]-[COMPLETE]: every provider arm now consumes the one header roster in its own dialect — `_EDGED` on `program/provider.md` renders `pattern`/`header`/`value` rows with no literal: the aws arm folds `Source.distribute(...).edge` into a CloudFront front (`OriginAccessControl` origin, one owned `CachePolicy`, one `ResponseHeadersPolicy` per posture on ordered behaviors), the gcp arm folds the same return into a CDN-enabled `BackendBucket` behind a `URLMap` whose route rules carry `headerAction.responseHeadersToAdds` (`prefixMatch`/`pathTemplateMatch` split by pattern shape), and the cloudflare arm folds `Source.edge` into one `http_response_headers_transform` `Ruleset` over its Pages origin; `_postures` folds covering rows narrow-to-wide for the first-match engines while cloudflare renders rows verbatim because its engine applies every match.
 [UI_ASSET_IDENTITY_TYPES]-[DROPPED]: dropped with its idea — the typed swap demands an iac-to-ui import the branch strata never carry, and the landed `_Asset.siblings`/`_addressedAll` publish beside the ui `Glb.assetDir` read closes the seam as two independent derivations under the branch ruling.
 [DECODER_DIRECTORY_ROWS]-[COMPLETE]: multi-file served identity landed on `program/source.md` — `_Asset.siblings` with derived-entry admission, `_addressedAll` three-key publish under one digest directory, `Source.decoder` over `_DECODERS` (draco wrapper/wasm/js fallback, ktx2 transcoder js/wasm, meshopt UMD under a `.js` leaf per the classic-script + provider-MIME law; `msc_basis_transcoder` refused as deleted vocabulary), and `_EDGE_RULES` — the immutable-cache row beside the `hdr`/`jxl` content-type repairs — published on `Distributed` and on `Source.edge` for the arms that converge no folder.

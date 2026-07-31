@@ -19,13 +19,6 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-[WORKLOAD_IDENTITY]-[QUEUED]: workload identity — machine-to-machine grants (client-credentials, token exchange) and DPoP sender-constrained proofs complete the authn plane for service, sidecar, and headless app shapes.
-- Capability: a machine principal mints and refreshes its own access token through grant rows sharing the oauth row grammar; DPoP proofs mint and verify through `Jwt` with the `cnf.jkt` binding `Material.thumbprintUri` already supplies; the resolved machine principal projects into the per-call transport credential (gRPC metadata, NATS auth callout header) the runtime wave mounts.
-- Shape: new page `libs/typescript/security/.planning/authn/workload.md` — grant rows, proof mint/verify, principal projection; `authn/oauth.md` keeps the browser authorization-code ceremony untouched.
-- Unlocks: service-to-service auth over every transport axis at this folder's altitude; a fleet worker authenticates without a browser ceremony or a hand-carried static token.
-- Anchors: `AccessClaims.cnf`, `Material.thumbprintUri`, `IssuerRef` remote verify, `arctic` ceremony rows, `openid-client` (admission-lane candidate for the certified grant/DPoP client).
-- Tension: `openid-client` admission must survive the supersession review against `arctic` — split custody rules arctic the browser code ceremony and openid-client the machine grants and DPoP.
-
 [ADMITTED_SURFACE_COMPLETION]-[QUEUED]: admitted-surface completion — every verified-unexploited folder and branch catalog member lands as a row on its owning page, closing the census gap between catalogs and pages.
 - Capability: `getTimeStepUsed` replaces the hand-rolled TOTP window math; `encodeBase64urlNoPadding` gives opaque tokens a base64url wire row; `preferredAuthenticatorType` and `verifyBrowserAutofillInput` complete the webauthn policy and autofill surfaces; `secrets.list` backs the partial-refresh planner with the full-object census.
 - Shape: one row per member on its owner — `libs/typescript/security/.planning/authn/credential.md`, `libs/typescript/security/.planning/crypt/sign.md`, `libs/typescript/security/.planning/authn/webauthn.md`, `libs/typescript/security/.planning/crypt/secret.md`.
@@ -44,11 +37,11 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Unlocks: throttle posture, budgets, and fault classification stay one spelling across every credential-verify surface the corpus names a brute-force target.
 - Anchors: the five wiring sites (`authn/session.md` refresh, `authn/credential.md` otp and api-key budgets, `authn/webauthn.md` assert-finish, `crypt/verify.md`); `RateLimiter.makeWithRateLimiter`; the limiter-posture ruling at `libs/typescript/.planning/RULINGS.md` `[02]-[COLLAPSE]` — the collapse stays inside the one auth posture that ruling protects.
 
-[SECRET_STORAGE_DISCRIMINANT]-[QUEUED]: One entropy-keyed storage discriminant — every credential-at-rest form derives from the material's entropy class.
-- Capability: secret-at-rest storage is one discriminant — low-entropy material digests through the KDF, high-entropy random material stores a fast constant-time fingerprint — so the machine key's per-candidate KDF scan collapses to the O(1) indexed compare the session rule already states, or the KDF defense-in-depth exception for machine keys is stated beside that rule; either way the discriminant is spelled once.
-- Shape: an entropy-keyed storage row per credential surface on `libs/typescript/security/.planning/authn/credential.md`'s `Digest` idiom, reconciled against `authn/session.md`'s stated rule; recovery codes stay the stated gray zone.
-- Unlocks: one storage law across every credential surface; `ApiKey.resolve` drops N argon2 verifies per resolve; the rule and its lone exception live at one seam.
-- Anchors: `session.md`'s rule — argon2 for low-entropy credentials, a random high-entropy secret takes a fast constant-time compare, never a per-check KDF; `credential.md` `Digest.mint`/`Digest.resolve` argon2 candidate scan; `Crypto.fingerprint`'s O(1) indexed path; the `rk_<prefix>.<secret>` high-entropy mint through `Crypto.token`.
+[SECRET_STORAGE_DISCRIMINANT]-[QUEUED]: The machine-key KDF exception settles — the one credential surface still outside the landed entropy discriminant.
+- Capability: the recovery-code half is LANDED — `credential.md`'s `Digest` entropy posture routes high-entropy material to `Crypto.fingerprint`/`Probe.Digest` and low-entropy to the KDF — leaving one open question: whether the machine key's per-candidate KDF scan collapses to the O(1) indexed compare or its defense-in-depth exception stands as stated.
+- Shape: the machine-key row on `libs/typescript/security/.planning/authn/credential.md` `[02]`'s entropy posture, where the deliberate defense-in-depth exception is now stated.
+- Unlocks: one storage law across every credential surface; `ApiKey.resolve` drops N argon2 verifies per resolve if the exception falls.
+- Anchors: `session.md`'s rule — argon2 for low-entropy credentials, a random high-entropy secret takes a fast constant-time compare; `Crypto.fingerprint`'s O(1) indexed path; the `rk_<prefix>.<secret>` high-entropy mint through `Crypto.token`.
 - Tension: argon2 on a high-entropy machine key defends only against fingerprint-table theft with reduced-entropy secrets — the bet is whether that defense prices N KDF verifies per resolve.
 
 [API_KEY_CLAIM_BRIDGE]-[QUEUED]: Machine principals resolve into the one entitlement plane — the entitlement resolve discriminates every principal source.
@@ -63,6 +56,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[WORKLOAD_IDENTITY]-[COMPLETE]: `authn/workload.md` landed the machine-identity plane whole — the closed `GrantRequest` family (client-credentials, RFC 8693 exchange, refresh, device, CIBA) dispatched by `$match` over one discovered `Configuration` per issuer, DPoP sender-constraint bound once per principal, introspection/revocation/protected-resource legs, `JwksLedger` as the one JWKS custody, and the per-call transport credential projection; the arctic/openid-client custody split proved disjoint at realization.
 [LEASE_SPEC_CONTRACT]-[COMPLETE]: the encoded `LeaseSpec` owns scope, keys, TTL, and renewal posture on `crypt/secret.md`, so the deploy plane decodes custody cells from the spec rather than from deploy-side convention.
 [WEBAUTHN_TRUST_ISOLATION]-[COMPLETE]: resolved on the refute arm — the catalog rules `SettingsService`/`MetadataService` module-singletons with no instance-scoped construction, and `authn/webauthn.md` states the single-policy-per-process law with the deployment-split remedy.
 [REJECT_FACT_STREAM]-[COMPLETE]: one authenticity-reject fact stream — realized as the `Reject` owner on the crypt verify page; dialect/surface/reason are bounded facets, never divergent metric names.

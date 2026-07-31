@@ -45,12 +45,13 @@ Component rows feed generated assemblies and fabrication physics, capacity recei
 [PROPERTIES]:
 - [31]-[PROPERTIES](.planning/Properties/properties.md): Intrinsic mechanical, thermal, acoustic, and fire measurements.
 - [32]-[SUSTAINABILITY](.planning/Properties/sustainability.md): Lifecycle impact, unit-cost basis, and classification rows.
+- [33]-[ASSESSMENT](.planning/Properties/assessment.md): Dated assessment records and the assessed-over-published resolution law.
 
 [PROJECTION]:
-- [33]-[PROJECTION](.planning/Projection/component.md): `ComponentProjector` mints Type Objects and material subgraphs.
-- [34]-[OBSERVABILITY](.planning/Projection/observability.md): `MaterialsFact`, the instrument tap, the fault log, and the descriptor pack.
-- [35]-[BENCHMARKS](.planning/Projection/benchmarks.md): Content-bound `BenchKernel` workload corpus with receipt gating.
-- [36]-[ANALYTICS](.planning/Projection/analytics.md): Composite-key schemas and parameterized folds.
+- [34]-[PROJECTION](.planning/Projection/component.md): `ComponentProjector` mints Type Objects and material subgraphs.
+- [35]-[OBSERVABILITY](.planning/Projection/observability.md): `MaterialsFact`, the instrument tap, the fault log, and the descriptor pack.
+- [36]-[BENCHMARKS](.planning/Projection/benchmarks.md): Content-bound `BenchKernel` workload corpus with receipt gating.
+- [37]-[ANALYTICS](.planning/Projection/analytics.md): Composite-key schemas and parameterized folds.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -61,6 +62,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `VividOrange.Sections.SectionProperties` — polygon section solver over every `ComponentFamily`.
 - `VividOrange.Sections` — concrete-section and rebar-layout engines the `RcSection` assembler composes.
 - `VividOrange.InteractionDiagram` — biaxial N-M-M capacity surface over strain sweep and fibre integration.
+- `Triangle` — engine-internal mesher reached transitively through `VividOrange.InteractionDiagram`; catalogued for its encapsulation contract, never called, and carrying no central manifest row because this folder holds no direct reference.
 
 [MATERIAL_STANDARDS]:
 - `VividOrange.Materials` — EN/Eurocode grade-to-property factories and the constitutive-model family.
@@ -77,7 +79,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 
 [RASTER_IMAGING]:
 - `SixLabors.ImageSharp` — managed PNG, TIFF, WebP, QOI, and JPEG containers across the `L8`-to-`RgbaVector` depth ladder, carrying ICC.
-- `TinyEXR.NET` — owns OpenEXR whole: flat, tiled, mip-levelled, deep, multi-part, and the full compression roster.
+- `TinyEXR.NET` — owns OpenEXR past flat-scanline reach: block-level part, level, and deep access beside the spectral and colour folds.
 - `TextureCompressor` — pure-managed GPU texture payloads over a format-keyed coder registry spanning BCn, ASTC, ETC, and Basis.
 - `TextureCompressor.FileFormats.Ktx` — KTX1 and KTX2 containers with Zstandard, Zlib, and BasisLZ supercompression.
 - `TextureCompressor.FileFormats.Hdr` — Radiance RGBE ingest decoding straight to a float plane.

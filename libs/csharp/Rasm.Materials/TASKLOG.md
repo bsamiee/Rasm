@@ -20,11 +20,13 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[ASSESSMENT_RECORD_VOCABULARY]-[QUEUED]: Draft the assessment record vocabulary and its `Published<T>` lowering with the assessed-over-published resolution law.
-- Capability: in-situ test results, condition grades, and dated declarations admit with provenance and expiry onto `Published<T>`/`PropertyEvidence`, folding into catalogue rows as evidence-dated overrides beside seed rows.
-- Shape: the vocabulary and admission fold in `libs/csharp/Rasm.Materials/.planning/Properties/assessment.md`.
-- Unlocks: `[ASSESSMENT_WIRE_INGESTION]` core; `[EPD_DATA_INGESTION]` gets its landing surface.
-- Anchors: `Properties/properties#MATERIAL_PROPERTY_CATALOGUE` `Published<T>`/`Admit`/`Lookup`, `INormalDistributionUncertainty<T>` band discrimination, NodaTime `LocalDate` expiry.
+[EMISSION_QUANTITY_ADMISSION]-[QUEUED]: Gate an emission admission on `PhotometricQuantity.CanonicalIsRadiance` so a flux magnitude stops landing in a radiance column.
+- Capability: the flux-versus-radiance split the band declares governs the row write, so a lumen or watt figure refuses the emission columns instead of being written as if it were `W/(sr·m²)`.
+- Shape: the `WithEmission` write at `libs/csharp/Rasm.Materials/.planning/Appearance/photometric.md` `[02]-[PHOTOMETRIC]`, reading `EmissionInput.Source.CanonicalIsRadiance` before the row construction.
+- Unlocks: `IDEAS.md [PHOTOMETRIC_RECEIPT]` — an emission magnitude whose unit the row can be trusted to carry.
+- Anchors: the `PhotometricQuantity` `canonicalIsRadiance` column rows, `UnitEvidence.RadiometricSi`, `MaterialParameters.EmissionLuminance` as the radiance-shaped column, the `graph#MATERIAL_GRAPH` normalized-chromaticity emission law.
+- Tension: normalizing flux to radiance needs an emitter area and solid angle no appearance row carries, so the honest reader is a REFUSAL rather than a conversion — and the alternative, deleting the column, cements the mis-typed write it names.
+- Atomic: one gate at one write site.
 
 [BASIS_KERNEL_DISPATCH]-[QUEUED]: Map the realized basis-encoding capacity case names and draft the `DesignBasis` policy row with per-basis kernel dispatch.
 - Capability: `DesignBasis` selects EC3/EN 1994/EN 1996 kernels beside the realized AISC/TMS verdicts, the basis a receipt column; the closed verdict vocabulary re-cut is staged for the Compute co-sign.
@@ -53,58 +55,21 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `component#CATALOGUE` fail-loud admission, frozen per-family round-trips.
 - Arms: arm when `component#CATALOGUE` settles the `ComponentRow` column carrying import provenance and the `Rasm.Bim` ingest counterpart declares whether it mints in reverse.
 
-[EPD_ROW_SHAPE]-[BLOCKED]: Draft the Materials-side EPD row shape — declared unit, module coverage, expiry — on the assessment landing page.
-- Capability: EC3/Ökobaudat/EPD-Norge records key to `MaterialId`/component designations with `PropertyEvidence` identity, demoting the authored per-kg bases to declared fallback.
-- Shape: the row shape in `libs/csharp/Rasm.Materials/.planning/Properties/assessment.md` with the fallback demotion in `libs/csharp/Rasm.Materials/.planning/Properties/sustainability.md`.
-- Unlocks: `[EPD_DATA_INGESTION]` record half.
-- Anchors: `Published<T>` evidence rows, `glazing#GLAZING_FAMILY` `GlazingGwp`/`GenericEpd`.
-- Arms: arm when the `python:data` peer declares the record schema and transport its Assessment wire carries.
-
-[SHADESPAN_RESEARCH_CLOSE]-[QUEUED]: Close the press page's batched-evaluator research row against the landed signature and delete the debt.
-- Capability: the press band kernel binds the signature its owner declares, so the one open question between the bake fold and the graph evaluator resolves into fence law rather than staying an assumption two pages hold separately.
-- Shape: the `[SHADESPAN_SIGNATURE]` research row and its two call sites in `libs/csharp/Rasm.Materials/.planning/Raster/press.md`.
-- Unlocks: `IDEAS.md [MESH_SPACE_BAKE]` — a widened bake subject inherits a settled band kernel rather than an open one.
-- Anchors: `graph#MATERIAL_GRAPH` `CompiledGraph.ShadeSpan(ReadOnlySpan<ShadePoint>, MaterialParameters, Span<PortValue>, Span<SurfaceShade>, Op)` with `ScratchWidth` and `OperandWidth` the two `Compile`-resolved rentals; the compile-time ANSWERABILITY proof — dangling and non-producing dependencies both — that makes the slot read total, and the per-point `Shade` re-entering this same rail over a one-element window so the press binds the only evaluation shape there is.
-- Ripple: follows the graph owner's mint; the press page owns the deletion.
-- Atomic: one research-row deletion and a rental-name check at two call sites.
-
-[GPU_PERIOD_ARM_TRUTH]-[QUEUED]: State the GPU noise kernel's simplex period arm as unreachable rather than leaving it readable as capability.
-- Capability: the preview kernel's own source says what admission allows, so an operator reading the WGSL does not infer that a periodic Simplex source previews when the CPU refuses to author one.
-- Shape: the simplex wrap arm and its surrounding note in `libs/csharp/Rasm.Materials/.planning/Raster/gpu.md` `[WGSL_KERNEL]`.
-- Unlocks: the preview-covers-its-subject's-full-algebra ruling holds without an arm that covers something the algebra excludes.
-- Anchors: `texture#TEXTURE_UV` `NoiseBasis.Wrappable` is false on `Simplex` and `Noise.Of` refuses a periodic Simplex source, so no admitted source reaches that arm; the kernel's own golden vector grades the wrappable bases alone.
-- Ripple: follows the texture owner's `NoisePeriod` mint; the gpu page owns the edit.
-- Atomic: one arm note.
-
-[BIM_SUMMARY_ARITY]-[QUEUED]: Repair the BIM appearance lowering against the seam factory's real fallible signature.
-- Capability: both appearance producers compose ONE factory at its actual arity, so the shared content key stays a shared derivation rather than two call shapes that only one compiler proves.
-- Shape: the `AppearanceSummary.Of` call and its surrounding rail in `libs/csharp/Rasm.Bim/.planning/Semantics/appearance.md` `[APPEARANCE_PROJECTION]`.
-- Unlocks: `IDEAS.md [ASSESSMENT_WIRE_INGESTION]` — the dedup key both peers mint stops being an unverified assumption.
-- Anchors: the seam `Rasm.Element/Graph/element#NODE_MODEL` factory is `Of(double r, double g, double b, double metallic, double roughness, double opacity, bool transmissive, Op key) -> Fin<AppearanceSummary>`; it gates every channel to the unit range and seeds its own canonical writer at zero, so no caller passes a tolerance.
-- Ripple: mirrors the Materials interchange repair; the Bim page owns its own call.
-- Atomic: one call-shape repair and its rail thread.
-
-[TEXTURE_WIRE_CORPUS_ENTRIES]-[QUEUED]: Seat the two corpus-borne appearance documents in the contract manifest with their shared vocabulary fragment.
-- Capability: every document declaring itself corpus-borne has a manifest entry to answer for it, so the census the wire family's own column implies is real rather than aspirational, and a peer decoding either document reads one frozen vocabulary instead of a transcription each branch spelled itself.
-- Shape: the appearance entries and the shared schema fragment at `tests/contracts/MANIFEST.md`.
-- Unlocks: `IDEAS.md [UDIM_STREAMING]` — a per-tile widening lands against a pinned document rather than an unpinned one.
-- Anchors: `interchange#TEXTURE_EGRESS` `IAppearanceWire.CorpusBorne` is true on `MaterialWire` and `TextureSetWire` and false on the environment and stage documents; the wire ids are `rasm.materials.material.v1` and `rasm.materials.textureset.v1`.
-- Ripple: precedes the peer decode landings; the cross-tier writer owns the manifest.
-
-[PEER_TEXTURE_SET_DECODE]-[BLOCKED]: Land the peer decode ends for the baked set document.
-- Capability: the TypeScript and Python peers decode the baked set the way they already decode the material vector — structurally, against the producer's own field order — so a texture consumer in either runtime reads channels, payload classes, and blob addresses without re-deriving an egress grammar.
-- Shape: the census and landing rows in `libs/typescript/core/.planning/interchange/codec.md` and the protocol vocabulary row in `libs/python/artifacts` runtime transport.
-- Unlocks: `IDEAS.md [ATLAS_PACKER]` — a shared-plane atlas is legible to the viewer that renders it.
-- Anchors: the document's field order and every enum column's key spelling are frozen on the producer page; the asset address join is `assets/<digest>/<file>` with the digest the LOWERED set key.
-- Arms: arm when the corpus entries land, since a landing row without an entry is a contract a census cannot check.
-- Ripple: follows `[TEXTURE_WIRE_CORPUS_ENTRIES]`; each peer branch owns its own end.
-
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[GRAPH_ALGEBRA_NODE_PRODUCER]-[COMPLETE]: the producer landed on the graph owner itself — `graph#MATERIAL_GRAPH` carries the `GraphEdit` authoring request union (`Node`/`Seat`/`Route` — three cases disjoint by refusal contract), the `ShadeChannel` sink-port roster with each row's read and re-seat delegates, and the one `MaterialGraph.Author(Seq<GraphEdit>, Op)` fold beside `Ports(int)`, so a layered or masked appearance is a sequence of edits over `MaterialGraph.Default` that Compiles, shades, and lowers through the SAME frozen-order rail. The arity and answerability sweeps `Compile` once inlined collapsed into one shared `Admit(node, known)` predicate both admissions read against their own known-set, so surface count fell while the producer gained its gate; the `Raster/set#SET_BIND` `Program` arm now LOWERS through the fold (`GraphEdit.Seat` per covered slot + `MaterialGraph.PortOf` resolving the normal-frame port, the hand-wired node list and literal port ids deleted).
+[EMISSION_READOUT_CONSUMERS]-[COMPLETE]: the fork resolved to WIRE COLUMNS against deletion — the corpus census found no reader in C#, python `transport/shapes`, or TS `interchange/codec`, but the sibling `acquisition#ACQUISITION` receipt carries the same evidence class to the wire and to the python peer and cites this payload as its precedent, so the defect was the row TRUNCATING the receipt, not the receipt existing. `MaterialParameters.EmissionProvenance` now carries the whole `EmissionInput`, `interchange#MATERIAL_WIRE` appends the nullable `WireEmission` receipt at `[Key(7)]` (the frozen `EmissionUnit`/`EmissionValue` pair untouched at 5-6) with its `EmissionInput`→wire transcription generated under the same RMG completeness gate, and `CanonicalIsRadiance` re-cards as `[EMISSION_QUANTITY_ADMISSION]` because its honest reader is a refusal, not a conversion. `Photometric.WithEmission` writes the whole payload (the `EmissionInput` construction normalizing the emission colour to unit-Y with exposure moved onto the energy channel), and both peer decode rows are landed — python `EmissionWire` + trailing `emission` mirror row, TS `_EmissionVector` + the `Material` `emission` option field.
+[ASSESSMENT_RECORD_VOCABULARY]-[COMPLETE]: `Properties/assessment.md` landed whole — `AssessmentModality`/`ConditionGrade`/`AssessedProperty`/`EpdRow`, the `AssessmentRecord` union, `AssessmentAdmission.Admit` onto the shared `Published<T>`, and `AssessmentResolution.Resolve` carrying the assessed-over-published law.
+[EPD_ROW_SHAPE]-[COMPLETE]: the blocker named a missing landing surface, which now exists — `EpdRow` carries issuer, registration, declared unit, module-coverage census, and expiry on `Properties/assessment.md`; the peer transport binding stays a research row on the page with its `python:data` route, never a card blocker.
+[GPU_PERIOD_ARM_TRUTH]-[COMPLETE]: landed as the edit itself rather than a note — `fn simplex` dropped its `period: i32`, the three `wrap(i, period)` calls are bare lattice reads matching `simplex3`'s seed-only form, and `basisAt` dispatches `simplex(x, y, seed)`; the parameter's absence IS the statement.
+[SHADESPAN_RESEARCH_CLOSE]-[COMPLETE]: the debt deleted itself — `graph#MATERIAL_GRAPH` landed `ShadeSpan(ReadOnlySpan<ShadePoint>, MaterialParameters, Span<PortValue>, Span<SurfaceShade>, Op)` with `ScratchWidth`/`OperandWidth` the two compile-resolved rentals, `press#TEXTURE_PRESS` binds `ScratchWidth` at its band rental, and `press.md` `[05]-[RESEARCH]` carries only `[GPU_GRAPH_LOWERING]`.
+[BIM_SUMMARY_ARITY]-[COMPLETE]: the repair landed in-wave — `Rasm.Bim/Semantics/appearance#APPEARANCE_PROJECTION` calls the eight-parameter seam factory positionally with no tolerance argument, and its research section records the frozen arity as carried law.
+[TEXTURE_WIRE_CORPUS_ENTRIES]-[COMPLETE]: `tests/contracts/MANIFEST.md` carries `[02.17]-[TEXTURE_SET_BY_KEY]` and `[02.19]-[MATERIAL_WIRE]` at DESIGN-PIN beside the REAL `[02.18]-[ASSET_SET_MANIFEST]`, all over the shared vocabulary fragment, so the `IAppearanceWire.CorpusBorne` census answers on disk.
+[PEER_TEXTURE_SET_DECODE]-[COMPLETE]: both peer ends landed in-wave — the TypeScript census and landing rows at `libs/typescript/core/.planning/interchange/codec.md` and the python `PROTO_VOCABULARY` row at `libs/python/runtime/.planning/transport/shapes.md`; the remaining descriptor-source debt (`Graph/element.proto` and the suite service vocabulary, plus the unwired `buf breaking` gate) is owned by the `tests/contracts/MANIFEST.md` `[02.9]` blocker row and is not re-carded here.
 [SIGNAL_DESCRIPTOR_ROWS]-[COMPLETE]: the ingest counterpart landed — `materials.catalogue` seats on the deploy tuple at `libs/typescript/iac/.planning/operate/observe.md` `_PACKS`, and the key now rides inside `MaterialsDescriptors.Pack` as its own first column, so producer and consumer hold one spelling by construction.
 [QTO_MINT_PINS]-[COMPLETE]: the blocker question answers yes on both counts — the seam admits the `DetailSchema.Takeoff` row family and `MaterialPropertySet` now carries the `Density` accessor — and `TypeTakeoff` mints the set at `Projection/component#COMPONENT_PROJECTOR`, with `BakeSection` widened so one ref resolution serves both the SI seam projection and the mm-basis takeoff and `SeedType` collapsed onto one bag fold. Partiality is two-tiered: a section-free component mints no set, a stiffness-free substance drops the mass row alone.
 [ANALYTICS_SCHEMA_ROWS]-[COMPLETE]: the five declarations, their provenance columns, and the parameterized folds landed at `Projection/analytics.md`, and the blocker was a defect at both ends — the UnitsNet selectors resolve live (`Density.KilogramsPerCubicMeter`, `ThermalConductivity.WattsPerMeterKelvin`, `SpecificEntropy.JoulesPerKilogramKelvin`, `HeatTransferCoefficient.WattsPerSquareMeterKelvin`, each a `public double` SI accessor), and the Persistence store rows were never the gate because `Query/columnar#ANALYTICS_RESIDENCE` already owns the admission gate every producer crosses.

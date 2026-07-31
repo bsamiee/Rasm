@@ -14,7 +14,7 @@ One intent rail admits every execution request once, a substrate axis routes it 
 - [05]-[MEMORY](.planning/Tensor/memory.md): Bounded staging memory and the zero-copy stream pool.
 - [06]-[BLAS](.planning/Tensor/blas.md): Dense-BLAS, factorization, and spectral core.
 - [07]-[FACTOR](.planning/Tensor/factor.md): Sparse ingestion and the criterion-stack iterative solve.
-- [08]-[QUADRATURE](.planning/Tensor/quadrature.md): Accuracy-routed adaptive quadrature and the spectral operator.
+- [08]-[QUADRATURE](.planning/Tensor/quadrature.md): Measured integration over the kernel quadrature floor, trajectory driving, spectral operators.
 - [09]-[SAMPLING](.planning/Tensor/sampling.md): Sobol/Halton sampling and radial-basis scatter reconstruction.
 
 [SYMBOLIC]:
@@ -100,14 +100,10 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `EC3` — openEPD REST service consumed hand-thin over `HttpClient`; no manifest row.
 
 [INTERCHANGE_TRANSPORT]:
-- `SharpGLTF.Core` — glTF core read and write.
-- `SharpGLTF.Ext.3DTiles` — 3D Tiles egress extension.
-- `SharpGLTF.Toolkit` — mesh-building toolkit.
-- `Alimer.Bindings.MeshOptimizer` — meshoptimizer simplification and cluster-LOD bindings.
 - `CloudNative.CloudEvents.Mqtt` — structured-mode CloudEvents MQTT binding decoding typed twin sensor envelopes.
 - `NATS.Net` — NATS Core subscription seam for broker sensor ingest.
 - `Apache.Arrow` — columnar `RecordBatch` construction for surrogate-training and billing egress; IPC/ADBC/Flight egress stays Persistence-side.
-- `Microsoft.IO.RecyclableMemoryStream` — pooled-buffer stream behind the artifact frames.
+- `Microsoft.IO.RecyclableMemoryStream` — pooled-buffer stream behind the artifact frames and the tileset-manifest emit.
 - `Grpc.Net.Client.Web` — gRPC-Web handler for HTTP/1.1 and browser-constrained paths.
 - `Grpc.Net.Common` — shared compression and connectivity vocabulary beneath the gRPC rails.
 
@@ -134,14 +130,20 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `CSparse` — managed sparse direct-factor terminal.
 - `MathNet.Numerics` — quadrature, distributions, and the MKL/OpenBLAS provider hooks.
 - `System.Numerics.Tensors`
-- `UnitsNet`
+- `UnitsNet` — `Analysis/energy` result-unit coercion; `Analysis/aggregator` ISO 6946 surface-film binding.
 
 [GPU_DEVICE]:
 - `Silk.NET.WebGPU` — GPGPU dispatch over the AppUi-minted device; this lane acquires none of its own.
 - `Silk.NET.WebGPU.Extensions.WGPU` — `QueueSubmitForIndex` and `DevicePoll` deterministic completion beside pipeline statistics.
+- `Alimer.Bindings.MeshOptimizer` — simplification and cluster-LOD bindings behind the residency pyramid; the codec's process-global version state admits no folder partition.
+
+[GEOMETRY_INTERCHANGE]:
+- `SharpGLTF.Core` — glTF core read and write beneath the tile-content lane.
+- `SharpGLTF.Toolkit` — mesh-building toolkit.
+- `SharpGLTF.Ext.3DTiles` — `Runtime/codecs#TILE_PARTITION` seats `Tiles3DExtensions.RegisterExtensions()` once at composition and emits no leaf body.
 
 [GRAPH_ALGORITHM]:
-- `QuikGraph` — `Analysis/circulation` path and topology algebra over the space-adjacency view.
+- `QuikGraph` — adjacency, dependency, and partition graph algebra: traversal, condensation, contention colouring, and cut-minimizing bisection.
 
 [PLANAR_GEOMETRY]:
 - `NetTopologySuite` — isovist and visibility polygons at the circulation planar boundary.

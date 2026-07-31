@@ -27,12 +27,12 @@ Rasm.Element/             # refs ../Rasm ONLY; no GeometryGym; no host geometry 
 │   ├── Assessment.cs     # AssessmentPayload receipt keyed by discipline, route, and input content key
 │   └── Observation.cs    # ObservationSeries measured sensor evidence over a by-reference sample blob
 ├── Geospatial/           # Georeferenced coverage and CRS
-│   ├── Coverage.cs       # By-ref raster coverage grid over a band schema and affine placement
+│   ├── Coverage.cs       # By-ref raster-and-field coverage grid over the kernel CellLattice placement
 │   └── Reference.cs      # GeoReference record over the three-state projected-CRS identity
 └── Projection/           # Cross-stratum contracts, the content codec, the fault band, and the observability tap
-    ├── Projection.cs     # IElementProjection and IGraphConstraint floors, the assemble composition, and the ImportedGeometry interchange carrier
+    ├── Projection.cs     # Projector and constraint floors, the assemble composition, and the ImportedGeometry lane carrier
     ├── Address.cs        # Order-independent ContentAddress codec over the kernel seed-zero hash
-    ├── Fault.cs          # Cross-federation FaultBand registry and the ElementFault union
+    ├── Fault.cs          # Cross-federation FaultBand registry, the ElementFault union, and the AdmissionSlots slot algebra
     └── Observe.cs        # ElementHookRail typed fact tap, its band-bracketed decorations, and the GraphInstrument projection
 ```
 
@@ -42,7 +42,7 @@ Rasm.Element/             # refs ../Rasm ONLY; no GeometryGym; no host geometry 
 
 Interior is one strongly-connected component at folder grain — `Graph/Element` declares both the primitive `NodeId` every sibling keys and the aggregate `ElementGraph` that composes every sibling — so the ladder resolves member-first: five strata rank the owners, and each consumption edge points down.
 
-- S0 substrate — `ElementFault` and `FaultBand` (`Projection/Fault`), the `CanonicalWriter` fold (`Projection/Address`), the primitive `NodeId`.
+- S0 substrate — `ElementFault` and `FaultBand` with the `AdmissionSlots` accumulating-slot algebra (`Projection/Fault`), the `CanonicalWriter` fold (`Projection/Address`), the primitive `NodeId`.
 - S0 reach — every stratum rails and keys through the substrate.
 - S1 vocabulary — `Classification` and `Discipline`, the `MeasureValue`/`Dimension` quantity signature, and the `GeoReference` record.
 - S2 values — `PropertyValue` with `InheritanceMode`, `MaterialComposition` with `ProfileRef`, `CoverageGrid`.

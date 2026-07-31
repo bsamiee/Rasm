@@ -15,7 +15,8 @@ security/
     │   ├── session.ts         # The identity spine the ceremonies feed — rotation, ports, CSRF egress
     │   ├── credential.ts      # Digest — the one mint-and-resolve idiom over OTP, recovery codes, and machine API keys
     │   ├── oauth.ts           # Issuers modeled as rows over one authorization-code ceremony
-    │   └── webauthn.ts        # Both passkey halves as per-runtime subpaths: RP verifier (./server) + browser invocation (./browser)
+    │   ├── webauthn.ts        # Both passkey halves as per-runtime subpaths: RP verifier (./server) + browser invocation (./browser)
+    │   └── workload.ts        # Machine identity: GrantRequest family over one discovered client per issuer, DPoP binding, principal projection
     └── access/                # Authorization: entitlement fold, tenancy contract, and the security fact rail
         ├── audit.ts           # SecurityFact vocabulary, Witness publish seam, AuditJournal port, pseudonymized egress, board projections
         ├── claim.ts           # Entitlement vocabulary + the RBAC-union-ReBAC evaluation fold, resolved once per request
@@ -27,7 +28,7 @@ security/
 - S0 `access/audit` + `access/tenant` — floor mints importing only core; `audit` the fact plane, `tenant` the `TenantScope` reference and RLS shape.
 - S1 `crypt/sign` — the crypto authority originating every digest, signature, token, and envelope.
 - S2 `crypt/verify` + `crypt/secret` + `authn/session` + `authn/credential` — each composes the `sign` authority.
-- S3 `authn/oauth` + `authn/webauthn` + `access/claim` — ceremonies and decisions over the spine; `authn` and `access` stay independent peers.
+- S3 `authn/oauth` + `authn/webauthn` + `authn/workload` + `access/claim` — ceremonies and decisions over the spine; `authn` and `access` stay independent peers; `workload` imports `AccessClaims`/`JwksLedger`/`JwksSnapshot` from S1 and `Reject` from S2, reaching no session owner.
 
 ```mermaid
 ---
@@ -41,7 +42,7 @@ flowchart TB
     accTitle: Security interior import strata
     accDescr: Four strata — ceremonies and the entitlement fold over the spine onto the sign authority and the audit-tenant floor; imports downward.
     subgraph S3["S3 CEREMONY + DECISION"]
-        Ceremony["oauth · webauthn"]
+        Ceremony["oauth · webauthn · workload"]
         Claim[claim]
     end
     subgraph S2["S2 SPINE"]
@@ -105,6 +106,7 @@ flowchart LR
     Authn e5@-->|"[PORT]: BearerGuard"| Runtime
     Authn e6@<-->|"[BOUNDARY]: OAuth"| Runtime
     Authn e7@-->|"[SHAPE]: CookieSpec"| Runtime
+    Authn e16@-->|"[SHAPE]: MachinePrincipal"| Runtime
     Crypt e8@-->|"[SHAPE]: SealedEnvelope"| Data
     Crypt e9@-->|"[BOUNDARY]: Intake"| Runtime
     Crypt e10@-->|"[BOUNDARY]: LeaseSpec"| Iac

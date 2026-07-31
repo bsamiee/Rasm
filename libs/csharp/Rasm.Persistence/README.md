@@ -1,6 +1,6 @@
 # [PERSISTENCE]
 
-`Rasm.Persistence` is the content-addressed durable system of record for the `ElementGraph`; the version-control engine over it — commit-DAG, CRDT merge, AS-OF time travel, three-way merge, attested provenance, classification-driven retention, verified recovery; the consistency-split read lanes; the content-keyed geometry object store; and the fenced coordination substrate. Its bar: a Type re-key reads as a rename, a million-event model scrubs at the cost of its delta, and every cross-runtime reuse key resolves bit-identically against the kernel content-hash.
+`Rasm.Persistence` is the content-addressed durable system of record for the `ElementGraph`; the version-control engine over it — commit-DAG, CRDT merge, AS-OF time travel, three-way merge, attested provenance, classification-driven retention, verified recovery; the consistency-split read lanes; the content-keyed artifact object plane; and the fenced coordination substrate. Its bar: a Type re-key reads as a rename, a million-event model scrubs at the cost of its delta, and every cross-runtime reuse key resolves bit-identically against the kernel content-hash.
 
 It persists the graph over a Marten append substrate and depends up on the `Rasm.Element` seam for the `ElementGraph` and the `Rasm` kernel alone for the content hash and the signal capsule's causal frame, instrument mechanism, and hook vocabulary, each a settled contract. Its instrument roster and its lifecycle points contribute as `TelemetryContributorPort` and `HookPoint` values the app-platform root binds, so no app-platform package is referenced.
 
@@ -39,7 +39,7 @@ It persists the graph over a Marten append substrate and depends up on the `Rasm
 - [24]-[ISSUE](.planning/Ingest/issue.md): BCF issue-file codec — topics, viewpoints, and comments keyed to durable elements.
 
 [STORE]:
-- [25]-[BLOBSTORE](.planning/Store/blobstore.md): Content-keyed geometry object store with its write-blob-first seal.
+- [25]-[BLOBSTORE](.planning/Store/blobstore.md): Content-keyed artifact object plane with its write-blob-first seal.
 - [26]-[SCHEMA](.planning/Store/schema.md): Owns the canonical backend contract and generation algebra.
 - [27]-[PROVISIONING](.planning/Store/provisioning.md): Verify-only extension tier and provider materializer rows.
 - [28]-[COORDINATION](.planning/Store/coordination.md): Token-fenced lease store owning budget, CAS, lease, membership, and outbox.
@@ -64,7 +64,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Pgvector.EntityFrameworkCore`
 - `NetTopologySuite.IO.GeoJSON4STJ`
 - `NetTopologySuite.IO.GeoPackage`
-- `pocketken.H3` — managed Uber-H3 v4 hex indexing; the same cell id at ingest and in PostgreSQL as `h3-pg`.
 - `Thinktecture.Runtime.Extensions.EntityFrameworkCore10`
 - `Microsoft.EntityFrameworkCore.Sqlite`
 - `Microsoft.Data.Sqlite`
@@ -185,6 +184,9 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `CommunityToolkit.HighPerformance` — spans, memory pools, and bit primitives on the cache and object-store path.
 - `System.Numerics.Tensors` — SIMD `TensorPrimitives` backing the `VECTOR_CODEBOOK` PQ k-means and ADC scan.
 
+[GEOSPATIAL_INDEX]:
+- `pocketken.H3` — managed Uber-H3 v4 hex indexing; the same cell id at ingest and in PostgreSQL as `h3-pg`.
+
 [GRAPH_ALGORITHM]:
 - `QuikGraph` — models the in-process topology the synchronous `Query/topology` lane composes.
 
@@ -196,6 +198,9 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 
 [DATA_CLASSIFICATION]:
 - `Microsoft.Extensions.Compliance.Redaction` — classification attributes on egressed members; redactor binding stays at the app root.
+
+[TELEMETRY_CONTRACT]:
+- `Microsoft.Extensions.Telemetry.Abstractions` — the pooled per-operation latency ledger the `Query/lane` read phases stamp; activation and name registration stay at the app root.
 
 [WIRE_CODEGEN]:
 - `Riok.Mapperly` — generated seam-to-wire and columnar marshal.

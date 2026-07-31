@@ -70,8 +70,8 @@ Every alignment travels down the one kernel seam. Every measured surface mints t
 - [45]-[CONDUIT](.planning/Display/conduit.md): `Conduits.Mount` owns filtered display-pipeline participation and balanced render state.
 - [46]-[DRAW](.planning/Display/draw.md): `Marks.Render` dispatches one mark vocabulary over the pipeline and Eto canvas backends.
 - [47]-[INTERACTION](.planning/Display/interaction.md): `WidgetHost` owns pointer, gumball, and widget lifecycles while emitting detached facts.
-- [48]-[RENDER](.planning/Display/render.md): `RenderJob.Open` owns batch and realtime render custody beside the `SceneQueue` change reader.
-- [49]-[MODES](.planning/Display/modes.md): `Modes.Configure` owns mode appearance, policy flags, viewport assignment, and analysis attachment.
+- [48]-[RENDER](.planning/Display/render.md): `RenderJob.Open` owns batch and gated render custody; `RealtimeEngines.Register` seats the engine.
+- [49]-[MODES](.planning/Display/modes.md): `Modes.Configure` owns mode appearance, policy flags, table operations, viewport assignment, and analysis.
 
 [RENDER]:
 - [50]-[CONTENT](.planning/Render/content.md): `ContentRef` addresses the RDK content graph behind the kind axis, change bracket, and snapshot.

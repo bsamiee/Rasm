@@ -20,17 +20,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[WORKLOAD_PAGE]-[QUEUED]: author `libs/typescript/security/.planning/authn/workload.md` — client-credentials and token-exchange grant rows, DPoP proof mint/verify, machine-principal projection (idea `IDEAS.md` `[WORKLOAD_IDENTITY]`).
-- Capability: grant rows share the oauth row grammar (`Config`-bundled credentials, closed `_kinds` tuple, guard pair); DPoP proofs ride `Jwt` with `cnf.jkt` from `Material.thumbprintUri`; the resolved principal projects into per-call transport credentials the runtime wave mounts.
-- Shape: one new page under `authn/`; `oauth.md` untouched; `openid-client` composed as the certified grant/DPoP client under the admission-lane assumption.
-- Unlocks: IDEAS.md [WORKLOAD_IDENTITY] — service, sidecar, and headless apps authenticate machine-to-machine over every transport axis without a browser ceremony or a static token.
-- Anchors: `IssuerRef` remote verify, `AccessClaims.cnf`, `arctic` row grammar as the shape precedent, `.api/jose.md` JWS members for proof signing.
-
-[TOTP_STEP_PROJECTION]-[QUEUED]: replace the hand-rolled TOTP window math in `libs/typescript/security/.planning/authn/credential.md` with otplib's `getTimeStepUsed` projection (idea `IDEAS.md` `[ADMITTED_SURFACE_COMPLETION]`).
+[TOTP_STEP_PROJECTION]-[BLOCKED]: `getRemainingTime`/`getTimeStepUsed` are `@otplib/totp` module exports the `otplib` root barrel does not re-export, and the folder's own rail law refuses a strategy sub-import; the swap unblocks only if the root barrel widens (idea `IDEAS.md` `[ADMITTED_SURFACE_COMPLETION]`).
 - Capability: `Otp.remaining` derives from the library's step projection; the `_PERIOD` modulo arithmetic is deleted.
-- Shape: one member swap on `libs/typescript/security/.planning/authn/credential.md`, `getTimeStepUsed` replacing the `_PERIOD` window math.
+- Shape: one member swap on `libs/typescript/security/.planning/authn/credential.md` once a root-reachable spelling exists.
 - Unlocks: IDEAS.md [ADMITTED_SURFACE_COMPLETION] — the hand-rolled TOTP window parallel is deleted, admitted otplib capability the estate already pays for stops idling.
-- Anchors: `.api/otplib.md` `getTimeStepUsed` member anchor.
+- Arms: the period coupling the swap would have carried is landed independently — `_PERIOD` now rides `generateURI`, every TOTP `verify`, and `remaining` explicitly, so the three read one value instead of agreeing by shared library default.
+- Anchors: `otplib` root barrel re-export set; `.api/otplib-core.md` `[RAIL_LAW]` sub-import refusal.
 - Atomic: one member swap.
 
 [BASE64URL_TOKEN_ROW]-[QUEUED]: add the base64url opaque-token wire row to `libs/typescript/security/.planning/crypt/sign.md` via `encodeBase64urlNoPadding` (idea `IDEAS.md` `[ADMITTED_SURFACE_COMPLETION]`).
@@ -52,12 +47,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Shape: same `HttpApiMiddleware.Tag` grammar, `provides: CurrentClaims`; the runtime serve wave mounts it as one more guard row.
 - Unlocks: IDEAS.md [COOKIE_SESSION_GUARD] — a zero-JS-token browser app composes full session auth declaratively, the serve wave mounting one more guard row over no hand parser.
 - Anchors: `HttpApiBuilder.securityDecode` (`libs/typescript/.api/effect-platform.md`), `CookieSpec`, `Cookie.verify`.
-
-[CSRF_HEADER_FIELD]-[QUEUED]: CSRF echo's header name becomes a `CookieSpec`-owned field — the fail-closed mismatch dies.
-- Capability: the double-submit header spelling is one spec field both runtime ends read, so the serve gate's read and the browser stamp provably agree and an always-absent header read cannot recur.
-- Shape: a `header` field on the `CookieSpec.csrf` row in `libs/typescript/security/.planning/authn/session.md`; runtime `serve/route.md`'s `_CSRF_HEADER` literal deletes in favor of the spec read, and `browser/route.md`'s echo pair returns the spec header name instead of the cookie name.
-- Unlocks: every mutating ceremony — webauthn finish, refresh, logout — passes the CSRF gate; the branch header-contract ruling holds structurally.
-- Anchors: `session.md` `CookieSpec` csrf row (`__Host-csrf`); runtime `serve/route.md` `x-csrf-token` literal and its `_csrfed` fold; runtime `browser/route.md` cookie-name echo; the header ruling at `libs/typescript/.planning/RULINGS.md` `[01]-[SHAPE]`.
 
 [APIKEY_SUBJECT_DIMENSION]-[QUEUED]: `ApiKeyStore` gains the subject dimension every peer store carries.
 - Capability: machine keys enumerate and bulk-revoke by subject — the store port carries subject-keyed reads beside the prefix index, so rotation, offboarding, and breach response reach every key a principal holds.
@@ -86,6 +75,8 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[CSRF_HEADER_FIELD]-[COMPLETE]: the `CookieSpec.csrf` row carries `header: "x-csrf-token"` with the one-row-read-twice law; runtime `serve/route.md` `_csrfed` reads `CookieSpec.csrf.header` (route literal deleted) and `browser/route.md` `Vault.csrf` stamps the same field — all three ends verified spelling one row.
+[WORKLOAD_PAGE]-[COMPLETE]: `authn/workload.md` authored — the closed `GrantRequest` family (client-credentials, RFC 8693 exchange, refresh, device, CIBA) over one discovered `Configuration` per issuer, DPoP bound once per principal with `cnf.jkt` from the handle's own thumbprint (RFC 9449 bare RFC 7638 value, never the URN form), `JwksLedger` bound as the certified client's JWKS custody through a per-package unit projection, and the transport-credential projection the runtime wave mounts; the card's original "client-credentials, token exchange, DPoP" scope widened to the full admitted surface.
 [LEASE_SPEC_SCHEMA]-[COMPLETE]: `LeaseSpec` lands as a Schema struct beside `_ACCESS` with its exported type, so the `[BOUNDARY]: LeaseSpec` seam edge carries a real shape.
 [SECRETS_LIST_CENSUS]-[COMPLETE]: `census` landed on `crypt/secret.md`'s custodian — one `secrets.list` read narrowed to the lease allowlist with dynamic leasing OFF (an inline lease surfaces no revocable handle), decoded through `Schema` and folded into the same `_publish` revision path `probe` and the rolling tick take, so custody's own equality check suppresses a rotation event where no byte moved; the catalog gained the trap that `SecretsListResponse.secrets` types four fixed example key names over an arbitrary name-keyed wire map.
 [WEBAUTHN_TRUST_PROBE]-[COMPLETE]: probe resolved at the catalog leg — `.api/simplewebauthn-server.md` declares both trust services module-singletons (`SettingsService` a module const, no instance construction), and `authn/webauthn.md` already carries the refute-arm outcome: the single-policy-per-process composition law with the deployment-split remedy.

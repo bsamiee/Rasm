@@ -26,13 +26,19 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: `Element/graph` `ModelLink`/`LinkKind`/`ProjectGraph`/`ProjectRollup` (landed), the length-framed content-addressed preimage discipline, the one-stream-per-model law.
 - Tension: the frozen `elementset` parity vector (`ContentParityCorpus` `ParitySlot.ElementSet`) binds the `NodeId`-only preimage — widening membership re-cuts that parity contract in the same pass.
 
-[POINTCLOUD_CODEC_ADMISSION]-[BLOCKED]: Reality-capture codec — E57/LAS/LAZ point-cloud ingest into chunked residence with H3 spatial bucketing.
+[POINTCLOUD_CODEC_ADMISSION]-[QUEUED]: Reality-capture codec — E57/LAS/LAZ point-cloud ingest into chunked residence with H3 spatial bucketing.
 - Capability: the as-built half of the model lifecycle — scan header/metadata rows, registration transform, chunked blob residence, per-region cells — feeding compare-to-design compute without owning scan semantics.
 - Shape: one new Ingest codec page at `libs/csharp/Rasm.Persistence/.planning/Ingest/pointcloud.md` under the [A.4] growth row, bytes through Store/blobstore#MULTIPART_TRANSFER + Element/codec#CONTENT_CHUNKING, region cells through Element/identity H3Cell.
 - Unlocks: scan-to-BIM verification; the heaviest residence-demanding payload class gains an entry point.
-- Anchors: Element/codec#CONTENT_CHUNKING (FastCDC), Element/identity H3Cell, Ingest/geospatial and Ingest/issue (the [A.4] codec-page pattern).
-- Arms: one answerable question resolved — which managed E57/LAS/LAZ codec package admits under the gate (license, maintenance signal, net10 asset)?
-- Route: nuget MCP survey over the E57/LAS candidate family; hand-rolling the E57 XML+binary layout without that ruling is the forbidden alternative.
+- Anchors: Element/codec#CONTENT_CHUNKING (FastCDC, segmented ingress with the artifact ceiling lifted), Element/identity H3Cell, Ingest/geospatial and Ingest/issue (the [A.4] codec-page pattern), the surveyed `Aardvark.Data.E57` and `Unofficial.laszip.netstandard` codec pair.
+- Ripple: follows `TASKLOG.md` `[POINTCLOUD_CODEC_ADMIT_ROSTER]`.
+
+[CLASS_PREFIXED_OBJECT_NAMES]-[QUEUED]: Object names carry their retention class, so the provider's own lifecycle engine does the tiering the sweep pays full egress for.
+- Capability: a `Cache`-class plane expires at the provider at zero transfer cost, and the fetch-and-re-PUT demotion becomes the fallback for providers with no lifecycle surface rather than the only mechanism.
+- Shape: a class segment on the `Store/blobstore#MULTIPART_TRANSFER` object-name projection with its inverse unchanged, plus a per-provider lifecycle-rule projection off the `Version/retention#RETENTION_CLASSES` schedule rows.
+- Unlocks: provider-native expiry and transition on every row whose lifecycle surface targets by prefix, so the cold-tier ladder stops paying egress plus ingress per demotion.
+- Anchors: the frozen class-membership law (reclassification is export-then-readmit, so a class segment is stable for an object's whole life and the last-separator inverse still parses); the retention schedule's age bound IS a lifecycle rule's expiry; the storage-tier row already carries its transition target.
+- Tension: the name renders a CONTENT address, so a second discriminant inside it makes two classes of one byte-identical blob two objects — acceptable only because class membership is immutable and dedup is already per-tenant.
 
 [UNPARTITIONED_USAGE_SERIES]-[BLOCKED]: Unpartitioned usage census reports its own series — the per-tenant usage levels project untagged when no tenant partitions.
 - Capability: usage attribution answers under both tenancy modes from one instrument roster — a partitioned store reads per-tenant keyed levels and an unpartitioned store reads the same three measures untagged, with no sentinel dimension and no second instrument name.

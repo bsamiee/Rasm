@@ -8,6 +8,9 @@
 
 ## [02]-[SHAPE]
 
+- Simulation reads its motion source off `SimulatePolicy` as one closed `MotionSource`, never a second entry parameter: a posted `CutProgram` folds controller semantics and a `RobotCell` folds the posed-station census `Kinematics/cell` resolves, so a new motion modality is one case and one arm rather than a sibling `Execute`.
+- Provider kinematics stay behind `Kinematics/cell` whole — `Verify/simulate` consumes a provider-free `CellPosedStation` census and names no `Robots` type, so the `Rhino3dm` alias boundary has exactly one crossing in the package and posed display meshes leave as a kernel `BoundingBox` and a count.
+- Cell cycle time reads `Program.Duration` off the look-ahead planner, never a re-derivation from `MotionDynamics`, which has no answer for a serial chain; per-station elapsed and travel measure against the PRIOR posed station, so the ledger sums to the planner's own clock.
 - Planar sweep stays axis-free — `Move` carries no tool axis, so the swept-solid guard is exact for every admitted move; an oriented-move atom lands only with a typed refusal for unsupported axes in the same change, and a silent planar approximation of an oriented cut is the rejected form.
 
 ## [03]-[COLLAPSE]

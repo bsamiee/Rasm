@@ -79,13 +79,14 @@
 [DRAWING]:
 - [57]-[VIEW](.planning/Drawing/view.md): Exact hidden-line and silhouette projection — invisibility kernel returning `DrawingProjection` carrier.
 - [58]-[PACK](.planning/Drawing/pack.md): Canonical encoding owner — `PackOp` into the dtype-strided byte arena with a lossless round-trip witness.
+- [59]-[HATCH](.planning/Drawing/hatch.md): Pattern-fill synthesis — `HatchOp` clipped by exact winding parity to the region complex, SoA hatch wire.
 
 [ANALYSIS]:
-- [59]-[QUERY](.planning/Analysis/query.md): Measured-query runtime and the public analysis entry — one `AnalysisQuery` request algebra and facade.
-- [60]-[MEASURE](.planning/Analysis/measure.md): Metrology owner — mass properties, enclosing bounds, and conformance residual sampling.
-- [61]-[INSPECT](.planning/Analysis/inspect.md): Diagnostics owner — genus and Euler topology folds with the full mesh defect and quality capture.
-- [62]-[SELECT](.planning/Analysis/select.md): Selection/extraction owner — the edge taxonomy, silhouette and draft capture, and PCA spread.
-- [63]-[RELATIONS](.planning/Analysis/relations.md): Pairwise-relation owner — RhinoCommon intersection lattice beside the meshing altitude.
+- [60]-[QUERY](.planning/Analysis/query.md): Measured-query runtime and the public analysis entry — one `AnalysisQuery` request algebra and facade.
+- [61]-[MEASURE](.planning/Analysis/measure.md): Metrology owner — mass properties, enclosing bounds, and conformance residual sampling.
+- [62]-[INSPECT](.planning/Analysis/inspect.md): Diagnostics owner — genus and Euler topology folds with the full mesh defect and quality capture.
+- [63]-[SELECT](.planning/Analysis/select.md): Selection/extraction owner — the edge taxonomy, silhouette and draft capture, and PCA spread.
+- [64]-[RELATIONS](.planning/Analysis/relations.md): Pairwise-relation owner — RhinoCommon intersection lattice beside the meshing altitude.
 
 ## [02]-[DOMAIN_PACKAGES]
 

@@ -104,11 +104,10 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 [GEOMETRY_ENGINES]:
 - `CavalierContours` — arc-native bulge-polyline offset and boolean owner.
 - `geometry3Sharp` — biarc and 2D curve-fit owner.
-- `SharpVoronoiLib` — 2D Fortune Voronoi with Lloyd relaxation for region decomposition.
 - `OpenCAMLib` — 3-axis cutter-location engine for surface finishing; vendored over shared `libocl`.
 
 [EXCHANGE_INGRESS]:
-- `ACadSharp` — DWG/DXF profile read; the write leg lives in the app UI.
+- `ACadSharp` — DWG/DXF profile read; the Bim mesh-read and AppUi drafting-write legs live at their folders.
 - `DSTV.Net` — DSTV/NC1 steel-fabrication exchange for profile-cut programs.
 - `OcctNet.Wrapper` — STEP/IGES B-rep ingress to shape and mesh.
 
@@ -146,10 +145,10 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `CommunityToolkit.HighPerformance` — 2D span grids for grayscale, engagement, and layer-census rasters.
 
 [PLANAR_GEOMETRY]:
-- `Clipper2` — line-space offset and boolean-clip substrate under the toolpath and nesting lanes.
+- `Clipper2` — line-space lanes behind the `FillOf` seam; offset, boolean, and morphology lower onto the `Rasm` kernel owners.
 
 [GRAPH_ALGORITHM]:
-- `QuikGraph` — setup-precedence, assembly, and rapid-link routing graphs.
+- `QuikGraph` — setup-precedence, assembly, and rapid-link routing graphs, bipartite fixture assignment, and the mesh-shell disjoint-set partition.
 
 [RECENCY_CACHE]:
 - `Microsoft.Extensions.Caching.Hybrid` — solver memo tier behind `HybridCache`; durable L2 federates at the Persistence cache seam.

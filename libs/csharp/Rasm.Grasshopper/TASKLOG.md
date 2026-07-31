@@ -42,6 +42,25 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `Shell/hooks.md` `HookScope` `[ValueObject<string>]`; the Rhino `PluginKey` sibling discipline.
 - Atomic: one parameter re-type.
 
+[EXPLICIT_SET_TWINS]-[QUEUED]: Every selection-scoped document verb also serves an explicit object set through payload-shape discrimination.
+- Capability: one gate case per verb family carries both the selection modality and the explicit `IDocumentObject[]` modality, so a caller holding a computed set never round-trips it through host selection state.
+- Shape: payload widening on the owning `DocumentMutation`/`GraphMutation` cases in `libs/csharp/Rasm.Grasshopper/.planning/Document/document.md` and `Document/graph.md` — `DeleteCase` already proves the shape; the host twin roster is catalogued at `libs/csharp/Rasm.Grasshopper/.api/api-gh2-document.md` `[03]` explicit-set twins.
+- Unlocks: scripted and headless drives mutate computed sets directly; selection mutation stops being the only spelling.
+- Anchors: `DocumentMethods` `*Objects` twins (`GroupObjects`, `ChainObjects`, `ClusterObjects`, `DeleteObjectData`); the landed `DeleteCase` payload-shape discrimination.
+
+[WRAP_PREFLIGHT_GATE]-[QUEUED]: Chain and cluster wraps preflight through the host's own feasibility verdict before firing.
+- Capability: a refused wrap surfaces the host's `whyNot` text as a typed refusal instead of settling a successful receipt over a null product.
+- Shape: `libs/csharp/Rasm.Grasshopper/.planning/Document/document.md` `ChainCase`/`ClusterCase` — the gate carries the selection roster so `CanCreateChain`/`CanCreateCluster(IEnumerable<IDocumentObject>, out string whyNot)` runs inside the same marshal window as the wrap.
+- Unlocks: wrap refusals become addressable evidence; the null-product settle class dies.
+- Anchors: `DocumentMethods.CanCreateChain`/`CanCreateCluster` (decompile-verified); the one-marshal-window law the document gate already holds.
+
+[DATA_CLEAR_AXIS]-[QUEUED]: Data-clearing joins the delete family as a second depth axis over the scope discriminant.
+- Capability: clearing persisted data and deleting objects read as one 2x2 — scope (selection or explicit set) by depth (object or its data) — on one owning case family.
+- Shape: `libs/csharp/Rasm.Grasshopper/.planning/Document/document.md` `DeleteCase` — `DocumentMethods.DeleteSelectionData`/`DeleteObjectData -> int` fold in; `DeleteObjectData` takes no wire span, so the fold decides whether depth rides the case payload or a sibling case.
+- Unlocks: the two unreached host verbs gain producers, and the delete receipt reports what was cleared versus removed.
+- Anchors: `DocumentMethods.DeleteSelectionData`/`DeleteObjectData` (decompile-verified); the `GateOutcome` receipt spine.
+- Tension: depth-as-payload keeps one case but overloads the receipt; depth-as-case doubles the family — the fold owns the call.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:

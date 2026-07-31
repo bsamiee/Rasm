@@ -21,7 +21,7 @@
 
 ## [03]-[COLLAPSE]
 
-- (none)
+- A provider row differing from a sibling row only by a frozen option record collapses into one row taking the policy value — the frozen literal becomes the row's default policy, the sibling deletes, and every consumer names the one row with an optional policy override; two rows kept apart by configuration alone are one capability spelled twice.
 
 ## [04]-[STRUCTURE]
 

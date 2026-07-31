@@ -11,7 +11,7 @@
 - [04]-[QUADRATURE](.planning/solvers/quadrature.md): `QuadratureIntent` route over quadrature, interpolation, and the weak-form FEM fold.
 - [05]-[DIFFERENTIAL](.planning/solvers/differential.md): `DifferentialIntent` route over adjoint-differentiable ODE, SDE, and CDE integration.
 - [06]-[SENSITIVITY](.planning/solvers/sensitivity.md): `Differentiation` owner threading reverse-mode and implicit-adjoint sensitivity.
-- [07]-[MESH](.planning/solvers/mesh.md): `MeshField` topology-and-field owner beside `MeshExchange` assembling, reading, and writing the mesh.
+- [07]-[MESH](.planning/solvers/mesh.md): `MeshField` topology-and-field owner beside `MeshExchange` generating, assembling, reading, and writing the mesh.
 - [08]-[FIELD](.planning/solvers/field.md): `FieldQuery` readout interpolating, projecting, and resampling over a discrete field.
 
 [OPTIMIZATION]:
@@ -88,7 +88,6 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 [EXPERIMENTS]:
 - `SALib`
 - `pyDOE3` — classical design-of-experiments matrix generation.
-- `narwhals` — admits the study DOE frame through the published `data/tabular` contract surfaces.
 - `scikit-learn`
 - `onnx`
 - `onnxruntime`
@@ -120,3 +119,6 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 
 [MESH_INTERCHANGE]:
 - `meshio`
+
+[TRANSITIVE]:
+- `narwhals` — the study DOE frame admits through the published `data/tabular` contract surfaces, so consumption is transitive by design and this folder composes no member and owns no catalog; the owning tier is `libs/python/data/.api/narwhals.md`.

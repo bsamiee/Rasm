@@ -70,7 +70,7 @@ flowchart TB
         Interop[interop]
     end
     Spatial s1@-->|"[IMPORT]: QueryReceipt"| Columnar
-    Spatial s2@-->|"[IMPORT]: StoreOp"| Egress
+    Spatial s2@-->|"[IMPORT]: ObjectEgress"| Egress
     Spatial s3@-->|"[IMPORT]: FieldVirtual"| Gridded
     Gridded s4@-->|"[IMPORT]: ArrowCStream"| Interop
     Impact s5@-->|"[IMPORT]: FrameAdmission"| Contract
@@ -90,6 +90,7 @@ flowchart TB
     Query s16@-->|"[IMPORT]: DuckDbSession"| Columnar
     Lakehouse s17@-->|"[IMPORT]: DatasetRef"| Columnar
     Contract s18@-->|"[IMPORT]: FrameInterop"| Interop
+    Columnar s28@-->|"[IMPORT]: arrow_bytes"| Interop
     Profile s19@-->|"[IMPORT]: FieldShape"| Interop
     Cost s20@-->|"[IMPORT]: QueryReceipt"| Columnar
     Cost s21@-->|"[IMPORT]: LakeReceipt"| Lakehouse
@@ -101,7 +102,7 @@ flowchart TB
     Interop f1@-->|"forbidden: upward import"| D2
 ```
 
-- S0 `tabular` — `interop` and `columnar` form the floor; `contract`, `profile`, `query`, `lakehouse`, and `egress` own independent branches.
+- S0 `tabular` — `interop` is the floor and `columnar` the scan base above it; `contract`, `profile`, `query`, `lakehouse`, and `egress` own independent branches.
 - S0 `materialize` closes the operational apex, folding every hook point through one scope-keyed registration rail.
 - S0 `materialize` threads the root-bound `BackendGeneration` into every per-partition query, so one refresh reads one contract generation.
 - S0 `materialize` reads the change feed through the `lakehouse` `LakeOp.ChangeFeed` receipt payload, never a CDF provider of its own.
@@ -110,7 +111,7 @@ flowchart TB
 - S1 `gridded` rides the interop `ArrowCStream` carrier for its ragged Arrow bridge; `virtual` mints the field `FieldReceipt` family in-folder.
 - S1 tensor `PlanReceipt` lowering crosses into the tabular cost ledger as wire data, never an import.
 - S1 `graph` — import-isolated, composing runtime alone; its `GraphResult.frame` node table crosses into columnar as wire data, never an import.
-- S2 `spatial` — apex consumer composing columnar, the object egress (`ObjectEgress`/`StoreOp`), and the gridded virtual plane (`VirtualReference`).
+- S2 `spatial` — apex consumer composing columnar, the object-egress receipt owner (`ObjectEgress`), and the gridded virtual plane (`VirtualReference`); its store operations cross from the runtime lane, never from `tabular`.
 
 ## [03]-[SEAMS]
 
@@ -145,6 +146,7 @@ flowchart LR
     Runtime e4@-->|"[TRANSPORT]: ResourceRef"| Tabular
     Runtime e28@-->|"[PORT]: Ledger"| Tabular
     Runtime e20@-->|"[TRANSPORT]: ResourceRef"| Egress
+    Runtime e29@-->|"[TRANSPORT]: ObjectStoreLane"| Egress
     Runtime e11@-->|"[BOUNDARY]: on_thread"| Query
     Runtime e26@-->|"[SHAPE]: BackendGeneration"| Query
     Runtime e17@-->|"[BOUNDARY]: LanePolicy"| Materialize

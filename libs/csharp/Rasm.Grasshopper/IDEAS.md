@@ -26,6 +26,13 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: `libs/csharp/.planning/RULINGS.md` boundary-classification row; the landed `GhLog` admission and per-ALC custody; the app-root `DataClassification` value set.
 - Ripple: `[SHELL_LOG_CLASSIFY]` decomposes this.
 
+[LAYER_OVERLAY_CONSUMER]-[QUEUED]: Canvas overlays composite through the CoreAnimation layer graph instead of repainting every frame.
+- Capability: canvas-owned decoration that survives a frame without a repaint — badges, focus rings, drag ghosts, and progress chrome ride a mounted layer tree the compositor animates, so motion costs no paint pass and wide-colour fill stays Display-P3 end to end.
+- Shape: a canvas-side composer over `libs/csharp/Rasm.Grasshopper/.planning/Platform/composition.md` `Compose.Mount` and `LayerPaint`, seated on `libs/csharp/Rasm.Grasshopper/.planning/Canvas/paint.md` beside `PaintPlan` and anchored through `Platform/native.md` `MacAnchor`.
+- Unlocks: the layer graph, its style mint, its glide attachment, and its effect family gain their first consumer; a decorated canvas stops paying a full mark walk per animated frame.
+- Anchors: `Platform/composition.md` `LayerNode`/`LayerMount`/`LayerPaint`/`Glides`/`Effects`; `Canvas/paint.md` `PathSpec.Build` supplying the Eto path `LayerPaint.Stroked` converts; `Canvas/motion.md` `CanvasPacer` for the frame edge.
+- Tension: the strata law points S2 Canvas down at S1 Platform, so the composer seats on the canvas side; a Platform-side canvas composer inverts the one forbidden direction.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed idea card template:

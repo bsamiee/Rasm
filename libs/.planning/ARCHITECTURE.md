@@ -2,7 +2,7 @@
 
 Rasm carries a platform tier and a product tier: `libs/` holds independently adoptable library estates, and every app, plugin, and service composes them exactly as it takes an external package. Capability lands in the platform first, parameterized for consumers that do not yet exist; a product shell declares intent, binds host edges, and emits output.
 
-Estates couple through defined contracts alone — no estate imports a peer, and none is a prerequisite, producer, or build-order edge for another. Tier-0 owns the law no branch or package can own and names languages alone; branch and folder `ARCHITECTURE.md` own their package rosters, charters, and reference direction.
+Estates couple through defined contracts alone — no estate imports a peer, and none is a prerequisite, producer, or build-order edge for another. Tier-0 owns the law no branch or package can own and names languages alone; each branch and folder owns its own package roster, charters, and reference direction.
 
 ## [01]-[STRATA]
 
@@ -45,7 +45,7 @@ Geometry, meshing, and semantic exchange each carry exactly one owner per runtim
 - Runtimes meet at content identity, the tessellation rail, and the appearance rail the manifest's appearance entries define.
 - Decoders at the tessellation and appearance rails compose the payload rather than re-deriving it.
 - Independent peer producers stay independent: a host-free geometry owner produces for its own domain rather than consuming a peer's kernel.
-- Each runtime's owners are its branch `ARCHITECTURE.md` to name.
+- Each branch names its own runtime's owners.
 
 ## [05]-[PLANNING_LIFECYCLE]
 
@@ -54,7 +54,7 @@ Geometry, meshing, and semantic exchange each carry exactly one owner per runtim
 - Greenfield packages keep their design pages inside one `.planning/` at the package root, sub-domain sub-folders mirroring the eventual source tree.
 - Package roots carry the index docs and nothing else.
 - All planning lives under the single `.planning/`, never inside a real source sub-folder.
-- Each package `ARCHITECTURE.md` maps the full folder structure including planned sub-domains without pages, so the map fuels ideas and tasks.
+- Each package maps its full folder structure, planned page-less sub-domains included, so the map fuels ideas and tasks.
 - Mature folders with real code carry NO `.planning/`; the co-located source architecture note is the only design surface.
 - Mature folders route open split, cleanup, and re-architect work to task cards in the branch `TASKLOG.md`.
 - One exception stands: a genuinely new unbuilt sub-domain inside a mature package keeps its scaffold in that sub-domain folder.
@@ -111,6 +111,7 @@ Transcription SPELLS the rows per branch and `tests/contracts/` `TELEMETRY_CONVE
 - Carve: transport coordinates beside residence relation and session-setting names share the prefix and answer to their own owners.
 - Gate: every signal name a branch mints — instrument, dimension, resource, span, log, and event alike — carries a segment the roster resolves.
 - Unresolved segments refuse at their declaration owner rather than reaching an exporter.
+- A grammar-derived routing fact states its derivation beside every emission owner, never only at the census owner — a producer emitting under a foreign domain prefix forks the record call knowingly, never silently.
 - Metrics-store OTLP receiver pins `NoUTF8EscapingWithSuffixes`, so dotted names survive byte-identical from every runtime.
 - Scope: the emitting package id, version-stamped, one semconv coordinate on tracer, meter, and logger; a branch spells it once, all bump together.
 - Egress: OTLP over HTTP+protobuf, one collector base endpoint fanned per signal on `/v1/<signal>`.
@@ -237,7 +238,7 @@ New capability enters at the narrowest rung that holds it, and each rung above i
 
 ## [13]-[APPEARANCE]
 
-Surface appearance crosses the runtimes as TWO domain documents under ONE frozen vocabulary. `tests/contracts/appearance-vocabulary.schema.json` is the definition: the channel roster with its per-channel transfer, neutral, unit, and mip fold, the ingest alias table, the transfer and normal-convention and alpha-mode and container and pack and storage-format and payload vocabularies, the three key spellings, the level-ordered plane address, the egress grammar, and the harmonic band order with its golden vectors. Each branch TRANSCRIBES that definition in its own casing law and validates its own projection against it; the two corpus entries reference it and neither restates a row.
+Surface appearance crosses the runtimes as TWO domain documents under ONE frozen vocabulary. `tests/contracts/appearance-vocabulary.schema.json` is the definition and `tests/contracts/MANIFEST.md` `[01]-[LEDGER]` states what it carries; each branch TRANSCRIBES that definition in its own casing law and validates its own projection against it, and the two corpus entries reference it with neither restating a row.
 
 | [INDEX] | [OWNER]                             | [MINTS]                                    | [BOUNDARY]                             |
 | :-----: | :---------------------------------- | :----------------------------------------- | :------------------------------------- |

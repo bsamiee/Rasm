@@ -54,9 +54,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@gltf-transform/functions` — transform rows folded through one `document.transform(...)`; every codec injected, never imported.
 - `ktx-parse` — KTX2 container read as plain data; payload class, transfer, primaries, alpha, and layer shape classify without a transcoder.
 - `meshoptimizer` — wasm mesh kernel: vertex and index codec, reordering, simplification, clustering, tangents.
-
-[INTERCHANGE]:
-- `cloudevents` — `journal/append.md` mints strict-validated `CloudEvent` values at the claim seam; core owns the catalog, runtime the carriage.
+- `watlas` — xatlas wasm binding: UV-atlas chart generation and packing; the injected instance behind the `unwrap` transform row.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
@@ -64,6 +62,9 @@ Shared substrate consumed from the Ts registry; the registry and its charters ow
 
 [TYPING_RAILS]:
 - `effect`
+
+[WIRE_ENVELOPE]:
+- `cloudevents` — `journal/append.md` mints strict-validated `CloudEvent` values at the claim seam; this folder is the branch's one member-level consumer.
 
 [PLATFORM]:
 - `@effect/platform`

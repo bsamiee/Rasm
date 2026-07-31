@@ -20,6 +20,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
+[PLINESEG_INTERSECTION_ADOPT]-[QUEUED]: Compose the newly catalogued arc-aware segment-intersection family where the toolpath pages hand-classify crossings.
+- Capability: segment crossings classify through the provider's own verdict vocabulary — overlapping arcs included — instead of a page-local classification.
+- Shape: the `Rasm.Fabrication/.planning/Toolpath` pages whose folds test segment crossings compose the `PlineSegIntersection.Intersect` family and its `PlineSegIntrKind` verdicts per the widened `api-cavaliercontours.md` rows.
+- Unlocks: the `OverlappingArcs` verdict a bool cannot spell reaches every crossing consumer, and a new crossing class is a provider verdict row, never a page predicate.
+- Anchors: `libs/csharp/Rasm.Fabrication/.api/api-cavaliercontours.md` intersection primitives with their producing facades and verdict enums (landed this pass); `Toolpath/link.md` the settled `PlineSegIntersection.Intersect` fence.
+
 [FIXTURE_FAULT_CASE_HOMING]-[QUEUED]: Seat the fixture-admission fault case on its union owner so the `[Union]` dispatch reaches it and its band code stays disjoint.
 - Capability: one `FabricationFault` type carries every case, so the generated `Switch`/`Map` is exhaustive over the whole family and each case's band offset is unique across the package.
 - Shape: `Process/faults.md` `[ERRORS]` gains the `FixtureInadmissible(FixturingWitness Witness)` case at the free offset 54, its prelude gains the witness namespace, and `Fixturing/workholding.md` drops the second `public abstract partial record FabricationFault` block whole; the witness-homing question — witnesses beside their fault owner, as `EquipmentWitness` and `DeriveWitness` already sit — settles in the same pass.

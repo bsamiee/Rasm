@@ -61,19 +61,15 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 
 [MODEL_INTERCHANGE]:
 - `GeometryGymIFC_Core` — sole IFC semantic-model surface.
-- `SharpGLTF.Core`
-- `SharpGLTF.Toolkit`
-- `SharpGLTF.Runtime`
-- `SharpGLTF.Ext.3DTiles`
 - `subtree` — 3D-Tiles implicit-availability bitstream.
 - `UniversalSceneDescription` — OpenUSD scene decode and emit.
-- `ACadSharp` — DWG/DXF mesh read.
+- `ACadSharp` — DWG/DXF mesh read; the AppUi drafting WRITE and Fabrication profile-read legs live at their folders.
 - `AssimpNetter` — FBX/Collada/3MF scene decode and emit.
 - `geometry3Sharp` — OBJ/STL/OFF text-mesh arm.
 - `Ply.Net` — dedicated PLY decode.
 - `dotbim` — lightweight `.bim` mesh-and-metadata interchange.
 - `Openize.Drako` — Draco mesh compression.
-- `Alimer.Bindings.MeshOptimizer` — meshopt compression.
+- `Alimer.Bindings.MeshOptimizer` — meshopt compression; branch substrate catalogue at `libs/csharp/.api/api-alimer-meshoptimizer.md` (no folder tier — the codec's process-global version state admits no partition).
 - `Themis.Las` — uncompressed LAS point-cloud decode.
 - `Unofficial.laszip.netstandard` — compressed LAZ point-cloud decode.
 - `StructuralAnalysisFormat` — SAF/XLSX exchange over seam structural payloads.
@@ -118,7 +114,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `GISBlox.IO.GeoParquet`
 - `FlatGeobuf`
 - `SharpKml.Core`
-- `pocketken.H3`
 - `bertt.CityJSON`
 - `MaxRev.Gdal.Core` — OGR universal vector driver and GeoTIFF/COG/DEM raster ingest.
 - `MaxRev.Gdal.MacosRuntime.Minimal.arm64`
@@ -142,11 +137,20 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `UnitsNet`
 - `CommunityToolkit.HighPerformance` — pooled buffer staging behind the mesh encoders.
 
+[GEOMETRY_INTERCHANGE]:
+- `SharpGLTF.Core` — glTF schema I/O behind the `Exchange/export` emit and the import decode leg.
+- `SharpGLTF.Toolkit` — the vertex-fragment, mesh, scene, and material build head feeding `ToGltf2`.
+- `SharpGLTF.Runtime` — scene templatization and per-instance decode over an imported `ModelRoot`.
+- `SharpGLTF.Ext.3DTiles` — the `Exchange/export#TILE_METADATA` authoring fence for the 3D Tiles overlay.
+
 [GRAPH_ALGORITHM]:
 - `QuikGraph` — CPM sort, system-trace reachability, commit-DAG ancestor, and coordination closure walks.
 
 [PLANAR_GEOMETRY]:
 - `NetTopologySuite` — OGC Simple-Features planar algebra behind the geospatial seam; IO codecs stay folder additions.
+
+[GEOSPATIAL_INDEX]:
+- `pocketken.H3` — the `Semantics/geospatial#GEOSPATIAL_SEAM` DGGS keyer arm; the coarse `ulong` bucket beside the `STRtree`.
 
 [WIRE_CODEGEN]:
 - `Riok.Mapperly` — compile-time boundary transcription over the seam unions.

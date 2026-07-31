@@ -13,7 +13,7 @@ compute/                    # Offline scientific evidence, graduating outward th
 │   ├── quadrature.py       # QuadratureIntent — quadrature, interpolation, and the weak-form FEM fold
 │   ├── differential.py     # DifferentialIntent — adjoint-differentiable ODE, SDE, and CDE integration
 │   ├── sensitivity.py      # Differentiation — reverse-mode and implicit-adjoint sensitivity over the solvers
-│   ├── mesh.py             # MeshField/MeshExchange — topology and fields beside the assemble/read/write interchange
+│   ├── mesh.py             # MeshField/MeshExchange — topology and fields beside generate/assemble/read/write
 │   └── field.py            # FieldQuery — interpolate, project, and resample readout over a discrete field
 ├── optimization/           # Offline optimization discriminated by problem structure
 │   ├── design.py           # DesignProblem — differentiable design over the implicit-adjoint gradient
@@ -86,7 +86,7 @@ flowchart TB
 - S0 point rail and resource ledger ride every producer dispatch; every producer returns through the hub.
 - S1 `numerics` + `solvers` — one module-acyclic stratum: `solvers` folds `SolverReceipt`/`SolveStatus` onto the rail.
 - S1 `numerics` admits `ArrayPayload` and the `JitBackend`/`LoweredSpec` compile routes.
-- S1 interleave: `quadrature` composes `jit`; `receipt` mounts the `jit` `EngineProfile` band; `interval` composes the receipt `graduate` fold.
+- S1 interleave: `quadrature` composes `jit` and the receipt `graduate` fold; `receipt` mounts the `jit` `EngineProfile` band; `interval` composes the receipt `graduate` fold.
 - S2 `analysis` + `experiments` + `optimization` — the producer stratum no sibling imports.
 - S2 `analysis` composes `ArrayPayload`; `experiments` the `JitBackend` capture and study spine.
 - S2 `optimization` composes the `SolveStatus` verdicts and the receipt `graduate` fold.

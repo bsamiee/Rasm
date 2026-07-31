@@ -43,6 +43,33 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Unlocks: sequence-shaped design search the CP-SAT row prices poorly; the admitted routing surface stops being dead catalog weight.
 - Anchors: folder `.api` `api-ortools#ENTRYPOINTS` routing rail (`RoutingModel`, `RoutingIndexManager`, `RoutingSearchParameters`, `RoutingDimension`, `RoutingSearchStatus.Types.Value`), `OptimizerKind` row law, `Analysis/circulation` OR-Tools graph natives as the disposal-pattern precedent.
 
+[MESHLET_CUT_EVIDENCE]-[QUEUED]: Publish the duplicated-vertex cut a cluster build paid, so a build-strategy choice is measured rather than assumed.
+- Capability: the encode receipt carries the realized boundary-vertex count per level, so the greedy native builds and the cut-minimizing bisection are comparable on the one figure that decides stream cost, and a policy row is chosen from evidence instead of taste.
+- Shape: one measured column on the payload receipt projection beside the cluster count, filled in the meshlet-cluster encode arm; lands in `libs/csharp/Rasm.Compute/.planning/Runtime/payload.md` `[RESIDENCY]`.
+- Unlocks: the `ClusterBuild` axis becomes selectable by measurement — a corpus-level answer to which build a given geometry class wants.
+- Anchors: `ClusterBuild.Bisect` and its `FaceAdjacency` cut weight already compute the shared-vertex count this receipt publishes; the `StreamSegment` slot already carries the cluster count beside the blob length.
+
+[MESHLET_CURVATURE_COLUMN]-[QUEUED]: Each meshlet cluster carries its own curvature bound, so a ray-cone consumer widens its footprint by measured shape instead of guessing planar.
+- Capability: the per-cluster descriptor grows a curvature evidence column measured at encode from the cluster's own triangles, so every downstream footprint, LOD, and filtering decision reads geometry truth the payload already visited once.
+- Shape: one curvature column on `ResidencyMeshlet` beside the cluster-LOD chain columns, filled in the meshlet-cluster encode arm and decoded through `Runs`; lands in `libs/csharp/Rasm.Compute/.planning/Runtime/payload.md` `[RESIDENCY]`.
+- Unlocks: `csharp:Rasm.AppUi` `[RAY_CONE_CURVATURE]` — the declared ray-cone growth leg arms the moment this column ships.
+- Anchors: `ResidencyMeshlet` already carries `Level`/`Parent`/`Shell`/`Error`/`ParentError` as per-cluster evidence, so a further measured column is a widening, not a shape change; the encode arm already walks every cluster triangle for cone and sphere bounds, so the curvature estimate reads visited data.
+- Ripple: `csharp:Rasm.AppUi` `[RAY_CONE_CURVATURE]` consumes; this card is the producer end.
+
+[SOLVER_DIRECTIONAL_PARTICIPATION]-[QUEUED]: Modal participation becomes directional, so a seismic mass floor is checked per excitation axis the way every code writes it.
+- Capability: the modal result carries one participation factor per excitation direction rather than one over an all-ones influence vector, so the effective-mass floor gates per axis, a torsional mode stops contributing to a translational demand, and the spectral demand scales by the direction the spectrum row was written for.
+- Shape: the participation column widens from a per-mode scalar to a per-mode direction triple on the solve result, the modal folds project it, and the seismic gate and spectral demand read the direction the request names; lands in `libs/csharp/Rasm.Compute/.planning/Solver/contract.md` `[02]-[SOLVE_CONTRACT]` and `libs/csharp/Rasm.Compute/.planning/Analysis/structural.md` `[05]-[SEISMIC_ROUTE]`.
+- Unlocks: `IDEAS.md [SOLVER_DIRECTIONAL_PARTICIPATION]` — the seismic route's 90% floor becomes the code-faithful per-direction check instead of a single aggregate that sums translational and rotational contributions into one number.
+- Anchors: the modal arms already fold the participation factor off the lumped inertia and the full recovered mode, so a direction is a projection of data in hand; the condensed route returns full-length modes, so a direction triple reads the same rows the whole-operator route does; the spectrum rows carry behaviour factor and damping per code.
+- Tension: aggregate and per-direction floors disagree on real models, so this changes seismic verdicts on already-content-keyed assessments — the solver-version token is the re-key lever, and one deliberate re-key beats a silent parallel column.
+
+[SOLVER_SCALAR_CAPACITY]-[QUEUED]: Thermal and network transients march on real capacity, so a first-order step is a physical time constant rather than a geometric share.
+- Capability: the scalar material forms carry volumetric heat capacity the way the elastic forms now carry density, so the first-order capacity march reads `ρ·c_p·V` per cell and a thermal time constant is a material fact rather than an element volume standing in for one.
+- Shape: a capacity column on the scalar material assignment cases with the capacity fold reading it per cell, beside the payload-supplied network capacity that arrives measured; lands in `libs/csharp/Rasm.Compute/.planning/Solver/contract.md` `[02]-[SOLVE_CONTRACT]`.
+- Unlocks: transient thermal results compare against measured or code-tabulated time constants, and payload-borne network capacity stops being the lane's only honest capacity.
+- Anchors: the elastic cases carry density off the seam `Mechanical` case, so the seam precedent and the accessor shape both exist; the seam `Thermal` case carries specific heat, so the read has a source; the energy-network payload supplies a measured capacity vector the fold reads where present.
+- Arms: the scalar assignment cases serve conductance-only physics whose consumers read no capacity, so the widening arms when a transient thermal or network route lands a consumer reading the column.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed idea card template:

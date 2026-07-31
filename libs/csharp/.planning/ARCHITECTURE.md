@@ -139,6 +139,8 @@ flowchart LR
     Bim <-->|"[WIRE]: IfcWire"| PyGeometry
     Bim -->|"[WIRE]: GeoFeatureWire"| PyData
     PyData -->|"[WIRE]: Environmental"| Materials
+    Materials -->|"[WIRE]: MaterialWire + TextureSetWire"| PyRuntime
+    PyArtifacts -->|"[WIRE]: AssetSetManifest"| Materials
     Fabrication -->|"[SHAPE]: Tolerance"| PyArtifacts
     AppHost <-->|"[WIRE]: DiscoveryResult"| PyRuntime
     Compute <-->|"[WIRE]: ComputeService"| PyGeometry
@@ -180,7 +182,7 @@ flowchart LR
     Compute <-->|"[WIRE]: QuantityFamily"| TsCore
     Persistence -->|"[WIRE]: CrdtOpWire"| TsCore
     Bim -->|"[WIRE]: IfcWire"| TsCore
-    Materials -->|"[WIRE]: MaterialWire"| TsCore
+    Materials -->|"[WIRE]: MaterialWire + TextureSetWire"| TsCore
     AppUi -->|"[WIRE]: CommandPayloadWire"| TsCore
     AppHost -->|"[WIRE]: ReceiptEnvelopeWire"| TsCore
     Persistence <-->|"[CONTRACT]: BackendContract"| TsData

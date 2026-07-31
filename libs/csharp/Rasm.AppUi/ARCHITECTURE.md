@@ -22,7 +22,7 @@ Rasm.AppUi/
 │   ├── Meshlets.cs       # Compute residency cluster consumption with hysteresis LOD and cull cut
 │   ├── PathTrace.cs      # BVH, ReSTIR, ray-cone LOD, denoise oracle, and the resolved environment dome
 │   ├── Shading.cs        # Admitted shader roster, budgeted plane residency, and the layered-BSDF plus prefiltered-dome shade pass
-│   ├── Immersive.cs      # OpenXR stereo design-review and passthrough over the shared device
+│   ├── Immersive.cs      # OpenXR session machine, stereo review, passthrough, and spatial anchors over the shared device
 │   ├── Reality.cs        # Gaussian-splat and point-cloud capture over the one residency carrier
 │   ├── Capture.cs        # Raster capsule, color-policy owner, vector-print arm, and encode rows
 │   ├── Drafting.cs       # Sheet drafting with hidden-line consumption and one DWG/DXF write leg
@@ -177,7 +177,6 @@ flowchart LR
     subgraph appui[RASM.APPUI]
         Shell[Shell spine]
         Render[Render plane]
-        Editing[Edit surfaces]
         Document[Document plane]
         Collab[Collab plane]
         Diagnostics[Diagnostics]
@@ -238,6 +237,8 @@ flowchart LR
 - `SurfaceMount.Panel` mounts on an embedded host surface only when a Rhino lease supplies `EmbedCapsule` and the `Render/pipeline` GPU lease.
 - `Surfaces` mount gate admits a production view only as its compiled-XAML class, so a runtime XAML load has no mount path.
 - Avalonia owns GPU backend selection through `EmbedOptions.RenderingMode`; no dispatch arm constructs a per-host `GpuBackend` or `GRContext`.
+- `ONE_WGPU_DEVICE` fixes the wgpu arity this folder mints and every branch peer binds — one loaded runtime carrying one `WebGPU` core plus its one `Wgpu` extension view, one `Adapter` matched to the compositor adapter at composition, one `Device` and its one `Queue`.
+- A second instance, adapter, device, or queue is the rejected form wherever it appears — the immersive session, a shading arm, a query-set owner, and a Compute dispatch all bind the leased pair and hold `nint` handles alone.
 - `Offscreen` capsule owns the one Skia draw boundary and every `SKSurface` inside it.
 - `BehaviorRail` intent bridge is the single C# view-binding seam and rejects binder symbols, so ReactiveUI code-behind binding has no seam to enter.
 - `AppUiTelemetry.Contribute` is the one spine every owner routes image-load, telemetry, and receipt facts through.

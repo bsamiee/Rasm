@@ -20,7 +20,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `cbor-x`
 - `@msgpack/msgpack`
 - `rfc6902`
-- `cloudevents`
 - `mqtt`
 - `hash-wasm`
 
@@ -32,9 +31,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 [OBSERVE_VOCABULARY]:
 - `@opentelemetry/semantic-conventions`
 
-[BENCHMARK_STATISTICS]:
-- `mitata`
-
 ## [03]-[SUBSTRATE_PACKAGES]
 
 Shared substrate consumed from the Ts registry; the registry and its charters own the full contracts, and `libs/typescript/.api/` holds the shared API evidence.
@@ -45,3 +41,9 @@ Shared substrate consumed from the Ts registry; the registry and its charters ow
 [PLATFORM]:
 - `@effect/platform`
 - `@effect/experimental`
+
+[WIRE_ENVELOPE]:
+- `cloudevents` — the carrier dialect row composes its contract; `data:journal/append` is the branch's member-level consumer.
+
+[BENCHMARK_STATISTICS]:
+- `mitata`

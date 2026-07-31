@@ -14,7 +14,7 @@ Rasm.Compute/
 │   ├── Memory.cs          # Bounded staging memory and the zero-copy stream pool
 │   ├── Blas.cs            # Dense BLAS, factorization, spectral core, and damped nonlinear least squares
 │   ├── Factor.cs          # Sparse ingestion and criterion-stack iterative solve
-│   ├── Quadrature.cs      # Accuracy-routed adaptive quadrature and the spectral operator
+│   ├── Quadrature.cs      # Integration lane over the kernel quadrature/RK floor, trajectory driver, spectral operator
 │   └── Sampling.cs        # Sobol/Halton sampling and radial-basis scatter reconstruction
 ├── Symbolic/              # Closed symbolic-expression CAS and unit boundary
 │   ├── Expression.cs      # Symbolic-expression algebra over the CAS Entity
@@ -129,6 +129,8 @@ flowchart TB
 
 ## [03]-[SEAMS]
 
+`e32` `[WIRE]: StageResult` carries TWO measured columns beside the frozen preimage — `ParityFresh`, true only on the arm that leased a floor session and ran both probes, and `Coverage`, the overlap-add weight floor. Without the freshness discriminant a residual series counts single-measurement requests; without coverage a mosaic reassembled at 0.001 publishes as healthy. `Rasm.Materials` owns the wire record, so `StageResult`, its `StageResultWire` key roster, and the `InferGolden` tap all take the two columns at the Materials end, the tap gating on freshness.
+
 ```mermaid
 ---
 config:
@@ -163,7 +165,9 @@ flowchart LR
     Rasm e19@-->|"[WIRE]: SpatialIndex"| Solver
     Rasm e20@-->|"[SHAPE]: RemeshOp"| Solver
     Rasm e21@-->|"[WIRE]: EncodedGeometry"| Tensor
+    Rasm e34@-->|"[SHAPE]: FieldIntegrator + IntegrationDomain"| Tensor
     Model e15@<-->|"[CONTENT_KEY]: ArtifactIndexRow"| Persistence
+    Model e35@-->|"[CONTENT_KEY]: ParityVerdict"| Persistence
     Model e27@<-->|"[CONTENT_KEY]: VectorCodebook"| Persistence
     Tensor e16@-->|"[CONTENT_KEY]: ShardPlan"| Persistence
     Symbolic e14@-->|"[CONTENT_KEY]: CompiledExpr"| Persistence
@@ -205,7 +209,6 @@ flowchart LR
         Model[Model runtime]
         Tensor[Tensor core]
         Solver[Solve spine]
-        Analysis[Analysis rail]
         Runtime[Runtime plane]
         Symbolic[Symbolic CAS]
     end
@@ -285,6 +288,7 @@ Spine admits once, selects substrate over row data, enqueues on bounded lanes, d
 |  [07]   | a new fault arm                    | `Runtime/admission.md`   | one arm at the 2200-band free frontier on its custody lane     |
 |  [08]   | a new execution provider           | `Model/providers.md`     | one `ExecutionProvider` row; `Resolve` already answers absence |
 |  [09]   | a new tile border, seam, or layout | `Model/inference.md`     | one `PadMode`, `TileBlend`, or `TileLayout` row                |
+|  [10]   | a new sparse GEMV modality         | `Tensor/factor.md`       | one `GemvForm` case                                            |
 
 ## [06]-[BOUNDARIES]
 

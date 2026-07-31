@@ -95,7 +95,7 @@ Six strata order the sub-domains; split-package ledger nodes preserve one direct
 - S0 atoms — `SpecializedToolpathEnvelope`, `MaterialSpec`, `ProcessRange`, `EquipmentEnvelope`.
 - S1 `Geometry2D` — `PolygonAlgebra`, `ArcAlgebra`, and `CurveAlgebra`, substrate lanes over the atoms alone.
 - S1 `Ingress` — the `Ingress.Admit` fold and `AdmittedGeometry`.
-- S1 `Kinematics` motion and observation — `MachineTool`, `MachineKinematics`, `RobotProgram`, and the `MachineObservation` decoded slice.
+- S1 `Kinematics` motion and observation — `MachineTool`, `MachineKinematics`, `RobotProgram`, and the `MachineObservation` decoded slice; `Kinematics/cell` alone projects `Robots` evidence into the provider-free `MachineIngress.Robot` rows the S0 family admits.
 - S2 `Tooling` — `ToolAssembly`, `ToolSelection`, `CuttingData`, `PowerLawFit`, and `ToolWear`, capability owners over the 2D algebra.
 - S2 `Nesting` + `Additive` — `Nest`, `StockNest`, `NoFitPolygon`; `Slice`, `SupportPolicy`, `ScanPolicy`, `Audit`.
 - S3 planning — `Fixturing`: `Workholding`, `ExclusionZone`, `SetupSchedule`; `Forming`: `FlatPattern`, `TubeProgram`.
@@ -151,13 +151,16 @@ flowchart TB
         Atoms[Process atoms]
     end
     Verify e2@-->|"[IMPORT]: DatumReceipt"| Fixturing
+    Verify e29@-->|"[IMPORT]: CellPosedStation"| Motion
     Documentation e3@-->|"[IMPORT]: CapabilityReport"| Spec
     Toolpath e4@-->|"[IMPORT]: ToolAssembly"| Tooling
     Toolpath e5@-->|"[IMPORT]: MachineTool"| Motion
     Toolpath e6@-->|"[IMPORT]: ExclusionZone"| Fixturing
     Derivation e7@-->|"[IMPORT]: SetupSchedule"| Fixturing
     Derivation e8@-->|"[IMPORT]: Fleet, AvailabilityPlan.Finish"| Fleet
+    Derivation e30@-->|"[IMPORT]: FormedResult"| Forming
     Fixturing e9@-->|"[IMPORT]: CuttingData"| Tooling
+    Forming e31@-->|"[IMPORT]: PolygonAlgebra"| Geometry2D
     Spec e10@-->|"[IMPORT]: SupportPolicy"| Additive
     Joining e11@-->|"[IMPORT]: Move"| Atoms
     Tooling e12@-->|"[IMPORT]: PolygonAlgebra"| Geometry2D
@@ -207,7 +210,6 @@ flowchart LR
         Process[Process rail]
         Telemetry[Process telemetry]
         Ingress[Ingress admission]
-        Joining[Joining engineering]
         Kinematics[Kinematics observation]
         Nesting[Nesting layout]
         Spec[Spec tolerances]
@@ -289,7 +291,7 @@ Seam edges carry which package exchanges which shape; the load-bearing cross-pac
 - Solver memo truth content-keys through the same kernel mint the egress spine seeds.
 - Runtime-carried `HybridCache` replays NFP pair polygons under `PairTable.Key` identities in process.
 - Durable memo tier federates at the Persistence cache seam beside the benchmark index.
-- Speed claims resolve to `BenchmarkReceipt` rows: `FabricationBench` keys gated cases as `{Suite}/{Case}` Persistence `BenchmarkRow` claims.
+- Speed claims resolve against Persistence `BenchmarkRow` claims through the kernel `BenchClaim` keys `Toolpath/guard` mints.
 - `ProbeRoute.Measured` authorizes its parallel substrate only against a mintable claim key.
 - Program delivery closes chain-of-custody by value: the cell drive receipt re-mints a content key from the exact controller-bound records.
 - `Posting/dialect` `ProgramDelivery` proves transfer integrity by digest equality; the delivery fact rides the tap onto the receipt rail.

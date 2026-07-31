@@ -196,6 +196,7 @@ flowchart TB
 - S2 `drawing/regime` composes `graphic/color/derive` and `vector/pattern`; `graphic/layer` and `style` compose the regime back.
 - S2 `drawing/schedule` lowers into `visualization/table`; `visualization/chart/export` composes `export/layered`, the DXF owner hopping back.
 - S2 `graphic/texture` imports the floor, the runtime `transport/shapes`, and its own siblings alone, and `graphic/raster` imports none of it back.
+- S2→S1 `graphic/texture -> scene/spec` is a DATA edge, never an import: texture's `lowered` fold projects wire role strings, resolved paths, transfers, and the set key onto the slot vocabulary `scene/spec` declares for its own provider, so neither page imports the other and the L198-style clause above stays true unchanged.
 - S3 `document`, `media`, `composition`, `specification` — composer planes over the visual stratum.
 - S3 `specification/section` composes the document `BlockKind` tree in-stratum; `media` rides the scene `framed` parse floor and raster save hop.
 - S4 `delivery` then S5 `core/issue` — `issue` alone imports upward-named producers, so the spine is floor and conductor, never one stratum.
@@ -289,6 +290,7 @@ flowchart LR
 High-order producer planes sit on a shared primitive substrate. `graphic` and `typography` own the raster, vector, marks, color, style, layer, font, shaping, math, and line-layout primitives every plane composes over one `PositionedGlyphRun` seam; the producer planes lower onto them; `composition` places the outputs, `export` and `exchange` finish them, `core` is the production spine, and `package` is the content-addressed close.
 
 - `core/receipt` is the one shared receipt owner every producer contributes one case to.
+- `core/plan` seats the one product-egress port: `ProductFact` carries key, publication root, leaf, payload, container, tool, and band for every produced file, and `ProductSink[F]` is the caller-threaded egress each producer types with its own fault family — a producer-private sink type is the deleted form.
 - Composite owners drive sibling producers only through the uniform `emit()`/`work()` contract; a sibling convenience entry is a phantom.
 - `slot` threads the producer's pre-run input key; a produced-output content address lands only as a facts-band scalar.
 - Producer sync projections read the landed evidence successor; re-invoking the fold or a frame author is a split-execution defect.
@@ -319,4 +321,5 @@ High-order producer planes sit on a shared primitive substrate. `graphic` and `t
 ## [05]-[BOUNDARIES]
 
 - `artifacts` owns durable output alone — authoring, composing, and emitting every produced file the estate ships.
-- UI surfaces, durable stores, IFC/GLB geometry, and columnar or mesh interchange stay peer-owned.
+- UI surfaces, IFC/GLB geometry, and columnar or mesh interchange stay peer-owned.
+- Store custody is the precise carve: every producer writing a file threads `core/plan#PLAN`'s `ProductSink` port keyed by the `ContentKey` it already mints, and the S4 composition root binds that port over the runtime object-store lane; the segmented media sink alone composes the lane directly, over its caller-named root, because a live mux callback admits no one-shot sink. Artifacts owns no residence, catalog, table, or store handle; those stay data's and the root's.

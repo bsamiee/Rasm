@@ -14,11 +14,12 @@
 - [05]-[CREDENTIAL](.planning/authn/credential.md): Second factors — OTP, recovery codes, and machine keys ride one mint-and-resolve digest idiom.
 - [06]-[OAUTH](.planning/authn/oauth.md): Issuers as rows over one authorization-code ceremony; single-use state, OIDC verify through `Jwt`.
 - [07]-[WEBAUTHN](.planning/authn/webauthn.md): Both passkey halves as per-runtime subpaths — RP verifier and browser invocation.
+- [08]-[WORKLOAD](.planning/authn/workload.md): Machine identity — grant rows over one discovered client per issuer, DPoP sender-constraint, principal projection.
 
 [ACCESS]:
-- [08]-[CLAIM](.planning/access/claim.md): Entitlement vocabulary and the RBAC-union-ReBAC fold resolved once per request into a tagged verdict.
-- [09]-[TENANT](.planning/access/tenant.md): Ambient `TenantScope` reference, the session-GUC RLS contract, and the tenant metric-tag aspect.
-- [10]-[AUDIT](.planning/access/audit.md): Fact rail — loud arms publish through `Witness` into the `AuditJournal` port; egress pseudonymized.
+- [09]-[CLAIM](.planning/access/claim.md): Entitlement vocabulary and the RBAC-union-ReBAC fold resolved once per request into a tagged verdict.
+- [10]-[TENANT](.planning/access/tenant.md): Ambient `TenantScope` reference, the session-GUC RLS contract, and the tenant metric-tag aspect.
+- [11]-[AUDIT](.planning/access/audit.md): Fact rail — loud arms publish through `Witness` into the `AuditJournal` port; egress pseudonymized.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -32,7 +33,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 
 [CEREMONY]:
 - `arctic` — browser authorization-code redirect and provider rows.
-- `openid-client` — machine-grant OIDC lane: client-credentials, token exchange, DPoP, introspection.
+- `openid-client` — machine-grant OIDC lane: client-credentials, RFC 8693 exchange, device and CIBA legs, DPoP, introspection, revocation, dynamic registration, the protected-resource read.
 - `@simplewebauthn/server`
 - `@simplewebauthn/browser`
 - `@otplib/core` — OTP substrate `otplib` composes.

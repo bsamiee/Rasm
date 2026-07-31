@@ -26,7 +26,7 @@ runtime/
 ├── execution/          # Caller-owned host-fact admission, bounded concurrency, the worker crossing, and recipe execution
 │   ├── admission.py    # Runtime context, causal frames, and settings admission
 │   ├── lanes.py        # Lane-policy task groups and the stage-plan DAG
-│   ├── workers.py      # Worker crossing: kind family, kernel value, warm pools, remote/device arms, the guest sandbox, and supervision
+│   ├── workers.py      # Worker crossing: kind family, kernel value, warm pools, remote/device arms, the guest sandbox, the fenced lease, and supervision
 │   └── recipe.py       # Content-keyed recipe execution on the thread lane
 ├── evidence/           # Content-addressing, the seed-parity corpus, and structural-surface evidence
 │   ├── identity.py     # Content identity and key implementing the shared digest contract
@@ -81,6 +81,8 @@ flowchart TB
     Bundle r30@--> Shapes
     Journal r32@--> Hooks
     Journal r33@--> Clock
+    Serve r34@--> Journal
+    Journal r35@--> Admission
     Workers r31@--> Profiles
     Profiles r23@--> Telemetry
     Profiles r24@--> Metrics
@@ -114,10 +116,10 @@ flowchart TB
 - S4–S6 execution strata — `resilience` (the `RetryClass` policy table) composes metrics; `roots` (`ResourceRef`) and `admission` return through it.
 - S4–S6 `wire` (`CrdtOp`) sits on shapes and clock; `telemetry` gates on admission and carries the `logging`-owned ship policy.
 - S4–S6 `profiles` (`BenchmarkReceipt`/`JobRun`) drives the telemetry install beside the metrics spine.
-- S7–S9 composition strata — `serve` (`DiscoveryResult`/`CommandReceipt`) terminates the rail, wiring recipe, bundle, and the wire codec.
+- S7–S9 composition strata — `serve` (`DiscoveryResult`/`CommandReceipt`) terminates the rail, wiring recipe, bundle, the wire codec, and the journal's install-start-drain lifecycle.
 - S7–S9 `workers` (`Kernel`) composes roots and boots its floors through profiles and telemetry; `lanes` (`StagePlan`) drives admission and workers.
 - S7–S9 `recipe` (`RecipeInterface`) composes lanes and roots; `bundle` (`SupportBundle`) folds install receipts, hook rings, and admitted context.
-- S7–S9 `journal` (`Fact`) stamps through clock and registers points on hooks; its `Ledger` binds at composition, never by import.
+- S7–S9 `journal` (`Fact`) stamps through clock, registers points on hooks, and reads its KEK through admission's secret boundary; its `Ledger` binds at composition, never by import.
 
 ## [03]-[SEAMS]
 
@@ -147,7 +149,6 @@ flowchart LR
     Materials([Rasm.Materials])
     Materials e10@-->|"[WIRE]: MaterialWire"| Transport
     Materials e29@-->|"[WIRE]: TextureSetWire"| Transport
-    Materials e30@-->|"[WIRE]: AppearanceSummaryWire"| Transport
     Evidence e1@<-->|"[CONTENT_KEY]: XxHash128"| Rasm
     Evidence e2@<-->|"[CONTENT_KEY]: ContentAddress"| Element
     Compute e3@-->|"[WIRE]: XxHash128"| Evidence

@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGES]
 
-- `arctic` and `openid-client` are two admitted OAuth custodians neither supersedes — `arctic` owns the browser authorization-code ceremony and its provider redirect rows, `openid-client` the certified machine-grant surface (client-credentials, token exchange, DPoP, introspection) no browser row reaches; a supersession sweep retiring either is the refuted move — the capability planes are disjoint; reopens only when an `authn/workload.md` realization proves one client drives the other's ceremony without loss.
+- `arctic` and `openid-client` are two admitted OAuth custodians neither supersedes — `arctic` owns the browser authorization-code ceremony and its provider redirect rows, `openid-client` the certified machine-grant surface (client-credentials, token exchange, DPoP, introspection) no browser row reaches; a supersession sweep retiring either is the refuted move — the split is proven by the landed workload plane: `openid-client` reaches `oauth.md` as a discovery reader alone and `arctic` runs every ceremony leg, so neither supersedes the other.
 
 ## [02]-[SHAPE]
 
@@ -13,7 +13,7 @@
 ## [03]-[COLLAPSE]
 
 - Auth throttling is ONE posture across its five wirings — `session` refresh, `credential` otp and api-key, `webauthn` assert-finish, `verify` — and its policy-row surface stays folder-local beside the `credential._throttled` fold: merging up into the branch three-posture limiter erases the auth posture's reject-stream counting, and a survey reading the five as irreducible hand-wirings re-litigates the collapse.
-- Breach arms spell state-correction → `Reject.mark` → `Witness.publish` → error-log → typed-fail inline at each site, never extracted into a shared breach helper: the correction preceding the evidence tap is arm-specific (`store.revokeSubject` collapses the reused family; the clone arm's correction is its counter guard), and `Reject` (lossy metric stream) and `Witness` (durable fact rail) are decoupled channels a merged helper entangles into one call.
+- Breach arms spell state-correction → `Reject.mark` → `Witness.publish` → error-log → typed-fail inline at each site, never extracted into a shared breach helper: the correction preceding the evidence tap is arm-specific (`store.revokeSubject` collapses the reused family; the clone arm's correction is its counter guard), and `Reject` (lossy metric stream) and `Witness` (durable fact rail) are decoupled channels a merged helper entangles into one call. An admitted ceremony is the same clause read forward — the entrypoint composes one `Reject.measured` line under the SAME kind its refusal arm marks, so the admission counter, the ceremony histogram, and the reject counter join on one key and a ratio is queryable; a surface with no refusal row has no admission row, and a breach-class kind is read absolutely against its enclosing ceremony's denominator.
 
 ## [04]-[STRUCTURE]
 

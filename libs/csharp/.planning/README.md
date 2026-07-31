@@ -22,7 +22,7 @@ Package roots in strata order; each root README routes its own design pages, and
 
 ## [02]-[SUBSTRATE_PACKAGES]
 
-Cross-folder substrate every C# package composes. Libraries emit telemetry through the in-box `System.Diagnostics` surface, so the OpenTelemetry SDK, exporter, and instrumentation train composes at app roots alone — those packages carry branch-tier catalogues without registry rows. Host SDK assemblies are not packages: `RhinoCommon` evidence homes at the branch tier catalogue-only because the kernel and both host-boundary folders compose one surface.
+Cross-folder substrate every C# package composes. Libraries emit telemetry through the in-box `System.Diagnostics` surface, so the OpenTelemetry SDK, exporter, and instrumentation train composes at app roots alone — those packages carry branch-tier catalogues without registry rows. Host SDK assemblies are not packages and home at the branch tier catalogue-only where more than one folder composes one surface: `RhinoCommon` because the kernel and both host-boundary folders reach it, and `Eto`, `Eto.macOS`, `Microsoft.macOS`, and `Rhino.UI` because both host-boundary folders do — each folder tier then registers the branch catalogue by path and holds only the subsystem its own boundary reaches.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
@@ -48,6 +48,13 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 - `Silk.NET.WebGPU` — WebGPU binding behind the presented, surfaceless-bake, and GPGPU-dispatch device mints.
 - `Silk.NET.WebGPU.Extensions.WGPU` — `wgpu_native` extension surface past the standard WebGPU binding.
 - `Silk.NET.WebGPU.Native.WGPU` — P/Invoked `wgpu_native` runtime binaries; a device mint carries it, a dispatch-only lane binds the peer's.
+- `Alimer.Bindings.MeshOptimizer` — GPU-ready mesh optimization, meshlet, LOD, and `EXT_meshopt_compression` codec substrate.
+
+[GEOMETRY_INTERCHANGE]:
+- `SharpGLTF.Core` — glTF 2.0 schema I/O and the process-global `ExtensionsFactory` every consumer registers on once.
+- `SharpGLTF.Toolkit` — typed vertex, mesh, scene, and material builders folding into a `ModelRoot`.
+- `SharpGLTF.Runtime` — scene templatization and per-instance animation decode.
+- `SharpGLTF.Ext.3DTiles` — `EXT_structural_metadata` and `EXT_mesh_features` overlay on the shared glTF graph.
 
 [GRAPH_ALGORITHM]:
 - `QuikGraph` — pure-managed graph containers and `AlgorithmExtensions` for the graph-algorithm walks.
@@ -55,6 +62,9 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 [PLANAR_GEOMETRY]:
 - `Clipper2` — polygon offset and boolean algebra at the planar production boundary.
 - `NetTopologySuite` — planar geometry algebra on the float production plane.
+
+[GEOSPATIAL_INDEX]:
+- `pocketken.H3` — managed Uber-H3 cell index over the NTS coordinate bridge; one cell vocabulary in process and in PostgreSQL.
 
 [COLOR_SCIENCE]:
 - `Wacton.Unicolour` — perceptual-color owner and color-space projection substrate; `Wacton.Unicolour.Datasets` stays a Materials addition.

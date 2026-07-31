@@ -27,13 +27,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `SECRET_LADDER` on `libs/python/runtime/.planning/execution/admission.md`; `libs/python/runtime/.api/pydantic-settings.md`; `libs/python/runtime/.api/google-cloud-secret-manager.md`; `hvac` and `azure-keyvault-secrets` (catalogs landed under `libs/python/runtime/.api/`).
 - Tension: every provider import stays lazy behind its gated arm; `RetryClass.SECRET` is the one transient policy for all rows.
 
-[CACHE_TRANSPORT_LEG]-[QUEUED]: land the RFC-9111 cache leg on the HTTP acquisition.
-- Capability: the HTTP acquisition leg revalidates under RFC-9111 semantics, closing the orphaned transport admission into the roots client.
-- Shape: `hishel` cache transport wrapping the bare `httpx.AsyncHTTPTransport` construction in `libs/python/runtime/.planning/transport/roots.md`, local file/sqlite store placed on the admitted scratch root.
-- Unlocks: IDEAS.md [ACQUISITION_POLICY_SURFACE] — bandwidth-proof repeated artifact acquisition for every sibling consumer.
-- Anchors: `TransportResource` HTTP legs on `libs/python/runtime/.planning/transport/roots.md`; the catalog at `libs/python/runtime/.api/hishel.md`; the folder two-cache ruling at `libs/python/runtime/RULINGS.md`.
-- Tension: cache store location rides the admitted scratch root, never a hardcoded path.
-
 [ACQUISITION_CUSTODY_ROWS]-[QUEUED]: land proxy, custody, and batch rows on roots.
 - Capability: one `httpx` `Proxy` policy row on the HTTP legs, `anyio` `ResourceGuard` custody on mutable root handles, and `fsspec.open_files` batch acquisition.
 - Shape: one `httpx` `Proxy` policy row on the HTTP legs, `anyio` `ResourceGuard` custody on the mutable root handles, and `fsspec.open_files` batch acquisition, all on `libs/python/runtime/.planning/transport/roots.md`.
@@ -48,26 +41,12 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: the guest arm and `Supervisor` on `libs/python/runtime/.planning/execution/workers.md`; `libs/python/runtime/.api/wasmtime.md`; `libs/python/.api/psutil.md`.
 - Atomic: one gate and two verdict columns.
 
-[FAULT_SPELLING_SETS]-[QUEUED]: provider-exception spellings single-source at the faults tier.
-- Capability: one canonical owner for the module-qualified provider-exception name sets both reliability tables match on, so a provider rename edits one surface.
-- Shape: `libs/python/runtime/.planning/reliability/faults.md` exports the pool-death and ssh terminal/transient `frozenset[str]` name sets beside its classify table; the policy rows of `libs/python/runtime/.planning/reliability/resilience.md` import them, DAG-legal since resilience already imports faults.
-- Unlocks: fault classification and retry policy stay spelling-aligned by construction across loky, pebble, and asyncssh renames.
-- Anchors: the faults classify frozensets; the resilience transient/refuse rows; the shared dotted-spelling convention both pages note without a shared owner.
-- Atomic: set exports and two import substitutions.
-
 [CLOCK_FOLD_MOVE]-[QUEUED]: move the clock page into evidence and re-anchor the census.
 - Capability: the clock owner folds into the evidence identity band with zero law change — a pure page-and-module move whose consumers re-import the same symbols.
 - Shape: `libs/python/runtime/.planning/clock/clock.md` relocated to `libs/python/runtime/.planning/evidence/clock.md` with the module spelled inside the evidence namespace, router/codemap/seam-fence rosters and the import rail re-anchored on `libs/python/runtime/README.md` and `libs/python/runtime/ARCHITECTURE.md`.
 - Unlocks: IDEAS.md [CLOCK_IDENTITY_FOLD] — evidence closes at four sibling pages and the folder census carries no unearned sub-folder.
 - Anchors: `libs/python/runtime/README.md` router; `libs/python/runtime/ARCHITECTURE.md` codemap and import rail.
 - Atomic: one page move and index re-anchoring.
-
-[HOOKS_BATCH_FOLD]-[QUEUED]: the hook registry owns the batch register and tap fold.
-- Capability: registering and tapping a package point-table is one substrate call, collapsing four folder-local fold idioms.
-- Shape: `Hooks.register_all(points, scope, disposition)` and `Hooks.tap_all` on `libs/python/runtime/.planning/observability/hooks.md`; the artifacts, compute, data, and geometry registration folds become one-call composes at landing.
-- Unlocks: one fold semantics for point registration; a disposition change lands once.
-- Anchors: the four folder registration folds; `Hooks.register`/`tap_receipts`/`tap_metrics`.
-- Atomic: two registry members.
 
 [SERVICE_NAME_ROWS]-[QUEUED]: proto service names home once and the boot gate proves them.
 - Capability: the wire's service identifiers live on the transport vocabulary with drift-gate proof, so a host-side service rename surfaces at boot instead of a dead dial.
@@ -106,6 +85,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[HOOKS_TAP_FOLD]-[COMPLETE]: landed on `.planning/observability/hooks.md` as a POLYMORPHIC `Hooks.subscribe` rather than the card's `tap_all` sibling — a second roster-grain entry beside `subscribe` is the prefixed-sibling shape the collapse scan deletes, so subscription now folds arity off the request value exactly as `register` does (one point id or one claimed `Block`), the per-point attach retires to `_subscribed` returning its ATTACHED MEMBER so a roster unwind detaches the REPLAY barrier rather than the caller's tap, and the roster arm is transactional by unwind because a REPLAY row's retained drain runs outside the registry gate and no swap covers it; the serve boot leg's per-point `traversed` fold is gone.
 [BUNDLE_PAGE_SPINE]-[COMPLETE]: recorded blocker refuted on disk — the C# mint already carries the `Diagnostic`/`CaptureBundle` row and binds both messages onto this vocabulary, so `support_bundle` and `support_bundle_reply` landed on `.planning/transport/shapes.md` and `aligned` now proves them against the compiled descriptors at boot.
 [BUNDLE_MOUNT_GATE]-[DROPPED]: the condition it degraded around is gone — with both rows landed the descriptor gate refuses drift at boot, and an availability probe before `host.register` masks exactly the rename that gate exists to surface.
 [MEASURED_NAME_SPLIT]-[COMPLETE]: landed as `Metrics.timed` with both `transport/serve` registration sites and the prose; the receipts weave keeps `measured`, so a `measured` census now returns the span/fault/receipt weave alone.
@@ -117,7 +97,9 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [PROFILER_ATTACH_ROWS]-[COMPLETE]: landed as `_worker_boot`'s profiler arm (`worker.kind` tag, captured tenant) and the kernel-subject `phase` window in `traced_kernel`; `Profiles.install` samples GIL-releasing native kernels, and the `Profiles.phase` null-window and `Profiles.receipt` landed on `.planning/observability/profiles.md`.
 [COST_DELTA_COLUMNS]-[COMPLETE]: landed as the receipts-minted `Cost` (`sampled`/`delta`/`combined`/`facts`/`measures`, signed RSS change, platform-gated `io_counters`), the two-read `traced_kernel` bracket, `DrainReceipt.cost` with the lane drain-window envelope, and the drained-line cost facts.
 [COST_INSTRUMENT_ROWS]-[COMPLETE]: landed as four `rasm.cost.<measure>` histogram rows under `domain="cost"` on `.planning/observability/metrics.md`; tenant joins through the standing `_attributed` fold.
-[GEOMETRY_MEASURE_CHARTER]-[COMPLETE]: landed as nine `rasm.geometry.<measure>` rows on `.planning/observability/metrics.md` transcribing the charter's UCUM units verbatim, each kind selected by the charter's own aggregation intent — the eui last-value row taking the synchronous gauge and the cpu sum row a counter.
+[CACHE_TRANSPORT_LEG]-[COMPLETE]: landed on `.planning/transport/roots.md` as the `AsyncCacheTransport` wrap over the pooled `AsyncHTTPTransport`, an `AsyncSqliteStorage` whose `database_path` derives from the `HttpEndpoint.cache_root` the composition admits, and a `CachePosture` row per destination; the card's "local file/sqlite store" Shape named a backend `hishel` does not ship and its own catalog `[RAIL_LAW]` rejects, and its second obligation was refuted on source — `AsyncClient.aclose` reaches `AsyncCacheTransport.aclose`, which closes the wrapped pool AND the storage, so a `.close()` beside it in the drain fold is the doubled teardown rather than the missing one.
+[FAULT_SPELLING_SETS]-[COMPLETE]: landed as `spelled` at `reliability/faults#FAULT` — the module-qualified MRO spelling set both reliability matchers now intersect against, so the `CLASSIFY` frozenset row and `resilience`'s `_transient` target/refuse rosters share one derivation and a provider rename edits one surface; the duplicated MRO comprehension the card was minted against is gone from both pages.
+[GEOMETRY_MEASURE_CHARTER]-[COMPLETE]: landed as ten `rasm.geometry.<measure>` rows on `.planning/observability/metrics.md` transcribing the charter's UCUM units verbatim, each kind selected by the charter's own aggregation intent — the eui last-value row taking the synchronous gauge and the cpu sum row a counter.
 [PULSE_INSTRUMENT_ROWS]-[COMPLETE]: landed as `rasm.runtime.pulse.dropped`/`.rejected` counter rows under a new `runtime` domain, so the drain actor's authorized drops count instead of raising at their own accounting.
 [COMPUTE_INSTRUMENT_ROWS]-[COMPLETE]: landed as four `rasm.compute.*` rows under a new `compute` domain; the geometry-versus-compute evidence-tail spelling divergence stays open at both producer pages, which own those constants.
 [SCOPE_KEY_MAP]-[COMPLETE]: already realized on disk — the receipts-minted `ScopeKey`/`DEFAULT_SCOPE` threads `Hooks._points`/`_taps`/`_rings`, `Metrics._state`/`_receipts`, `Telemetry._receipts`, `Instrumentation._receipts`, `Profiles._receipts`, and the `_sink` default-scope resolution.

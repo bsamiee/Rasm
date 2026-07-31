@@ -20,6 +20,23 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
+[DIGEST_RAW_BYTE_SLOTS]-[QUEUED]: Byte-slot consumers take the digest bytes rather than a hex round trip.
+- Capability: a content key reaching a byte slot costs one digest walk, so the hex spelling stays the wire and display form alone instead of standing between a hasher and the bytes a consumer already needs.
+- Shape: the `Digest.raw` call sites at the byte-carried key consumers — the runtime browser fetch worker, the data object store and its chunk sub-key mint, and the interchange frame rail's artifact receipts.
+- Unlocks: `IDEAS.md` value-floor mint economy — the hex render plus hex parse disappears from every byte-slot path while `mint` stays the only branded spelling.
+- Anchors: `value/contentKey#DIGEST_TABLE`'s `raw` member over the shared `_walk` output modality; `hash-wasm`'s `IHasher.digest("binary")` overload; the page's own display-order law that makes the two orders one order.
+- Ripple: `runtime` and `data` byte-slot counterparts follow.
+- Atomic: one member swap per byte-slot call site.
+
+[FAULT_CLASS_CONFORMANCE]-[QUEUED]: The value floor's own quantity fault carries the class every folder family carries.
+- Capability: the branch fault ruling holds at the floor that declares it — no reason-discriminated family, the in-process altitude included, projects recovery policy from anything but the core lattice.
+- Shape: `QuantityFault` on `libs/typescript/core/.planning/value/quantity.md` `[03]-[QUANTITY_ALGEBRA]` gains its `FaultClass.family` mint over the existing `dimension`/`exponent`/`range` reasons, `get class()` beside the field-derived `message`.
+- Unlocks: completeness bar — every reason-discriminated fault family in the branch derives its kind through one `FaultClass.family` mint, the ruling carrying no exemption.
+- Anchors: `libs/typescript/.planning/RULINGS.md` `[02]-[SHAPE]` fault rows; `core/state/merge.md` `Breach` — the sibling in-process error at the same altitude, already conformant; `value/fault#CLASS_VOCABULARY`.
+- Tension: the operand dimensions this family carries are its genuine domain axes and stay row columns beside `class`; the altitude law that keeps a quantity fault out of a wire is about re-spelling at the boundary, never an exemption from the taxonomy.
+- Ripple: mirrors `runtime` `[FAULT_CLASS_CONFORMANCE]`.
+- Atomic: one family mint and one getter.
+
 [VOCABULARY_TABLE_OWNER]-[QUEUED]: One generative vocabulary-table owner for the value floor.
 - Capability: a declaration-time generator deriving the kinds tuple, literal schema, guard pair, positional `Order`, and assembled `Shape` from one row-table declaration.
 - Shape: lands in `libs/typescript/core/.planning/value/schema.md` as the owner the six re-spelled assembly grammars become declarations of; drives from IDEAS `[VALUE_VOCABULARY_TABLE]`.
@@ -55,7 +72,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-[CARRIER_OWNED_SPELLINGS]-[COMPLETE]: `interchange/carrier.md` reads its owned names — `_TENANT` composes `Convention.rasm.tenant` off the observe owner, and `_BIN` binds to the codec census through a type-only `Codec.Family` guard, so a rename at either owner fails at this declaration instead of orphaning a twin.
+[CARRIER_OWNED_SPELLINGS]-[COMPLETE]: `interchange/carrier.md` reads its owned names — `_TENANT` composes `Convention.rasm.tenant` off the observe owner, and `_BIN` binds to the codec census through a type-only `Wire.Family` guard — the census owner's own exported name, since no `Codec` symbol exists to import — so a rename at either owner fails at this declaration instead of orphaning a twin.
 [SECURITY_PACK_COMPLETION]-[COMPLETE]: `observe/board.md` `_PACKS.security` gained the deny, replay, rotation, cold-JWKS, quarantine, and shredded-open trends beside the JWKS-resolve and key-derivation quantiles, so every `Convention` security instrument carries a standing consumer; the pack payload took `quantiles`, and the tenant variable proved already present — `DashboardModel.of` prepends it to every page.
 [TRACE_RENDER_TARGET]-[COMPLETE]: `Query.Target` stays closed over the metric-series backends and the ruling landed at `RULINGS.md` `[02]-[SHAPE]` — every leaf keys a metric name against a series name, so a span-selection dialect earns no arm and trace evidence compiles as a residence panel over the wide-event relations a columnar plane already relates.
 [RESIDENCE_KIND_SCALAR]-[COMPLETE]: `Query.Residence.value` widened to the same kind-keyed record `table` carries and `_leaf` reads both off one kind — a bucket relation carries no per-point value column its sum-relation sibling carries, so the residence fold now names the column its own relation declares.

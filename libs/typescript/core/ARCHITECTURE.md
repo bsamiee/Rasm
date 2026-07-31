@@ -43,7 +43,7 @@ core/
 - S1 `state` — pure algebra over the value floor; the merge↔fold cycle never forms: `Fold.run` arrives as a caller parameter, never an import.
 - S1 `commit` rides beside `causal` on `ContentKey`, `presence` beside `merge`; `machine` composes no interior sibling.
 - S1 `observe` — vocabulary and derivation over the value floor alone; peer to `state` with no edge between them.
-- S2 `interchange` — the decode boundary composing all three ranks; `contract` and `invoke` consume `codec`'s `Wire` beside `frame`.
+- S2 `interchange` — the decode boundary composing all three ranks; `contract` and `invoke` consume `codec`'s `Wire` beside `frame`, `carrier` takes the same census union type-only so its typed-metadata roster closes against the wire families with no value edge, and `format` reads the `Ingress` ceiling its framed lane bounds every admitted message against.
 
 ```mermaid
 ---
@@ -88,6 +88,8 @@ flowchart TB
     Contract i2@--> Codec
     Invoke i3@--> Codec
     Invoke i12@--> CarrierP
+    CarrierP e19@-.->|"[TYPE]: Wire.Family"| Codec
+    Format e20@-->|"[IMPORT]: Ingress"| Schema
     CarrierP e18@-->|"[IMPORT]: TenantContext"| Identity
     Codec e2@-->|"[IMPORT]: ProgressMark"| Evidence
     Invoke e3@-->|"[IMPORT]: Convention"| Convention
@@ -101,6 +103,7 @@ flowchart TB
     Feed i7@--> Evidence
     Feed e8@-->|"[IMPORT]: Dimension"| Quantity
     Slo i8@--> Convention
+    Tap i12@--> Convention
     Board i9@--> Slo
     Convention e9@-->|"[IMPORT]: AppIdentity"| Identity
     Tap e10@-->|"[IMPORT]: FaultClass"| Fault

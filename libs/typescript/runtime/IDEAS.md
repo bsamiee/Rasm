@@ -39,19 +39,18 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Tension: principal mint and refresh are security's — this plane mounts the projection and never touches grant grammar.
 - Ripple: `security` `[WORKLOAD_IDENTITY]`.
 
-[BENCH_CLAIM_PRODUCER]-[BLOCKED]: Measured-run sampling rides the shipped engine that already owns the rung set.
+[BENCH_CLAIM_PRODUCER]-[QUEUED]: Measured-run sampling rides the shipped engine that already owns the rung set.
 - Capability: benchmark claims ride one typed receipt producer whose sampling evidence carries no `Unknown` evidence bag.
 - Shape: the sampling modality row on `libs/typescript/runtime/.planning/proc/exec.md` `[05]-[MEASURED_RUN]`, gated by its `[06]-[RESEARCH]` `[TRIAL_ENGINE]` row.
 - Unlocks: package-independent benchmark claims with typed deep-sampling evidence on the measured-run rail.
-- Anchors: `proc/exec.md` `[05]-[MEASURED_RUN]` receipts; the landed `libs/typescript/core/.api/mitata.md` catalog, whose entrypoint and knob rows carry every member this modality composes.
-- Arms: the mitata catalog homes at the branch substrate tier and this folder registers it — every member verified against the installed distribution and rostered, so the debt is catalog HOMING and never member truth: a folder composing a package catalogued at a sibling folder's tier has no catalog of its own to verify against.
+- Anchors: `proc/exec.md` `[05]-[MEASURED_RUN]` receipts; the landed `libs/typescript/.api/mitata.md` substrate catalog, whose entrypoint and knob rows carry every member this modality composes.
 - Tension: `Trial.run`'s hand-bracketed sampler already re-derives the rung set the package ships, so the modality is a replacement of the local kernel rather than an enrichment beside it.
 
 [CLOUDEVENTS_ENVELOPE]-[QUEUED]: Delivery egress and serving intake speak verified CloudEvents HTTP bindings.
 - Capability: one CloudEvents codec pair — egress preserving structured content type, binary data bytes, and W3C extension attributes; intake auto-detecting binary versus structured mode with decode evidence on the `Problem` rail.
 - Shape: the egress codec on `libs/typescript/runtime/.planning/work/deliver.md` and the intake codec on `libs/typescript/runtime/.planning/serve/route.md`, each transcribing the settled codec law its page already carries.
 - Unlocks: standards-shaped event crossings on both HTTP directions without an unverified fence.
-- Anchors: `.api/cloudevents.md` at the folder and branch tiers; `work/deliver.md` `HookPayload` signing seam; `serve/route.md` `Problem` rail.
+- Anchors: `libs/typescript/.api/cloudevents.md` (the one substrate catalog); `work/deliver.md` `HookPayload` signing seam; `serve/route.md` `Problem` rail.
 
 [GRPC_LANE]-[BLOCKED]: Connect transport completes — the served handler mounts behind the one guard law.
 - Capability: the served Connect handler mounts behind `Seam.guard` with context continued before the handler. Egress print is settled elsewhere — `core:interchange/invoke#DIAL_AXIS`'s per-call lift already folds `Carrier.inject("connect", ...)` onto the call headers, so a client interceptor pair is the foreclosed form.
@@ -67,6 +66,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[ADMIT_STORE_OUTAGE]-[COMPLETE]: realized as `serve/api.md`'s `_lifted` — the credential lift reads `FaultClass[FaultClass.of(fault)].blame`, folds a caller-blamed class to `Option.none()` and refuses everything else as `shed` with the class-default window; the Tension resolved AGAINST a sixth reason, because the family is sized by outward route and the 503 route already exists — a route-sized partition takes a second cause as `detail`, never a new row.
 [CONSUMPTION_AXIS_SPELLING]-[COMPLETE]: the six-axis roster landed at all three branch minters with identical closed-axis vocabularies and one common open-axis descriptor shape; refusal is one axis/value/reason grammar everywhere, and the corpus entry's roster blocker is discharged.
 [WORK_METER_BRIDGE]-[COMPLETE]: work-plane meter bridge — realized as `otel/meter.md` (`Pulse`): fact-to-instrument projection over one polymorphic mount, row-projected census gauges, log-floor wiring, and the one governance view table.
 [CHANNEL_MQTT]-[COMPLETE]: `net/channel.md` `Mqtt` composes the catalog-verified v5 members (`connectAsync`, `subscribeAsync`, `publishAsync`, `endAsync`, the `userProperties` carrier frame) under scoped acquisition; the `[MQTT_V5]` research row resolved against `libs/typescript/core/.api/mqtt.md` and is deleted.

@@ -33,17 +33,18 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Tension: demands a Persistence-owned full-text index lane and its query wire; until that counterpart lands the plane covers in-memory sources alone.
 
 [HOST_SPRING_PARITY]-[QUEUED]: Host-side spring presets mirror the Theme/motion `SpringValue` algebra so shell and host viewport motion read as one system.
-- Capability: host canvas and viewport overlay motion reads `Response`/`DampingFraction`/`Mass` and the `Stiffness`/`Damping` derivations verbatim from the motion spring rows.
+- Capability: host canvas and viewport overlay motion reads the `Response`/`DampingFraction` authoring pair and the admitted kernel `SpringShape` it mints, so a host preset and a shell token evaluate the same closed form rather than a re-derived envelope.
 - Shape: an app-root preset table binding the motion vocabulary values per host surface; AppUi stays the parity source with zero AppUi surface change.
 - Unlocks: cross-surface motion-consistency proofs comparing host and shell spring envelopes as values.
-- Anchors: `libs/csharp/Rasm.AppUi/.planning/Theme/motion.md` `[02]` boundary parity clause; `SpringValue` `[ComplexValueObject]`.
+- Anchors: `libs/csharp/Rasm.AppUi/.planning/Theme/motion.md` `[02]` boundary parity clause; `SpringValue` `[ComplexValueObject]` and its `Shape` column.
 
-[MATH_TYPESET_OWNER]-[QUEUED]: Math layout owns the typography `MarkdownRow.Math`/`InlineRun.Math` arms, so calc reports and notebooks display engineering notation.
-- Capability: TeX-subset typesetting rendered Skia-side, composing the one shaping rail and the offscreen capture capsule.
-- Shape: the `Math` materialization row on `libs/csharp/Rasm.AppUi/.planning/Document/media.md` `MarkdownInlineRenderer` and the `libs/csharp/Rasm.AppUi/.planning/Theme/typography.md` `[05]` `Math` arm over the admitted `CSharpMath.SkiaSharp` engine; the typography projection stays typeset-free.
-- Unlocks: Mathcad-class calc deliverables across notebook cells, media panels, and paginated PDF exports.
-- Anchors: the admitted engine (manifest row, lock graph, `.api/api-csharpmath-skia.md` `SKCanvas`-lease charter); `.api/api-markdig.md` `UseMathematics`.
-- Tension: the arm lands over the `[MATH_ENGINE_VERIFY]` render proof — the prerelease TeX-subset coverage is the residual bet, not the admission.
+[RAY_CONE_CURVATURE]-[BLOCKED]: Hits widen their ray cone by the surface's own curvature, so texture filtering on curved surfaces reads the mip a curved reflection needs.
+- Capability: the ray-cone spread advances with per-hit curvature evidence instead of staying distance-only, so a convex hit blurs downstream taps and a planar hit does not — texture filtering quality on curved surfaces is the capability gated.
+- Shape: the `RayCone` spread-growth arm and the `SurfaceAttributes` curvature column in `libs/csharp/Rasm.AppUi/.planning/Render/pathtrace.md` `[02]-[PATH_TRACE]`, read off the meshlet payload in `libs/csharp/Rasm.AppUi/.planning/Render/meshlets.md` `[05]-[PAYLOAD_COLUMNS]`.
+- Unlocks: curvature-correct fractional mip selection through the trilinear `SetBind` seam already landed.
+- Anchors: `RayCone.Advanced` already carries the spread algebra; the `[02]` Law already declares the growth leg; the producer columns enumerate at `Render/meshlets` and curvature is absent upstream by census.
+- Arms: a per-cluster curvature column lands on `csharp:Rasm.Compute/Runtime/payload#RESIDENCY` `ResidencyMeshlet` and `Runs` decodes it host-side.
+- Ripple: `csharp:Rasm.Compute` `[MESHLET_CURVATURE_COLUMN]` is the producer counterpart.
 
 [COLLAB_WIRE_CONTEXT]-[BLOCKED]: AppUi frame carriage is landed, but AppHost has no collab carrier adapter.
 - Capability: `CollabWireContext` and `CollabFrame` preserve originating correlation and tenant through `CollabSyncReceipt` on the one `IO` merge rail.
@@ -65,6 +66,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[MATH_TYPESET_OWNER]-[COMPLETE]: landed as `MathStyle`/`MathBox`/`MathTypeset`/`MathRun`/`MathInlineVisual` on `libs/csharp/Rasm.AppUi/.planning/Document/media.md` `[02]-[MARKDOWN_INLINES]` — one painter serves the measure and the draw, the block and inline arms both materialize through `MathStyle`, math composites into the leased canvas through the settled `ICustomDrawOperation` vehicle, and the typography projection stays typeset-free as ruled.
 [PROFILE_FLAME_JOIN]-[COMPLETE]: the AppHost `ProfileCapture.Bind` producer landed at `Observability/benchmarks.md` `[04]-[PROFILE_CORRELATION]`, so `FlameNode.Of` now folds published `ProfileSample` values; the row widened with `ThreadId`, `Kind`, and the `ProfileFrameForm` posture, and `FromSamples` lane-groups by thread with the posture on the lane name.
 [TELEMETRY_BOARD_PAGE]-[COMPLETE]: store-profile tiles read the landed `SeriesKind.Telemetry` projection through `StoreProfileTrack`'s `(domain, slot, measure)` facets and one injected read arrow, so every board tile binds a producer.
 [MULTI_MEASUREMENT_LEVELS]-[COMPLETE]: keyed level families ride the kernel `InstrumentSpec.Levels` declaration over `LevelCells.Reader`, declared beside each producer and swapped by the `libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md` `[03]-[TELEMETRY_SPINE]` fan arms.

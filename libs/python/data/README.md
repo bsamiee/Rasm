@@ -12,7 +12,7 @@
 - [05]-[MATERIALIZE](.planning/tabular/materialize.md): Incremental CDC materialization composing lakehouse, query, and columnar downward.
 - [06]-[CONTRACT](.planning/tabular/contract.md): Data-contract gate folding dataframely covenants and pandera rules onto one `ContractClaim`.
 - [07]-[PROFILE](.planning/tabular/profile.md): Graded data-quality plane over `pointblank` thresholds emitting the `QualityProfile` frame.
-- [08]-[EGRESS](.planning/tabular/egress.md): Native object-store egress façade over `obstore` keyed by content identity.
+- [08]-[EGRESS](.planning/tabular/egress.md): Native object-store egress receipt owner over the runtime store lane, keyed by content identity.
 - [09]-[COST](.planning/tabular/cost.md): Cost ledger folding the receipt families into one content-keyed, tenant-attributed priced frame.
 - [10]-[JOURNAL](.planning/tabular/journal.md): `Ledger` implementer landing runtime audit and meter facts over the commit matrix and the scan reader.
 
@@ -108,7 +108,7 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `zarr`
 - `numcodecs` — zarr v3 chunk filter/compressor codec registry.
 - `cubed`
-- `tensorstore` — FLOOR-GATED; `gridded/store#STORE` refuses every `TensorBackend.TENSORSTORE` selection while the marker holds.
+- `tensorstore` — FLOOR-GATED; `gridded/store#STORE` refuses every caller-NAMED `TensorBackend.TENSORSTORE` selection while the marker holds, and an unnamed object-store residence derives the sync engine over `zarr.storage.ObjectStore` instead, so the marker gates one engine rather than the whole remote dense-tensor plane.
 - `awkward`
 - `flox`
 - `icechunk`
@@ -162,7 +162,7 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 
 [TRANSPORT]:
 - `fsspec` — Filesystem-resolution substrate beneath `universal-pathlib`; the `UPath.fs` handle threads into the DuckDB scan session.
-- `obstore` — Object-store substrate beneath the content-keyed egress owner.
+- `obstore` — Object-store substrate reached through the runtime store lane; this branch names its credential providers alone (`spatial/catalog`).
 - `protobuf` — Wire codec beneath the Substrait plan model; `tabular/query#QUERY` reads its decode fault as the inbound-plan refusal.
 
 [MESH_INTERCHANGE]:

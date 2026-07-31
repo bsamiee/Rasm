@@ -84,7 +84,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Capability: a bake target widens from a UV rectangle to a parameterized surface with its atlas, so the fields a height-field derivation can only approximate — true ambient occlusion against the whole body, signed thickness through it, curvature off the real second fundamental form — become measured rather than inferred, and a component's baked set stops being a texture that merely resembles its geometry.
 - Shape: one bake-subject case carrying the flattened chart set and its ray target, beside the existing graph, source, and slab subjects; lands in `libs/csharp/Rasm.Materials/.planning/Raster/press.md` with its derived-channel origins in `libs/csharp/Rasm.Materials/.planning/Raster/set.md`.
 - Unlocks: component-accurate occlusion and curvature for the generated assemblies the projector already mints; the geometry half of the texture estate rather than the procedural half alone.
-- Anchors: the kernel `Processing/flatten` `ChartAtlas` and its `ToTextureMesh` UV atlas are the exact upstream a texture-space rasterizer needs; `Parametric/surface` `UvTessellation` carries the parameterization; `Processing/sample` `SampleKind` blue-noise supplies the hemisphere draws the occlusion sweep already uses in its height-field form.
+- Anchors: the kernel `Processing/flatten` `ChartAtlas` and its `ToTextureMesh` UV atlas are the exact upstream a texture-space rasterizer needs; `Parametric/surface` `UvTessellation` carries the parameterization; `Processing/sample` `SampleKind` blue-noise supplies the hemisphere draws the occlusion sweep already uses in its height-field form; `filter#PLANE_OP` `Dilate` closes the chart-gutter bleed a texture-space bake's own mip chain otherwise carries.
 - Tension: a mesh-space bake makes the press a consumer of tessellated geometry, which the host-neutral boundary currently keeps entirely out of this folder — the subject must carry an already-flattened chart set as DATA rather than a host mesh, or the boundary moves.
 - Ripple: follows `[ATLAS_PACKER]` — an atlased bake target reads the transform rows that card produces.
 
@@ -93,7 +93,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Shape: one optional scorer row on the tile gate carrying its model card, its verdict column joining the existing proof; lands in `libs/csharp/Rasm.Materials/.planning/Raster/tile.md` with its registry row in `libs/csharp/Rasm.Materials/.planning/Appearance/neural.md`.
 - Unlocks: a tileability proof a human reviewer agrees with; the quality gate the ingest path needs before a third-party set is admitted as tileable.
 - Anchors: the model registry already carries licence class, tensor contract, provider ladder, and residual ceiling as columns, so a scorer is a `ModelCard` row rather than a new inference surface; `TileProof` already carries the score it measured, so a second column is a widening rather than a fork.
-- Arms: arm when a TexTile-class tileability scorer publishes weights under a licence class the registry grants.
+- Arms: arm when a TexTile-class tileability scorer publishes weights whose OWN card declares a granting licence class and a fixed-shape tile contract — every surveyed scorer's weight card is silent, so admission is blocked on the card, not on the export.
 - Tension: a learned score cannot be the SOLE gate — the deterministic measure is reproducible across machines and the learned one is not, so the pair must rule with the deterministic half authoritative or the tile proof stops being evidence.
 
 [TEXT_TO_MATERIAL_SEAM]-[BLOCKED]: Text-prompted material generation enters as an external service whose output crosses the ingest gate like any third-party asset.
@@ -115,8 +115,49 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Capability: an atlas becomes a first-class product — a packing over N sets producing one plane per channel and the per-set UV transforms — while remaining a PLANE-level sharing fact, so each participating set keeps its own key and its own appearance identity and a texture edit re-keys exactly the sets that read it.
 - Shape: a packing fold producing the shared planes and the per-set transform rows, beside the set owner; lands in `libs/csharp/Rasm.Materials/.planning/Raster/set.md`.
 - Unlocks: draw-call reduction for the generated assemblies; the atlas half of the sharing law the set owner already states as a boundary.
-- Anchors: the atlas boundary is already ruled — N sets referencing one blob by content address, never a set-level merge behind one appearance key — so the packer produces exactly that shape; the kernel `Processing/flatten` chart packing is the same bin-packing problem already solved once in the estate.
+- Anchors: the atlas boundary is already ruled — N sets referencing one blob by content address, never a set-level merge behind one appearance key — so the packer produces exactly that shape; the kernel `Processing/flatten` chart packing is the same bin-packing problem already solved once in the estate; `filter#PLANE_OP` `Dilate` closes the inter-chart gutter bleed a packed sheet's mip chain otherwise carries.
 - Ripple: precedes `[MESH_SPACE_BAKE]` — a mesh-space bake over an atlased target needs the transform rows this card produces.
+
+[COAT_ANISOTROPY]-[QUEUED]: Coat layers carry their own grain, so a brushed-metal topcoat and an anisotropic clear lacquer shade their real highlight.
+- Capability: coat-layer anisotropy joins the base layer's realized directional roughness, so a two-layer surface stops forcing its coat isotropic while its base shades a stretched lobe.
+- Shape: one `coat_roughness_anisotropy` input threading `Slab.Coat` into the coat lobe's alpha pair; lands in `libs/csharp/Rasm.Materials/.planning/Appearance/surface.md` `[05]-[OPENPBR_SLAB]` and `libs/csharp/Rasm.Materials/.planning/Appearance/bsdf.md` `[04]-[LOBE_FAMILY]`.
+- Unlocks: OpenPBR 1.1 coat-grain parity; the `geometry_coat_tangent` channel gains a shading consumer.
+- Anchors: `Slab.Coat` and the `geometry_coat_tangent` channel are carriers already present; the `SlabStack.LowerBase` Disney aspect remap and the landed `BsdfLobe` `Rotation` radian column are the algebra to reuse; the collapsed one-`Alpha` `ThinFilm` states the honest isotropic floor the widening replaces.
+
+[SKY_AS_PRESS_SUBJECT]-[QUEUED]: Synthesized domes are bake subjects, so a sky plane inherits the press engine's partitioning, cancellation, receipt, and accelerator lane instead of carrying its own sweep.
+- Capability: one bake engine over every synthesized field, so a sky render is content-keyed by a `PressPlan` the same way a material bake is and its cost lands on the same receipt.
+- Shape: one `PressSubject.Sky` case with its `PressProgram` arm at `libs/csharp/Rasm.Materials/.planning/Raster/press.md` `[03]-[TEXTURE_PRESS]`, `SkyRender.Render` collapsing to the per-texel radiance evaluation the band arm calls, at `libs/csharp/Rasm.Materials/.planning/Appearance/environment.md` `[02]-[SKY_MODEL]`.
+- Unlocks: `IDEAS.md [MESH_SPACE_BAKE]` — one subject union covering every field the estate bakes.
+- Anchors: `press#PRESS_PLAN` `PressSubject`/`LayerLaw.CubeFaces` (whose `Face(int face, double u, double v)` fold is already the frozen equirect correspondence the environment shares), `press#PRESS_RECEIPT` `PressProduct.Preview` for the accelerator lane, `gpu#WGSL_KERNEL` `equirectToCube`.
+- Tension: the S1/S2 strata split — `Raster` is S1 and the `Appearance` frontier is S2, so the subject case may not name a `SkyModel` type directly; the case carries a `Func<WorldDirection, RgbSpectrum>` radiance closure the frontier supplies, exactly how `PressSubject.Source` carries a `TextureSource` without the press knowing a noise basis.
+
+[CURVATURE_DRIVEN_WEAR]-[QUEUED]: Aging reads the surface's own shape, so an arris abrades and a gutter accumulates from the same trajectory.
+- Capability: edge-wear, rain-streak, and deposit-shedding become rows of the existing effect table rather than authored masks.
+- Shape: widen `CavityResponse.Scale` to `Scale(double age, SurfaceExposure exposure)` over a `SurfaceExposure(double Occlusion, double Curvature)` carrier, adding `Convex`/`Concave` rows beside `Crevice`/`Exposed`/`Uniform`; lands in `libs/csharp/Rasm.Materials/.planning/Appearance/weathering.md` `[02]-[WEATHERING]` with a second `Option<TextureSource> CurvatureField` beside the landed `CavityField` on `PressSubject.Slab` and one `Curvature` column on the landed `LadderRungs` carrier at `libs/csharp/Rasm.Materials/.planning/Raster/press.md` `[02]-[PRESS_PLAN]`.
+- Unlocks: shape-aware weathering over the landed cavity chain; the signed `curvature` channel gains its aging consumer.
+- Anchors: `set#TEXTURE_CHANNEL` `Curvature` already derives from `height` through `filter#PLANE_OP` `HeightDerivative.Curvature(CurvatureMeasure.Mean)`; the `WeatheringEffect` rows already carry their exposure law as a delegate column, so a fourth and fifth row cost zero dispatch edits; on a single occlusion scalar `Convex` is byte-identical to `Exposed`, which is why the pair waits for the second field this card owns.
+- Ripple: the `PressSubject.Slab` field set and `LadderRungs` each widen once for the curvature axis, so this card shares the landed cavity carriers rather than adding parallel ones.
+- Tension: `Convex` and `Crevice` are independent axes, so the honest cost is a three-dimensional ladder — the card must price the `LadderRungs` cell product against a per-texel `Apply` before landing.
+
+[IBL_PREVIEW_PRODUCT]-[QUEUED]: IBL prefiltering gains its accelerator product shape, so a GPU dome preview exists without ever reaching a content address.
+- Capability: the prefilter's accelerator lane produces a preview-class product structurally unable to reach `EnvironmentBlobs`, so the transcription-proven kernels gain a dispatching consumer under the CPU-mint veto.
+- Shape: the preview split at the prefilter owner's grain in `libs/csharp/Rasm.Materials/.planning/Appearance/environment.md` `[04]-[IBL_PREFILTER]`, mirroring the `press#PRESS_RECEIPT` `PressProduct.Minted`/`Preview` structural split.
+- Unlocks: the `IblPolicy.Backend` + `Prefilter(device)` seam already landed stops refusing its accelerator arm; an operator watches a dome resolve while the CPU mint runs.
+- Anchors: `environment#IBL_PREFILTER` `Prefilter`'s total `(ContentAuthoritative, device)` switch names this product shape as its one unsettled decision; `gpu#WGSL_KERNEL` `prefilterSpecular`/`irradianceSh`/`equirectToCube` are fixture-proven and equirect-correct; the content-identity veto rules the GPU lane preview-only.
+
+[MTLX_FLAKE_NODES]-[QUEUED]: MaterialX 1.39 flake and hex-tile node families gain corpus rows, so metallic-flake and anti-repetition texturing stop being unrepresentable sources.
+- Capability: `flake2d`/`flake3d` (multi-output id/rand/presence/flake-normal — a real metallic-flake appearance capability) and `hextiledimage` (hex-lattice anti-repetition image tiling) become texture-source vocabulary instead of silent MaterialX-only nodes.
+- Shape: candidate `TextureSource` cases or declared lossy-edge rows in `libs/csharp/Rasm.Materials/.planning/Appearance/texture.md` `[02]-[TEXTURE_UV]`, each answering the `MtlxNode` binding question its ingress direction poses.
+- Unlocks: automotive-paint and large-surface material authoring the current source union cannot spell; the `.mtlx` ingress half of the 1.39 node set.
+- Anchors: the `MtlxParameters` projection already routes per-node ports; the `[MTLX_UNIFIED_NOISE_INGRESS]` research row on the same page asks the ingress-direction question these nodes inherit.
+- Tension: a multi-output node breaks the one-sample-one-`ShadeVec4` shape of the source union — the flake family may demand an output-selector column rather than a case per output, and that decision precedes any row.
+
+[OPENPBR_GROUPS_MAP_COLUMNS]-[QUEUED]: `OpenPbrGroupsWire` grows its map half, so a TS consumer reads which plane refines each group instead of scalars alone.
+- Capability: `OpenPbrGroupsWire` carries per-group map columns — map presence, blob digest, colour space, and leaf name — so the group document names the plane that refines each scalar group and the TS `PbrGroups` decoder stops being scalar-only.
+- Shape: the map/digest/colorSpace/leaf column widening at `libs/csharp/Rasm.Materials/.planning/Appearance/interchange.md` `[MATERIAL_WIRE]`, wire-key growth per the frozen-key law.
+- Unlocks: `typescript:ui` `[PBR_GROUPS_MAP_FIELDS]` — the TS block downgrades from blocker to ordering constraint once the producer columns exist.
+- Anchors: `TextureSetWire` already addresses blobs by content digest and `TextureChannel` already carries the leaf grammar, so the columns project landed facts; the generated Mapperly wire map forces the mirror at compile.
+- Ripple: `typescript:ui` `[PBR_GROUPS_MAP_FIELDS]` consumes; the producer end is this card.
 
 ## [02]-[CLOSED]
 

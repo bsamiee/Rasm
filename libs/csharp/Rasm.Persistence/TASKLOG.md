@@ -27,12 +27,12 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `IDEAS.md` `[FEDERATED_ELEMENT_SET]`; `ModelLink`/`ProjectGraph` on `Element/graph`, the length-framed preimage discipline.
 - Tension: the frozen parity vector binds the `NodeId`-only preimage — both cut in one pass or cross-runtime keys diverge.
 
-[POINTCLOUD_CODEC_SURVEY]-[BLOCKED]: E57/LAS/LAZ codec admission survey — resolve the one question blocking the reality-capture page.
-- Capability: a ruled managed codec admission (or a ruled non-existence verdict) arms `[POINTCLOUD_CODEC_ADMISSION]` and pins the `libs/csharp/Rasm.Persistence/.planning/Ingest/pointcloud.md` package roster.
-- Shape: nuget MCP survey over the managed E57/LAS/LAZ candidate family scoring license, maintenance signal, and net10 asset; verdict lands as the `[POINTCLOUD_CODEC_ADMISSION]` arming edit and its packageNeeds row.
-- Unlocks: the blocked reality-capture codec becomes buildable.
-- Anchors: `IDEAS.md` `[POINTCLOUD_CODEC_ADMISSION]`; the admission-gate law (supersession-only rejection).
-- Arms: the nuget survey verdict — a ruled managed E57/LAS/LAZ codec admission or a ruled non-existence verdict.
+[POINTCLOUD_CODEC_ADMIT_ROSTER]-[QUEUED]: Admit the surveyed reality-capture codec pair onto the central manifest and its catalogue tier.
+- Capability: the ruled E57 and LAS/LAZ managed codecs become composable surface — one manifest row each, one folder registry row each, one `.api` catalogue each at member depth — so the reality-capture page composes verified members rather than a package nobody admitted.
+- Shape: two `Directory.Packages.props` rows, two `libs/csharp/Rasm.Persistence/README.md` `[SCALEOUT_BACKENDS]`-peer registry rows under a reality-capture label, and two catalogues at `libs/csharp/Rasm.Persistence/.api/`.
+- Unlocks: `IDEAS.md` `[POINTCLOUD_CODEC_ADMISSION]` — the codec page's `Packages:` line resolves to admitted rows.
+- Anchors: the survey verdict on `[POINTCLOUD_CODEC_SURVEY]`; the catalog-alignment law binding manifest, registry, and catalogue as one touch-point set.
+- Atomic: two package rows and their catalogues, no page authoring.
 
 [SOLVER_MEMO_BAND]-[QUEUED]: Solver-memo band — content-keyed NFP pair and ICP fit memos persist beside the benchmark index and replay across runs.
 - Capability: a durable memo band keyed by the Fabrication content keys — NFP pair geometry, ICP fit results — with hit accounting, so expensive solver truth computes once and replays across processes.
@@ -62,6 +62,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[POINTCLOUD_CODEC_SURVEY]-[COMPLETE]: the survey ran and the family EXISTS — `Aardvark.Data.E57` carries the E57 reader and `Unofficial.laszip.netstandard` the LAS/LAZ codec, both resolving on nuget.org at the same current platform version, both already transitively resident in the branch's restore graph, and neither superseded; the discarded candidates (`laszip.net`, `LASzip.Net`, `Aardvark.Data.Points.Import.Laszip`) resolve on no configured source, so the roster is the two admitted rows and the hand-rolled E57 XML-plus-binary layout the card named as the forbidden alternative is foreclosed by an existing managed reader rather than by preference.
 [MQTT_SINK_MEMBERS]-[COMPLETE]: refuted on disk — `Version/egress#EGRESS_SINK` already carries the realized `Mqtt(SinkBinding, string Topic)` case, its `Binding` arm, the structured-mode `ToMqttApplicationMessage` encode, the `V500` `UserProperties` trace stamp through the `ValueBuffer` overload, and the `MqttClientPublishResult` reason-code fold, with both `libs/csharp/.api/api-mqtt.md` and `.api/api-cloudevents-mqtt.md` landed; the arming condition had long since resolved.
 [ARROW_PARTITIONS_RESTORE]-[COMPLETE]: `PartitionedResult.PartitionDescriptors` is `IReadOnlyList<PartitionDescriptor>` beside `Schema`/`AffectedRows`, so `Query/columnar#COLUMNAR_LANE` lands `ColumnarLane.ArrowPartitions` with the `ArrowPartitions` redemption record over `AdbcConnection.ReadPartition`; the catalog gained the descriptor rows and the trap that `ExecutePartitioned`/`ReadPartition` are `virtual` bodies throwing `AdbcException.NotImplemented`, so member presence proves no driver support.
 [COLUMN_SHAPE_ALGEBRA]-[COMPLETE]: `Query/columnar#ANALYTICS_RESIDENCE` widened `ColumnType` with the unsigned and 32-bit rows and generated `List`/`Map`/`Dictionary` over it as `ColumnShape`, each residence answering four composer columns, so the OTLP wide-event column shapes provision through the one custodian and the roster stands declared branch-local.

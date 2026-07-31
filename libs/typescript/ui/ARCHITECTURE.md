@@ -11,27 +11,30 @@ ui/
 │   │   ├── token.ts           # Design-token authority computing color and dimension as decode-gated data
 │   │   ├── act.ts             # Motion and interaction, discrete accessible events split from continuous gestures
 │   │   ├── atom.ts            # One state binding standing the app Layer graph behind the registry
+│   │   ├── cache.ts           # Content-keyed OPFS residency: band ledger, integrity gate, quota sweep
 │   │   ├── hook.ts            # Typed hook registry — the rasm.ui fact rail, modality rows, tap isolation
 │   │   ├── vital.ts           # LoAF, event, commit, and compile evidence folded into probe-shaped rows; CWV is runtime's
 │   │   ├── intl.ts            # Zero-package locale plane riding native Intl behind one cache
 │   │   └── primitive.ts       # Headless spine: the one styled recipe and the sanitize gate
-│   └── view/                  # View plane composing the system owners into four dense surfaces
+│   └── view/                  # View plane composing the system owners into five dense surfaces
 │       ├── form.ts            # Schema-driven forms: one kernel Schema owning wire decode and live field validity
 │       ├── table.ts           # Data grid: models, virtual windows, and grid semantics under one TableState atom
 │       ├── overlay.ts         # Overlay owner: anchoring, sheets, and the command palette over one presence cohort
-│       └── chart.ts           # Analytic charts: declarations, streams, and pivots over one Arrow plane
+│       ├── chart.ts           # Analytic charts: declarations, streams, and pivots over one Arrow plane
+│       └── export.ts          # Export plane: one serializer matrix, content-minted parcels, one egress port
 └── viewer/
     └── src/                   # Spatial tier, a second Nx project
         ├── scene.ts           # Content-keyed GLB residency and environment dome behind the GlbViewport port
         ├── geo.ts             # Geospatial surface: one shared WebGL context as a pure layer value tree
         ├── mark.ts            # GlobalId mark plane: one selection atom every pick pipeline folds into
         ├── panel.ts           # Wire materializer rendering the shell control vocabularies through the owners
-        └── probe.ts           # Render evidence: benchmarks paired with wire-decoded receipts, never gating
+        ├── probe.ts           # Render evidence: benchmarks paired with wire-decoded receipts, never gating
+        └── review.ts          # Model review: BimDiff and IdsAudit joined per GlobalId into board rows and echoes
 ```
 
 ## [02]-[STRATA]
 
-- S0 `system` — capability floor: `primitive` recipes compose `token`'s `cn` composer; every plane taps the `rasm.ui.<domain>.<point>` fact rail.
+- S0 `system` — capability floor: `primitive` recipes compose `token`'s `cn` composer; every plane taps the `rasm.ui.<domain>.<point>` fact rail; `cache` holds the content-keyed residency bands the S2 viewer re-warms from.
 - S1 `view` — dense surfaces over the floor: `form` binds draft cursors through `AtomRef`; `table` folds `TableState` on the one store.
 - S1 `table` formats bands through `Format`; `overlay` and `chart` ride `act`'s gesture and motion rows under the same recipes.
 - S2 `viewer` — the spatial Nx project atop both strata: `scene` frame-loops on `act`, binds `token` color, rides `Machine` on the atom bridge.
@@ -52,10 +55,10 @@ flowchart TB
     accDescr: Three strata — the viewer project over the view surfaces onto the system floor; imports downward, one forbidden upward edge.
     subgraph S2["S2 VIEWER"]
         Scene["scene · geo · mark"]
-        Board["panel · probe"]
+        Board["panel · probe · review"]
     end
     subgraph S1["S1 VIEW"]
-        View["form · table · overlay · chart"]
+        View["form · table · overlay · chart · export"]
     end
     subgraph S0["S0 SYSTEM"]
         Token["token · primitive"]
@@ -128,7 +131,7 @@ flowchart LR
 
 ## [04]-[INTERNAL]
 
-`system` is the capability floor the views instantiate; `view` composes those owners into dense surfaces — form, grid, overlay, chart — each a single owner where variation is rows (columns, commands, field kinds, chart regimes), never sibling components; `viewer` is the spatial tier as a separate Nx project consuming decoded wire and owning render alone.
+`system` is the capability floor the views instantiate; `view` composes those owners into dense surfaces — form, grid, overlay, chart, export — each a single owner where variation is rows (columns, commands, field kinds, chart regimes, serializer cells), never sibling components; `viewer` is the spatial tier as a separate Nx project consuming decoded wire and owning render alone.
 
 Every state fact binds through the one atom bridge, so a component projects and never runs an effect or mirrors domain state. Selection stays one atom whose applied ops publish once into the bounded echo channel; the grid `RowSelectionState` and the `scrollToIndex` echo project it, never a second plane. Color is one OKLCH artifact — gamut-fit and contrast-gated at decode — feeding the CSS plane and the viewer's linear render space as one object, and visualization data crosses zero-copy on one Arrow bus. Per-owner wiring lives on the owning implementation pages.
 
@@ -138,7 +141,7 @@ Every state fact binds through the one atom bridge, so a component projects and 
 - GLB, BCF, WKB, and selection arrive decoded through the core interchange plane, rendered, never re-authored.
 - Every GPU resource is scope-bracketed, so a lost context or torn-down surface releases its allocations through the same bracket that acquired them.
 - Browser composition roots — `GlbViewport` from Depot arrivals, host planes bound into atoms — are app composition, out of scope here.
-- `EXT_meshopt_compression` assets refuse with the `codec-absent` reason until the iac plane admits the wasm decoder identity and its serving row.
+- `EXT_meshopt_compression` assets refuse with the `codec-absent` reason wherever a composition omits the served decoder leaf; draco and ktx2 are hard requirements the codec construction resolves.
 - History consumers compose from the landed system pages; a second history owner never appears beside the selection atom.
 - Telemetry leaves through app-composed hook taps; the folder mints no OTel instrument and imports no collector.
 - One bridge layer subscribes `system/hook` points at app composition and carries rows to the estate spine.

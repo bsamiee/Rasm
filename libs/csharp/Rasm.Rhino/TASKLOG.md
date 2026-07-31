@@ -20,6 +20,33 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
+[FACT_STREAM_GENERIC_OWNER]-[QUEUED]: One generic receipt/slot/body/fact stream owner serves every host-mutation folder.
+- Capability: the receipt-slot-body-fact quartet becomes one parameterized S0 owner, so a mutation folder contributes vocabularies instead of re-minting the stream machinery and the cross-product gate is written once.
+- Shape: new owner at libs/csharp/Rasm.Rhino/.planning/Document/tables.md (the lowest stratum both consumers reach), collapsing `DraftReceipt`/`DraftSlot`/`DraftBody`/`DraftFact` (Annotation) and `BlockReceipt`/`BlockSlot`/`BlockBody`/`BlockFact` (Blocks/operations.md) onto it, the `Admits` predicate column carried as the one cross-product gate.
+- Unlocks: a third mutation folder joins by declaring its slot and body vocabularies alone.
+- Anchors: `[STRATA_TWIN]` seating law; the `Admits` column already landed on `BlockSlot`; both ends move in ONE pass — landing one half leaves two generics.
+- Tension: the two S1 vocabularies must prove they genuinely share payload timing before the collapse; a forced merge of distinct evidence shapes is the rejected form.
+
+[QUIET_WRITE_VOCABULARY]-[QUEUED]: One quiet-write posture vocabulary and one commit entry shape across the host-mutation folders.
+- Capability: quiet-versus-loud host writes and transaction commit entries read as one posture vocabulary, so a consumer learns one grammar and a new folder cannot fork a third spelling.
+- Shape: settle `WriteMode` (Annotation/style.md), `HostInteraction` (Blocks/operations.md), and `ObjectSignal Quiet` (Objects/lights.md) onto one owner; unify `DraftPlan<TOp>`, `BlockTransaction`, and the bare varargs commit entries onto one entry shape.
+- Unlocks: `[FACT_STREAM_GENERIC_OWNER]` — the generic stream assumes one commit shape.
+- Anchors: the three vocabularies verified live at their pages; the Annotation folder roster is `{dimension,hatch,linetype,style,text,typeface}.md` (no operations.md).
+- Ripple: follows `[FACT_STREAM_GENERIC_OWNER]`.
+
+[ATTRIBUTE_SOURCE_VOCABULARIES]-[QUEUED]: Objects/attributes.md admits its host enums and colors through keyed owners.
+- Capability: every attribute-source axis dispatches on a keyed vocabulary and every color crosses as `PerceptualColor`, so raw host enum members and `System.Drawing.Color` stop leaking past the admission seam.
+- Shape: libs/csharp/Rasm.Rhino/.planning/Objects/attributes.md — keyed `[SmartEnum]` owners over `ObjectColorSource`/`ObjectPlotColorSource`/`ObjectPlotWeightSource`/`ObjectMaterialSource`/`ObjectSectionAttributesSource`/`ObjectDecoration`/`SectionLabelStyle`/`ItemColorSource`/`DecalMapping`/`DecalProjection`; compose Annotation/linetype.md's landed `LinetypeSource` for `ObjectLinetypeSource`; the eight `System.Drawing.Color` fields to `PerceptualColor.OfRgb`/`ToRgb`; touch points `AttributeEdit.{Paint,Plot,PlotWeight,LinePattern,MaterialBind,Decorate,SectionSource,SectionLabel,HatchFill,HatchBoundary}`, the `Admit` and `Apply` arms, `AttributeSnapshot`, `DecalSnapshot`, `MaterialBinding`, `ObjectPiece`'s two colour columns.
+- Unlocks: the attributes page joins the vocabulary discipline every sibling Objects page already holds beside the landed `ActiveSpaceUse` re-seat.
+- Anchors: ~40 coupled touch points in one 900-line page — the half-landed-vocabulary-is-worse-than-none rule is why this is one focused pass; `Objects/lights.md` is the color precedent.
+
+[COMMANDS_RUNTIME_PRELUDE]-[QUEUED]: The four Commands pages carry their runtime preludes.
+- Capability: every Commands fence resolves its composed names through a declared prelude, so the folder meets the architecture's prelude law and a cold reader compiles the imports instead of inferring them.
+- Shape: libs/csharp/Rasm.Rhino/.planning/Commands/{acquisition,command,options,selection}.md — one `[RUNTIME_PRELUDE]` block + `namespace` declaration per page, derived from the members each names (`RhinoGet`, `Rhino.Input.Custom`, `Rhino.Display`, `Rhino.DocObjects`, `Rasm.Domain`, `Rasm.Rhino.Document`).
+- Unlocks: the Commands folder passes the same prelude conformance every other Rasm.Rhino folder holds.
+- Anchors: Rasm.Rhino/ARCHITECTURE.md:238 prelude law; folder-wide gap verified on all four pages.
+- Atomic: one prelude block per page, four pages.
+
 [CUSTODY_CENSUS]-[ACTIVE]: Process-global custody census classifies every collision surface for multi-plugin arbitration.
 - Capability: Complete roster of process-global state — static host event subscriptions, `ObjectsTelemetry` sink, `HostTap` mounts, named shell callbacks, panel/page/command registrations, application settings writers — each with collision class and seat-arbitration shape.
 - Shape: Roster and arbitration rows land on `libs/csharp/Rasm.Rhino/.planning/Objects/authoring.md`, `libs/csharp/Rasm.Rhino/.planning/Document/events.md`, and `libs/csharp/Rasm.Rhino/.planning/HostUi/shell.md` per owner.
@@ -89,3 +116,11 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [BENCH_EVIDENCE_SHAPE]-[COMPLETE]: `BenchEvidence` shape (operation-family identity, input scale, duration, allocation, `HostFingerprint`) with the `BenchBand.Measured` bracket landed on `Modeling/solids.md`; `Captures.Run` measures each request case inside `HostThread.Run` and stamps each artifact.
 [DOCUMENT_CENSUS_DIMENSIONS]-[COMPLETE]: `DocumentCensus` dimensions pinned on `Objects/state.md` — canonical `Objects.Ask` snapshot window, `Layers.Ask` tree shape, `BlockGraph.Ask` closure triple, `CountBy` histograms, `RandomAccess.GetLength` archive extent.
 [CLASSIFICATION_SWEEP]-[COMPLETE]: classification sweep landed on `Objects/authoring.md` — app-root-aligned `HostSensitivity` rows, member annotations on `HostFaultFact`, `HostLogFact`, and cached `HostStaticFact`, with unclassified-public site keys and codes.
+[POST_EFFECT_PIPELINE_PORTS]-[COMPLETE]: `EffectPass` ports (`Read`/`Write` with commit, `Handle`, `CopyDown`, `Advance`) and `EffectHost`'s eight overrides landed on `Display/render.md`; `PostEffectPipeline`, `PostEffectChannel`, and the `ChannelGPU` producer chain landed in `.api/api-rhinocommon-render.md`, which previously named the GPU path with no producer.
+[EFFECT_GATE_ARMING]-[COMPLETE]: the inert-gate defect closed — `Display/render.md` `[04]` now states that `WindowOp.Gate` is consulted only for a `[CustomPostEffect]` declaring `UseExecutionControl`, and the catalog enum row carries the same fact.
+[HATCH_GENERATOR_EDITS]-[COMPLETE]: `LineEdit` append/replace/remove/clear over `AddHatchLine`/`HatchLineAt`/`RemoveHatchLine`/`RemoveAllHatchLines` with the `Revised` copy-then-`Modify` fold landed on `Annotation/hatch.md`; replace is a bounded remove-then-append because the host publishes no in-place setter.
+[SHELL_REGISTRY_ROWS]-[COMPLETE]: `RenderPanels`/`RenderTabs` registration landed as instance calls on host-handed registrars behind `RenderShell.Drain`; `.api/api-rhinocommon-render-ui.md` corrected from static-shaped rows to the three panel and two tab instance overloads and the one-shot override window.
+[SUBD_INTERPOLATION_EVIDENCE]-[COMPLETE]: the interpolate arm on `Modeling/subd.md` now emits `FixedVertexCount()`, `ContextId`, and `VertexIdList()` into `Built<SubDSlot>.Evidence`, and the `InterpolatedVertexCount` property-vs-method spellings corrected at both read sites.
+[BACKING_SCALE_CONSUMER]-[COMPLETE]: `FrameTick.DevicePixels`/`HairlineWidth` landed on `Viewport/motion.md`, giving the promised device-pixel consumer the tick's own scale instead of a per-frame host read.
+[MESH_SLOT_SPLIT_STATED]-[COMPLETE]: the `MeshSlot` name split stated at both ends — `Modeling/meshing.md` names the `Rasm.Rhino.Modeling` build-product vocabulary and `Objects/history.md` names the nested `SlotValue.MeshSlot` payload case under its union's `<Type>Slot` convention.
+[GEOMETRY_KNN_TABLE]-[COMPLETE]: the neighbourhood family split into its own `.api/api-rhinocommon-geometry.md` scope with the shared `IEnumerable<int[]>` return hoisted to the scope line, closing the two rows that carried no return clause and the prose that re-listed the roster.

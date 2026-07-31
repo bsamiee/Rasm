@@ -77,7 +77,7 @@ flowchart TB
 
 - S0 `graduation` — mints the evidence spine (`GeometrySubject`, `GeometryHandoff`, the `ContentKey` fold) exactly once and imports no sibling.
 - S0 every graduating producer returns through its `evidence_run` weave.
-- S1 `mesh` + `ifc` + `graph` + `energy` — producer stratum composing the spine alone; no import crosses among the four.
+- S1 `mesh` + `ifc` + `graph` + `energy` — producer stratum composing the spine alone; no import crosses among the four, while each orders its own interior: `ifc` seats every shared vocabulary at its one owner (`selector` the grammar, `costing` the `RuleSet` quantity table `analysis` grades against), `mesh` layers `cad` under `daemon`/`brep` and `repair`/`quality` under `spatial`, `graph` folds both analytics producers onto `analytic`, and `energy` seats `climate` beneath `model` beneath `district` with `simulate` reading the first two. An interior edge stays acyclic and reaches the vocabulary's single owner — a second transcription beside it is the rejected form.
 - S1 each graduating owner folds its evidence onto `GeometryHandoff`; engine and gate owners stream typed receipts without a subject.
 - S2 `scan` — sole cross-producer consumer, composing graduation and mesh `QualityMetrics` receipts for deviation and reconstruction closure grading.
 
@@ -146,6 +146,8 @@ flowchart LR
     Energy e8@-->|"[PORT]: RecipeInterface"| Runtime
     Energy e9@-->|"[BOUNDARY]: arrow_bytes"| Data
     Graduation e11@-->|"[RECEIPT]: BenchmarkReceipt"| Runtime
+    Mesh e16@-->|"[IMPORT]: ObjectStoreLane"| Runtime
+    Mesh e17@-->|"[LEDGER]: FactJournal"| Data
     Runtime e12@-->|"[PORT]: Kernel"| Mesh
     Runtime e13@-->|"[PORT]: Kernel"| Scan
     Runtime e14@-->|"[PORT]: measured"| Graduation
@@ -154,7 +156,9 @@ flowchart LR
 
 Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind — the streaming GLB transport, the IFC projection, and the payload shapes fold into the one labeled rail, per-contract wiring on the owning implementation pages. `GlbContentHash` spells from its Rasm.Element owner and `RepresentationContentHash` from its Rasm.Bim owner; geometry interior pages spell only the `ContentKey` mint beneath both. Scene facts cross one-way as GLB bytes the artifacts `SceneGrid.of_glb` admits; nothing returns.
 
-Both `arrow_bytes` edges name the data-owned crossing: `EvidenceFrame` and the energy `ResultFrame` are the geometry-side columnar carriers, each crossing as its declared column roster beside its sealed arrays, admitted by the data `tabular/columnar` `arrow_columns` entry and serialized through the `arrow_bytes` fold beside it, so the data end holds one Arrow entry and no geometry frame type crosses as a foreign shape.
+Both `arrow_bytes` edges name the data-owned crossing: `EvidenceFrame` and the energy `ResultFrame` are the geometry-side columnar carriers, each crossing as its declared column roster beside its sealed arrays, admitted by the data `tabular/columnar` `arrow_columns` entry and serialized through the `tabular/interop` `arrow_bytes` fold it feeds, so the data tier holds one admitting entry and one canonical byte fold and no geometry frame type crosses as a foreign shape.
+
+`ObjectStoreLane` and `FactJournal` are the two COMPOSITION-ROOT edges: the mesh servicer takes a built store lane as the daemon's durable artifact tier and binds the `Ledger`/`Custody` pair the runtime daemon entry journals through, so both arrive as values a root supplies and neither folder mints a handle, a credential, or a retention of its own.
 
 `BenchmarkReceipt` carries the whole bench observability contract on one rail — the `Bench.run` measurement tier, the `Signals`-harvested receipt row, and the `bench_terminal` `JobRun.bounded` process-terminal envelope. `Kernel` carries the HOSTILE process-offload contract every compiled mesh and scan kernel crosses through `LanePolicy.offload`; the lane conduit's pickled pulse tap rides it, so `GeometryPulse` beats reach the runtime `Hooks` registry through the parent-side drain.
 
@@ -162,6 +166,6 @@ Both `arrow_bytes` edges name the data-owned crossing: `EvidenceFrame` and the e
 
 Every sub-domain rides the native engine the branch manifest selects, with the compiled geometry and IFC cores and the copyleft packages isolated at the process boundary.
 
-Runtime lane carries the pure-Python spine owners; the worker lanes carry the compiled enrichment rows and the IFC core behind function-local gates. Probe selection over `find_spec` selects a capability tier, never an offload route — module presence is identical on every floor of the one shared venv. Compiled bands cross worker seams as `KernelTrait.HOSTILE` kernels on the warm process pool, and a live native handle never meets the pickle seam: shapes cross as sealed STEP octets, clouds as the scan `Cloud` array carrier, models as document bytes.
+Runtime lane carries the pure-Python spine owners; the worker lanes carry the compiled enrichment rows and the genuinely long native IFC phases behind their function-local floor gates, never the IFC core whole — a short pure decode or attribute walk stays caller-floor, exactly as every verb page rules. Probe selection over `find_spec` selects a capability tier, never an offload route — module presence is identical on every floor of the one shared venv. Compiled bands cross worker seams as `KernelTrait.HOSTILE` kernels on the warm process pool, and a live native handle never meets the pickle seam: shapes cross as sealed STEP octets, clouds as the scan `Cloud` array carrier, models as document bytes. A compiled band binds one module-scope `lazy import`/`lazy from` behind its floor gate; a module-scope eager native import and an unearned function-local one are both deleted forms, and every module-scope table cell over a deferred band carries a call-time thunk or a member NAME, because a live attribute in a row reifies the proxy at import. Intra-kernel parallelism binds from `LanePolicy.capacity`, so the lane's slot allocator and the kernel's own thread budget share one capacity; a literal thread count inside each of `capacity` concurrent slots oversubscribes by exactly that factor.
 
 AGPL Ladybug Tools band — `ladybug-*`, `honeybee-*` with its standards backends, and `dragonfly-*` — rides the `energy/` owners with function-local boundary imports and process-boundary evidence exchange: HBJSON, dfjson, EPW document bytes, and result frames cross the wire, never a distributed link. Simulation engines — Radiance, OpenStudio, and EnergyPlus behind the runtime recipe rail; URBANopt, Modelica, RNM, and REopt behind the district translation rows — are external process-boundary services.

@@ -13,7 +13,7 @@ data/
     │   ├── olap.ts       # Analytical lane over DuckDB, ClickHouse, Flight, residence rows, and the Arrow-Parquet wire
     │   ├── cache.ts      # Latency lane: single-flight, dedup, restart-surviving cache rows
     │   ├── capability.ts # Fail-closed capability rail probed at Layer construction
-    │   └── tenant.ts     # Tenancy write path pinning the TENANT_GUC across RLS, schema, and database cases
+    │   └── tenant.ts     # Tenancy write path pinning the session-coordinate GUCs across RLS, schema, and database cases
     ├── journal/          # Record of truth: atomic writes, evolution, facts, lawful aging
     │   ├── append.ts     # One atomic write owner: journal, outbox, and idempotency ledger in one commit
     │   ├── evolve.ts     # Read-time upcasting: per-tag version chains, snapshot as a projection
@@ -23,7 +23,7 @@ data/
     │   ├── store.ts      # S3-conditional content-addressed object store
     │   ├── stream.ts     # Resumable rail: BYOB ingress, checkpointed identity fold, tus server
     │   ├── file.ts       # Filesystem plane: gated content-addressed intake and the derivative spine
-    │   ├── asset.ts      # category-general asset plane: category-gated admission, transform rows, container + ktx rows
+    │   ├── asset.ts      # category-general asset plane: category-gated admission over container, ktx, raster, and points rows
     │   └── remote.ts     # Remote-origin plane: scheme-dispatched non-local sources
     └── read/             # Read side: typed queries, batching, projections, reactivity, retrieval
         ├── query.ts      # Typed CRUD with arity as combinator over Model codec pairs

@@ -29,7 +29,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@confluentinc/schemaregistry` — Kafka schema identity, compatibility admission, subject resolution, and codec framing.
 - `@connectrpc/connect-node` — Node Connect/gRPC transport factories; `net/client.md` owns transport dispatch.
 - `mqtt` — `net/channel.md` owns the MQTT v5 channel seam.
-- `cloudevents` — `work/deliver.md` and `serve/route.md` own the HTTP binding; `net/pubsub.md` carries the opaque envelope.
 
 [INTELLIGENCE]:
 - `@effect/ai`
@@ -78,9 +77,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@pyroscope/nodejs` — continuous-profiling push; `otel/profile.md` owns the lifecycle, composed only at the node root.
 - `web-vitals` — estate-wide Core Web Vitals source; `otel/vital.md` registers the enriched-build capture functions and owns the cutoff pairs.
 
-[BENCH]:
-- `mitata` — `proc/exec.md` owns the trial-engine route.
-
 [TERMINAL]:
 - `@effect/cli`
 - `@effect/printer`
@@ -117,3 +113,9 @@ Shared substrate consumed from the Ts registry; the registry and its charters ow
 - `@effect/platform-bun`
 - `@effect/platform-browser`
 - `@effect/experimental`
+
+[WIRE_ENVELOPE]:
+- `cloudevents` — `work/deliver.md` and `serve/route.md` own the HTTP binding; `net/pubsub.md` carries the opaque envelope.
+
+[BENCH]:
+- `mitata` — `proc/exec.md` owns the trial-engine route.

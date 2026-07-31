@@ -24,6 +24,7 @@ Cross-package coupling is a published boundary import or a content-keyed wire; n
 - S4 app root — the composing application seats outside `libs/python` and binds every declared port.
 - S4 port law — `runtime` declares a port at S0, an upper stratum binds it at the root, and an unbound port refuses with typed evidence.
 - S4 counter-edge — `data` supplies the `Ledger` the journal plane writes through, root-bound; S0 consumes the value, importing no owner.
+- S4 sink law — `artifacts` declares the produced-bytes `ProductSink` port at its plan spine, the root binds it over the runtime `ObjectStoreLane`, and the streaming media segment sink alone composes the lane directly over its caller-named root.
 
 ```mermaid
 ---
@@ -57,6 +58,9 @@ flowchart TB
     Geometry e6@-->|"[IMPORT]: ContentKey"| Runtime
     Compute e7@-->|"[IMPORT]: Kernel"| Runtime
     Artifacts e8@-->|"[IMPORT]: ContentKey"| Runtime
+    Artifacts e11@-->|"[IMPORT]: ObjectStoreLane"| Runtime
+    Geometry e12@-->|"[IMPORT]: ObjectStoreLane"| Runtime
+    Geometry e13@-->|"[LEDGER]: FactJournal"| Data
     Data e10@-.->|"[PORT]: Ledger impl, S4-bound"| Runtime
     Artifacts ~~~ Compute
     S0 e9@-->|"forbidden: upward import"| S3
@@ -105,6 +109,7 @@ flowchart LR
     Data e6@<-->|"[WIRE]: SubstraitPlan"| Persistence
     Data e8@-->|"[WIRE]: Environmental"| Materials
     Materials e16@-->|"[WIRE]: MaterialWire + TextureSetWire"| Runtime
+    Artifacts e17@-->|"[WIRE]: AssetSetManifest"| Materials
     Bim e9@-->|"[WIRE]: GeoFeatureWire"| Data
     Artifacts e14@-->|"[CONTENT_KEY]: SignedArtifact"| Persistence
     Fabrication e15@-->|"[SHAPE]: Tolerance"| Artifacts
@@ -136,7 +141,7 @@ flowchart LR
 
 Telemetry converges on runtime's observability owner: `Hooks` registers every package's hook points, one `INSTRUMENTS` table owns every instrument as a row, `Journal` owns the append-only evidence plane behind the `Ledger` port, and `Telemetry` alone installs OTLP egress. Siblings register on that owner — a hook point, an instrument row, a receipt folded through the drain, a bound `Ledger` — and their series leave opaque on the OTLP transport. Journal facts are evidence truth; every metered series beside them rebuilds from the journal window.
 
-`data` alone custodies the analytics residences that outlive a series window: it implements the `Ledger` port over its own commit and scan owners for the S4 root to bind, rows each durable plane on that same matrix, and rebuilds every residence from the journal window, so history and health read one fact stream.
+`data` alone custodies the analytics residences that outlive a series window: it implements the `Ledger` port over its own commit and scan owners for the S4 root to bind, rows each durable plane on that same matrix, and lands each drained receipt stream into its residence through that same matrix, so history and health read one fact stream.
 
 ```mermaid
 ---
@@ -148,7 +153,7 @@ config:
 ---
 flowchart LR
     accTitle: Python branch observability spine
-    accDescr: Siblings fire hook facts, fold receipts, and record evidence facts into runtime observability; one instrument table meters the derived series, telemetry alone egresses on the opaque OTLP transport, and the journal lands evidence through a Ledger port data implements and the S4 root binds, its analytics residences rebuilding off that stream.
+    accDescr: Siblings fire hook facts, fold receipts, and record evidence facts into runtime observability; one instrument table meters the derived series, telemetry alone egresses on the opaque OTLP transport, and the journal lands evidence through a Ledger port data implements and the S4 root binds, while the composition's receipt drain lands its analytics residences through the same commit matrix.
     Siblings[compute · data · geometry · artifacts]
     subgraph runtime[RUNTIME OBSERVABILITY]
         Hooks[Hooks registry]
@@ -166,7 +171,7 @@ flowchart LR
     Hooks e3@-->|"taps"| Instruments
     Drain e4@-->|"record"| Instruments
     Journal e8@-->|"[PORT]: Ledger"| Ledger
-    Ledger e9@-.->|"rebuild: derived plane"| Residence
+    Drain e9@-.->|"drain: Iterable[Receipt]"| Residence
     Instruments e5@-->|"metered series"| Telemetry
     Telemetry e6@-->|"OTLP"| Egress
 ```
@@ -186,6 +191,8 @@ flowchart LR
 |  [09]   | a retention class                   | `runtime/observability/journal.py` | one `Retain` member with its window row          |
 |  [10]   | an analytics residence              | `data/tabular/lakehouse.py`        | one row answering the estate residence floor     |
 |  [11]   | a remote columnar query end         | `data/tabular/query.py`            | one `RemoteDriver` row on the one Flight plane   |
+|  [12]   | a graded benchmark subject          | `runtime/observability/profiles.py`| one roster row at the owning folder              |
+|  [13]   | a store-reaching residence consumer | `runtime/transport/roots.py`       | one `store_handle` call carrying config+provider |
 
 ## [06]-[ADMISSION_POLICY]
 

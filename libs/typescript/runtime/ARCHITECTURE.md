@@ -48,7 +48,7 @@ runtime/
     └── browser/               # Browser runtime condition
         ├── boot.ts            # Single-boot law: the app-spec budget, connect cells, and the capability roster
         ├── shell.ts           # PWA shell: the manifest as a typed value under a scoped resource and update handshake
-        ├── persist.ts         # IndexedDB domain vocabulary with batch read and write modalities
+        ├── persist.ts         # IndexedDB domain vocabulary, storage-residency verdicts, the file-egress routes
         ├── route.ts           # Navigation-API typed router carrying the Vault session plane and admission fold
         └── fetch.ts           # Browser byte transport: XHR, WebSocket, and worker binding rows for verified arrivals
 ```
@@ -186,6 +186,7 @@ flowchart LR
     Serve e5@-->|"[BOUNDARY]: EXT_meshopt_compression"| Ui
     Browser e6@-->|"[PORT]: Atom.subscribable"| Ui
     Browser e7@-->|"[PORT]: GlbViewport"| Ui
+    Browser e12@-->|"[PORT]: Egress"| Ui
     Otel e8@-->|"[TRANSPORT]: Export.live"| Iac
     Ui e9@-->|"[SHAPE]: Tap.Registry"| Otel
     Otel e10@-->|"[TRANSPORT]: Profile.live"| Iac

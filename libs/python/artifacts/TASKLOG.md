@@ -20,19 +20,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[MEDIA_CANON_SEAM]-[QUEUED]: the media canonical-encoder seam resolves to one spelling.
-- Capability: every media sibling imports the canonical encoder trio by names the source module exports, and the test-pattern painter stops shadowing the encoder helper's name.
-- Shape: `libs/python/artifacts/.planning/media/container.md` re-exports `CANON`/`framed`/`_lapsed` under one canonical spelling; the sibling import blocks on `media/timeline.md`, `media/subtitle.md`, `media/analysis.md`, and `media/synthesis.md` align to it, and `media/synthesis.md` renames its local `_framed` test-pattern painter.
-- Unlocks: the four sibling pages stop importing names container never defines — the seam compiles as written.
-- Anchors: container's import of `CANON`/`framed` from the scene spec; the four sibling underscore-form import blocks.
-- Atomic: one export decision and five import-block touches.
-
-[MEDIA_LANE_FIELD_ORDER]-[QUEUED]: media producer structs construct as declared.
-- Capability: every media producer Struct orders required fields before defaulted ones, so class creation never raises on the msgspec field-order law.
-- Shape: `Timeline` on `libs/python/artifacts/.planning/media/timeline.md` and `Subtitle` on `libs/python/artifacts/.planning/media/subtitle.md` hoist `lane: LanePolicy` above their defaulted fields, matching the `Media` ordering on `media/container.md`.
-- Unlocks: both producer pages transcribe to importable modules.
-- Anchors: msgspec Struct field-order semantics; the `Media` sibling ordering.
-- Atomic: two field hoists.
+[MARK_SEQUENCE_FAN]-[QUEUED]: a QR structured-append sequence emits one mark per member, never one corrupted document.
+- Capability: multi-symbol scan sequences become first-class fan products — every member its own addressed artifact — replacing the typed refusal that holds the seam.
+- Shape: `libs/python/artifacts/.planning/graphic/marks/encode.md` `_segno` with `Mark.emit`/`Mark._emit` — either a plan node whose work yields N receipts, or a `libs/python/artifacts/.planning/graphic/vector/region.md` composition assembling the members onto one sheet before the receipt fold.
+- Unlocks: payloads exceeding one symbol's version/EC budget ship scannable instead of refusing at encode.
+- Anchors: `segno.make_sequence` (member count resolves only inside the version/EC constraint solve), `core/plan#PLAN` `Fed` (the precedent for a node yielding staged product beyond its own receipt), the `_segno` typed `parameter` refusal holding the seam today.
+- Tension: member count is unknowable before `segno.make_sequence` runs, yet `Mark.emit()` mints its plan nodes from `self.ops` at construction — the fan needs a node-yields-N-receipts shape or the sheet-composition route, and the winner decides whether `region.md` gains a counterpart.
 
 [MEDIA_AUDIO_CHANNEL_AXIS]-[QUEUED]: multichannel audio times correctly on the interleaved axis.
 - Capability: every last-axis audio window, slice, and pick index scales by the channel count, so multichannel media neither mistimes by the channel factor nor rotates channels.
@@ -142,32 +135,11 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `pdfplumber` `Page.debug_tablefinder`; `document/lens.md` examination ops.
 - Atomic: one projection row on one existing page.
 
-[OCIO_WORKING_SPACE]-[QUEUED]: the managed egress resolves its ends through a config graph.
-- Capability: colour-managed arms name their source and destination as config roles or colorspaces and take back a compiled processor, so the working space a project declares is what every applied transform reads, and one resolution serves the in-place buffer apply, the shader emission, and the LUT bake.
-- Shape: `libs/python/artifacts/.planning/graphic/color/managed.md` gains the config-resolved transform leg on its existing `ManageOp` dispatch — one policy bundle beside `IccTransform` carrying the config reference, the two named ends, and the look — with the `Lut` terminal baking through the same processor it applies through; `graphic/texture/plane.md` and `graphic/texture/ibl.md` keep their boundary sentences unedited, now naming a landed leg.
-- Unlocks: `IDEAS.md` [MANAGED_CONFIG_SPACE] — the resolution half, leaving the ICC profile edge exactly where it is.
-- Anchors: `opencolorio` at `libs/python/artifacts/.api/opencolorio.md` — `Config.CreateFromBuiltinConfig` over the shipped `ocio://` configs, `ROLE_SCENE_LINEAR` as the declared reference, `Config.getProcessor` into `CPUProcessor` applying over float buffers through `PackedImageDesc`, `GpuShaderDesc` for shader text, and `Baker` for LUT egress; the `_grade` fold and `GradeStep` chain the new leg composes rather than replaces; the process-lane `Kernel` crossing every managed arm already rides.
-- Tension: config resolution wants scene-linear float where the ICC leg is written for `uint8`/`uint16` rasters, so the depth admission on that arm decides whether one dispatch serves both ends or the config leg carries its own admission axis.
-
-[TILE_PERIODICITY_SCORE]-[QUEUED]: a set's tiling claim is measured, not repeated.
-- Capability: deep planes score their own seam periodicity deterministically, and the set producer fills its tiling field from that score when the caller supplies no provenance, so the shared wire field states a property this folder proved.
-- Shape: one measurement arm under `libs/python/artifacts/.planning/graphic/texture/` scoring wrap-seam energy against the plane's own spectrum, and the `tiled` fill in the assembly fold at `graphic/texture/set.md` reading it instead of copying the spec field straight through.
-- Unlocks: `IDEAS.md` [DEEP_MEASUREMENT] — the periodicity half, which is the ruling on proved tiling flags realized at the one producer that fills the field.
-- Anchors: `libs/python/artifacts/RULINGS.md` carrying the tiling ruling; `fft.fft2`/`ifft2`/`fftfreq` and `roll` kernels `graphic/texture/derive.md` already owns; `Edge.WRAP` differentiation the derived channels already run, whose correctness the same seam property governs; the C# tile gate as the cross-branch counterpart the score agrees with by construction.
-- Tension: scoring is a threshold decision and the threshold is a policy value, so the row either publishes the scalar and lets the caller decide or fixes one cutoff every consumer inherits.
-
-[PLANE_FIDELITY_SCORES]-[QUEUED]: deep encode and derivation carry measured error.
-- Capability: lossy codec rows, resamples, and derived channels each report their error against the reference they were produced from, so a set ships with the evidence that the depth ruling's guarantee held through its own pipeline.
-- Shape: fidelity scalars land on the `Texture` receipt band at `libs/python/artifacts/.planning/graphic/texture/set.md`, measured inside the existing worker crossing rather than on the loop, under the band-leaf grammar `libs/python/artifacts/.planning/core/receipt.md` fixes.
-- Unlocks: `IDEAS.md` [DEEP_MEASUREMENT] — the fidelity half; the lossy rows in the codec table become provable against their lossless siblings instead of trusted.
-- Anchors: `graphic/texture/set.md`'s derived deterministic floor, whose lossless rows are the reference every lossy row measures against; numpy reductions `graphic/texture/derive.md` owns; the band-leaf grammar and the `map` namespace on the texture receipt.
-- Tension: measuring costs a second full-plane pass per map, so the row is either always-on evidence or a policy value on the spec, and a policy value entering the content key is what the folder's route-flag ruling forbids.
-
 [SKIMAGE_GATE_DROP]-[BLOCKED]: `scikit-image` admits at the interpreter floor.
 - Capability: the measured-score and transform arms build from source on the estate lane, so no interpreter marker guards the row that two design pages compose.
 - Shape: the `scikit-image` row in the root `pyproject.toml` drops its `python_version` marker; the `[IMAGING]` card at `libs/python/artifacts/README.md` needs no edit.
 - Unlocks: `IDEAS.md` [FLOOR_UNGATING] — the imaging half of the completeness bar.
-- Anchors: the reproduced break — pythran lowers through gast, whose AST shim raises on the required node fields CPython 3.15 introduced, meson carries no pythran toggle, and a build-constraint pin of `gast>=0.7` leaves the resolution unsatisfiable; the meson and cython legs generate the full target graph and only the two pythran targets fail, so the sdist lane is otherwise healthy.
+- Anchors: the reproduced break — pythran lowers through gast, whose AST shim raises on the required node fields CPython 3.15 introduced, meson carries no pythran toggle (0.26.0 `meson.options` holds `include-v2` alone and `find_program('pythran')` is unconditional, so scipy's `-Duse-pythran` setup-arg does not transfer), and a build-constraint pin of `gast>=0.7` leaves the resolution unsatisfiable; the meson and cython legs generate the full target graph and only the two pythran targets fail, so the sdist lane is otherwise healthy.
 - Arms: a pythran release pinning `gast>=0.7`, or a scikit-image release dropping the pythran leg.
 - Route: re-run the source build on the Forge scientific lane into a scratch venv at the floor and read the pythran targets alone before the marker moves.
 - Atomic: one manifest row.
@@ -195,4 +167,9 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ATTRIB_DIMS]-[COMPLETE]: landed as ruled at `core/receipt.md` `[METRIC_SIGNALS]`/`[SPAN_ERROR]` — tenant folds through the runtime metrics `_attributed` and log promotion, the per-call issue scope stays a `bound_contextvars` log/baggage dimension and never a metric attribute by cardinality law.
 [NOTICE_PAGE]-[COMPLETE]: landed as `delivery/notice.md` `TransmittalNotice` — checked `cloudevents.v1` envelope, spec-grammar extension vocabulary, `propagate.inject` trace-and-baggage continuity, structured/binary `_LOWERED` rows.
 [NOTICE_FOLD]-[COMPLETE]: landed as `delivery/transmittal.md` `_emit` — the soft terminal `TransmittalNotice.issued` seal over the settled receipt, issued register, and `_extended` evidence scalars, fired on `NOTICE_ISSUED`.
-[BENCH_PAGE]-[COMPLETE]: landed as `core/bench.md` — the roster owner is `CORPUS: Final[Block[BenchSubject]]` (the carded `BenchCorpus` name superseded) with `BenchFeed` input edges, `RECIPES`, thresholds, and the `benched` fold.
+[BENCH_PAGE]-[COMPLETE]: landed as `core/bench.md` — the roster owner is `CORPUS` (the carded `BenchCorpus` name superseded) with `BenchFeed` input edges and `RECIPES`; the threshold, verdict, and tool-roster half since relocated to `runtime/observability/profiles#BENCH`.
+[MEDIA_CANON_SEAM]-[COMPLETE]: landed — `media/container.md` re-exports `CANON`/`framed`/`_lapsed` at the source spelling, the four sibling import blocks align, and `media/synthesis.md`'s test-pattern painter renamed `_patterned`; the five-page import census resolves clean.
+[MEDIA_LANE_FIELD_ORDER]-[COMPLETE]: landed — `Timeline` and `Subtitle` hoist `lane: LanePolicy` above their defaulted fields; the corpus-wide AST sweep finds zero remaining required-after-defaulted producer Structs.
+[OCIO_WORKING_SPACE]-[COMPLETE]: landed at `graphic/color/managed.md` — `ManageOp.Space`/`View` config legs over the memoized `ConfigSource` graph, `getOptimizedCPUProcessor` folding the integer ingress into the compiled chain (the depth tension resolved: config legs take `ColorOperand`, the operand dtype IS the ingress depth), `Baker` baking CLF/CTF the colour writer cannot, and the 32-hex `getCacheID` riding every receipt.
+[TILE_PERIODICITY_SCORE]-[COMPLETE]: landed — `set.md` measures wrap-seam periodicity and publishes `tile_score` as receipt evidence, absent where no seam-bearing role reached the probe; `tiled` stays declaration-sourced per the RULINGS row because the cutoff is uncalibratable (a hard-edged periodic pattern reads identically to its cut sibling), the tension resolved to publish-the-scalar; `[TILE_SCORE_CUTOFF]-[OPEN]` carries the calibration with the failing family named.
+[PLANE_FIDELITY_SCORES]-[COMPLETE]: landed — `PlaneFidelity` + `fidelity()` at `graphic/texture/plane.md` (psnr/mse/nrmse/delta_e with `data_range` derived from the operand, never seeded), every lossy encode scored onto the `map` band through its own decode round-trip, `MapFact.fidelity` presence spelling the lossy declaration; SSIM stands as a `[RESEARCH]` row gated on the `skimage` floor.

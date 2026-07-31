@@ -8,7 +8,7 @@
 iac/
 └── src/
     ├── program/          # Program shapes, arm dispatch, the Automation-API drive, and the bootstrap legs
-    │   ├── spec.ts       # StackSpec — the one decoded deploy value an app supplies
+    │   ├── spec.ts       # StackSpec, the Tier base with its privilege anchor, and both env-key catalogs
     │   ├── provider.ts   # Capability-by-arm map and realizer over the shared k8s and docker estates
     │   ├── automation.ts # Sole executor — the Automation-API driver with resilience and the fleet verbs
     │   └── source.ts     # Source-control shells the Doppler mirror fills, with the distribution leg
@@ -128,6 +128,7 @@ Growth is one row on the owning surface — a cloud, capability, credential, ten
 - Telemetry residences provision here and read nowhere: the deploy plane plants the schema and publishes the door on the `analytics` output plane.
 - Data planes bind the published door as an ordinary query end.
 - Convergence treats recovery as clean-target materialization and returns it through the normal publication path.
+- Every pod this package declares stamps the one privilege anchor the `Tier` base carries; the guard pack asserts that stamp on estate-authored resources alone, since chart-rendered controllers reach the same analyzer.
 - Every workload role mounts the proved contract and active-generation pointer before scheduling.
 - Object-engine admission requires conditional-create semantics; `minio | ceph` are the conforming rows.
 - Static distribution publishes caller-owned artifact rows on the `served` plane and carries no UI codec semantics.

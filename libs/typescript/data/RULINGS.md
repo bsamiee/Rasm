@@ -22,6 +22,7 @@
 - Metric relations enumerate the OTLP POINT model, never the mount roster — the instrument kinds project onto a subset and the unreached relations still plant and read, so a foreign producer's rows land where the plane already declares them; mapping a kind onto an unreached relation forges a series no mount emits, and deleting the relation strands those rows.
 - Residence scalars key per instrument KIND — a bucket relation carries no per-point value column its sum-relation sibling carries, so one residence-wide value column reads a name the relation never declared and empties every distribution tile with no error anywhere.
 - Lake metrics rise from the emitting process's own live registry, folded into the point relations on a scheduled tick — that snapshot IS the cold tail a metrics store's retention cannot hold, and reaching for a second exporter or a second wire to carry it re-derives ingest the branch already owns.
+- Journal-stratum SQL spells relation and column identifiers as sealed roster literals at their owning page (the `_GROOMS`-class rosters), because the identifier lexical class (`Query.Relation`) lives on the read stratum and an upward import is forbidden; the literals stay sealed policy material no caller value reaches. A SECOND journal-stratum page needing the same lexical class makes the hoist to a journal-reachable owner mandatory — until then, hoisting for one consumer re-litigates the folder strata for a guard nothing shares.
 
 ## [03]-[COLLAPSE]
 

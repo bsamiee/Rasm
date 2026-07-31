@@ -32,13 +32,13 @@ Every AEC peer projects its foreign source through `IElementProjection`, Persist
 - [13]-[OBSERVATION](.planning/Assessment/observation.md): `ObservationSeries` measured sensor evidence, the computed receipt's sibling modality.
 
 [GEOSPATIAL]:
-- [14]-[COVERAGE](.planning/Geospatial/coverage.md): By-ref `CoverageGrid` raster and field descriptor over a band schema and affine grid.
+- [14]-[COVERAGE](.planning/Geospatial/coverage.md): `CoverageGrid` by-reference raster-and-field descriptor over the kernel `CellLattice` placement.
 - [15]-[REFERENCE](.planning/Geospatial/reference.md): Map-conversion-and-CRS `GeoReference` record over the three-state projected-CRS identity.
 
 [PROJECTION]:
-- [16]-[PROJECTION](.planning/Projection/projection.md): `IElementProjection`/`IGraphConstraint` floors and the `Assemble` composition the apps wire.
+- [16]-[PROJECTION](.planning/Projection/projection.md): Cross-stratum projector and constraint floors under one `Assemble` composition apps wire.
 - [17]-[ADDRESS](.planning/Projection/address.md): `ContentAddress` codec and order-independent graph addressing over the kernel seed-zero hash.
-- [18]-[FAULTS](.planning/Projection/fault.md): Cross-federation band registry and the `ElementFault` union lowered onto the result rail.
+- [18]-[FAULTS](.planning/Projection/fault.md): Cross-federation band registry, the `ElementFault` union lowered onto the result rail, and the seam-wide `AdmissionSlots` accumulating-slot algebra.
 - [19]-[OBSERVE](.planning/Projection/observe.md): `ElementHookRail` typed graph-fact tap with kernel-band spans and the `GraphInstrument` projection.
 
 ## [02]-[DOMAIN_PACKAGES]

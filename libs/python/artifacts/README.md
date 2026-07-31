@@ -104,7 +104,7 @@
 - [73]-[ISSUE](.planning/core/issue.md): `ArtifactIssue` constructing owner folding producer emit sets into the pipeline and drain.
 - [74]-[RECEIPT](.planning/core/receipt.md): `ArtifactReceipt` one receipt union every producer contributes one case to.
 - [75]-[HOOKS](.planning/core/hooks.md): `ArtifactHook` production-fact point table and payload projections over the runtime hook registry.
-- [76]-[BENCH](.planning/core/bench.md): `CORPUS` producer benchmark subjects and threshold policy over the runtime bench tier.
+- [76]-[BENCH](.planning/core/bench.md): `CORPUS` producer benchmark entries and their deterministic-input recipes over the runtime bench tier.
 
 [PACKAGE]:
 - [77]-[BUNDLE](.planning/package/bundle.md): `Bundle` shared package-plane vocabulary and port floor; mints no receipt.
@@ -114,7 +114,7 @@
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Domain-specific libraries admitted by this folder; versions centralize in the root `pyproject.toml` and corroborate against this folder's `.api/`. FLOOR-GATED marks a row whose `python_version` marker no supported interpreter satisfies — the module resolves nowhere and its composing arms stay unreachable until the marker retires; admission stands, reach does not. Forge python-overlay rows keep their marker yet import at the floor off the overlay `.pth`, so admission and reach diverge the other way. Cards naming host binaries carry no manifest row and state their provisioning lane instead.
+Domain-specific libraries admitted by this folder; versions centralize in the root `pyproject.toml` and corroborate against this folder's `.api/`. FLOOR-GATED marks a row whose `python_version` marker no supported interpreter satisfies — admission stands, reach does not, and its composing arms wait on the marker retiring. OVERLAY inverts that: the marker holds while the Forge python-overlay `.pth` supplies the module worker-side at the interpreter floor. Cards naming host binaries carry no manifest row and state their provisioning lane instead.
 
 [DOCUMENTS]:
 - `reportlab`
@@ -161,6 +161,7 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `kiwisolver` — Cassowary constraint-layout solver.
 - `ziafont` — glyph text-to-SVG-path outlining.
 - `ziamath` — math-to-SVG rendering.
+- `latex2mathml` — LaTeX-to-MathML front-end ziamath drives; composed directly at the `commands.FUNCTIONS` operator registry.
 - `schemdraw` — native-SVG schematic diagrams.
 - `drawpyo` — draw.io editable export.
 - `pvlib` — NREL solar-position ephemeris.
@@ -228,9 +229,9 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `pysubs2` — subtitle parse/convert/retime/restyle.
 
 [SCENE]:
-- `pyvista` — Forge python-overlay `.pth`; the `scene/render#SCENE` plotter surface imports it worker-side.
-- `vtk` — Forge python-overlay `.pth`; the `scene/render#SCENE` engine imports it worker-side.
-- `usd-core` — Forge python-overlay `.pth`; `scene/stage#STAGE` imports `pxr` worker-side.
+- `pyvista` — OVERLAY; the `scene/render_worker#WORKER` plotter surface.
+- `vtk` — OVERLAY; `vtkmodules` exporters at `scene/export#EXPORT` and `scene/stage#STAGE`.
+- `usd-core` — OVERLAY; `pxr` stage authoring at `scene/stage#STAGE`.
 
 [COMPRESSION]:
 - `zstandard`

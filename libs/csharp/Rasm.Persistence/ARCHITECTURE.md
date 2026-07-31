@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_ARCHITECTURE]
 
-`Rasm.Persistence` maps the APP-PLATFORM durable-state spine that persists the `Rasm.Element` `ElementGraph` as its system of record: one owner per sub-domain concern with closed cases, Marten the append substrate beneath the version-control engine that projects from its events, read lanes split by consistency demand, and the geometry object store content-keyed. Depends up on the `Rasm.Element` seam and the `Rasm` kernel content-hash, references no sibling AEC-domain peer — alignment travels through seam contracts and the content-keyed wire.
+`Rasm.Persistence` maps the APP-PLATFORM durable-state spine that persists the `Rasm.Element` `ElementGraph` as its system of record: one owner per sub-domain concern with closed cases, Marten the append substrate beneath the version-control engine that projects from its events, read lanes split by consistency demand, and the artifact object plane content-keyed. Depends up on the `Rasm.Element` seam and the `Rasm` kernel content-hash, references no sibling AEC-domain peer — alignment travels through seam contracts and the content-keyed wire.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -206,7 +206,7 @@ config:
 ---
 flowchart LR
     accTitle: ElementGraph persistence flow
-    accDescr: A GraphStoreOp commits a GraphDelta event plus the identity row in one Marten session; the inline projection materializes the authoritative graph read-your-writes; the changefeed feeds the version engine and the analytical lanes; the geometry blob writes content-first and is referenced after.
+    accDescr: A GraphStoreOp commits a GraphDelta event plus the identity row in one Marten session; the inline projection materializes the authoritative graph read-your-writes; the changefeed feeds the version engine and the analytical lanes; the artifact blob writes content-first and is referenced after.
     Op([GraphStoreOp]) --> Session[(IDocumentSession)]
     Session --> Inline[[inline GraphProjection]]
     Session --> Changefeed[[ChangefeedSubscription]]
@@ -215,13 +215,13 @@ flowchart LR
     Changefeed --> Async[[analytical daemon]]
     Changefeed --> Pump[[EgressPump]]
     Cursor[(outbox cursor)] --> Pump
-    Op -.write-blob-first.-> Blob[(geometry blob)]
+    Op -.write-blob-first.-> Blob[(artifact blob)]
     Blob -.reference hash.-> Session
     Engine --> Retention[[retention GC]]
     Retention --> Blob
 ```
 
-One `IDocumentSession` commits the `GraphDelta` event and the identity row together, the inline projection materializes the authoritative `ElementGraph` read-your-writes, and the changefeed is the one fan-out the version engine, the analytical daemon, and the egress pump each fold. Geometry blob is write-first and reference-after, and retention's full-history GC governs snapshots and blobs as one reachability set. Marten stream is the outbox, so a domain commit and its egress obligation settle in one transaction — the exact wiring lives on the owning implementation pages.
+One `IDocumentSession` commits the `GraphDelta` event and the identity row together, the inline projection materializes the authoritative `ElementGraph` read-your-writes, and the changefeed is the one fan-out the version engine, the analytical daemon, and the egress pump each fold. Artifact blob is write-first and reference-after, and retention's full-history GC governs snapshots and blobs as one reachability set. Marten stream is the outbox, so a domain commit and its egress obligation settle in one transaction — the exact wiring lives on the owning implementation pages.
 
 ## [05]-[BOUNDARIES]
 
@@ -234,7 +234,7 @@ One `IDocumentSession` commits the `GraphDelta` event and the identity row toget
 - PostgreSQL is the sole relational engine; deployment owns the process, and no Rasm process spawns one.
 - Marten owns the op-log at per-model stream grain carrying `GraphDelta` bodies.
 - Identity lands as the compiled-model upsert `IdentityStore.Stamp` queues on the `IDocumentSession`, never a Marten document or second ORM write.
-- Geometry blobs are write-first and reference-after, with no free two-ORM atomicity.
+- Artifact blobs are write-first and reference-after, with no free two-ORM atomicity.
 - Interactive-correctness reads bind the inline projection and the in-process QuikGraph view, blocking on non-stale data.
 - Async projections serve analytical lanes under a watermark alone.
 - Typed projection records and the seam `ElementGraph` are the only egress.

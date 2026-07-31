@@ -43,7 +43,8 @@ Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.El
 │   └── Gpu.cs             # Surfaceless bake device and the closed WGSL module table with its golden vectors
 ├── Properties/            # Typed engineering-property source lowered onto the seam property sets
 │   ├── Properties.cs      # Intrinsic mechanical, thermal, acoustic, and fire measurements
-│   └── Sustainability.cs  # Lifecycle impact, unit-cost basis, and classification rows
+│   ├── Sustainability.cs  # Lifecycle impact, unit-cost basis, and classification rows
+│   └── Assessment.cs      # Dated declaration records and the assessed-over-published resolution
 └── Projection/            # One IElementProjection onto the Rasm.Element seam + the observability, benchmark, and analytics projections
     ├── Component.cs       # ComponentProjector minting Type Objects and material subgraphs
     ├── Observability.cs   # MaterialsFact union, MaterialsHooks roster, MaterialsInstruments tap, MaterialsLog band, MaterialsDescriptors pack
@@ -51,15 +52,17 @@ Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.El
     └── Analytics.cs       # DatasetWire declarations over ColumnToken and the catalogue-to-row projection folds
 ```
 
-VividOrange grounds the structural section, capacity, and rebar data in-folder, never a hand-keyed literal; the per-page consumption law lives on the owning pages. Return type names the rail: a `SurfaceShade`/`Unicolour` carrier where the result is total, `Fin<T>` where a banded fault routes, the seam `Fin<GraphDelta>` from the projector. C# is the sole producer of the appearance wire vocabulary — `Appearance/Interchange` mints the OpenPBR-vector `MaterialWire`, the baked `TextureSetWire`, the `EnvironmentLightWire` dome mirror, the photo-to-PBR `StageRequestWire`/`StageResultWire` crossing, and the MaterialX `.mtlx` document once, each an `IAppearanceWire` whose `CorpusBorne` column states whether a `tests/contracts/MANIFEST.md` entry is owed; the TypeScript and Python peers decode the corpus-borne pair. One wire crosses INBOUND: the python-minted `AssetSetManifest` lands at `Raster/Set` `SetIngest.Peer` as classification input — the `python:artifacts/graphic/texture` counterpart edge the artifacts branch ARCHITECTURE registers at its own end.
+VividOrange grounds the structural section, capacity, and rebar data in-folder, never a hand-keyed literal; the per-page consumption law lives on the owning pages. Return type names the rail: a `SurfaceShade`/`Unicolour` carrier where the result is total, `Fin<T>` where a banded fault routes, the seam `Fin<GraphDelta>` from the projector.
+
+C# is the sole producer of the appearance wire vocabulary — `Appearance/Interchange` mints each document once as an `IAppearanceWire` whose `CorpusBorne` column states whether a `tests/contracts/MANIFEST.md` entry is owed, and the TypeScript and Python peers decode the corpus-borne pair. One wire crosses INBOUND: the python-minted `AssetSetManifest` lands at `Raster/Set` `SetIngest.Peer` as classification input, the `python:artifacts/graphic/texture` counterpart edge the artifacts branch registers at its own end.
 
 ## [02]-[STRATA]
 
-Four strata order the five sub-domains. `Appearance` SPANS two of them: its core is a peer of `Component`, while its frontier — the environment, neural, acquisition, and interchange owners — composes `Raster` products and therefore sits above the plane estate that reads the core. That split follows the folder's own dependency truth rather than a folder boundary: `Appearance/neural` already reads `TextureChannel`, `Appearance/environment` reads `TexturePlane`, `Appearance/acquisition` binds an admitted `TextureSet`, and `Appearance/interchange` projects one to a wire — a flat `Appearance` stratum makes each of those an upward edge the strata forbid.
+Four strata order the five sub-domains. `Appearance` SPANS two of them: its core is a peer of `Component`, while its frontier composes `Raster` products and therefore sits above the plane estate that reads the core. That split follows the folder's own dependency truth rather than a folder boundary — a flat `Appearance` stratum turns every frontier read of a plane product into an upward edge the strata forbid.
 
 - S0 `Component` — `ComponentFamily`, `ComponentClass`, `QuantityRow`, and the `SectionCapacity` rail, consuming no sibling.
-- S0 `Appearance` core — `MaterialGraph`, `MaterialLibrary`, `BsdfLobe`, `OpenPbrSurface`, and `TextureUv`, consuming no sibling.
-- S1 `Properties` — `MaterialPropertyCatalogue`, `SustainabilityCatalogue`, and `Published<T>` source rows.
+- S0 `Appearance` core — `MaterialGraph`, `MaterialLibrary`, `BsdfLobe`, `OpenPbrSurface`, `TextureUv`, and `MaterialUnits`, consuming no sibling.
+- S1 `Properties` — `MaterialPropertyCatalogue`, `SustainabilityCatalogue`, `AssessmentResolution`, and `Published<T>` source rows.
 - S1 `Raster` — `TexturePlane`, `TextureChannel`, `TextureSet`, `TexturePress`, and the `PressDevice` bake seam.
 - S1 flow — engineering dimensional mints pass through the S0 `QuantityRow`; sustainability lowers basis-relative scalars to the seam factories.
 - S1 flow — `Raster` reads the core graph, sampler, and vector, writing back through `SetBind` alone on a `MaterialGraph` VALUE counter-edge.
@@ -210,6 +213,7 @@ flowchart LR
 |  [17]   | new plane depth, arity, or storage  | `Raster/plane.md`           | one `IComponent` witness, texel struct, or `PlaneFormat` row      |
 |  [18]   | new bake subject or execution lane  | `Raster/press.md`           | one `PressSubject` case or one `PressBackend` row                 |
 |  [19]   | new photo-to-PBR capture modality   | `Appearance/acquisition.md` | one `CaptureSource` case and its `CaptureMethod` receipt row      |
+|  [20]   | new declaration modality or EPD row | `Properties/assessment.md`  | one `AssessmentRecord` case with its `Admit` and resolution arms  |
 
 ## [05]-[BOUNDARIES]
 
@@ -228,3 +232,5 @@ Boundaries state one positive ownership line each at the folder's own grain — 
 - Each concern composes its admitted engine, and a kernel the ecosystem leaves unowned lands hand-authored at its owning page.
 - Every out-of-gamut, non-finite, or degenerate result rails to its banded fault, never a propagated NaN or sentinel.
 - Composition-root decorators tap `MaterialsFact` onto `MaterialsHooks`, so owners emit nothing; `MaterialsDescriptors` rides the kernel SLO algebra.
+- The `e12` `StageResult` wire carries Compute's two measured columns whole — `ParityFresh` gates the `InferGolden` tap so memoized deltas never
+  count as observations, and `Coverage` is the mosaic acceptance floor; a re-freeze dropping either column re-opens the counted-but-unmeasured defect.

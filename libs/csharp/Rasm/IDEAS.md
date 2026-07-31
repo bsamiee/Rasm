@@ -19,6 +19,13 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
+[PERCEPTUAL_COLOUR_DEPTH]-[QUEUED]: Perceptual colour states itself against a DECLARED viewing condition, so appearance is measured rather than assumed.
+- Capability: difference, contrast, and tonal reads resolve under the condition a surface presents in — adapting luminance, surround, and background — so a chromatic-adaptation-aware appearance model adjudicates two colours where a fixed opponent metric assumes an average observer at one white; the interpolation-space and reference-lightness axes are settled, and the viewing condition is the one that remains.
+- Shape: `libs/csharp/Rasm/.planning/Numerics/atoms.md` `[02]-[SCALAR_FLOOR]` — a viewing-condition column beside the working-space roster binding the `Configuration` cam slot, which makes the appearance spaces statable as interpolation and difference targets off that column rather than unrostered for want of conditions.
+- Unlocks: an accessibility gate and a chart legend read contrast and difference under the surround they render in, so a dark-surround overlay stops borrowing a bright-office verdict.
+- Anchors: `libs/csharp/.api/api-unicolour.md` `CamConfiguration` rows and the `Configuration` cam slot; `Hct` pins its own conditions internally, the standing proof that the condition is separable from the space it parameterizes.
+- Tension: the genuine bet — the appearance model under declared conditions is the correct answer and also the one whose inputs no consumer measures, so the column lands only where a consumer states its own conditions, and an unstated condition keeps the fixed metric rather than inheriting a default that fabricates a surround.
+
 [NATIVE_LANE_GOVERNANCE]-[QUEUED]: Cancellable, progress-reporting arrangement fold — the tier-3 `manifoldc` lane binds execution contexts and the managed lane honors the runtime token end to end.
 - Capability: million-face booleans become governable — the arrangement fold threads `CancellationToken` and progress per the synchronous-rail law, and the native scale lane binds `manifold_execution_context`, `manifold_execution_context_cancel`, `manifold_execution_context_progress`, and `manifold_with_context`, mapping `MANIFOLD_CANCELLED` onto the typed fault rail.
 - Shape: an execution-governance band on `libs/csharp/Rasm/.planning/Meshing/arrangement.md` extending `ArrangementPolicy` and the tier-3 gate.
@@ -49,23 +56,19 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Unlocks: gradient-based parametric design optimization, constraint-solver conditioning evidence, and sensitivity-aware fitting across the fit and register owners.
 - Anchors: `Solving/solver.md` `ILmModel` residual+Jacobian floor and island decomposition, `Numerics/matrix.md` solve family, generic-math operator patterns already ruling the numeric floor.
 
-[DRAWING_HATCH_PLANE]-[QUEUED]: Hatch synthesis over the exact region complex — drawing regions gain pattern fills at kernel exactness.
-- Capability: hatch-pattern families (parallel, crosshatch, staggered rows with angle/spacing/origin policy) generated as line families and clipped exactly to the region cells `DrawingProjection.Fill` mints, per-region pattern policy, SoA polyline wire for sheet consumers.
-- Shape: one new page `libs/csharp/Rasm/.planning/Drawing/hatch.md` (`Drawing/Hatch.cs`) composing the arrangement planar overlay and the intersect crossing lattice.
-- Unlocks: fabrication documentation and drafting sheets receive filled drawings from the kernel wire — no host hatch round-trip, no approximate clipping.
-- Anchors: `Drawing/view.md` region fill routing `ArrangementOp.PlanarOverlay`, `Meshing/intersect.md` segment crossings, `Parametric/patternmap.md` wallpaper-group vocabulary for pattern symmetry rows.
+[UV_ISLAND_PACKING_OWNER]-[QUEUED]: One 2D irregular-packing algebra — UV-island layout and true-shape placement home at the kernel lattice both S2 peers reach.
+- Capability: irregular 2D packing/placement becomes one kernel owner — no-fit-polygon construction, candidate placement scoring, and atlas layout over exact ring booleans — so the two S2 peers that each need it compose one algebra instead of one owning and one unreachable.
+- Shape: a packing owner under `libs/csharp/Rasm/.planning/Meshing/` composing `ArrangementOp.PlanarOverlay` exact ring booleans, `OffsetOp.Minkowski` support-vertex convolution (the no-fit-polygon construction itself), and `Meshing/delaunay.md` `LowerHull`.
+- Unlocks: `Processing/flatten.md` `ChartAtlas` gains a packing consumer at its own stratum, and `Rasm.Fabrication` `Nesting/nfp.md` true-shape placement re-seats as composition over the kernel algebra.
+- Anchors: `docs/laws/scars.md` `[STRATA_TWIN]` seating law; `Meshing/arrangement.md` `PlanarOverlay`; `Meshing/offset.md` `Minkowski`; `Rasm.Fabrication/.planning/Nesting/nfp.md` `NoFitPolygon`.
+- Ripple: `Rasm.Fabrication` `Nesting/nfp.md` re-seats as consumer; `Rasm.Materials` atlas packing composes the same owner.
 
-[TRIANGULAR_ADDRESS_OWNER]-[QUEUED]: One triangular-addressing mint — every packed-upper producer delegates to the promoted floor owner.
-- Capability: packed-upper index arithmetic becomes single-owner; a layout edit lands in one member and every spectral and solver consumer follows by construction instead of by three hand-kept formula copies.
-- Shape: a visibility-and-delegation band across `libs/csharp/Rasm/.planning/Numerics/matrix.md` (`FlatIndex` promoted `internal`), `libs/csharp/Rasm/.planning/Domain/stats.md` (`SampleMoment` indexer delegates), and `libs/csharp/Rasm/.planning/Solving/solver.md` (`Lm.PackedIndex` delegates, checked `long` widening kept at its call boundary).
-- Unlocks: the packed-upper layout contract enforces itself; `Processing/register.md` normal-equation scatter and `Analysis/select.md` spectral reads inherit the one mint.
-- Anchors: the folder `RULINGS.md` packed-upper rows; the one-assembly internal-reach law; `Solving/solver.md`'s own mirror-law boundary naming the drift defect.
-
-[POLYGON_NORMAL_OWNER]-[QUEUED]: One inexact polygon-normal owner — the Newell area-vector fold homes on the numerics floor for every ring, panel, and frame consumer.
-- Capability: orientation-true polygon normals become one composed floor capability; the exact axis carrier and the inexact vector stay two owners by decision.
-- Shape: one floor member on `libs/csharp/Rasm/.planning/Numerics/atoms.md`; composition edits on `libs/csharp/Rasm/.planning/Spatial/neighbors.md` (local `NewellNormal` deleted) and `libs/csharp/Rasm/.planning/Parametric/panelize.md`; a derives-from note on `libs/csharp/Rasm/.planning/Numerics/predicates.md`.
-- Unlocks: ring-case Bishop seeding, panel plane fits, and the remesh flip gate read one fold; `Spatial/cloud.md`'s fitted-plane ring normal keeps its winding guard as the deliberate divergent method.
-- Anchors: the folder `RULINGS.md` Newell-owner row; the repaired `DominantAxis` five-page collapse as precedent; `predicates.md`'s exact-carrier boundary.
+[MATRIX_TRANSFORM_BAND]-[QUEUED]: FFT and separable convolution on the numeric floor — the admitted transform namespaces gain one kernel composition band.
+- Capability: spectral and separable convolution becomes a floor capability composed from the admitted numerics substrate, so mip/filter folds, field morphology, and image-space kernels read one transform owner instead of hand-rolled loops or uncomposed package surface.
+- Shape: a `MatrixKernel`-adjacent transform band on `libs/csharp/Rasm/.planning/Numerics/matrix.md` composing MathNet `IntegralTransforms` and `Interpolation`.
+- Unlocks: `Rasm.Materials` mip and filter folds and `Rasm.Fabrication` field-morphology arms compose one kernel transform band; kernel image-space work gains its FFT floor.
+- Anchors: `libs/csharp/.api/api-mathnet-numerics.md` `IntegralTransforms`/`Interpolation` rows; `Numerics/matrix.md` `MatrixKernel` funnel law.
+- Ripple: `Rasm.Materials` `Raster/filter.md` and `Rasm.Fabrication` morphology consumers follow the band.
 
 [OPTIONAL_KEY_LEVEL_FAMILY]-[QUEUED]: Pulled level families reach the absent-tenant arm — a keyed cell entry carries an optional key, so a possibly-unpartitioned dimension projects untagged rather than vanishing.
 - Capability: absent-dimension law reaches the PULLED plane — a level family whose one dimension may be absent projects an untagged measurement, so partitioned and unpartitioned compositions report the same series and neither mints a sentinel key nor drops the measure.
@@ -88,3 +91,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [CAUSAL_FRAME_CAPSULE]-[COMPLETE]: landed as `Domain/telemetry.md` `[03]-[CAUSAL_FRAME]` — `TelemetrySource`, `CorrelationId`, `TenantId`/`TenantContext`, `ReceiptEnvelope`, and `ReceiptSinkPort`; tenancy stamps the kernel `AsyncLocal` slot and the BCL `Activity` store, and the OTel baggage store registers as one composition `TenantMirror` row.
 [INSTRUMENT_SPEC_CAPSULE]-[COMPLETE]: landed as `Domain/telemetry.md` `[04]-[INSTRUMENT_MECHANISM]` — `InstrumentSpec` absorbed `InstrumentRow` whole, `InstrumentKind` x `MeasureForm` derives every bind from one generic body, and `InstrumentSet.Write` folds the three write verbs onto one typed rail.
 [BURN_RATE_CAPSULE]-[COMPLETE]: landed as `Domain/telemetry.md` `[06]-[SLO_ALGEBRA]` — `Sli`, `Objective`, the four-row `BurnRow` table, `AlertSeverity` over page and ticket, `AlertSpec`, and the eight-row `PanelKind`.
+[TRIANGULAR_ADDRESS_OWNER]-[COMPLETE]: `SymmetricMatrix.FlatIndex` promoted `internal` is the one triangular-addressing mint; `Domain/stats.md` `SampleMoment` and `Solving/solver.md` `Lm.PackedIndex` delegate, the solver keeping its checked `long` widening at the call boundary.
+[DRAWING_HATCH_PLANE]-[COMPLETE]: landed as `Drawing/hatch.md` — `HatchPattern` rows (`Parallel`/`Crosshatch`/`Staggered`/`Motif`) carry rhythm as row data, courses clip by exact winding parity over `DrawingProjection.Fill` loops, and the motif arm composes `Patterning.Apply`'s wallpaper vocabulary; realized by `TASKLOG` `[HATCH_SYNTHESIS]`.
+[POLYGON_NORMAL_OWNER]-[COMPLETE]: `Numerics/atoms.md` `VectorFrame.NewellNormal` is the one inexact polygon-normal fold; `Spatial/neighbors.md` and `Parametric/panelize.md` compose it, `Numerics/predicates.md` keeps the exact-carrier bar, and `Spatial/cloud.md`'s fitted-plane ring normal stays the deliberate divergent method.

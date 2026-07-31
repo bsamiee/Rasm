@@ -46,7 +46,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Capability: Every sealed commit folds into an `OperationId`-keyed causal log, so equal payloads remain distinct operations and cross-runtime sync, collaborative merge, and checkpoint replay become wire operations instead of file exchanges.
 - Shape: `tests/contracts/MANIFEST.md` `CRDT_OP_SET` owns operation identity, canonical ordering, and payload identity; each branch emits and replays through its own named mint.
 - Unlocks: Multi-runtime document sync, collaborative editing groundwork, deterministic replay for testing and audit, and the first live producer for the wire law's op-log owner.
-- Anchors: `Rasm.Rhino` document events; the `CRDT_OP_SET` minters `csharp:Rasm.Persistence/Version/commits#CRDT_ALGEBRA`, `python:runtime/transport/wire#CRDT_DECODE`, `typescript:core/state/merge#INSTANCE_ROSTER`.
+- Anchors: `Rasm.Rhino` document events; the `CRDT_OP_SET` minters `csharp:Rasm.Persistence/Version/commits#CRDT_ALGEBRA`, `python:runtime/transport/wire#CRDT_STATE`, `typescript:core/state/merge#INSTANCE_ROSTER`.
 - Tension: Distinct from the static archive diff (`Exchange/archive.md` `ArchiveDelta`) — the op-log is causal and live, the diff is structural and at-rest; CRDT merge policy settles commutation and conflict per mutation kind without conflating operation identity with payload identity.
 - Ripple: `typescript:data` `[HOST_OPLOG_CRDT_CONSUMER]`.
 

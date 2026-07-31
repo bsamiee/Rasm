@@ -25,6 +25,8 @@ Cross-folder substrate; a consuming folder names its substrate set in its README
 - `@effect/platform-bun` — bun binding for the same server plane.
 - `@effect/platform-browser` — browser condition binding.
 - `@effect/experimental` — durable overlays; never the record of truth.
+- `cloudevents` — the CloudEvents envelope and its transport bindings; core carrier dialect, data outbox mint, runtime webhook egress.
+- `mitata` — the benchmark measurement shape the claim family folds; registration and render stay in the bench lane under `tests/`.
 
 ## [03]-[API_CATALOGUE_LAW]
 

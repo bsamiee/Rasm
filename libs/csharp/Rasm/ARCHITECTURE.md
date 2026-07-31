@@ -71,6 +71,7 @@ Rasm/
 │   └── Fit.cs               # MLESAC primitive-fit and orthogonal-distance refine
 ├── Drawing/                 # Kernel-quality 2D drawing-geometry producers
 │   ├── View.cs              # Predicate-exact hidden-line and silhouette projection
+│   ├── Hatch.cs             # Exact pattern-fill synthesis over the region complex
 │   └── Pack.cs              # Canonical geometry-encoding lattice
 └── Analysis/                # Measured-query public entry
     ├── Query.cs             # Analysis-query request algebra and analyze facade
@@ -92,8 +93,9 @@ Four strata order the sub-domains; a co-recursive pair co-seats one stratum, so 
 - S1 reach — intersection reads the index and reconciliation reads the mesh, both interior to the stratum.
 - S2 `Processing` — seats `HealOp`, `RemeshOp`, `ChartAtlas`, `VectorIntent`, and `SampleKind`, rails over the lattice.
 - S2 `Solving` — seats the `Lm` solver and `FitReceipt`; the registration optimizer instantiating the `Lm` functor stays same-stratum reach.
-- S3 `Parametric` — seats `NurbsForm`, `MonotonicTimeline`, and `PanelField`; nothing composes S3.
-- S3 `Drawing` + `Analysis` — seat `DrawingProjection` and `EncodedGeometry`; `AnalysisQuery` and `Measure`.
+- S3 `Parametric` — seats `NurbsForm`, `MonotonicTimeline`, and `PanelField`; no lower stratum composes S3.
+- S3 reach — the `Drawing` hatch orbit reads `Patterning`'s wallpaper fold (`InstanceStream`), interior to the stratum.
+- S3 `Drawing` + `Analysis` — seat `DrawingProjection`, `HatchResult`, and `EncodedGeometry`; `AnalysisQuery` and `Measure`.
 
 ```mermaid
 ---
@@ -105,7 +107,7 @@ config:
 ---
 flowchart TB
     accTitle: Rasm kernel interior strata
-    accDescr: Four stacked strata from the terminal parametric, drawing, and analysis producers through the processing and solving rails onto the spatial-meshing lattice and the domain-numerics floor, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge marked.
+    accDescr: Four stacked strata from the terminal parametric, drawing, and analysis producers through the processing and solving rails onto the spatial-meshing lattice and the domain-numerics floor, every consumption edge downward or a recorded same-stratum reach and solid naming one sourced type, and one forbidden upward edge marked.
     subgraph S3["S3 TERMINAL PRODUCERS"]
         Analysis[Analysis]
         Parametric[Parametric]
@@ -127,6 +129,7 @@ flowchart TB
     Drawing e2@-->|"[IMPORT]: VectorIntent"| Processing
     Parametric e3@-->|"[IMPORT]: MeshSpace"| Meshing
     Drawing e4@-->|"[IMPORT]: MeshSpace"| Meshing
+    Drawing e16@-->|"[IMPORT]: InstanceStream"| Parametric
     Drawing e5@-->|"[IMPORT]: ScalarField"| Spatial
     Parametric e6@-->|"[IMPORT]: SupportProjection"| Spatial
     Analysis e7@-->|"[IMPORT]: NeighborIndex"| Spatial

@@ -25,7 +25,7 @@ Its shell mounts onto any admitted substrate through the `SurfaceMount` and host
 - [12]-[MESHLETS](.planning/Render/meshlets.md): Compute residency-cluster consumption with hysteresis LOD and a cull cut.
 - [13]-[PATHTRACE](.planning/Render/pathtrace.md): BVH, ReSTIR, ray-cone LOD, and denoise oracle over the light rig and its resolved dome.
 - [14]-[SHADING](.planning/Render/shading.md): Per-backend GPU shader and budgeted plane residency under the layered-BSDF shade pass.
-- [15]-[IMMERSIVE](.planning/Render/immersive.md): OpenXR stereo design-review and passthrough over the shared device.
+- [15]-[IMMERSIVE](.planning/Render/immersive.md): OpenXR stereo design-review, session-state machine, passthrough, and FB spatial anchors over the shared device.
 - [16]-[REALITY](.planning/Render/reality.md): Gaussian-splat and point-cloud capture over the one residency carrier.
 - [17]-[CAPTURE](.planning/Render/capture.md): Raster capsule, color-policy owner, and vector-print encode rows.
 - [18]-[DRAFTING](.planning/Render/drafting.md): Sheet drafting consuming the hidden-line receipt with one DWG/DXF write leg.
@@ -139,7 +139,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Melanchall.DryWetMidi`
 
 [EXCHANGE_COLLAB]:
-- `ACadSharp`
+- `ACadSharp` — DWG/DXF drafting WRITE; the Bim mesh-read and Fabrication profile-read legs live at their folders.
 - `DocumentFormat.OpenXml`
 - `lcmsNET`
 - `PDFsharp`
@@ -170,6 +170,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `System.IO.Hashing`
 
 [NUMERIC_SUBSTRATE]:
+- `MathNet.Numerics` — exact order statistics over a materialized sorted sample behind every bench distribution column.
 - `UnitsNet`
 
 [GPU_DEVICE]:
@@ -178,10 +179,10 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `Silk.NET.WebGPU.Native.WGPU` — `wgpu_native` binaries the binding P/Invokes.
 
 [GRAPH_ALGORITHM]:
-- `QuikGraph` — walks the parametric graph-canvas topology.
+- `QuikGraph` — the one acyclicity oracle and topological order behind every dependency closure this folder admits.
 
 [COLOR_SCIENCE]:
-- `Wacton.Unicolour` — perceptual color math for theme tokens and contrast proofs.
+- `Wacton.Unicolour` — selector vocabulary alone; the kernel `PerceptualColor` owner is the perceptual model every token, ramp, and proof reads.
 
 [RUNTIME_INBOX]:
 - `System.Diagnostics.Metrics` — in-box instrument surface behind the `rasm.appui.*` telemetry spine.

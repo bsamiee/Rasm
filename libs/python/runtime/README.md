@@ -27,7 +27,7 @@
 [EXECUTION]:
 - [15]-[ADMISSION](.planning/execution/admission.md): Runtime context, causal frames, and settings admission.
 - [16]-[LANES](.planning/execution/lanes.md): Lane-policy task groups and the stage-plan DAG.
-- [17]-[WORKERS](.planning/execution/workers.md): Worker crossing — the closed kind family, kernel value, warm pools, and supervision.
+- [17]-[WORKERS](.planning/execution/workers.md): Worker crossing — the closed kind family, kernel value, warm pools, the fenced work lease, and supervision.
 - [18]-[RECIPE](.planning/execution/recipe.md): Content-keyed recipe execution on the thread lane.
 
 [EVIDENCE]:
@@ -49,6 +49,7 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `google-crc32c` — secret-payload transport-integrity digest.
 - `hvac` — HashiCorp Vault `SecretTier.cloud` read arm.
 - `azure-keyvault-secrets` — Azure Key Vault `SecretTier.cloud` read arm.
+- `azure-identity` — managed/workload `TokenCredential` chain the Azure Key Vault read arm constructs.
 
 [TRANSPORT]:
 - `httpx`

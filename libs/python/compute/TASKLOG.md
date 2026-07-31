@@ -20,14 +20,6 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[EVIDENCE_SCOPE_GRAMMAR]-[QUEUED]: evidence scopes join the branch telemetry grammar.
-- Capability: compute's span-scope members spell the one `rasm.`-rooted grammar every branch scope shares, so the handoff weave never forks the telemetry namespace.
-- Shape: `EvidenceScope` members on `libs/python/compute/.planning/graduation/handoff.md` respell `rasm.compute.array`/`rasm.compute.mesh`, matching the `rasm.compute.*` ids the observability page already spells.
-- Unlocks: one grep-true telemetry namespace across compute spans, hooks, and instruments.
-- Anchors: the runtime scope-grammar ruling at `libs/python/runtime/RULINGS.md`; the id grammar on `libs/python/compute/.planning/graduation/observability.md`.
-- Ripple: mirrors `runtime` `[SCOPE_GRAMMAR_GUARD]`.
-- Atomic: two enum member respells and their consumers.
-
 [SUBJECT_MIRROR_GATE]-[QUEUED]: the geometry subject mirror gains a drift gate.
 - Capability: the decode-end subject roster stays provably aligned with geometry's owning union — a geometry member edit surfaces as a gate failure, never silent decode drift.
 - Shape: a drift-gate row beside `GEOMETRY_SUBJECTS` on `libs/python/compute/.planning/graduation/handoff.md` — a seam-ledger row or generated projection over the subject wire literals geometry exports, per the branch descriptor-drift-gate pattern; the proven set also carries the `_GeometryWire` field roster (closing the rename-and-drop hole `forbid_unknown_fields` leaves) and the shared `rasm.link.kind` literal.
@@ -55,14 +47,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: folder `arviz` catalog LOO family; the residual-extractor table.
 - Atomic: one scoring row and one policy threshold.
 
-[GMSH_GENERATE_ARM]-[QUEUED]: land the `[MESH_GENERATION_ROUTE]` arm on `libs/python/compute/.planning/solvers/mesh.md`.
-- Capability: generation route mapping gmsh physical groups onto named sets and gmsh element types onto `ElementKind`, emitting the same content-keyed `MeshField` the read arm mints.
-- Shape: one `generate` route on `MeshExchange` beside read and write on `libs/python/compute/.planning/solvers/mesh.md`, mapping gmsh physical groups onto the named-set round-trip and gmsh element types onto `ElementKind`, emitting the same content-keyed `MeshField` the read arm mints.
-- Unlocks: IDEAS.md [MESH_GENERATION_ROUTE] — end-to-end FEM studies from boundary description to graduated solve evidence with no external meshing step, and design loops that re-mesh per iteration.
-- Anchors: `solvers/mesh#EXCHANGE` promote/recover round-trip; the `CTOR` table; the admitted root-manifest `gmsh` row.
-- Tension: boundary input crosses as data; no geometry-branch kernel imports.
-- Ripple: `geometry` `[GMSH_REGISTRY_ALIGN]`.
-
 [DOE_DESIGN_ROWS]-[QUEUED]: land the `[STUDY_DESIGN_FAMILIES]` rows on `libs/python/compute/.planning/experiments/study.md`.
 - Capability: factorial, fractional-factorial, Box-Behnken, central-composite, and Plackett-Burman rows whose `design` folds emit onto the sample-grid spine and whose `indices` return `{}`.
 - Shape: factorial, fractional-factorial, Box-Behnken, central-composite, and Plackett-Burman `StudyMethod` rows and their design folds on `libs/python/compute/.planning/experiments/study.md`, each folding onto the sample-grid spine with `indices` returning `{}`.
@@ -83,6 +67,8 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[GMSH_GENERATE_ARM]-[COMPLETE]: landed as the `generate` case on `MeshExchange` with `GmshSource` (planar loop set, OCC primitive under its arity-gated `GmshSolid` row, imported B-Rep or merged script), `SizeField` (uniform target, `Threshold`-over-`Distance` background field), `PhysicalGroup`, `MeshPlan`, the `_DIM`/`_RECOMBINED` element-derived rows, and the `generated` `_SLOTS`/`_TOL`/`_TRAIT` rows on `libs/python/compute/.planning/solvers/mesh.md`; every source and both size cases validate end to end on the live kernel. The pass also repaired the pre-existing `_read` promoter, which admitted the reserved `gmsh:physical`/`gmsh:geometrical` columns as regions and tripled the set roster of every `.msh` the folder already read.
+[EVIDENCE_SCOPE_GRAMMAR]-[COMPLETE]: all 26 `EvidenceScope` members on `.planning/graduation/handoff.md` spell `rasm.compute.<leaf>`, every consumer reads the member rather than reconstructing its value (the `design.md` reverse `EvidenceScope(f"compute.{tag}")` lookups died for a `_OUTCOME_SCOPE` row), and the `[03]-[EVIDENCE_WEAVE]` Spelling law forecloses the reverse-value-lookup form; the card's two-member Shape and its Atomic claim both understated the edit — the `source_package` spelling changed at every producer.
 [JAX_PROFILER_SURFACE]-[COMPLETE]: landed across `libs/python/compute/.api/jax.md` and the `xla` case on `libs/python/compute/.planning/numerics/jit.md`; `[PACKAGES]` keeps the standing gate, no `jaxlib` sdist exists at any release, so the Forge source-build lane can never lift the interpreter-floor block.
 [HOOK_POINT_ROWS]-[COMPLETE]: landed as the derived `COMPUTE_POINTS` table over `SCOPE_DOMAIN` on `libs/python/compute/.planning/graduation/observability.md`.
 [HOOK_TAP_PROJECTIONS]-[COMPLETE]: landed as the `_measures` projection and the `tapped` subscription fold on `libs/python/compute/.planning/graduation/observability.md`; the `rasm.compute.*` instrument rows stay a runtime `runtime/observability/metrics#METRIC` ripple.
